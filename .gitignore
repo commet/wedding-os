@@ -9,3 +9,5 @@ dist-ssr
 *.log
 .vite
 .vercel
+tsconfig.tsbuildinfo
+*.tsbuildinfo
