@@ -27,14 +27,15 @@
 }
 
 @layer components {
+  /* inline-flex + center: <a> 태그로 써도 텍스트가 겹치지 않게 */
   .btn-primary {
-    @apply bg-gold text-white px-5 py-3 rounded-xl font-medium active:opacity-80 transition;
+    @apply inline-flex items-center justify-center bg-gold text-white px-5 py-3 rounded-xl font-medium leading-none active:opacity-80 transition;
   }
   .btn-secondary {
-    @apply bg-white border border-line text-ink px-5 py-3 rounded-xl font-medium active:bg-cream transition;
+    @apply inline-flex items-center justify-center bg-white border border-line text-ink px-5 py-3 rounded-xl font-medium leading-none active:bg-cream transition;
   }
   .btn-ghost {
-    @apply text-soft px-3 py-2 rounded-lg active:bg-line transition;
+    @apply inline-flex items-center justify-center text-soft px-3 py-2 rounded-lg active:bg-line transition;
   }
   .card {
     @apply bg-white border border-line rounded-2xl p-5 shadow-sm;

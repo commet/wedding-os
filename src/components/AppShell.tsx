@@ -1,4 +1,4 @@
-import { NavLink, useLocation, Link } from "react-router-dom";
+import { NavLink, useLocation, Link, useNavigate } from "react-router-dom";
 import type { WeddingData } from "../lib/schema";
 import { daysSince } from "../lib/freshness";
 
@@ -18,11 +18,16 @@ const NAV = [
 
 export default function AppShell({ data, children }: Props) {
   const location = useLocation();
+  const navigate = useNavigate();
   const isWelcome = location.pathname === "/";
   const isSetup = location.pathname === "/setup";
-  const showNav = !isWelcome && !isSetup && data.preferences.mode;
+  const isDemo = !!data.preferences.isDemo;
+  // 데모 중에도 하단 탭은 보여서 둘러볼 수 있게.
+  const showNav = !isWelcome && !isSetup && (data.preferences.mode || isDemo);
 
   const backupStale = isBackupStale(data.preferences.lastBackupAt) && data.preferences.mode === "local";
+
+  const startMine = () => navigate("/", { state: { goModeSelect: true } });
 
   return (
     <div className="min-h-screen max-w-app mx-auto flex flex-col">
@@ -33,11 +38,27 @@ export default function AppShell({ data, children }: Props) {
             <Link to="/dashboard" className="font-serif text-lg text-ink">
               Wedding OS
             </Link>
-            {data.preferences.mode && (
+            {data.preferences.mode ? (
               <ModeBadge mode={data.preferences.mode} />
-            )}
+            ) : isDemo ? (
+              <span className="text-xs px-2.5 py-1 rounded-full bg-taupe/20 text-soft">예시 보기</span>
+            ) : null}
           </div>
         </header>
+      )}
+
+      {/* 데모 배너 */}
+      {isDemo && !isWelcome && (
+        <div className="mx-4 mt-3 p-3 bg-gold/10 border border-gold/30 rounded-xl flex items-center gap-3">
+          <span className="text-sm flex-1">
+            ✨ <strong>예시 데이터로 둘러보는 중</strong>
+            <br />
+            <span className="text-xs text-soft">마음에 들면 내 정보로 새로 시작하세요</span>
+          </span>
+          <button onClick={startMine} className="btn-primary text-xs px-3 py-2 flex-shrink-0">
+            내 결혼식 시작
+          </button>
+        </div>
       )}
 
       {/* 백업 알림 (모드 1, 7일 이상 안 함) */}

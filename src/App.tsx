@@ -27,11 +27,16 @@ export default function App() {
   }
 
   const mode = data?.preferences.mode ?? null;
+  const isDemo = data?.preferences.isDemo ?? false;
   const isWelcome = location.pathname === "/";
   const isSetup = location.pathname === "/setup";
 
-  // 모드가 정해지지 않았으면 Welcome으로 강제 (Welcome/Setup 빼고)
-  if (!mode && !isWelcome && !isSetup) {
+  // 모드가 정해진 사용자는 랜딩을 건너뛴다.
+  if (mode && isWelcome) {
+    return <Navigate to="/dashboard" replace />;
+  }
+  // 모드도 없고 데모도 아니면 (= 내 결혼식 시작 직후 빈 상태) 랜딩으로.
+  if (!mode && !isDemo && !isWelcome && !isSetup) {
     return <Navigate to="/" replace />;
   }
 

@@ -88,11 +88,15 @@ export type InvitationContent = {
   date: string;          // ISO
   time?: string;         // "오후 3시"
   venue: string;
+  venueHall?: string;    // "3층 그랜드볼룸"
   venueAddress?: string;
   venueMapUrl?: string;
+  heroImageUrl?: string; // 메인 대표 사진
   greeting: string;      // 모시는 글
   groomParents?: { father?: string; mother?: string; };
   brideParents?: { father?: string; mother?: string; };
+  groomOrder?: string;   // "장남" / "차남" 등
+  brideOrder?: string;
   groomPhone?: string;
   bridePhone?: string;
   groomAccount?: string;
@@ -100,6 +104,7 @@ export type InvitationContent = {
   gallery?: { url: string; caption?: string; }[];
   bgmUrl?: string;
   rsvpEnabled?: boolean;
+  theme?: "cream" | "white" | "sage"; // 청첩장 톤
   translations?: {
     en?: Partial<InvitationContent>;
     zh?: Partial<InvitationContent>;
@@ -117,6 +122,7 @@ export type VideoConfig = {
 export type Preferences = {
   mode: Mode | null;            // null = 아직 모드 미선택
   locale: "ko" | "en" | "zh";
+  isDemo?: boolean;             // true = 예시 데이터로 둘러보는 중
   aiKey?: string;               // 선택, 본인 키 입력 시
   supabase?: {                  // 모드 2일 때만
     url: string;

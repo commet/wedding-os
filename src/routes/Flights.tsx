@@ -5,6 +5,7 @@ import Modal from "../components/Modal";
 import ChatbotBridgeModal from "../components/ChatbotBridgeModal";
 import { flightSearchPrompt, BridgePrompt } from "../lib/chatbotBridge";
 import { todayISO } from "../lib/freshness";
+import { demoData } from "../data/demoData";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 
@@ -62,8 +63,17 @@ export default function Flights({ data, update }: Props) {
       </div>
 
       {data.flights.length === 0 ? (
-        <div className="card text-center text-soft text-sm py-6">
-          아직 항공편 옵션이 없어요.
+        <div className="card text-center py-6 space-y-3">
+          <p className="text-soft text-sm">아직 항공편 옵션이 없어요.</p>
+          <button
+            onClick={() => update((prev: WeddingData) => ({
+              ...prev,
+              flights: demoData().flights.map((f, i) => ({ ...f, id: `flight-${Date.now()}-${i}` })),
+            }))}
+            className="btn-secondary text-sm"
+          >
+            예시 불러오기
+          </button>
         </div>
       ) : (
         <div className="space-y-3">

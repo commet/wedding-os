@@ -2,12 +2,12 @@ import { useState } from "react";
 import type { WeddingData, InvitationContent } from "../lib/schema";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
-
 type Tab = "edit" | "preview";
+type Locale = "ko" | "en" | "zh";
 
 export default function Invitation({ data, update }: Props) {
-  const [tab, setTab] = useState<Tab>("edit");
-  const [locale, setLocale] = useState<"ko" | "en" | "zh">("ko");
+  const [tab, setTab] = useState<Tab>("preview");
+  const [locale, setLocale] = useState<Locale>("ko");
   const inv = data.invitation;
 
   const set = <K extends keyof InvitationContent>(key: K, value: InvitationContent[K]) => {
@@ -16,10 +16,10 @@ export default function Invitation({ data, update }: Props) {
 
   const share = async () => {
     if (data.preferences.mode !== "supabase") {
-      alert("청첩장 링크를 공유하려면 [내 사이트 만들기] 모드로 전환해주세요.");
+      alert("청첩장 링크를 카톡으로 공유하려면 [내 사이트 만들기] 모드로 전환해주세요. (더보기 → 저장 방식 다시 선택)");
       return;
     }
-    const url = window.location.origin + "/invitation/view";
+    const url = window.location.origin + "/invitation";
     try {
       await navigator.clipboard.writeText(url);
       alert("청첩장 링크가 복사되었어요.");
@@ -35,17 +35,26 @@ export default function Invitation({ data, update }: Props) {
           <h1 className="font-serif text-xl">모바일 청첩장</h1>
           <button onClick={share} className="btn-ghost text-sm">공유</button>
         </div>
-        <div className="px-5 pb-3 flex gap-2">
-          <TabBtn active={tab === "edit"} onClick={() => setTab("edit")}>편집</TabBtn>
+        <div className="px-5 pb-3 flex gap-2 items-center">
           <TabBtn active={tab === "preview"} onClick={() => setTab("preview")}>미리보기</TabBtn>
+          <TabBtn active={tab === "edit"} onClick={() => setTab("edit")}>편집</TabBtn>
+          {tab === "preview" && (
+            <div className="ml-auto flex gap-1">
+              {(["ko", "en", "zh"] as const).map((l) => (
+                <button
+                  key={l}
+                  onClick={() => setLocale(l)}
+                  className={`text-xs px-2.5 py-1 rounded-full ${locale === l ? "bg-gold text-white" : "bg-white border border-line text-soft"}`}
+                >
+                  {l === "ko" ? "한" : l === "en" ? "EN" : "中"}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {tab === "edit" ? (
-        <EditForm inv={inv} set={set} />
-      ) : (
-        <Preview inv={inv} locale={locale} setLocale={setLocale} />
-      )}
+      {tab === "edit" ? <EditForm inv={inv} set={set} /> : <Preview inv={inv} locale={locale} />}
     </div>
   );
 }
@@ -54,205 +63,379 @@ function TabBtn({ active, onClick, children }: any) {
   return (
     <button
       onClick={onClick}
-      className={`px-4 py-1.5 text-sm rounded-full ${
-        active ? "bg-gold text-white" : "bg-white border border-line text-soft"
-      }`}
+      className={`px-4 py-1.5 text-sm rounded-full ${active ? "bg-ink text-white" : "bg-white border border-line text-soft"}`}
     >
       {children}
     </button>
   );
 }
 
+/* ════════════ 미리보기 — 실제 청첩장 ════════════ */
+
+function Preview({ inv, locale }: { inv: InvitationContent; locale: Locale; }) {
+  const dateObj = inv.date ? new Date(inv.date) : null;
+  const validDate = dateObj && !isNaN(dateObj.getTime()) ? dateObj : null;
+  const dday = validDate ? Math.ceil((validDate.getTime() - Date.now()) / 86400000) : null;
+
+  const names = locale === "en"
+    ? `${inv.groomEnglishName || inv.groomName || "Groom"} & ${inv.brideEnglishName || inv.brideName || "Bride"}`
+    : `${inv.groomName || "신랑"} · ${inv.brideName || "신부"}`;
+
+  return (
+    <div className="px-5 py-4">
+      <div className="bg-white rounded-3xl overflow-hidden border border-line shadow-sm">
+        {/* 1. 히어로 */}
+        <div className="relative">
+          {inv.heroImageUrl ? (
+            <img src={inv.heroImageUrl} alt="" className="w-full aspect-[3/4] object-cover" />
+          ) : (
+            <div className="w-full aspect-[3/4] bg-gradient-to-b from-cream to-taupe/20 flex items-center justify-center text-soft text-sm">
+              대표 사진을 추가해보세요
+            </div>
+          )}
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/50 to-transparent p-6 text-white text-center">
+            <div className="text-xs tracking-[0.2em] uppercase mb-2 opacity-90">{t("Wedding Invitation", locale)}</div>
+            <div className="font-serif text-2xl">{names}</div>
+            {validDate && (
+              <div className="text-sm mt-2 opacity-90">{formatDate(validDate, locale)}{inv.time && ` · ${inv.time}`}</div>
+            )}
+          </div>
+        </div>
+
+        {/* 2. 카운트다운 */}
+        {dday !== null && (
+          <div className="py-5 text-center border-b border-line">
+            <div className="text-soft text-xs mb-1">
+              {locale === "ko" ? "결혼식까지" : locale === "en" ? "Days to go" : "距婚禮"}
+            </div>
+            <div className="font-serif text-3xl text-gold">
+              {dday > 0 ? `D-${dday}` : dday === 0 ? "D-DAY" : t("결혼했습니다", locale)}
+            </div>
+          </div>
+        )}
+
+        {/* 3. 모시는 글 */}
+        <div className="px-7 py-8 text-center border-b border-line">
+          <h3 className="text-sm text-gold mb-4 tracking-wide">{t("모시는 글", locale)}</h3>
+          <p className="text-sm leading-loose whitespace-pre-line text-ink/90">{inv.greeting}</p>
+        </div>
+
+        {/* 4. 혼주 */}
+        {(inv.groomParents?.father || inv.groomParents?.mother || inv.brideParents?.father || inv.brideParents?.mother) && (
+          <div className="px-7 py-6 text-center border-b border-line text-sm space-y-1">
+            {(inv.groomParents?.father || inv.groomParents?.mother) && (
+              <div>
+                <span className="text-soft">{[inv.groomParents?.father, inv.groomParents?.mother].filter(Boolean).join(" · ")}</span>
+                <span className="text-soft text-xs"> 의 {inv.groomOrder || t("아들", locale)} </span>
+                <b>{inv.groomName}</b>
+              </div>
+            )}
+            {(inv.brideParents?.father || inv.brideParents?.mother) && (
+              <div>
+                <span className="text-soft">{[inv.brideParents?.father, inv.brideParents?.mother].filter(Boolean).join(" · ")}</span>
+                <span className="text-soft text-xs"> 의 {inv.brideOrder || t("딸", locale)} </span>
+                <b>{inv.brideName}</b>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 5. 캘린더 */}
+        {validDate && (
+          <div className="px-7 py-7 border-b border-line">
+            <h3 className="text-sm text-gold mb-4 text-center tracking-wide">{t("예식일", locale)}</h3>
+            <MiniCalendar date={validDate} />
+          </div>
+        )}
+
+        {/* 6. 갤러리 */}
+        {inv.gallery && inv.gallery.length > 0 && (
+          <div className="px-4 py-7 border-b border-line">
+            <h3 className="text-sm text-gold mb-4 text-center tracking-wide">{t("갤러리", locale)}</h3>
+            <div className="grid grid-cols-3 gap-1.5">
+              {inv.gallery.map((g, i) => (
+                <img key={i} src={g.url} alt={g.caption ?? ""} className="w-full aspect-square object-cover rounded-md" />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 7. 오시는 길 */}
+        {inv.venue && (
+          <div className="px-7 py-7 border-b border-line text-center">
+            <h3 className="text-sm text-gold mb-3 tracking-wide">{t("오시는 길", locale)}</h3>
+            <div className="font-medium">{inv.venue}</div>
+            {inv.venueHall && <div className="text-sm text-soft">{inv.venueHall}</div>}
+            {inv.venueAddress && <div className="text-xs text-soft mt-1">{inv.venueAddress}</div>}
+            <div className="flex gap-2 justify-center mt-4">
+              <a
+                href={`https://map.kakao.com/link/search/${encodeURIComponent(inv.venue)}`}
+                target="_blank" rel="noopener"
+                className="text-xs px-3 py-2 rounded-lg bg-cream border border-line"
+              >
+                카카오맵
+              </a>
+              <a
+                href={`https://map.naver.com/v5/search/${encodeURIComponent(inv.venue)}`}
+                target="_blank" rel="noopener"
+                className="text-xs px-3 py-2 rounded-lg bg-cream border border-line"
+              >
+                네이버지도
+              </a>
+            </div>
+          </div>
+        )}
+
+        {/* 8. 연락처 */}
+        {(inv.groomPhone || inv.bridePhone) && (
+          <div className="px-7 py-6 border-b border-line">
+            <h3 className="text-sm text-gold mb-3 text-center tracking-wide">{t("연락하기", locale)}</h3>
+            <div className="flex gap-2">
+              {inv.groomPhone && (
+                <a href={`tel:${inv.groomPhone}`} className="flex-1 text-center text-sm py-2.5 rounded-lg bg-cream border border-line">
+                  🤵 {t("신랑", locale)}
+                </a>
+              )}
+              {inv.bridePhone && (
+                <a href={`tel:${inv.bridePhone}`} className="flex-1 text-center text-sm py-2.5 rounded-lg bg-cream border border-line">
+                  👰 {t("신부", locale)}
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 9. 마음 전하실 곳 */}
+        {(inv.groomAccount || inv.brideAccount) && (
+          <AccountSection inv={inv} locale={locale} />
+        )}
+
+        {/* 10. RSVP */}
+        <div className="px-7 py-7 text-center">
+          <h3 className="text-sm text-gold mb-2 tracking-wide">{t("참석 의사 전달", locale)}</h3>
+          <p className="text-xs text-soft mb-3">{t("축하의 마음으로 참석해 주시는 분들을 위해", locale)}</p>
+          <button className="btn-secondary text-sm w-full" disabled>
+            {t("참석 여부 전하기", locale)}
+          </button>
+          <p className="text-[11px] text-soft mt-2">
+            {t("실제 RSVP는 [내 사이트] 모드에서 작동합니다", locale)}
+          </p>
+        </div>
+
+        {/* 푸터 */}
+        <div className="bg-cream py-6 text-center text-xs text-soft">
+          {names}
+          {validDate && <div className="mt-1">{formatDate(validDate, locale)}</div>}
+        </div>
+      </div>
+
+      <p className="text-xs text-center text-soft mt-4 leading-relaxed">
+        이 미리보기는 실제 청첩장과 거의 같은 모습이에요.<br />
+        편집 탭에서 사진·문구를 채우면 바로 반영됩니다.
+      </p>
+    </div>
+  );
+}
+
+function AccountSection({ inv, locale }: { inv: InvitationContent; locale: Locale; }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="px-7 py-6 border-b border-line text-center">
+      <button onClick={() => setOpen((o) => !o)} className="text-sm text-gold tracking-wide">
+        {t("마음 전하실 곳", locale)} {open ? "▲" : "▼"}
+      </button>
+      {open && (
+        <div className="mt-3 space-y-2 text-sm">
+          {inv.groomAccount && (
+            <div className="bg-cream rounded-lg py-2 px-3">
+              <span className="text-soft text-xs">🤵 {inv.groomName}</span>
+              <div>{inv.groomAccount}</div>
+            </div>
+          )}
+          {inv.brideAccount && (
+            <div className="bg-cream rounded-lg py-2 px-3">
+              <span className="text-soft text-xs">👰 {inv.brideName}</span>
+              <div>{inv.brideAccount}</div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MiniCalendar({ date }: { date: Date; }) {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const day = date.getDate();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells: (number | null)[] = [
+    ...Array(firstDay).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+  const WD = ["일", "월", "화", "수", "목", "금", "토"];
+
+  return (
+    <div>
+      <div className="text-center font-serif text-lg mb-3">{year}.{String(month + 1).padStart(2, "0")}</div>
+      <div className="grid grid-cols-7 gap-1 text-center text-xs">
+        {WD.map((w, i) => (
+          <div key={w} className={`py-1 ${i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-soft"}`}>{w}</div>
+        ))}
+        {cells.map((c, i) => (
+          <div key={i} className="py-1.5">
+            {c === day ? (
+              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gold text-white font-medium">{c}</span>
+            ) : (
+              <span className={`${i % 7 === 0 ? "text-red-400" : i % 7 === 6 ? "text-blue-400" : "text-ink"}`}>{c}</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ════════════ 편집 폼 ════════════ */
+
 function EditForm({ inv, set }: { inv: InvitationContent; set: (k: any, v: any) => void; }) {
   return (
     <div className="px-5 py-4 space-y-4">
-      <section className="card space-y-3">
-        <h3 className="font-medium">신랑·신부</h3>
+      <Section title="대표 사진">
+        <label className="label">메인 사진 주소 (URL)</label>
+        <input className="input" value={inv.heroImageUrl ?? ""} onChange={(e) => set("heroImageUrl", e.target.value)} placeholder="https://...jpg" />
+        <p className="text-xs text-soft">
+          사진 파일의 인터넷 주소를 붙여넣으세요. (내 사이트 모드에서는 직접 업로드 예정)
+        </p>
+      </Section>
+
+      <Section title="신랑 · 신부">
         <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="label">신랑 이름</label>
-            <input className="input" value={inv.groomName} onChange={(e) => set("groomName", e.target.value)} placeholder="예: 도현" />
-          </div>
-          <div>
-            <label className="label">신부 이름</label>
-            <input className="input" value={inv.brideName} onChange={(e) => set("brideName", e.target.value)} placeholder="예: 지윤" />
-          </div>
+          <Field label="신랑 이름"><input className="input" value={inv.groomName} onChange={(e) => set("groomName", e.target.value)} placeholder="도현" /></Field>
+          <Field label="신부 이름"><input className="input" value={inv.brideName} onChange={(e) => set("brideName", e.target.value)} placeholder="지윤" /></Field>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="label">신랑 (영문)</label>
-            <input className="input" value={inv.groomEnglishName ?? ""} onChange={(e) => set("groomEnglishName", e.target.value)} placeholder="Dohyun" />
-          </div>
-          <div>
-            <label className="label">신부 (영문)</label>
-            <input className="input" value={inv.brideEnglishName ?? ""} onChange={(e) => set("brideEnglishName", e.target.value)} placeholder="Jiyoon" />
-          </div>
+          <Field label="신랑 (영문)"><input className="input" value={inv.groomEnglishName ?? ""} onChange={(e) => set("groomEnglishName", e.target.value)} placeholder="Dohyun" /></Field>
+          <Field label="신부 (영문)"><input className="input" value={inv.brideEnglishName ?? ""} onChange={(e) => set("brideEnglishName", e.target.value)} placeholder="Jiyoon" /></Field>
         </div>
-      </section>
+      </Section>
 
-      <section className="card space-y-3">
-        <h3 className="font-medium">예식 일정</h3>
-        <div>
-          <label className="label">날짜</label>
-          <input type="date" className="input" value={inv.date} onChange={(e) => set("date", e.target.value)} />
-        </div>
-        <div>
-          <label className="label">시간</label>
-          <input className="input" value={inv.time ?? ""} onChange={(e) => set("time", e.target.value)} placeholder="오후 3시" />
-        </div>
-        <div>
-          <label className="label">예식 장소</label>
-          <input className="input" value={inv.venue} onChange={(e) => set("venue", e.target.value)} placeholder="예: 서울대학교 교수회관" />
-        </div>
-        <div>
-          <label className="label">주소</label>
-          <input className="input" value={inv.venueAddress ?? ""} onChange={(e) => set("venueAddress", e.target.value)} placeholder="서울특별시 관악구..." />
-        </div>
-      </section>
+      <Section title="예식 일정">
+        <Field label="날짜"><input type="date" className="input" value={inv.date} onChange={(e) => set("date", e.target.value)} /></Field>
+        <Field label="시간"><input className="input" value={inv.time ?? ""} onChange={(e) => set("time", e.target.value)} placeholder="오후 3시" /></Field>
+        <Field label="예식장"><input className="input" value={inv.venue} onChange={(e) => set("venue", e.target.value)} placeholder="서울대학교 교수회관" /></Field>
+        <Field label="홀/층"><input className="input" value={inv.venueHall ?? ""} onChange={(e) => set("venueHall", e.target.value)} placeholder="3층 그랜드볼룸" /></Field>
+        <Field label="주소"><input className="input" value={inv.venueAddress ?? ""} onChange={(e) => set("venueAddress", e.target.value)} placeholder="서울특별시 관악구..." /></Field>
+      </Section>
 
-      <section className="card space-y-3">
-        <h3 className="font-medium">모시는 글</h3>
-        <textarea
-          className="input min-h-[120px]"
-          value={inv.greeting}
-          onChange={(e) => set("greeting", e.target.value)}
-        />
-      </section>
+      <Section title="모시는 글">
+        <textarea className="input min-h-[140px]" value={inv.greeting} onChange={(e) => set("greeting", e.target.value)} />
+      </Section>
 
-      <section className="card space-y-3">
-        <h3 className="font-medium">혼주</h3>
-        <div className="text-xs text-soft mb-2">신랑 측</div>
+      <Section title="혼주">
+        <div className="text-xs text-soft">신랑 측</div>
         <div className="grid grid-cols-2 gap-2">
           <input className="input" placeholder="아버지" value={inv.groomParents?.father ?? ""} onChange={(e) => set("groomParents", { ...inv.groomParents, father: e.target.value })} />
           <input className="input" placeholder="어머니" value={inv.groomParents?.mother ?? ""} onChange={(e) => set("groomParents", { ...inv.groomParents, mother: e.target.value })} />
         </div>
-        <div className="text-xs text-soft mb-2 mt-3">신부 측</div>
+        <input className="input" placeholder="관계 (예: 장남, 차남)" value={inv.groomOrder ?? ""} onChange={(e) => set("groomOrder", e.target.value)} />
+        <div className="text-xs text-soft mt-2">신부 측</div>
         <div className="grid grid-cols-2 gap-2">
           <input className="input" placeholder="아버지" value={inv.brideParents?.father ?? ""} onChange={(e) => set("brideParents", { ...inv.brideParents, father: e.target.value })} />
           <input className="input" placeholder="어머니" value={inv.brideParents?.mother ?? ""} onChange={(e) => set("brideParents", { ...inv.brideParents, mother: e.target.value })} />
         </div>
-      </section>
+        <input className="input" placeholder="관계 (예: 장녀, 외동딸)" value={inv.brideOrder ?? ""} onChange={(e) => set("brideOrder", e.target.value)} />
+      </Section>
 
-      <section className="card space-y-3">
-        <h3 className="font-medium">연락처 / 계좌</h3>
+      <Section title="갤러리">
+        <GalleryEditor gallery={inv.gallery ?? []} onChange={(g) => set("gallery", g)} />
+      </Section>
+
+      <Section title="연락처 / 마음 전하실 곳">
         <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="label">신랑 연락처</label>
-            <input className="input" value={inv.groomPhone ?? ""} onChange={(e) => set("groomPhone", e.target.value)} placeholder="010-..." />
-          </div>
-          <div>
-            <label className="label">신부 연락처</label>
-            <input className="input" value={inv.bridePhone ?? ""} onChange={(e) => set("bridePhone", e.target.value)} placeholder="010-..." />
-          </div>
+          <Field label="신랑 연락처"><input className="input" value={inv.groomPhone ?? ""} onChange={(e) => set("groomPhone", e.target.value)} placeholder="010-..." /></Field>
+          <Field label="신부 연락처"><input className="input" value={inv.bridePhone ?? ""} onChange={(e) => set("bridePhone", e.target.value)} placeholder="010-..." /></Field>
         </div>
-        <div>
-          <label className="label">신랑 계좌</label>
-          <input className="input" value={inv.groomAccount ?? ""} onChange={(e) => set("groomAccount", e.target.value)} placeholder="OO은행 ..." />
-        </div>
-        <div>
-          <label className="label">신부 계좌</label>
-          <input className="input" value={inv.brideAccount ?? ""} onChange={(e) => set("brideAccount", e.target.value)} placeholder="OO은행 ..." />
-        </div>
-      </section>
+        <Field label="신랑 계좌"><input className="input" value={inv.groomAccount ?? ""} onChange={(e) => set("groomAccount", e.target.value)} placeholder="OO은행 000-000" /></Field>
+        <Field label="신부 계좌"><input className="input" value={inv.brideAccount ?? ""} onChange={(e) => set("brideAccount", e.target.value)} placeholder="OO은행 000-000" /></Field>
+      </Section>
 
-      <p className="text-xs text-soft text-center">
-        모드 1 (휴대폰 저장)에서는 미리보기만 가능해요.<br />
-        실제로 카톡으로 보내려면 [내 사이트 만들기] 모드로 전환하세요.
+      <p className="text-xs text-soft text-center leading-relaxed">
+        모드 1(휴대폰 저장)에서는 미리보기만 가능해요.<br />
+        실제로 카톡으로 보내려면 [더보기 → 저장 방식]에서 [내 사이트 만들기]로 전환하세요.
       </p>
     </div>
   );
 }
 
-function Preview({ inv, locale, setLocale }: { inv: InvitationContent; locale: "ko"|"en"|"zh"; setLocale: (l: any) => void; }) {
-  const dateStr = inv.date ? formatDate(inv.date, locale) : "";
-
+function GalleryEditor({ gallery, onChange }: { gallery: { url: string; caption?: string; }[]; onChange: (g: any[]) => void; }) {
+  const [url, setUrl] = useState("");
   return (
-    <div className="px-5 py-4">
-      <div className="flex justify-center gap-1 mb-4">
-        {(["ko","en","zh"] as const).map(l => (
-          <button
-            key={l}
-            onClick={() => setLocale(l)}
-            className={`text-xs px-3 py-1 rounded-full ${locale === l ? "bg-gold text-white" : "bg-white border border-line text-soft"}`}
-          >
-            {l === "ko" ? "한" : l === "en" ? "EN" : "中"}
-          </button>
-        ))}
-      </div>
-
-      <div className="bg-white rounded-2xl overflow-hidden border border-line shadow-sm">
-        <div className="bg-gradient-to-b from-cream to-white p-8 text-center">
-          <div className="text-xs text-soft mb-4 tracking-widest uppercase">{t("Wedding Invitation", locale)}</div>
-          <div className="font-serif text-2xl mb-2">
-            {locale === "ko" ? `${inv.groomName || "_"} · ${inv.brideName || "_"}` :
-             locale === "en" ? `${inv.groomEnglishName || inv.groomName || "_"} & ${inv.brideEnglishName || inv.brideName || "_"}` :
-             `${inv.groomName || "_"} · ${inv.brideName || "_"}`}
-          </div>
-          <div className="text-sm text-soft mt-4">{dateStr}</div>
-          {inv.time && <div className="text-sm text-soft">{inv.time}</div>}
-          <div className="text-sm text-soft mt-1">{inv.venue || "_"}</div>
+    <div className="space-y-2">
+      {gallery.length > 0 && (
+        <div className="grid grid-cols-3 gap-1.5">
+          {gallery.map((g, i) => (
+            <div key={i} className="relative">
+              <img src={g.url} alt="" className="w-full aspect-square object-cover rounded-md" />
+              <button
+                onClick={() => onChange(gallery.filter((_, j) => j !== i))}
+                className="absolute top-1 right-1 bg-black/50 text-white rounded-full w-5 h-5 text-xs"
+              >×</button>
+            </div>
+          ))}
         </div>
-
-        <div className="p-6">
-          <h3 className="text-center text-sm font-medium mb-3 text-soft">{t("모시는 글", locale)}</h3>
-          <p className="text-sm text-center leading-relaxed whitespace-pre-line">{inv.greeting}</p>
-        </div>
-
-        {(inv.groomParents?.father || inv.brideParents?.father) && (
-          <div className="px-6 py-4 text-center text-sm border-t border-line">
-            <div className="text-xs text-soft mb-2">{t("혼주", locale)}</div>
-            {inv.groomParents?.father && (
-              <div>{inv.groomParents.father}{inv.groomParents.mother && ` · ${inv.groomParents.mother}`} {t("의 아들", locale)} <b>{inv.groomName}</b></div>
-            )}
-            {inv.brideParents?.father && (
-              <div className="mt-1">{inv.brideParents.father}{inv.brideParents.mother && ` · ${inv.brideParents.mother}`} {t("의 딸", locale)} <b>{inv.brideName}</b></div>
-            )}
-          </div>
-        )}
-
-        {inv.venueAddress && (
-          <div className="px-6 py-4 border-t border-line text-center text-sm">
-            <div className="text-xs text-soft mb-1">📍 {t("오시는 길", locale)}</div>
-            <div>{inv.venue}</div>
-            <div className="text-soft text-xs mt-1">{inv.venueAddress}</div>
-          </div>
-        )}
-
-        {(inv.groomAccount || inv.brideAccount) && (
-          <div className="px-6 py-4 border-t border-line text-center text-xs text-soft">
-            <div className="mb-1">💐 {t("축의 계좌", locale)}</div>
-            {inv.groomAccount && <div>{inv.groomName}: {inv.groomAccount}</div>}
-            {inv.brideAccount && <div>{inv.brideName}: {inv.brideAccount}</div>}
-          </div>
-        )}
+      )}
+      <div className="flex gap-2">
+        <input className="input flex-1 text-sm" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="사진 주소(URL) 붙여넣기" />
+        <button
+          className="btn-secondary text-sm"
+          onClick={() => { if (url.trim()) { onChange([...gallery, { url: url.trim() }]); setUrl(""); } }}
+        >추가</button>
       </div>
-
-      <p className="text-xs text-center text-soft mt-4">
-        ※ 이 미리보기는 실제 청첩장 화면과 가까운 모습이에요. <br />
-        실제 공유는 [내 사이트 만들기] 모드에서 가능합니다.
-      </p>
     </div>
   );
 }
 
-function t(ko: string, locale: "ko"|"en"|"zh"): string {
-  const map: Record<string, { en: string; zh: string; }> = {
-    "모시는 글": { en: "Invitation", zh: "邀請" },
-    "혼주": { en: "Parents", zh: "雙親" },
-    "의 아들": { en: "'s son", zh: "之子" },
-    "의 딸": { en: "'s daughter", zh: "之女" },
-    "오시는 길": { en: "Venue", zh: "地點" },
-    "축의 계좌": { en: "Gift Account", zh: "禮金帳號" },
-    "Wedding Invitation": { en: "WEDDING INVITATION", zh: "結婚邀請" },
-  };
+function Section({ title, children }: { title: string; children: React.ReactNode; }) {
+  return (
+    <section className="card space-y-3">
+      <h3 className="font-medium">{title}</h3>
+      {children}
+    </section>
+  );
+}
+function Field({ label, children }: { label: string; children: React.ReactNode; }) {
+  return <div><label className="label">{label}</label>{children}</div>;
+}
+
+/* ════════════ i18n ════════════ */
+
+function t(ko: string, locale: Locale): string {
   if (locale === "ko") return ko;
+  const map: Record<string, { en: string; zh: string; }> = {
+    "Wedding Invitation": { en: "WEDDING INVITATION", zh: "結婚請帖" },
+    "모시는 글": { en: "Invitation", zh: "邀請函" },
+    "예식일": { en: "The Day", zh: "婚禮日期" },
+    "갤러리": { en: "Gallery", zh: "相冊" },
+    "오시는 길": { en: "Location", zh: "交通指引" },
+    "연락하기": { en: "Contact", zh: "聯絡方式" },
+    "마음 전하실 곳": { en: "Gift Account", zh: "禮金帳號" },
+    "참석 의사 전달": { en: "RSVP", zh: "出席回覆" },
+    "참석 여부 전하기": { en: "Send RSVP", zh: "回覆出席" },
+    "축하의 마음으로 참석해 주시는 분들을 위해": { en: "Please let us know if you can join us", zh: "請告知是否能出席" },
+    "실제 RSVP는 [내 사이트] 모드에서 작동합니다": { en: "RSVP works in [My Site] mode", zh: "RSVP 功能於「我的網站」模式啟用" },
+    "신랑": { en: "Groom", zh: "新郎" },
+    "신부": { en: "Bride", zh: "新娘" },
+    "아들": { en: "son", zh: "之子" },
+    "딸": { en: "daughter", zh: "之女" },
+    "결혼했습니다": { en: "Just Married", zh: "已結婚" },
+  };
   return map[ko]?.[locale] ?? ko;
 }
 
-function formatDate(iso: string, locale: "ko"|"en"|"zh"): string {
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "";
-  if (locale === "ko") return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일`;
+function formatDate(d: Date, locale: Locale): string {
+  if (locale === "ko") return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
   if (locale === "en") return d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-  return `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
 }

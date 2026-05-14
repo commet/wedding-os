@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { WeddingData, HoneymoonRegion } from "../lib/schema";
 import Modal from "../components/Modal";
+import { demoData } from "../data/demoData";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 
@@ -44,8 +45,32 @@ export default function Honeymoon({ data, update }: Props) {
       </div>
 
       {data.honeymoon.regions.length === 0 ? (
-        <div className="card text-center text-soft text-sm py-8">
-          후보 여행지를 추가해 비교해보세요. <br /> (예: 발리, 몰디브, 알래스카…)
+        <div className="card text-center py-8 space-y-4">
+          <div className="text-3xl">🏝️</div>
+          <p className="text-soft text-sm">
+            후보 여행지를 모아 일정·예산을 비교해보세요.<br />(예: 발리, 몰디브, 오키나와…)
+          </p>
+          <div className="flex gap-2 justify-center">
+            <button
+              onClick={() => {
+                const demo = demoData().honeymoon;
+                update((prev: WeddingData) => ({
+                  ...prev,
+                  honeymoon: {
+                    ...demo,
+                    regions: demo.regions.map((r, i) => ({ ...r, id: `region-${Date.now()}-${i}` })),
+                  },
+                }));
+                setActiveId(null);
+              }}
+              className="btn-primary text-sm"
+            >
+              예시 불러오기
+            </button>
+            <button onClick={() => setShowAdd(true)} className="btn-secondary text-sm">
+              직접 추가
+            </button>
+          </div>
         </div>
       ) : (
         <>

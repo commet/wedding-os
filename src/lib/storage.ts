@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { defaultData, WeddingData, SCHEMA_VERSION } from "./schema";
 import { createSupabaseStorage } from "./storage.supabase";
+import { demoData } from "../data/demoData";
 
 const LS_KEY = "wedding-os/v1";
 
@@ -64,10 +65,16 @@ export function useWeddingData() {
   const [data, setData] = useState<WeddingData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // 초기 로드: localStorage에 일단 미리보기를 받아두고, 그 안의 mode 보고 진짜 드라이버 결정
+  // 초기 로드: localStorage에 일단 미리보기를 받아두고, 그 안의 mode 보고 진짜 드라이버 결정.
+  // 저장된 게 전혀 없으면 → 데모 데이터로 시작 (첫 방문자가 빈 화면 대신 완성된 예시를 봄).
   useEffect(() => {
     (async () => {
       const fromLocal = await localStorageDriver.load();
+      if (!fromLocal) {
+        setData(demoData());
+        setLoading(false);
+        return;
+      }
       const driver = selectDriver(fromLocal);
       const fromActual = (await driver.load()) ?? fromLocal ?? defaultData();
       setData(fromActual);

@@ -6,6 +6,7 @@ import Modal from "../components/Modal";
 import ChatbotBridgeModal from "../components/ChatbotBridgeModal";
 import { hotelPriceCheckPrompt, BridgePrompt } from "../lib/chatbotBridge";
 import { todayISO } from "../lib/freshness";
+import { demoData } from "../data/demoData";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 
@@ -77,8 +78,25 @@ export default function HotelPage({ data, update }: Props) {
       </div>
 
       {data.hotels.length === 0 ? (
-        <div className="card text-center text-soft text-sm py-8">
-          호텔 후보를 추가해 가격을 비교해보세요.
+        <div className="card text-center py-8 space-y-4">
+          <div className="text-3xl">🏨</div>
+          <p className="text-soft text-sm">
+            하객 숙소나 본식 호텔 후보를 모아<br />OTA(예약 사이트)별 가격을 비교해보세요.
+          </p>
+          <div className="flex gap-2 justify-center">
+            <button
+              onClick={() => update((prev: WeddingData) => ({
+                ...prev,
+                hotels: demoData().hotels.map((h, i) => ({ ...h, id: `hotel-${Date.now()}-${i}` })),
+              }))}
+              className="btn-primary text-sm"
+            >
+              예시 불러오기
+            </button>
+            <button onClick={() => setShowAdd(true)} className="btn-secondary text-sm">
+              직접 추가
+            </button>
+          </div>
         </div>
       ) : (
         <div className="space-y-3">
