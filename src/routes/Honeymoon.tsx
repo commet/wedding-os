@@ -2,6 +2,8 @@ import { useState } from "react";
 import type { WeddingData, HoneymoonRegion } from "../lib/schema";
 import Modal from "../components/Modal";
 import { demoData } from "../data/demoData";
+import { honeymoonSearchLinks } from "../lib/searchLinks";
+import SearchLinks from "../components/SearchLinks";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 
@@ -129,6 +131,12 @@ export default function Honeymoon({ data, update }: Props) {
                   className="input min-h-[80px]"
                   value={active.notes ?? ""}
                   onChange={(e) => updateRegion(active.id, { notes: e.target.value })}
+                />
+              </div>
+              <div className="pt-2 border-t border-line">
+                <SearchLinks
+                  label={`🔎 "${active.name}" 항공·숙소·투어 검색`}
+                  links={honeymoonSearchLinks(active.name)}
                 />
               </div>
             </div>

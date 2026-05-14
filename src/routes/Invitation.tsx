@@ -1,9 +1,18 @@
 import { useState } from "react";
 import type { WeddingData, InvitationContent } from "../lib/schema";
+import Modal from "../components/Modal";
+import { STOCK_HERO, STOCK_GALLERY } from "../data/stockPhotos";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type Tab = "edit" | "preview";
 type Locale = "ko" | "en" | "zh";
+type Theme = "cream" | "white" | "sage";
+
+const THEME: Record<Theme, { heroGrad: string; accent: string; chip: string }> = {
+  cream: { heroGrad: "from-cream to-taupe/30", accent: "text-gold", chip: "bg-gold" },
+  white: { heroGrad: "from-gray-50 to-gray-200", accent: "text-soft", chip: "bg-ink" },
+  sage:  { heroGrad: "from-sage/10 to-sage/30", accent: "text-sage", chip: "bg-sage" },
+};
 
 export default function Invitation({ data, update }: Props) {
   const [tab, setTab] = useState<Tab>("preview");
@@ -73,6 +82,7 @@ function TabBtn({ active, onClick, children }: any) {
 /* ════════════ 미리보기 — 실제 청첩장 ════════════ */
 
 function Preview({ inv, locale }: { inv: InvitationContent; locale: Locale; }) {
+  const theme = THEME[(inv.theme as Theme) ?? "cream"];
   const dateObj = inv.date ? new Date(inv.date) : null;
   const validDate = dateObj && !isNaN(dateObj.getTime()) ? dateObj : null;
   const dday = validDate ? Math.ceil((validDate.getTime() - Date.now()) / 86400000) : null;
@@ -89,7 +99,7 @@ function Preview({ inv, locale }: { inv: InvitationContent; locale: Locale; }) {
           {inv.heroImageUrl ? (
             <img src={inv.heroImageUrl} alt="" className="w-full aspect-[3/4] object-cover" />
           ) : (
-            <div className="w-full aspect-[3/4] bg-gradient-to-b from-cream to-taupe/20 flex items-center justify-center text-soft text-sm">
+            <div className={`w-full aspect-[3/4] bg-gradient-to-b ${theme.heroGrad} flex items-center justify-center text-soft text-sm`}>
               대표 사진을 추가해보세요
             </div>
           )}
@@ -108,7 +118,7 @@ function Preview({ inv, locale }: { inv: InvitationContent; locale: Locale; }) {
             <div className="text-soft text-xs mb-1">
               {locale === "ko" ? "결혼식까지" : locale === "en" ? "Days to go" : "距婚禮"}
             </div>
-            <div className="font-serif text-3xl text-gold">
+            <div className={`font-serif text-3xl ${theme.accent}`}>
               {dday > 0 ? `D-${dday}` : dday === 0 ? "D-DAY" : t("결혼했습니다", locale)}
             </div>
           </div>
@@ -116,7 +126,7 @@ function Preview({ inv, locale }: { inv: InvitationContent; locale: Locale; }) {
 
         {/* 3. 모시는 글 */}
         <div className="px-7 py-8 text-center border-b border-line">
-          <h3 className="text-sm text-gold mb-4 tracking-wide">{t("모시는 글", locale)}</h3>
+          <h3 className={`text-sm ${theme.accent} mb-4 tracking-wide`}>{t("모시는 글", locale)}</h3>
           <p className="text-sm leading-loose whitespace-pre-line text-ink/90">{inv.greeting}</p>
         </div>
 
@@ -143,15 +153,15 @@ function Preview({ inv, locale }: { inv: InvitationContent; locale: Locale; }) {
         {/* 5. 캘린더 */}
         {validDate && (
           <div className="px-7 py-7 border-b border-line">
-            <h3 className="text-sm text-gold mb-4 text-center tracking-wide">{t("예식일", locale)}</h3>
-            <MiniCalendar date={validDate} />
+            <h3 className={`text-sm ${theme.accent} mb-4 text-center tracking-wide`}>{t("예식일", locale)}</h3>
+            <MiniCalendar date={validDate} chipClass={theme.chip} />
           </div>
         )}
 
         {/* 6. 갤러리 */}
         {inv.gallery && inv.gallery.length > 0 && (
           <div className="px-4 py-7 border-b border-line">
-            <h3 className="text-sm text-gold mb-4 text-center tracking-wide">{t("갤러리", locale)}</h3>
+            <h3 className={`text-sm ${theme.accent} mb-4 text-center tracking-wide`}>{t("갤러리", locale)}</h3>
             <div className="grid grid-cols-3 gap-1.5">
               {inv.gallery.map((g, i) => (
                 <img key={i} src={g.url} alt={g.caption ?? ""} className="w-full aspect-square object-cover rounded-md" />
@@ -163,7 +173,7 @@ function Preview({ inv, locale }: { inv: InvitationContent; locale: Locale; }) {
         {/* 7. 오시는 길 */}
         {inv.venue && (
           <div className="px-7 py-7 border-b border-line text-center">
-            <h3 className="text-sm text-gold mb-3 tracking-wide">{t("오시는 길", locale)}</h3>
+            <h3 className={`text-sm ${theme.accent} mb-3 tracking-wide`}>{t("오시는 길", locale)}</h3>
             <div className="font-medium">{inv.venue}</div>
             {inv.venueHall && <div className="text-sm text-soft">{inv.venueHall}</div>}
             {inv.venueAddress && <div className="text-xs text-soft mt-1">{inv.venueAddress}</div>}
@@ -189,7 +199,7 @@ function Preview({ inv, locale }: { inv: InvitationContent; locale: Locale; }) {
         {/* 8. 연락처 */}
         {(inv.groomPhone || inv.bridePhone) && (
           <div className="px-7 py-6 border-b border-line">
-            <h3 className="text-sm text-gold mb-3 text-center tracking-wide">{t("연락하기", locale)}</h3>
+            <h3 className={`text-sm ${theme.accent} mb-3 text-center tracking-wide`}>{t("연락하기", locale)}</h3>
             <div className="flex gap-2">
               {inv.groomPhone && (
                 <a href={`tel:${inv.groomPhone}`} className="flex-1 text-center text-sm py-2.5 rounded-lg bg-cream border border-line">
@@ -207,12 +217,12 @@ function Preview({ inv, locale }: { inv: InvitationContent; locale: Locale; }) {
 
         {/* 9. 마음 전하실 곳 */}
         {(inv.groomAccount || inv.brideAccount) && (
-          <AccountSection inv={inv} locale={locale} />
+          <AccountSection inv={inv} locale={locale} accent={theme.accent} />
         )}
 
         {/* 10. RSVP */}
         <div className="px-7 py-7 text-center">
-          <h3 className="text-sm text-gold mb-2 tracking-wide">{t("참석 의사 전달", locale)}</h3>
+          <h3 className={`text-sm ${theme.accent} mb-2 tracking-wide`}>{t("참석 의사 전달", locale)}</h3>
           <p className="text-xs text-soft mb-3">{t("축하의 마음으로 참석해 주시는 분들을 위해", locale)}</p>
           <button className="btn-secondary text-sm w-full" disabled>
             {t("참석 여부 전하기", locale)}
@@ -237,11 +247,11 @@ function Preview({ inv, locale }: { inv: InvitationContent; locale: Locale; }) {
   );
 }
 
-function AccountSection({ inv, locale }: { inv: InvitationContent; locale: Locale; }) {
+function AccountSection({ inv, locale, accent }: { inv: InvitationContent; locale: Locale; accent: string; }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="px-7 py-6 border-b border-line text-center">
-      <button onClick={() => setOpen((o) => !o)} className="text-sm text-gold tracking-wide">
+      <button onClick={() => setOpen((o) => !o)} className={`text-sm ${accent} tracking-wide`}>
         {t("마음 전하실 곳", locale)} {open ? "▲" : "▼"}
       </button>
       {open && (
@@ -264,7 +274,7 @@ function AccountSection({ inv, locale }: { inv: InvitationContent; locale: Local
   );
 }
 
-function MiniCalendar({ date }: { date: Date; }) {
+function MiniCalendar({ date, chipClass }: { date: Date; chipClass: string; }) {
   const year = date.getFullYear();
   const month = date.getMonth();
   const day = date.getDate();
@@ -286,7 +296,7 @@ function MiniCalendar({ date }: { date: Date; }) {
         {cells.map((c, i) => (
           <div key={i} className="py-1.5">
             {c === day ? (
-              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gold text-white font-medium">{c}</span>
+              <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full ${chipClass} text-white font-medium`}>{c}</span>
             ) : (
               <span className={`${i % 7 === 0 ? "text-red-400" : i % 7 === 6 ? "text-blue-400" : "text-ink"}`}>{c}</span>
             )}
@@ -300,14 +310,38 @@ function MiniCalendar({ date }: { date: Date; }) {
 /* ════════════ 편집 폼 ════════════ */
 
 function EditForm({ inv, set }: { inv: InvitationContent; set: (k: any, v: any) => void; }) {
+  const [picker, setPicker] = useState<null | "hero" | "gallery">(null);
+  const theme = (inv.theme as Theme) ?? "cream";
+
   return (
     <div className="px-5 py-4 space-y-4">
-      <Section title="대표 사진">
-        <label className="label">메인 사진 주소 (URL)</label>
-        <input className="input" value={inv.heroImageUrl ?? ""} onChange={(e) => set("heroImageUrl", e.target.value)} placeholder="https://...jpg" />
-        <p className="text-xs text-soft">
-          사진 파일의 인터넷 주소를 붙여넣으세요. (내 사이트 모드에서는 직접 업로드 예정)
-        </p>
+      <Section title="대표 사진 & 색감">
+        {inv.heroImageUrl && (
+          <img src={inv.heroImageUrl} alt="" className="w-full aspect-[3/4] object-cover rounded-xl" />
+        )}
+        <button onClick={() => setPicker("hero")} className="btn-secondary w-full text-sm">
+          📷 추천 사진에서 고르기
+        </button>
+        <label className="label">또는 사진 주소(URL) 직접 입력</label>
+        <input className="input text-sm" value={inv.heroImageUrl ?? ""} onChange={(e) => set("heroImageUrl", e.target.value)} placeholder="https://...jpg" />
+
+        <label className="label mt-2">청첩장 색감</label>
+        <div className="flex gap-2">
+          {([
+            { id: "cream", label: "크림", sw: "bg-gold" },
+            { id: "white", label: "화이트", sw: "bg-ink" },
+            { id: "sage", label: "세이지", sw: "bg-sage" },
+          ] as const).map((th) => (
+            <button
+              key={th.id}
+              onClick={() => set("theme", th.id)}
+              className={`flex-1 flex items-center justify-center gap-1.5 text-sm py-2 rounded-lg border ${theme === th.id ? "border-gold bg-gold/5" : "border-line"}`}
+            >
+              <span className={`w-3 h-3 rounded-full ${th.sw}`} />
+              {th.label}
+            </button>
+          ))}
+        </div>
       </Section>
 
       <Section title="신랑 · 신부">
@@ -349,6 +383,9 @@ function EditForm({ inv, set }: { inv: InvitationContent; set: (k: any, v: any) 
       </Section>
 
       <Section title="갤러리">
+        <button onClick={() => setPicker("gallery")} className="btn-secondary w-full text-sm">
+          📷 추천 사진에서 추가
+        </button>
         <GalleryEditor gallery={inv.gallery ?? []} onChange={(g) => set("gallery", g)} />
       </Section>
 
@@ -365,7 +402,75 @@ function EditForm({ inv, set }: { inv: InvitationContent; set: (k: any, v: any) 
         모드 1(휴대폰 저장)에서는 미리보기만 가능해요.<br />
         실제로 카톡으로 보내려면 [더보기 → 저장 방식]에서 [내 사이트 만들기]로 전환하세요.
       </p>
+
+      {picker && (
+        <PhotoPickerModal
+          key={picker}
+          mode={picker}
+          onClose={() => setPicker(null)}
+          onPickHero={(url) => { set("heroImageUrl", url); setPicker(null); }}
+          onPickGallery={(urls) => {
+            set("gallery", [...(inv.gallery ?? []), ...urls.map((u) => ({ url: u }))]);
+            setPicker(null);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function PhotoPickerModal({
+  mode, onClose, onPickHero, onPickGallery,
+}: {
+  mode: "hero" | "gallery";
+  onClose: () => void;
+  onPickHero: (url: string) => void;
+  onPickGallery: (urls: string[]) => void;
+}) {
+  const [selected, setSelected] = useState<string[]>([]);
+  const isHero = mode === "hero";
+  const photos = isHero ? STOCK_HERO.map((h) => h.url) : STOCK_GALLERY;
+
+  return (
+    <Modal open onClose={onClose} title={isHero ? "대표 사진 고르기" : "갤러리 사진 고르기"}>
+      <p className="text-sm text-soft mb-3">
+        {isHero
+          ? "마음에 드는 사진을 누르면 바로 적용돼요."
+          : "여러 장 선택할 수 있어요. 본식 후 내 스냅 사진으로 교체하면 됩니다."}
+      </p>
+      <div className="grid grid-cols-3 gap-2">
+        {photos.map((url) => {
+          const on = selected.includes(url);
+          return (
+            <button
+              key={url}
+              onClick={() => {
+                if (isHero) onPickHero(url);
+                else setSelected((s) => (on ? s.filter((x) => x !== url) : [...s, url]));
+              }}
+              className={`relative rounded-lg overflow-hidden ${on ? "ring-2 ring-gold" : ""}`}
+            >
+              <img src={url} alt="" className="w-full aspect-square object-cover" />
+              {!isHero && on && (
+                <span className="absolute top-1 right-1 bg-gold text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">✓</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      {!isHero && (
+        <button
+          onClick={() => onPickGallery(selected)}
+          className="btn-primary w-full mt-4"
+          disabled={selected.length === 0}
+        >
+          {selected.length > 0 ? `${selected.length}장 추가하기` : "사진을 선택하세요"}
+        </button>
+      )}
+      <p className="text-xs text-soft mt-3 text-center">
+        사진 출처: Unsplash · 자유 이용 가능
+      </p>
+    </Modal>
   );
 }
 

@@ -68,7 +68,8 @@ export type CheckItem = {
   id: string;
   text: string;
   done: boolean;
-  dueDate?: string;
+  dueDate?: string;       // 절대 마감일 (ISO). ddayOffset이 있으면 결혼식 날짜 기준으로 자동 계산됨
+  ddayOffset?: number;    // 결혼식 D-day 기준 상대 일수 (음수 = 그 전). 예: -90 = D-90
   priority?: "red" | "yellow" | "green";
   sub?: CheckItem[];
 };

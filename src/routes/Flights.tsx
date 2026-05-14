@@ -6,13 +6,15 @@ import ChatbotBridgeModal from "../components/ChatbotBridgeModal";
 import { flightSearchPrompt, BridgePrompt } from "../lib/chatbotBridge";
 import { todayISO } from "../lib/freshness";
 import { demoData } from "../data/demoData";
+import { flightSearchLinks } from "../lib/searchLinks";
+import SearchLinks from "../components/SearchLinks";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 
 export default function Flights({ data, update }: Props) {
   const [showAdd, setShowAdd] = useState(false);
   const [bridge, setBridge] = useState<BridgePrompt | null>(null);
-  const [search, setSearch] = useState({ from: "ICN", to: "JFK", date: "" });
+  const [search, setSearch] = useState({ from: "ICN", to: "", date: "", adults: 2 });
 
   const addFlight = (f: Omit<Flight, "id">) => {
     update((prev: WeddingData) => ({ ...prev, flights: [...prev.flights, { ...f, id: `flight-${Date.now()}` }] }));
@@ -52,14 +54,37 @@ export default function Flights({ data, update }: Props) {
         <button onClick={() => setShowAdd(true)} className="btn-secondary text-sm">+ 옵션 추가</button>
       </div>
 
-      <div className="card">
-        <div className="text-sm font-medium mb-3">AI에게 항공편 찾아달라기</div>
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          <input className="input text-sm" placeholder="ICN" value={search.from} onChange={e => setSearch(s => ({...s, from: e.target.value}))} />
-          <input className="input text-sm" placeholder="JFK" value={search.to} onChange={e => setSearch(s => ({...s, to: e.target.value}))} />
-          <input type="date" className="input text-sm col-span-2" value={search.date} onChange={e => setSearch(s => ({...s, date: e.target.value}))} />
+      <div className="card space-y-3">
+        <div className="text-sm font-medium">✈️ 항공편 검색</div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="label text-xs">출발 공항</label>
+            <input className="input text-sm" placeholder="ICN" value={search.from} onChange={e => setSearch(s => ({...s, from: e.target.value}))} />
+          </div>
+          <div>
+            <label className="label text-xs">도착 공항</label>
+            <input className="input text-sm" placeholder="DPS (발리)" value={search.to} onChange={e => setSearch(s => ({...s, to: e.target.value}))} />
+          </div>
+          <div>
+            <label className="label text-xs">출발 날짜</label>
+            <input type="date" className="input text-sm" value={search.date} onChange={e => setSearch(s => ({...s, date: e.target.value}))} />
+          </div>
+          <div>
+            <label className="label text-xs">인원</label>
+            <input type="number" min={1} className="input text-sm" value={search.adults} onChange={e => setSearch(s => ({...s, adults: Math.max(1, Number(e.target.value) || 1)}))} />
+          </div>
         </div>
-        <button onClick={onSearch} className="btn-primary w-full">🤖 항공편 추천 받기</button>
+
+        <SearchLinks
+          label="🔎 검색 사이트에서 바로 보기 (입력한 조건이 자동 반영돼요)"
+          links={flightSearchLinks(search.from, search.to, search.date, search.adults)}
+        />
+
+        <div className="pt-2 border-t border-line">
+          <button onClick={onSearch} className="btn-secondary w-full text-sm">
+            🤖 AI에게 추천 받아 목록에 담기
+          </button>
+        </div>
       </div>
 
       {data.flights.length === 0 ? (

@@ -7,6 +7,8 @@ import ChatbotBridgeModal from "../components/ChatbotBridgeModal";
 import { hotelPriceCheckPrompt, BridgePrompt } from "../lib/chatbotBridge";
 import { todayISO } from "../lib/freshness";
 import { demoData } from "../data/demoData";
+import { hotelSearchLinks } from "../lib/searchLinks";
+import SearchLinks from "../components/SearchLinks";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 
@@ -14,6 +16,7 @@ export default function HotelPage({ data, update }: Props) {
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<Hotel | null>(null);
   const [bridge, setBridge] = useState<{ prompt: BridgePrompt; hotelId: string } | null>(null);
+  const [search, setSearch] = useState({ dest: "", checkIn: "", checkOut: "", adults: 2 });
 
   const addHotel = (h: Omit<Hotel, "id">) => {
     update((prev: WeddingData) => ({
@@ -75,6 +78,38 @@ export default function HotelPage({ data, update }: Props) {
       <div className="flex items-center justify-between">
         <h1 className="font-serif text-2xl">호텔</h1>
         <button onClick={() => setShowAdd(true)} className="btn-secondary text-sm">+ 호텔 추가</button>
+      </div>
+
+      {/* 호텔 검색 */}
+      <div className="card space-y-3">
+        <div className="text-sm font-medium">🔎 호텔 검색</div>
+        <input
+          className="input text-sm"
+          placeholder="지역·호텔명 (예: 강남, 발리 우붓)"
+          value={search.dest}
+          onChange={(e) => setSearch((s) => ({ ...s, dest: e.target.value }))}
+        />
+        <div className="grid grid-cols-3 gap-2">
+          <div>
+            <label className="label text-xs">체크인</label>
+            <input type="date" className="input text-sm" value={search.checkIn} onChange={(e) => setSearch((s) => ({ ...s, checkIn: e.target.value }))} />
+          </div>
+          <div>
+            <label className="label text-xs">체크아웃</label>
+            <input type="date" className="input text-sm" value={search.checkOut} onChange={(e) => setSearch((s) => ({ ...s, checkOut: e.target.value }))} />
+          </div>
+          <div>
+            <label className="label text-xs">인원</label>
+            <input type="number" min={1} className="input text-sm" value={search.adults} onChange={(e) => setSearch((s) => ({ ...s, adults: Math.max(1, Number(e.target.value) || 1) }))} />
+          </div>
+        </div>
+        <SearchLinks
+          label="입력한 조건으로 예약 사이트에서 바로 검색"
+          links={hotelSearchLinks(search.dest, search.checkIn, search.checkOut, search.adults)}
+        />
+        <p className="text-xs text-soft">
+          마음에 드는 호텔을 찾으면 아래 [+ 호텔 추가]로 담아두고 OTA별 가격을 비교하세요.
+        </p>
       </div>
 
       {data.hotels.length === 0 ? (
