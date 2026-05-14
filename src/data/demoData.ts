@@ -2,9 +2,10 @@
 // 가상의 커플. 실명·실제 장소·실제 사례 일절 없음.
 // 사용자가 [내 결혼식 시작하기] 누르면 defaultData() 로 깨끗이 초기화된다.
 
-import { WeddingData, SCHEMA_VERSION, Ring, ChecklistSection } from "../lib/schema";
+import { WeddingData, SCHEMA_VERSION, Ring, ChecklistSection, VideoConfig } from "../lib/schema";
 import { RING_CATALOG } from "./ringsTemplate";
 import { defaultChecklist } from "./checklistTemplate";
+import { STOCK_GALLERY } from "./stockPhotos";
 
 const today = new Date();
 const iso = (d: Date) => d.toISOString().split("T")[0];
@@ -187,15 +188,33 @@ export function demoData(): WeddingData {
       notes: "발리로 거의 결정 — 항공권 예약만 남음",
     },
     checklist: demoChecklist(),
-    video: {
-      title: "도현 · 지윤",
-      acts: [
-        { id: "act-1", title: "각자의 자리에서", subtitle: "어린 시절" },
-        { id: "act-2", title: "같은 곳에서, 함께", subtitle: "처음 만난 시간" },
-        { id: "act-3", title: "우리의 시간", subtitle: "함께 보낸 날들" },
-        { id: "act-4", title: "함께 걸어온 시간", subtitle: "지금까지" },
-        { id: "act-5", title: "그리고, 오늘", subtitle: "결혼식" },
-      ],
-    },
+    video: demoVideo(),
+  };
+}
+
+function demoVideo(): VideoConfig {
+  // 보통의 식전영상 — 사진이 음악과 함께 자연스럽게 흐르고, 군데군데 짧은 자막.
+  // 막(챕터) 구분은 쓰지 않음 (원하면 에디터에서 추가 가능).
+  const g = STOCK_GALLERY;
+  const photos = [
+    { id: "dvp-1", url: g[0], durationSec: 4, effect: "kenBurnsIn", transition: "fade", filter: "warm", caption: "두 사람이 만나기까지" },
+    { id: "dvp-2", url: g[1], durationSec: 3.5, effect: "panRight", transition: "fade", filter: "vintage" },
+    { id: "dvp-3", url: g[2], durationSec: 3.5, effect: "kenBurnsOut", transition: "fade", filter: "none" },
+    { id: "dvp-4", url: g[3], durationSec: 4, effect: "kenBurnsIn", transition: "fade", filter: "warm", caption: "함께 보낸 시간들" },
+    { id: "dvp-5", url: g[4], durationSec: 3.5, effect: "panLeft", transition: "fade", filter: "none" },
+    { id: "dvp-6", url: g[5], durationSec: 3.5, effect: "kenBurnsIn", transition: "fade", filter: "vintage" },
+    { id: "dvp-7", url: g[6], durationSec: 3.5, effect: "kenBurnsOut", transition: "fade", filter: "warm" },
+    { id: "dvp-8", url: g[7], durationSec: 4, effect: "kenBurnsIn", transition: "fade", filter: "none", caption: "그리고, 오늘" },
+    { id: "dvp-9", url: g[8], durationSec: 3.5, effect: "panRight", transition: "fade", filter: "warm" },
+    { id: "dvp-10", url: g[9], durationSec: 4, effect: "kenBurnsIn", transition: "fade", filter: "none" },
+  ] as VideoConfig["photos"];
+  return {
+    title: "도현 · 지윤",
+    acts: [],
+    photos,
+    ending: { message: "와주셔서 감사합니다", date: iso(wedding) },
+    titleCardSec: 3,
+    endingSec: 5,
+    fps: 30,
   };
 }

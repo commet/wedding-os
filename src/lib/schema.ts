@@ -112,13 +112,63 @@ export type InvitationContent = {
   };
 };
 
-export type VideoConfig = {
-  // letter-editor의 VideoConfig와 호환되는 최소 형태.
-  // 풀 에디터는 다음 페이즈에서 통합 — 지금은 메타데이터만.
-  title?: string;
-  photos?: { url: string; caption?: string; }[];
-  acts?: { id: string; title: string; subtitle?: string; }[];
+// ── 식전영상 ──────────────────────────────────
+export type VideoEffect =
+  | "kenBurnsIn"   // 천천히 확대
+  | "kenBurnsOut"  // 천천히 축소
+  | "panLeft"      // 왼쪽으로 이동
+  | "panRight"     // 오른쪽으로 이동
+  | "static";      // 고정
+
+export type VideoTransition = "fade" | "slide" | "none";
+
+export type VideoFilter = "none" | "warm" | "cool" | "bw" | "sepia" | "vintage";
+
+export type VideoPhoto = {
+  id: string;
+  url: string;
+  caption?: string;
+  durationSec: number;       // 한 장이 보이는 시간 (기본 4)
+  effect: VideoEffect;
+  transition: VideoTransition;
+  filter: VideoFilter;
+  actId?: string;            // 어느 act(막)에 속하는지
 };
+
+export type VideoAct = {
+  id: string;
+  title: string;             // "각자의 자리에서"
+  subtitle?: string;         // "어린 시절"
+};
+
+export type VideoConfig = {
+  title?: string;
+  acts: VideoAct[];
+  photos: VideoPhoto[];
+  bgmUrl?: string;
+  ending?: {
+    message: string;
+    date?: string;
+  };
+  titleCardSec?: number;     // act 타이틀 카드 길이 (기본 3)
+  endingSec?: number;        // 엔딩 길이 (기본 5)
+  fps?: number;              // 기본 30
+};
+
+export function defaultVideoConfig(): VideoConfig {
+  return { acts: [], photos: [], titleCardSec: 3, endingSec: 5, fps: 30 };
+}
+
+/** 옛 형태(또는 비어있는) video 데이터를 안전하게 정규화 */
+export function normalizeVideo(v: unknown): VideoConfig {
+  const o = (v ?? {}) as Partial<VideoConfig>;
+  return {
+    ...defaultVideoConfig(),
+    ...o,
+    acts: Array.isArray(o.acts) ? o.acts : [],
+    photos: Array.isArray(o.photos) ? o.photos : [],
+  };
+}
 
 export type Preferences = {
   mode: Mode | null;            // null = 아직 모드 미선택
@@ -165,6 +215,6 @@ export function defaultData(): WeddingData {
     flights: [],
     honeymoon: { regions: [] },
     checklist: [],
-    video: {},
+    video: defaultVideoConfig(),
   };
 }

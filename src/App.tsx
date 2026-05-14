@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useWeddingData } from "./lib/storage";
 import AppShell from "./components/AppShell";
@@ -9,10 +10,12 @@ import Flights from "./routes/Flights";
 import Honeymoon from "./routes/Honeymoon";
 import Checklist from "./routes/Checklist";
 import Invitation from "./routes/Invitation";
-import Video from "./routes/Video";
 import Setup from "./routes/Setup";
 import Settings from "./routes/Settings";
 import Contact from "./routes/Contact";
+
+// 식전영상 에디터는 Remotion(무거움)을 쓰므로 지연 로딩 — 초기 진입 속도 보호
+const Video = lazy(() => import("./routes/Video"));
 
 export default function App() {
   const { data, loading, update } = useWeddingData();
@@ -52,7 +55,14 @@ export default function App() {
         <Route path="/honeymoon" element={<Honeymoon data={data!} update={update} />} />
         <Route path="/checklist" element={<Checklist data={data!} update={update} />} />
         <Route path="/invitation" element={<Invitation data={data!} update={update} />} />
-        <Route path="/video" element={<Video data={data!} update={update} />} />
+        <Route
+          path="/video"
+          element={
+            <Suspense fallback={<div className="px-5 py-20 text-center text-soft">영상 편집기를 불러오는 중…</div>}>
+              <Video data={data!} update={update} />
+            </Suspense>
+          }
+        />
         <Route path="/settings" element={<Settings data={data!} update={update} />} />
         <Route path="/contact" element={<Contact data={data!} />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
