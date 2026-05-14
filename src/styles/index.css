@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body {
+    -webkit-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    font-family: theme('fontFamily.sans');
+    background: theme('colors.cream');
+    color: theme('colors.ink');
+    overflow-x: hidden;
+  }
+  button, a {
+    -webkit-touch-callout: none;
+  }
+  /* Mobile-first: every interactive element ≥44px */
+  button {
+    min-height: 36px;
+  }
+  input, textarea, select {
+    font-size: 16px; /* avoid iOS zoom */
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-gold text-white px-5 py-3 rounded-xl font-medium active:opacity-80 transition;
+  }
+  .btn-secondary {
+    @apply bg-white border border-line text-ink px-5 py-3 rounded-xl font-medium active:bg-cream transition;
+  }
+  .btn-ghost {
+    @apply text-soft px-3 py-2 rounded-lg active:bg-line transition;
+  }
+  .card {
+    @apply bg-white border border-line rounded-2xl p-5 shadow-sm;
+  }
+  .input {
+    @apply w-full border border-line rounded-xl px-4 py-3 bg-white outline-none focus:border-gold;
+  }
+  .label {
+    @apply block text-sm text-soft mb-1.5;
+  }
+}
