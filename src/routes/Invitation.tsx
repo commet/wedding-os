@@ -992,6 +992,20 @@ function t(ko: string, locale: Locale): string {
     "아들": { en: "son", zh: "之子" },
     "딸": { en: "daughter", zh: "之女" },
     "결혼했습니다": { en: "Just Married", zh: "已結婚" },
+    "배경 음악": { en: "Background Music", zh: "背景音樂" },
+    // ── RSVP 모달 ──
+    "성함": { en: "Name", zh: "姓名" },
+    "어느 쪽": { en: "Side", zh: "誰的賓客" },
+    "신랑 측": { en: "Groom's side", zh: "新郎方" },
+    "신부 측": { en: "Bride's side", zh: "新娘方" },
+    "참석 여부": { en: "Attending?", zh: "是否出席" },
+    "참석": { en: "Yes", zh: "出席" },
+    "불참": { en: "No", zh: "缺席" },
+    "참석 인원 (본인 포함)": { en: "Guests (incl. you)", zh: "人數 (含本人)" },
+    "축하 메시지 (선택)": { en: "Message (optional)", zh: "祝福訊息 (選填)" },
+    "전송 중…": { en: "Sending…", zh: "發送中…" },
+    "참석 의사 전하기": { en: "Send RSVP", zh: "送出回覆" },
+    "전송됐어요. 감사합니다.": { en: "Sent. Thank you.", zh: "已送出。謝謝。" },
   };
   return map[ko]?.[locale] ?? ko;
 }

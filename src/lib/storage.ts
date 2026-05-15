@@ -19,6 +19,27 @@ export type StorageDriver = {
   subscribe?: (cb: (data: WeddingData) => void) => () => void;
 };
 
+// 저장 실패 (특히 QuotaExceeded) 시 한 번만 사용자에게 알림.
+// React 컴포넌트에서 호출되도록 mutable 상태 — 가벼운 토스트로 충분.
+let lastQuotaAlert = 0;
+function notifyQuotaError() {
+  if (typeof window === "undefined") return;
+  const now = Date.now();
+  if (now - lastQuotaAlert < 60_000) return; // 1분 내 중복 알림 차단
+  lastQuotaAlert = now;
+  // setTimeout으로 비동기 — setData 콜백 안에서 alert가 React 경고 안 뜨도록
+  setTimeout(() => {
+    alert(
+      "⚠️ 사진을 더 저장할 공간이 부족해요.\n\n" +
+      "휴대폰 저장 한도(약 5MB)에 도달했어요.\n" +
+      "→ 사진을 일부 지우거나\n" +
+      "→ [더보기 → 데이터 백업]으로 내려받은 다음,\n" +
+      "   [내 사이트 만들기] 모드로 전환하시면\n" +
+      "   더 많은 사진을 쓸 수 있어요."
+    );
+  }, 50);
+}
+
 export const localStorageDriver: StorageDriver = {
   async load() {
     try {
@@ -34,7 +55,12 @@ export const localStorageDriver: StorageDriver = {
     try {
       localStorage.setItem(LS_KEY, JSON.stringify(data));
       return true;
-    } catch {
+    } catch (e: any) {
+      // QuotaExceededError 또는 비슷한 — 사용자에게 알림
+      const name = e?.name ?? "";
+      if (name === "QuotaExceededError" || name === "NS_ERROR_DOM_QUOTA_REACHED") {
+        notifyQuotaError();
+      }
       return false;
     }
   },

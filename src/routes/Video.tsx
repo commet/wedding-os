@@ -16,6 +16,7 @@ import { videoEditPrompt, BridgePrompt } from "../lib/chatbotBridge";
 import { STOCK_GALLERY } from "../data/stockPhotos";
 import { safeMediaSrc } from "../lib/security";
 import { canAutoRecord, recordCurrentTab, downloadBlob } from "../lib/videoExport";
+import { compressImage } from "../lib/imageCompress";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 
@@ -553,11 +554,59 @@ function PhotoChips<T extends string>({
 function PhotoAdd({ onAdd }: { onAdd: (urls: string[]) => void; }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [url, setUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleUpload = async (files: FileList) => {
+    setUploading(true);
+    setProgress(0);
+    const out: string[] = [];
+    try {
+      for (let i = 0; i < files.length; i++) {
+        // 영상은 1080p가 목표 — 약간 더 크게 (1280px)
+        const compressed = await compressImage(files[i], { maxWidth: 1280, maxHeight: 1280, quality: 0.82 });
+        out.push(compressed);
+        setProgress(Math.round(((i + 1) / files.length) * 100));
+      }
+      onAdd(out);
+    } catch (e: any) {
+      alert("일부 사진을 불러올 수 없었어요: " + (e?.message ?? "알 수 없는 오류"));
+    } finally {
+      setUploading(false);
+      setProgress(0);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
 
   return (
     <div className="space-y-4">
+      {/* 진짜 업로드 */}
       <div>
-        <label className="label">사진 주소(URL) 직접 추가</label>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files && e.target.files.length > 0) handleUpload(e.target.files);
+          }}
+        />
+        <button
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+          className="btn-primary w-full text-sm disabled:opacity-50"
+        >
+          {uploading ? `압축 중… ${progress}%` : "📤 내 사진 업로드 (여러 장)"}
+        </button>
+        <p className="text-[11px] text-soft text-center mt-2">
+          영상용은 자동으로 1280px JPEG로 압축돼요 — 약 200~400KB/장
+        </p>
+      </div>
+
+      <div className="pt-3 border-t border-line">
+        <label className="label">또는 사진 주소(URL) 한 장 추가</label>
         <div className="flex gap-2">
           <input className="input flex-1 text-sm" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://...jpg" />
           <button
@@ -569,7 +618,7 @@ function PhotoAdd({ onAdd }: { onAdd: (urls: string[]) => void; }) {
         </div>
       </div>
 
-      <div>
+      <div className="pt-3 border-t border-line">
         <label className="label">또는 추천 사진에서 고르기 (여러 장 선택 가능)</label>
         <div className="grid grid-cols-3 gap-2">
           {STOCK_GALLERY.map((u) => {
