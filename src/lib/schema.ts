@@ -64,6 +64,20 @@ export type HoneymoonPlan = {
   notes?: string;
 };
 
+// 스드메 — 스튜디오 / 드레스 / 메이크업
+export type SdmCategory = "studio" | "dress" | "makeup";
+
+export type SdmVendor = {
+  id: string;
+  category: SdmCategory;
+  name: string;
+  priceRange?: string;
+  region?: string;
+  notes?: string;
+  link?: string;
+  status?: "관심" | "상담" | "계약";
+};
+
 export type CheckItem = {
   id: string;
   text: string;
@@ -188,8 +202,9 @@ export type WeddingData = {
   preferences: Preferences;
   invitation: InvitationContent;
   rings: Ring[];
-  hotels: Hotel[];
-  flights: Flight[];
+  sdm: SdmVendor[];
+  hotels: Hotel[];         // "신혼여행 → 숙소" 탭에서 사용
+  flights: Flight[];       // "신혼여행 → 항공" 탭에서 사용
   honeymoon: HoneymoonPlan;
   checklist: ChecklistSection[];
   video: VideoConfig;
@@ -211,6 +226,7 @@ export function defaultData(): WeddingData {
         "두 사람이 사랑으로 만나 하나가 되는 약속의 자리에 \n귀한 걸음으로 축복해 주시면 감사하겠습니다.",
     },
     rings: [],
+    sdm: [],
     hotels: [],
     flights: [],
     honeymoon: { regions: [] },

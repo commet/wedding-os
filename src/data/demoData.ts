@@ -2,7 +2,7 @@
 // 가상의 커플. 실명·실제 장소·실제 사례 일절 없음.
 // 사용자가 [내 결혼식 시작하기] 누르면 defaultData() 로 깨끗이 초기화된다.
 
-import { WeddingData, SCHEMA_VERSION, Ring, ChecklistSection, VideoConfig } from "../lib/schema";
+import { WeddingData, SCHEMA_VERSION, Ring, ChecklistSection, VideoConfig, SdmVendor } from "../lib/schema";
 import { RING_CATALOG } from "./ringsTemplate";
 import { defaultChecklist } from "./checklistTemplate";
 import { STOCK_GALLERY } from "./stockPhotos";
@@ -36,6 +36,18 @@ function demoChecklist(): ChecklistSection[] {
     });
   });
   return list;
+}
+
+function demoSdm(): SdmVendor[] {
+  return [
+    { id: "demo-sdm-1", category: "studio", name: "라뮤즈 (Lamuse)", region: "강남", notes: "자연광 톤 / 가장 인기", status: "상담" },
+    { id: "demo-sdm-2", category: "studio", name: "어반시크 (UrbanChic)", region: "강남", notes: "모던·시크 패션화보", status: "관심" },
+    { id: "demo-sdm-3", category: "studio", name: "이드와 (Ed Wa)", region: "강남", notes: "빈티지·필름톤", status: "관심" },
+    { id: "demo-sdm-4", category: "dress", name: "박은경 더브라이드", region: "청담동", notes: "한국 디자이너 정통", status: "상담" },
+    { id: "demo-sdm-5", category: "dress", name: "아베크블랑쉬", region: "청담동", notes: "프렌치 무드, 가벼움", status: "관심" },
+    { id: "demo-sdm-6", category: "makeup", name: "정샘물", region: "신사동", notes: "원장 메이크업 클래식", status: "관심" },
+    { id: "demo-sdm-7", category: "makeup", name: "모모스튜디오", region: "강남", notes: "트렌디·SNS 인기", status: "관심" },
+  ];
 }
 
 function demoRings(): Ring[] {
@@ -87,6 +99,7 @@ export function demoData(): WeddingData {
       theme: "cream",
     },
     rings: demoRings(),
+    sdm: demoSdm(),
     hotels: [
       {
         id: "demo-hotel-1",

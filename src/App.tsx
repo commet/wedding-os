@@ -5,9 +5,8 @@ import AppShell from "./components/AppShell";
 import Welcome from "./routes/Welcome";
 import Dashboard from "./routes/Dashboard";
 import Rings from "./routes/Rings";
-import Hotel from "./routes/Hotel";
-import Flights from "./routes/Flights";
-import Honeymoon from "./routes/Honeymoon";
+import Trip from "./routes/Trip";
+import Sdm from "./routes/Sdm";
 import Checklist from "./routes/Checklist";
 import Invitation from "./routes/Invitation";
 import Setup from "./routes/Setup";
@@ -50,9 +49,12 @@ export default function App() {
         <Route path="/setup" element={<Setup data={data!} update={update} />} />
         <Route path="/dashboard" element={<Dashboard data={data!} update={update} />} />
         <Route path="/rings" element={<Rings data={data!} update={update} />} />
-        <Route path="/hotel" element={<Hotel data={data!} update={update} />} />
-        <Route path="/flights" element={<Flights data={data!} update={update} />} />
-        <Route path="/honeymoon" element={<Honeymoon data={data!} update={update} />} />
+        <Route path="/sdm" element={<Sdm data={data!} update={update} />} />
+        <Route path="/trip" element={<Trip data={data!} update={update} />} />
+        {/* 옛 경로 호환 — 신혼여행 페이지로 흡수 */}
+        <Route path="/hotel" element={<Navigate to="/trip" replace />} />
+        <Route path="/flights" element={<Navigate to="/trip" replace />} />
+        <Route path="/honeymoon" element={<Navigate to="/trip" replace />} />
         <Route path="/checklist" element={<Checklist data={data!} update={update} />} />
         <Route path="/invitation" element={<Invitation data={data!} update={update} />} />
         <Route

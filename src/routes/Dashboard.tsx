@@ -102,9 +102,14 @@ export default function Dashboard({ data }: Props) {
         <TileLink to="/invitation" icon="💌" label="청첩장" sub="모바일 청첩장" />
         <TileLink to="/video" icon="🎥" label="식전영상" sub="에디터" />
         <TileLink to="/rings" icon="💍" label="결혼반지" sub={`${data.rings.length}개 후보`} />
-        <TileLink to="/hotel" icon="🏨" label="호텔" sub={`${data.hotels.length}곳 비교`} />
-        <TileLink to="/flights" icon="✈️" label="항공권" sub={`${data.flights.length}개 옵션`} />
-        <TileLink to="/honeymoon" icon="🏝️" label="신혼여행" sub={`${data.honeymoon.regions.length}곳`} />
+        <TileLink to="/sdm" icon="📸" label="스드메" sub={`${data.sdm.length}곳 담음`} />
+        <TileLink
+          to="/trip"
+          icon="🏝️"
+          label="신혼여행"
+          sub={`${data.honeymoon.regions.length}곳 · 항공 ${data.flights.length} · 숙소 ${data.hotels.length}`}
+        />
+        <TileLink to="/checklist" icon="✅" label="체크리스트" sub="일정·할 일" />
       </div>
     </div>
   );
