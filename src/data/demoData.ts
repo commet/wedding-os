@@ -40,13 +40,18 @@ function demoChecklist(): ChecklistSection[] {
 
 function demoSdm(): SdmVendor[] {
   return [
-    { id: "demo-sdm-1", category: "studio", name: "라뮤즈 (Lamuse)", region: "강남", notes: "자연광 톤 / 가장 인기", status: "상담" },
-    { id: "demo-sdm-2", category: "studio", name: "어반시크 (UrbanChic)", region: "강남", notes: "모던·시크 패션화보", status: "관심" },
-    { id: "demo-sdm-3", category: "studio", name: "이드와 (Ed Wa)", region: "강남", notes: "빈티지·필름톤", status: "관심" },
-    { id: "demo-sdm-4", category: "dress", name: "박은경 더브라이드", region: "청담동", notes: "한국 디자이너 정통", status: "상담" },
-    { id: "demo-sdm-5", category: "dress", name: "아베크블랑쉬", region: "청담동", notes: "프렌치 무드, 가벼움", status: "관심" },
-    { id: "demo-sdm-6", category: "makeup", name: "정샘물", region: "신사동", notes: "원장 메이크업 클래식", status: "관심" },
-    { id: "demo-sdm-7", category: "makeup", name: "모모스튜디오", region: "강남", notes: "트렌디·SNS 인기", status: "관심" },
+    { id: "demo-sdm-1",  category: "studio", name: "라뮤즈 (Lamuse)",          region: "청담", notes: "자연광 톤 / 가장 자주 언급",      status: "상담" },
+    { id: "demo-sdm-2",  category: "studio", name: "어반시크 (UrbanChic)",     region: "강남", notes: "모던·시크 패션화보",              status: "관심" },
+    { id: "demo-sdm-3",  category: "studio", name: "이드와 (Ed Wa)",           region: "강남", notes: "빈티지·필름톤",                    status: "관심" },
+    { id: "demo-sdm-4",  category: "dress",  name: "박은경 더브라이드",         region: "청담", notes: "한국 디자이너 정통",                status: "상담" },
+    { id: "demo-sdm-5",  category: "dress",  name: "아베크블랑쉬",              region: "청담", notes: "프렌치 무드·가벼움",                status: "관심" },
+    { id: "demo-sdm-6",  category: "dress",  name: "브라이드 로체 (Bride Roche)", region: "청담", notes: "프렌치·우아",                       status: "관심" },
+    { id: "demo-sdm-7",  category: "makeup", name: "정샘물",                    region: "신사동", notes: "원장 메이크업 클래식",              status: "관심" },
+    { id: "demo-sdm-8",  category: "makeup", name: "모모스튜디오",               region: "강남", notes: "트렌디·SNS 인기",                  status: "관심" },
+    { id: "demo-sdm-9",  category: "makeup", name: "끌로에 (Chloe) — 김선진",   region: "청담", notes: "차분·고급스러움",                  status: "관심" },
+    { id: "demo-sdm-10", category: "snap",   name: "그린티스냅 (Green Tea Snap)", region: "강남", notes: "본식 스냅 인기 / 실장 2인 옵션",    status: "상담" },
+    { id: "demo-sdm-11", category: "snap",   name: "데이어스 (Days)",            region: "강남", notes: "감성·다큐",                        status: "관심" },
+    { id: "demo-sdm-12", category: "snap",   name: "페이퍼노트 스냅",            region: "청담", notes: "필름톤·내추럴",                    status: "관심" },
   ];
 }
 

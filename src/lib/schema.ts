@@ -64,8 +64,8 @@ export type HoneymoonPlan = {
   notes?: string;
 };
 
-// 스드메 — 스튜디오 / 드레스 / 메이크업
-export type SdmCategory = "studio" | "dress" | "makeup";
+// 스드메·스냅 — 스튜디오 / 드레스 / 메이크업 / 본식 스냅
+export type SdmCategory = "studio" | "dress" | "makeup" | "snap";
 
 export type SdmVendor = {
   id: string;
