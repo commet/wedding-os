@@ -206,6 +206,31 @@ export const SDM_CATALOG: SdmCatalogEntry[] = [
   { id: "n-moment",     category: "snap", name: "모먼트 (Moment)",                 vibe: "순간 포착",                           region: "강남" },
   { id: "n-themovie",   category: "snap", name: "더무비 (The Movie)",              vibe: "영상 스냅(DVD) 위주",                 region: "강남" },
   { id: "n-cinema",     category: "snap", name: "시네마 스냅",                       vibe: "영화 같은 영상 결과물",                region: "강남" },
+
+  // ══════ 🗺️ 지방 — 표본 (전국 체인 + 지역 알려진 곳) ══════
+  // ※ 지방은 카탈로그가 얕습니다. 카카오맵 + 결혼 카페의 지역 게시판이 더 정확해요.
+
+  // 부산
+  { id: "s-busan-life", category: "studio", name: "라이프 스튜디오 부산",       vibe: "라이프 시리즈 부산 지점",              region: "부산" },
+  { id: "m-busan-jenny",category: "makeup", name: "제니하우스 부산",            vibe: "체인 지점, 안정적",                    region: "부산" },
+  { id: "m-busan-chah", category: "makeup", name: "차홍 부산",                  vibe: "헤어+메이크업 체인",                   region: "부산" },
+  { id: "d-busan-vera", category: "dress",  name: "베라왕 부산",                vibe: "Vera Wang 부산점",                     region: "부산" },
+  { id: "n-busan-snap", category: "snap",   name: "부산 본식 스냅 (로컬)",       vibe: "지역 작가 다수 — 카카오맵 검색",       region: "부산" },
+
+  // 대구
+  { id: "s-daegu-life", category: "studio", name: "라이프 스튜디오 대구",       vibe: "체인 지점",                            region: "대구" },
+  { id: "m-daegu-jenny",category: "makeup", name: "제니하우스 대구",            vibe: "체인 지점",                            region: "대구" },
+  { id: "m-daegu-chah", category: "makeup", name: "차홍 대구",                  vibe: "체인 지점",                            region: "대구" },
+
+  // 인천·분당·판교
+  { id: "s-bundang-life",category: "studio",name: "라이프 스튜디오 분당",       vibe: "체인 지점",                            region: "분당" },
+  { id: "m-bundang-jenny",category: "makeup",name:"제니하우스 분당",            vibe: "체인 지점",                            region: "분당" },
+  { id: "d-incheon-cls",category: "dress",  name: "송도 클래식 드레스",         vibe: "송도/인천 라인",                       region: "인천" },
+
+  // 대전·광주·제주
+  { id: "m-daejeon-jh", category: "makeup", name: "제니하우스 대전",            vibe: "체인 지점",                            region: "대전" },
+  { id: "m-gwangju-jh", category: "makeup", name: "제니하우스 광주",            vibe: "체인 지점",                            region: "광주" },
+  { id: "n-jeju-snap",  category: "snap",   name: "제주 야외 스냅 (로컬)",       vibe: "제주 야외·풀빌라 촬영 작가 다수",       region: "제주" },
 ];
 
 export const SDM_PRICE_RANGE_NOTE =

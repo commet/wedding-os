@@ -153,9 +153,12 @@ export default function Settings({ data, update }: Props) {
         </button>
       </section>
 
-      <p className="text-center text-xs text-soft pt-4">
-        Wedding OS · 개인 프로젝트<br />
-        <a href="https://github.com/commet/wedding-os" target="_blank" className="underline">GitHub</a>
+      <p className="text-center text-xs text-soft pt-4 space-x-2">
+        <span>Wedding OS · 개인 프로젝트</span>
+        <span>·</span>
+        <Link to="/privacy" className="underline">개인정보 · 보안 안내</Link>
+        <span>·</span>
+        <a href="https://github.com/commet/wedding-os" target="_blank" rel="noopener noreferrer" className="underline">GitHub</a>
       </p>
     </div>
   );

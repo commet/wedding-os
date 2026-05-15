@@ -21,12 +21,18 @@ const CAT_LABEL: Record<SdmCategory, string> = {
 
 const STATUS_OPTIONS: SdmVendor["status"][] = ["관심", "상담", "계약"];
 
+const SEOUL = ["청담","강남","신사동","압구정","송파","강북","홍대","이태원"];
+
 const REGION_GROUPS: { key: string; label: string; match: (r?: string) => boolean }[] = [
-  { key: "all",    label: "전체",      match: () => true },
-  { key: "cheongdam", label: "청담",   match: (r) => !!r && r.includes("청담") },
-  { key: "gangnam",   label: "강남",   match: (r) => !!r && (r.includes("강남") || r.includes("신사동") || r.includes("압구정") || r.includes("송파")) },
-  { key: "north",     label: "강북·홍대", match: (r) => !!r && (r.includes("강북") || r.includes("홍대") || r.includes("이태원")) },
-  { key: "etc",       label: "기타",   match: (r) => !!r && (r.includes("전국") || (!["청담","강남","신사동","압구정","송파","강북","홍대","이태원"].some((x) => r.includes(x)))) },
+  { key: "all",      label: "전체",      match: () => true },
+  { key: "cheongdam",label: "청담",      match: (r) => !!r && r.includes("청담") },
+  { key: "gangnam",  label: "강남",      match: (r) => !!r && (r.includes("강남") || r.includes("신사동") || r.includes("압구정") || r.includes("송파")) },
+  { key: "north",    label: "강북·홍대", match: (r) => !!r && (r.includes("강북") || r.includes("홍대") || r.includes("이태원")) },
+  { key: "bundang",  label: "분당·인천", match: (r) => !!r && (r.includes("분당") || r.includes("판교") || r.includes("인천") || r.includes("송도")) },
+  { key: "busan",    label: "부산",      match: (r) => !!r && r.includes("부산") },
+  { key: "daegu",    label: "대구",      match: (r) => !!r && r.includes("대구") },
+  { key: "etc-local",label: "그 외 지방", match: (r) => !!r && (r.includes("광주") || r.includes("대전") || r.includes("제주") || r.includes("울산")) },
+  { key: "nationwide",label: "전국 체인",match: (r) => !!r && r.includes("전국") },
 ];
 
 export default function Sdm({ data, update }: Props) {
@@ -182,6 +188,15 @@ export default function Sdm({ data, update }: Props) {
           총 {filteredCatalog.length}곳 표시 (전체 {SDM_CATALOG.filter((e) => e.category === cat).length})
         </p>
       </section>
+
+      {/* 지방 안내 */}
+      {!SEOUL.some((s) => region === s || region === "all") && region !== "all" && region !== "nationwide" && (
+        <div className="card bg-yellow-50/50 border-yellow-200 text-xs text-soft leading-relaxed space-y-2">
+          <p>🗺️ <b>지방은 이 목록보다 카카오맵 + 결혼 카페가 훨씬 정확해요.</b></p>
+          <p>각 카드의 [🗺️ 지도] 버튼으로 지역명·후기를 함께 검색하시고,
+            결혼 카페의 <b>지역 게시판</b>(다이렉트결혼준비 등)에서 실시간 후기를 보세요.</p>
+        </div>
+      )}
 
       {/* 가격대 + 면책 */}
       <div className="card bg-cream/50 text-xs text-soft leading-relaxed space-y-2">

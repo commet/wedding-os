@@ -4,6 +4,7 @@ import Modal from "../components/Modal";
 import { STOCK_HERO, STOCK_GALLERY } from "../data/stockPhotos";
 import { PAPER_INVITATIONS, MOBILE_INVITATIONS } from "../data/invitationPlatforms";
 import VendorActions from "../components/VendorActions";
+import { safeMediaSrc, safeHref, safeTel, isOwner } from "../lib/security";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type Tab = "edit" | "preview";
@@ -17,6 +18,9 @@ const THEME: Record<Theme, { heroGrad: string; accent: string; chip: string }> =
 };
 
 export default function Invitation({ data, update }: Props) {
+  // 청첩장 페이지는 게스트도 접근. 게스트에겐 편집 탭을 노출하지 않음.
+  // (모드 2에서 anon 키만으론 권한 분리가 안 되므로, 최소한의 UI 가드.)
+  const guest = data.preferences.mode === "supabase" && !isOwner();
   const [tab, setTab] = useState<Tab>("preview");
   const [locale, setLocale] = useState<Locale>("ko");
   const inv = data.invitation;
@@ -28,6 +32,15 @@ export default function Invitation({ data, update }: Props) {
   const share = async () => {
     // 모드 2: 실제 청첩장 링크
     if (data.preferences.mode === "supabase") {
+      const proceed = confirm(
+        "⚠️ 청첩장 공유 전에 꼭 확인해주세요\n\n" +
+        "현재 버전은 인증 없이 동작합니다. 링크를 받은 사람은 브라우저 개발자 도구로\n" +
+        "데이터를 수정·삭제할 가능성이 있어요.\n\n" +
+        "→ 가까운 가족·친한 친구에게만 공유하시고,\n" +
+        "단톡방·SNS 공개 게시는 보안 업데이트 이전까지 권장하지 않습니다.\n\n" +
+        "복사할까요?"
+      );
+      if (!proceed) return;
       const url = window.location.origin + "/invitation";
       try {
         await navigator.clipboard.writeText(url);
@@ -56,7 +69,9 @@ export default function Invitation({ data, update }: Props) {
         </div>
         <div className="px-5 pb-3 flex gap-2 items-center">
           <TabBtn active={tab === "preview"} onClick={() => setTab("preview")}>미리보기</TabBtn>
-          <TabBtn active={tab === "edit"} onClick={() => setTab("edit")}>편집</TabBtn>
+          {!guest && (
+            <TabBtn active={tab === "edit"} onClick={() => setTab("edit")}>편집</TabBtn>
+          )}
           {tab === "preview" && (
             <div className="ml-auto flex gap-1">
               {(["ko", "en", "zh"] as const).map((l) => (
@@ -73,7 +88,11 @@ export default function Invitation({ data, update }: Props) {
         </div>
       </div>
 
-      {tab === "edit" ? <EditForm inv={inv} set={set} /> : <Preview inv={inv} locale={locale} />}
+      {tab === "edit" && !guest ? (
+        <EditForm inv={inv} set={set} />
+      ) : (
+        <Preview inv={inv} locale={locale} />
+      )}
     </div>
   );
 }

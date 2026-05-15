@@ -12,6 +12,7 @@ import Invitation from "./routes/Invitation";
 import Setup from "./routes/Setup";
 import Settings from "./routes/Settings";
 import Contact from "./routes/Contact";
+import Privacy from "./routes/Privacy";
 
 // 식전영상 에디터는 Remotion(무거움)을 쓰므로 지연 로딩 — 초기 진입 속도 보호
 const Video = lazy(() => import("./routes/Video"));
@@ -67,6 +68,7 @@ export default function App() {
         />
         <Route path="/settings" element={<Settings data={data!} update={update} />} />
         <Route path="/contact" element={<Contact data={data!} />} />
+        <Route path="/privacy" element={<Privacy />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </AppShell>

@@ -38,7 +38,14 @@ export default function Setup({ data, update }: Props) {
   const checkConnection = async () => {
     setPingStatus("checking");
     setPingMsg("");
-    const r = await pingSupabase(url.trim(), anonKey.trim());
+    const cleanUrl = url.trim();
+    // 도메인 화이트리스트 — 공식 Supabase 호스트만 허용. 피싱 사이트 차단.
+    if (!isSupabaseHost(cleanUrl)) {
+      setPingStatus("fail");
+      setPingMsg("Supabase 공식 URL 형식이 아니에요. https://xxxx.supabase.co 또는 .supabase.in 만 허용됩니다.");
+      return;
+    }
+    const r = await pingSupabase(cleanUrl, anonKey.trim());
     if (r.ok) {
       setPingStatus("ok");
     } else {
@@ -48,14 +55,22 @@ export default function Setup({ data, update }: Props) {
   };
 
   const saveAndFinish = () => {
+    const cleanUrl = url.trim();
+    if (!isSupabaseHost(cleanUrl)) {
+      alert("Supabase URL 형식이 잘못됐어요. xxxx.supabase.co 형태여야 합니다.");
+      return;
+    }
     update((prev: WeddingData) => ({
       ...prev,
       preferences: {
         ...prev.preferences,
         mode: "supabase",
-        supabase: { url: url.trim(), anonKey: anonKey.trim(), configId: "default" },
+        supabase: { url: cleanUrl, anonKey: anonKey.trim(), configId: "default" },
       },
     }));
+    // 이 기기를 "오너" 로 표시 — 청첩장 페이지의 편집 탭은 오너에게만 노출됨.
+    // (게스트가 청첩장 URL 받고 들어와도 편집 폼이 안 뜨도록.)
+    markOwner();
     navigate("/dashboard");
   };
 
@@ -332,6 +347,15 @@ function Step4({
         <p>❗ <b>service_role 키는 절대 입력하지 마세요.</b></p>
         <p>service_role은 모든 데이터에 접근할 수 있는 마스터 키예요.
           반드시 <b className="text-ink">anon (public)</b> 키만!</p>
+      </div>
+
+      <div className="bg-yellow-50 border border-yellow-300 rounded-xl p-3 text-xs leading-relaxed">
+        ⚠️ <b>중요 — 청첩장 공유 시 주의:</b><br />
+        anon 키는 청첩장 페이지의 JavaScript 안에 그대로 들어가서 누구나 볼 수 있어요.
+        현재 버전의 [내 사이트] 모드는 인증을 사용하지 않으므로, 청첩장 URL을 받은 사람이
+        브라우저 개발자 도구로 데이터를 수정·삭제할 가능성이 있습니다.<br />
+        → <b>가까운 가족·친구에게만</b> 공유하시고, 단톡방·SNS 공개 게시는
+        보안 업데이트 이전까지 권장하지 않아요.
       </div>
 
       <button

@@ -32,7 +32,7 @@ const MODES = [
     id: "supabase",
     icon: "🌐",
     title: "우리만의 결혼식 사이트",
-    oneLiner: "청첩장 링크 공유 · 함께 편집 · 하객 RSVP",
+    oneLiner: "청첩장 링크 공유 · 함께 편집 · 하객 RSVP (베타 — 가까운 사람에게만 공유)",
     cta: "가이드 따라 시작",
     accent: "border-line",
     difficulty: "15분 셋업",
