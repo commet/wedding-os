@@ -125,8 +125,8 @@ function Preview({ inv, locale }: { inv: InvitationContent; locale: Locale; }) {
       <div className="bg-white rounded-3xl overflow-hidden border border-line shadow-sm">
         {/* 1. 히어로 */}
         <div className="relative">
-          {inv.heroImageUrl ? (
-            <img src={inv.heroImageUrl} alt="" className="w-full aspect-[3/4] object-cover" />
+          {safeMediaSrc(inv.heroImageUrl) ? (
+            <img src={safeMediaSrc(inv.heroImageUrl)} alt="" className="w-full aspect-[3/4] object-cover" />
           ) : (
             <div className={`w-full aspect-[3/4] bg-gradient-to-b ${theme.heroGrad} flex items-center justify-center text-soft text-sm`}>
               대표 사진을 추가해보세요
@@ -192,9 +192,12 @@ function Preview({ inv, locale }: { inv: InvitationContent; locale: Locale; }) {
           <div className="px-4 py-7 border-b border-line">
             <h3 className={`text-sm ${theme.accent} mb-4 text-center tracking-wide`}>{t("갤러리", locale)}</h3>
             <div className="grid grid-cols-3 gap-1.5">
-              {inv.gallery.map((g, i) => (
-                <img key={i} src={g.url} alt={g.caption ?? ""} className="w-full aspect-square object-cover rounded-md" />
-              ))}
+              {inv.gallery.map((g, i) => {
+                const u = safeMediaSrc(g.url);
+                return u ? (
+                  <img key={i} src={u} alt={g.caption ?? ""} className="w-full aspect-square object-cover rounded-md" />
+                ) : null;
+              })}
             </div>
           </div>
         )}
@@ -209,14 +212,14 @@ function Preview({ inv, locale }: { inv: InvitationContent; locale: Locale; }) {
             <div className="flex gap-2 justify-center mt-4">
               <a
                 href={`https://map.kakao.com/link/search/${encodeURIComponent(inv.venue)}`}
-                target="_blank" rel="noopener"
+                target="_blank" rel="noopener noreferrer"
                 className="text-xs px-3 py-2 rounded-lg bg-cream border border-line"
               >
                 카카오맵
               </a>
               <a
                 href={`https://map.naver.com/v5/search/${encodeURIComponent(inv.venue)}`}
-                target="_blank" rel="noopener"
+                target="_blank" rel="noopener noreferrer"
                 className="text-xs px-3 py-2 rounded-lg bg-cream border border-line"
               >
                 네이버지도
@@ -230,13 +233,13 @@ function Preview({ inv, locale }: { inv: InvitationContent; locale: Locale; }) {
           <div className="px-7 py-6 border-b border-line">
             <h3 className={`text-sm ${theme.accent} mb-3 text-center tracking-wide`}>{t("연락하기", locale)}</h3>
             <div className="flex gap-2">
-              {inv.groomPhone && (
-                <a href={`tel:${inv.groomPhone}`} className="flex-1 text-center text-sm py-2.5 rounded-lg bg-cream border border-line">
+              {safeTel(inv.groomPhone) && (
+                <a href={`tel:${safeTel(inv.groomPhone)}`} className="flex-1 text-center text-sm py-2.5 rounded-lg bg-cream border border-line">
                   🤵 {t("신랑", locale)}
                 </a>
               )}
-              {inv.bridePhone && (
-                <a href={`tel:${inv.bridePhone}`} className="flex-1 text-center text-sm py-2.5 rounded-lg bg-cream border border-line">
+              {safeTel(inv.bridePhone) && (
+                <a href={`tel:${safeTel(inv.bridePhone)}`} className="flex-1 text-center text-sm py-2.5 rounded-lg bg-cream border border-line">
                   👰 {t("신부", locale)}
                 </a>
               )}
@@ -359,14 +362,25 @@ function EditForm({ inv, set }: { inv: InvitationContent; set: (k: any, v: any) 
   return (
     <div className="px-5 py-4 space-y-4">
       <Section title="대표 사진 & 색감">
-        {inv.heroImageUrl && (
-          <img src={inv.heroImageUrl} alt="" className="w-full aspect-[3/4] object-cover rounded-xl" />
+        {safeMediaSrc(inv.heroImageUrl) && (
+          <img src={safeMediaSrc(inv.heroImageUrl)} alt="" className="w-full aspect-[3/4] object-cover rounded-xl" />
         )}
         <button onClick={() => setPicker("hero")} className="btn-secondary w-full text-sm">
           📷 추천 사진에서 고르기
         </button>
         <label className="label">또는 사진 주소(URL) 직접 입력</label>
-        <input className="input text-sm" value={inv.heroImageUrl ?? ""} onChange={(e) => set("heroImageUrl", e.target.value)} placeholder="https://...jpg" />
+        <input
+          className="input text-sm"
+          value={inv.heroImageUrl ?? ""}
+          onChange={(e) => {
+            const v = e.target.value;
+            // 빈값은 그대로 허용 (지우기), 입력값은 sanitize 후 저장.
+            if (!v) { set("heroImageUrl", ""); return; }
+            const clean = safeMediaSrc(v);
+            set("heroImageUrl", clean ?? v); // 잘못된 값도 일단 표시는 하되, 렌더 단계에서 걸러짐
+          }}
+          placeholder="https://...jpg"
+        />
 
         <label className="label mt-2">청첩장 색감</label>
         <div className="flex gap-2">
@@ -551,22 +565,36 @@ function GalleryEditor({ gallery, onChange }: { gallery: { url: string; caption?
     <div className="space-y-2">
       {gallery.length > 0 && (
         <div className="grid grid-cols-3 gap-1.5">
-          {gallery.map((g, i) => (
-            <div key={i} className="relative">
-              <img src={g.url} alt="" className="w-full aspect-square object-cover rounded-md" />
-              <button
-                onClick={() => onChange(gallery.filter((_, j) => j !== i))}
-                className="absolute top-1 right-1 bg-black/50 text-white rounded-full w-5 h-5 text-xs"
-              >×</button>
-            </div>
-          ))}
+          {gallery.map((g, i) => {
+            const u = safeMediaSrc(g.url);
+            return (
+              <div key={i} className="relative">
+                {u ? (
+                  <img src={u} alt="" className="w-full aspect-square object-cover rounded-md" />
+                ) : (
+                  <div className="w-full aspect-square rounded-md bg-cream border border-red-200 flex items-center justify-center text-[10px] text-red-500 text-center px-1">
+                    잘못된<br />사진 주소
+                  </div>
+                )}
+                <button
+                  onClick={() => onChange(gallery.filter((_, j) => j !== i))}
+                  className="absolute top-1 right-1 bg-black/50 text-white rounded-full w-5 h-5 text-xs"
+                >×</button>
+              </div>
+            );
+          })}
         </div>
       )}
       <div className="flex gap-2">
-        <input className="input flex-1 text-sm" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="사진 주소(URL) 붙여넣기" />
+        <input className="input flex-1 text-sm" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="사진 주소(URL) 붙여넣기 (https://…)" />
         <button
           className="btn-secondary text-sm"
-          onClick={() => { if (url.trim()) { onChange([...gallery, { url: url.trim() }]); setUrl(""); } }}
+          onClick={() => {
+            const clean = safeMediaSrc(url);
+            if (!clean) { alert("https:// 로 시작하는 사진 주소만 추가할 수 있어요."); return; }
+            onChange([...gallery, { url: clean }]);
+            setUrl("");
+          }}
         >추가</button>
       </div>
     </div>
@@ -581,11 +609,11 @@ function PlatformRow({ entry }: { entry: { name: string; desc: string; url?: str
           <div className="font-medium text-sm">{entry.name}</div>
           <div className="text-[11px] text-soft mt-0.5">{entry.desc}</div>
         </div>
-        {entry.url && (
+        {safeHref(entry.url) && (
           <a
-            href={entry.url}
+            href={safeHref(entry.url)}
             target="_blank"
-            rel="noopener"
+            rel="noopener noreferrer"
             className="text-[11px] text-gold border border-gold/30 rounded px-2 py-1 flex-shrink-0"
           >
             홈피 ↗

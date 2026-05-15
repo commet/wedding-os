@@ -55,9 +55,9 @@ export default function ChatbotBridgeModal({ open, onClose, prompt, onApply }: P
         </div>
 
         <div className="flex gap-2 flex-wrap">
-          <a className="btn-primary flex-1 text-center" href={CHAT_LINKS.claude} target="_blank" rel="noopener">Claude 열기</a>
-          <a className="btn-primary flex-1 text-center" href={CHAT_LINKS.chatgpt} target="_blank" rel="noopener">ChatGPT 열기</a>
-          <a className="btn-primary flex-1 text-center" href={CHAT_LINKS.gemini} target="_blank" rel="noopener">Gemini 열기</a>
+          <a className="btn-primary flex-1 text-center" href={CHAT_LINKS.claude} target="_blank" rel="noopener noreferrer">Claude 열기</a>
+          <a className="btn-primary flex-1 text-center" href={CHAT_LINKS.chatgpt} target="_blank" rel="noopener noreferrer">ChatGPT 열기</a>
+          <a className="btn-primary flex-1 text-center" href={CHAT_LINKS.gemini} target="_blank" rel="noopener noreferrer">Gemini 열기</a>
         </div>
 
         <div className="pt-3 border-t border-line">

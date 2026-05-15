@@ -120,7 +120,7 @@ export default function Video({ data, update }: Props) {
       <h1 className="font-serif text-2xl">식전영상</h1>
 
       {/* 미리보기 */}
-      <div className="rounded-2xl overflow-hidden border border-line bg-ink">
+      <div className="remotion-player rounded-2xl overflow-hidden border border-line bg-ink">
         <Player
           component={WeddingVideo}
           inputProps={{ config, coupleNames }}
@@ -321,16 +321,86 @@ export default function Video({ data, update }: Props) {
         </button>
       </section>
 
-      {/* 렌더 안내 */}
-      <section className="card bg-cream space-y-2">
-        <h3 className="font-medium">📥 영상 파일로 내보내기</h3>
+      {/* MP4 내보내기 — 진짜 작동하는 가이드 */}
+      <section className="card space-y-4">
+        <h3 className="font-medium">📥 영상 파일(MP4)로 저장하기</h3>
         <p className="text-sm text-soft leading-relaxed">
-          미리보기는 위에서 바로 재생돼요. MP4 파일로 저장하려면:
+          미리보기는 위에서 재생되지만, 결혼식장에 보내려면 파일로 저장해야 해요.
+          가장 쉬운 방법은 <b className="text-ink">기기 화면 녹화</b>입니다.
         </p>
-        <ul className="text-sm text-soft space-y-1 list-disc list-inside">
-          <li>가장 쉬움 — 화면 녹화 (아이폰/맥 기본 기능)</li>
-          <li>고화질 — [코드 받기] 모드에서 <code className="bg-white px-1 rounded">npx remotion render</code></li>
-        </ul>
+
+        <div className="bg-cream rounded-xl p-3 space-y-2">
+          <p className="text-xs font-medium">1️⃣ 먼저 영상을 풀스크린으로</p>
+          <button
+            onClick={() => {
+              const el = document.querySelector(".remotion-player") as HTMLElement | null;
+              if (el && el.requestFullscreen) el.requestFullscreen();
+            }}
+            className="btn-secondary text-xs w-full"
+          >
+            🖥️ 풀스크린으로 보기
+          </button>
+        </div>
+
+        <div className="bg-cream rounded-xl p-3 space-y-2">
+          <p className="text-xs font-medium">2️⃣ 기기에서 화면 녹화 시작</p>
+          <details className="text-xs text-soft">
+            <summary className="cursor-pointer text-ink">📱 아이폰 (가장 쉬움)</summary>
+            <ol className="mt-2 space-y-1 list-decimal list-inside pl-2">
+              <li>제어 센터 (오른쪽 위에서 아래로 스와이프)</li>
+              <li>⏺ 화면 기록 버튼 누르기 (3초 카운트)</li>
+              <li>여기로 돌아와 ▶ 재생</li>
+              <li>영상 끝나면 다시 ⏹로 정지</li>
+              <li>사진 앱에 저장됨</li>
+            </ol>
+          </details>
+          <details className="text-xs text-soft">
+            <summary className="cursor-pointer text-ink">💻 맥 (QuickTime)</summary>
+            <ol className="mt-2 space-y-1 list-decimal list-inside pl-2">
+              <li><b>Cmd + Shift + 5</b> (화면 녹화 도구)</li>
+              <li>"선택 영역 기록" 선택 → Player 영역 드래그</li>
+              <li>"기록" 클릭 → 위 ▶ 재생</li>
+              <li>완료 후 Cmd+Shift+5 → 정지</li>
+            </ol>
+          </details>
+          <details className="text-xs text-soft">
+            <summary className="cursor-pointer text-ink">🪟 윈도우 (Xbox Game Bar)</summary>
+            <ol className="mt-2 space-y-1 list-decimal list-inside pl-2">
+              <li><b>Win + G</b> → Game Bar 열기</li>
+              <li>캡처 위젯의 ⏺ 녹화 시작</li>
+              <li>여기로 돌아와 ▶ 재생</li>
+              <li>완료 후 정지 → 비디오 폴더에 저장</li>
+            </ol>
+          </details>
+          <details className="text-xs text-soft">
+            <summary className="cursor-pointer text-ink">📱 안드로이드</summary>
+            <ol className="mt-2 space-y-1 list-decimal list-inside pl-2">
+              <li>제어 센터에서 "화면 녹화" 누르기</li>
+              <li>여기로 돌아와 ▶ 재생</li>
+              <li>완료 후 다시 정지</li>
+            </ol>
+          </details>
+        </div>
+
+        <div className="bg-cream rounded-xl p-3 space-y-2">
+          <p className="text-xs font-medium">3️⃣ (선택) 더 고화질로 — 개발자 모드</p>
+          <p className="text-xs text-soft">
+            화면 녹화 화질이 부족하면 GitHub에서 코드 받아서 <code className="bg-white px-1 rounded">npx remotion render</code> —
+            1080p 60fps 깔끔한 MP4 출력.
+          </p>
+          <a
+            href="https://github.com/commet/wedding-os"
+            target="_blank"
+            rel="noopener"
+            className="text-xs text-gold underline"
+          >
+            GitHub에서 받기 ↗
+          </a>
+        </div>
+
+        <p className="text-[11px] text-soft text-center pt-1">
+          💡 결혼식장에 미리 영상 파일 + 형식 확인하세요. 보통 MP4 1920×1080.
+        </p>
       </section>
 
       {/* 사진 추가 모달 */}

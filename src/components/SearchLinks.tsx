@@ -11,7 +11,7 @@ export default function SearchLinks({ links, label }: { links: SearchLink[]; lab
             key={l.name}
             href={l.url}
             target="_blank"
-            rel="noopener"
+            rel="noopener noreferrer"
             className="text-xs px-3 py-2 rounded-lg bg-cream border border-line active:bg-line"
           >
             {l.name} ↗
