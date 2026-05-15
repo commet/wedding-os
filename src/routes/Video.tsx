@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { Player } from "@remotion/player";
+import { useState, useMemo, useRef } from "react";
+import { Player, type PlayerRef } from "@remotion/player";
 import type {
   WeddingData,
   VideoConfig,
@@ -15,6 +15,7 @@ import ChatbotBridgeModal from "../components/ChatbotBridgeModal";
 import { videoEditPrompt, BridgePrompt } from "../lib/chatbotBridge";
 import { STOCK_GALLERY } from "../data/stockPhotos";
 import { safeMediaSrc } from "../lib/security";
+import { canAutoRecord, recordCurrentTab, downloadBlob } from "../lib/videoExport";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 
@@ -47,6 +48,9 @@ export default function Video({ data, update }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [bridge, setBridge] = useState<BridgePrompt | null>(null);
   const [aiRequest, setAiRequest] = useState("");
+  const [recording, setRecording] = useState(false);
+  const [recordProgress, setRecordProgress] = useState(0);
+  const playerRef = useRef<PlayerRef>(null);
 
   const setVideo = (fn: (v: VideoConfig) => VideoConfig) => {
     update((prev: WeddingData) => ({ ...prev, video: fn(normalizeVideo(prev.video)) }));
@@ -114,6 +118,60 @@ export default function Video({ data, update }: Props) {
     if (!aiRequest.trim()) return;
     setBridge(videoEditPrompt(config, aiRequest.trim()));
   };
+
+  const handleAutoRecord = async () => {
+    if (config.photos.length === 0) {
+      alert("사진을 먼저 추가해주세요.");
+      return;
+    }
+    if (!canAutoRecord()) {
+      alert("이 브라우저는 자동 녹화를 지원하지 않아요. 아래 [화면 녹화 가이드]를 따라주세요.");
+      return;
+    }
+    if (!confirm(
+      "🎬 자동 영상 녹화\n\n" +
+      "1. 곧 '어떤 화면을 공유할까요?' 창이 떠요.\n" +
+      "2. '현재 탭' (또는 wedding-os 탭) 선택 + '탭 오디오 공유' 체크\n" +
+      "3. 자동으로 영상이 재생되고 녹화돼요.\n" +
+      "4. 영상 끝나면 WebM 파일이 자동 다운로드됩니다.\n\n" +
+      "총 약 " + durationSec + "초. 시작할까요?"
+    )) return;
+
+    setRecording(true);
+    setRecordProgress(0);
+    try {
+      // 영상을 처음으로 되감고 풀스크린으로
+      playerRef.current?.seekTo(0);
+      const playerEl = document.querySelector(".remotion-player") as HTMLElement | null;
+      try { if (playerEl?.requestFullscreen) await playerEl.requestFullscreen(); } catch {}
+      // 약간 기다린 뒤 재생 + 녹화 시작
+      await new Promise((r) => setTimeout(r, 400));
+      playerRef.current?.play();
+      const blob = await recordCurrentTab({
+        durationMs: durationSec * 1000 + 600,
+        fps,
+        onProgress: (sec, t) => setRecordProgress(Math.round((sec / t) * 100)),
+      });
+      downloadBlob(blob, `wedding-video-${Date.now()}.webm`);
+      try { if (document.fullscreenElement) await document.exitFullscreen(); } catch {}
+      alert(
+        "✓ 영상이 다운로드됐어요.\n\n" +
+        "WebM 파일은 VLC·QuickTime 등에서 재생되고,\n" +
+        "MP4 변환이 필요하면 무료 도구(예: CloudConvert)에 올리시면 됩니다."
+      );
+    } catch (e: any) {
+      const msg = e?.message ?? "알 수 없는 오류";
+      if (e?.name === "NotAllowedError") {
+        alert("화면 공유를 취소하셨어요.");
+      } else {
+        alert("녹화 실패: " + msg);
+      }
+    } finally {
+      setRecording(false);
+      setRecordProgress(0);
+    }
+  };
+
   const applyAI = (parsed: any) => {
     if (!parsed) return;
     // AI 답변은 신뢰할 수 없음 — URL/오디오 src 는 안전한 것만 통과.
@@ -136,6 +194,7 @@ export default function Video({ data, update }: Props) {
       {/* 미리보기 */}
       <div className="remotion-player rounded-2xl overflow-hidden border border-line bg-ink">
         <Player
+          ref={playerRef}
           component={WeddingVideo}
           inputProps={{ config, coupleNames }}
           durationInFrames={total}
@@ -348,10 +407,30 @@ export default function Video({ data, update }: Props) {
 
       {/* MP4 내보내기 — 진짜 작동하는 가이드 */}
       <section className="card space-y-4">
-        <h3 className="font-medium">📥 영상 파일(MP4)로 저장하기</h3>
-        <p className="text-sm text-soft leading-relaxed">
-          미리보기는 위에서 재생되지만, 결혼식장에 보내려면 파일로 저장해야 해요.
-          가장 쉬운 방법은 <b className="text-ink">기기 화면 녹화</b>입니다.
+        <h3 className="font-medium">📥 영상 파일로 저장하기</h3>
+
+        {/* 자동 녹화 — 실험 */}
+        <div className="rounded-xl border border-gold/30 bg-gold/5 p-3 space-y-2">
+          <p className="text-sm font-medium">🎬 자동 녹화 (실험)</p>
+          <p className="text-xs text-soft leading-relaxed">
+            한 번에 자동으로 영상 파일을 만들어요. 데스크탑 Chrome/Edge에서 가장 잘 작동.
+            모바일은 아래 화면 녹화 가이드를 추천.
+          </p>
+          <button
+            onClick={handleAutoRecord}
+            disabled={recording || config.photos.length === 0}
+            className="btn-primary w-full text-sm disabled:opacity-50"
+          >
+            {recording ? `🔴 녹화 중… ${recordProgress}%` : "🎬 자동으로 녹화 시작"}
+          </button>
+          <p className="text-[11px] text-soft">
+            결과는 WebM 파일. VLC·QuickTime에서 재생 가능.
+            MP4 필요하면 CloudConvert 같은 무료 변환 도구.
+          </p>
+        </div>
+
+        <p className="text-sm text-soft leading-relaxed pt-2">
+          또는 가장 안정적인 방법 — <b className="text-ink">기기 화면 녹화</b>:
         </p>
 
         <div className="bg-cream rounded-xl p-3 space-y-2">

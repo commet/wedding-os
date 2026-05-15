@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import type { WeddingData, InvitationContent } from "../lib/schema";
 import Modal from "../components/Modal";
 import { STOCK_HERO, STOCK_GALLERY } from "../data/stockPhotos";
@@ -6,6 +6,7 @@ import { PAPER_INVITATIONS, MOBILE_INVITATIONS } from "../data/invitationPlatfor
 import VendorActions from "../components/VendorActions";
 import { safeMediaSrc, safeHref, safeTel, isOwner } from "../lib/security";
 import { insertRsvp, type RsvpInput } from "../lib/storage.supabase";
+import { compressImage, dataUrlSize, formatBytes } from "../lib/imageCompress";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type Tab = "edit" | "preview";
@@ -291,15 +292,31 @@ function Preview({
           </div>
         </div>
 
-        {/* 2. 카운트다운 */}
+        {/* 2. 카운트다운 (본식 전) 또는 결혼 알림 (본식 후) */}
         {dday !== null && (
           <div className="py-5 text-center border-b border-line">
-            <div className="text-soft text-xs mb-1">
-              {locale === "ko" ? "결혼식까지" : locale === "en" ? "Days to go" : "距婚禮"}
-            </div>
-            <div className={`font-serif text-3xl ${theme.accent}`}>
-              {dday > 0 ? `D-${dday}` : dday === 0 ? "D-DAY" : t("결혼했습니다", locale)}
-            </div>
+            {dday < 0 ? (
+              <>
+                <div className="text-soft text-xs mb-1">
+                  {locale === "ko" ? "결혼식이 끝났어요" : locale === "en" ? "Just Married" : "已結婚"}
+                </div>
+                <div className={`font-serif text-3xl ${theme.accent}`}>
+                  D+{Math.abs(dday)}
+                </div>
+                <p className="text-xs text-soft mt-2">
+                  {locale === "ko" ? "함께해주셔서 감사합니다 💌" : locale === "en" ? "Thank you for being with us 💌" : "謝謝您的祝福 💌"}
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="text-soft text-xs mb-1">
+                  {locale === "ko" ? "결혼식까지" : locale === "en" ? "Days to go" : "距婚禮"}
+                </div>
+                <div className={`font-serif text-3xl ${theme.accent}`}>
+                  {dday > 0 ? `D-${dday}` : "D-DAY"}
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -402,23 +419,38 @@ function Preview({
           <AccountSection inv={inv} locale={locale} accent={theme.accent} />
         )}
 
-        {/* 10. RSVP */}
-        <div className="px-7 py-7 text-center">
-          <h3 className={`text-sm ${theme.accent} mb-2 tracking-wide`}>{t("참석 의사 전달", locale)}</h3>
-          <p className="text-xs text-soft mb-3">{t("축하의 마음으로 참석해 주시는 분들을 위해", locale)}</p>
-          <button
-            className="btn-primary text-sm w-full"
-            onClick={onRsvpClick}
-            disabled={!rsvpEnabled || !onRsvpClick}
-          >
-            {t("참석 여부 전하기", locale)}
-          </button>
-          {!rsvpEnabled && (
-            <p className="text-[11px] text-soft mt-2">
-              {t("실제 RSVP는 [내 사이트] 모드에서 작동합니다", locale)}
+        {/* 10. RSVP (본식 전) 또는 감사 인사 (본식 후) */}
+        {dday !== null && dday < 0 ? (
+          <div className="px-7 py-8 text-center">
+            <h3 className={`text-sm ${theme.accent} mb-3 tracking-wide`}>
+              {locale === "ko" ? "감사의 인사" : locale === "en" ? "Thank You" : "感謝您"}
+            </h3>
+            <p className="text-sm leading-relaxed text-ink/90 whitespace-pre-line">
+              {locale === "ko"
+                ? "축하해주신 모든 분들께\n진심으로 감사드립니다.\n\n앞으로 더 행복하게 살아보겠습니다."
+                : locale === "en"
+                ? "Thank you to everyone who\ncelebrated with us.\n\nWe'll cherish your blessings."
+                : "謝謝所有祝福我們的人。\n\n會幸福地生活下去。"}
             </p>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="px-7 py-7 text-center">
+            <h3 className={`text-sm ${theme.accent} mb-2 tracking-wide`}>{t("참석 의사 전달", locale)}</h3>
+            <p className="text-xs text-soft mb-3">{t("축하의 마음으로 참석해 주시는 분들을 위해", locale)}</p>
+            <button
+              className="btn-primary text-sm w-full"
+              onClick={onRsvpClick}
+              disabled={!rsvpEnabled || !onRsvpClick}
+            >
+              {t("참석 여부 전하기", locale)}
+            </button>
+            {!rsvpEnabled && (
+              <p className="text-[11px] text-soft mt-2">
+                {t("실제 RSVP는 [내 사이트] 모드에서 작동합니다", locale)}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* BGM */}
         {safeMediaSrc(inv.bgmUrl) && (
@@ -529,13 +561,16 @@ function EditForm({ inv, set }: { inv: InvitationContent; set: (k: any, v: any) 
         {safeMediaSrc(inv.heroImageUrl) && (
           <img src={safeMediaSrc(inv.heroImageUrl)} alt="" className="w-full aspect-[3/4] object-cover rounded-xl" />
         )}
+        <HeroUploadButton
+          onUploaded={(dataUrl) => set("heroImageUrl", dataUrl)}
+        />
         <button onClick={() => setPicker("hero")} className="btn-secondary w-full text-sm">
           📷 추천 사진에서 고르기
         </button>
         <label className="label">또는 사진 주소(URL) 직접 입력</label>
         <input
           className="input text-sm"
-          value={inv.heroImageUrl ?? ""}
+          value={inv.heroImageUrl?.startsWith("data:") ? "" : (inv.heroImageUrl ?? "")}
           onChange={(e) => {
             const v = e.target.value;
             // 빈값은 그대로 허용 (지우기), 입력값은 sanitize 후 저장.
@@ -543,7 +578,7 @@ function EditForm({ inv, set }: { inv: InvitationContent; set: (k: any, v: any) 
             const clean = safeMediaSrc(v);
             set("heroImageUrl", clean ?? v); // 잘못된 값도 일단 표시는 하되, 렌더 단계에서 걸러짐
           }}
-          placeholder="https://...jpg"
+          placeholder="https://...jpg (또는 위 [내 사진 업로드])"
         />
 
         <label className="label mt-2">청첩장 색감</label>
@@ -624,6 +659,11 @@ function EditForm({ inv, set }: { inv: InvitationContent; set: (k: any, v: any) 
       </Section>
 
       <Section title="갤러리">
+        <GalleryUploadButton
+          onUploaded={(urls) =>
+            set("gallery", [...(inv.gallery ?? []), ...urls.map((u) => ({ url: u }))])
+          }
+        />
         <button onClick={() => setPicker("gallery")} className="btn-secondary w-full text-sm">
           📷 추천 사진에서 추가
         </button>
@@ -743,6 +783,111 @@ function PhotoPickerModal({
         사진 출처: Unsplash · 자유 이용 가능
       </p>
     </Modal>
+  );
+}
+
+function HeroUploadButton({ onUploaded }: { onUploaded: (dataUrl: string) => void }) {
+  const [busy, setBusy] = useState(false);
+  const ref = useRef<HTMLInputElement>(null);
+
+  const handle = async (file: File) => {
+    setBusy(true);
+    try {
+      const compressed = await compressImage(file, { maxWidth: 1400, maxHeight: 1800, quality: 0.85 });
+      const size = dataUrlSize(compressed);
+      if (size > 1.5 * 1024 * 1024) {
+        // 1.5MB 넘으면 한 번 더 줄임
+        const smaller = await compressImage(file, { maxWidth: 1000, maxHeight: 1400, quality: 0.78 });
+        onUploaded(smaller);
+      } else {
+        onUploaded(compressed);
+      }
+    } catch (e: any) {
+      alert("사진을 불러올 수 없어요: " + (e?.message ?? "알 수 없는 오류"));
+    } finally {
+      setBusy(false);
+      if (ref.current) ref.current.value = "";
+    }
+  };
+
+  return (
+    <>
+      <input
+        ref={ref}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) handle(f);
+        }}
+      />
+      <button
+        onClick={() => ref.current?.click()}
+        disabled={busy}
+        className="btn-primary w-full text-sm disabled:opacity-50"
+      >
+        {busy ? "압축 중…" : "📤 내 사진 업로드"}
+      </button>
+    </>
+  );
+}
+
+function GalleryUploadButton({ onUploaded }: { onUploaded: (urls: string[]) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const ref = useRef<HTMLInputElement>(null);
+
+  const handle = async (files: FileList) => {
+    setBusy(true);
+    setProgress(0);
+    const out: string[] = [];
+    let totalSize = 0;
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i];
+        const compressed = await compressImage(f, { maxWidth: 900, maxHeight: 1200, quality: 0.8 });
+        out.push(compressed);
+        totalSize += dataUrlSize(compressed);
+        setProgress(Math.round(((i + 1) / files.length) * 100));
+      }
+      onUploaded(out);
+      if (totalSize > 3 * 1024 * 1024) {
+        alert(
+          `사진 ${files.length}장을 추가했어요 (${formatBytes(totalSize)}).\n` +
+          `브라우저 저장 한도(약 5MB) 가까워요. 더 추가하지 마세요.\n` +
+          `더 많은 사진을 쓰려면 [내 사이트 만들기] 모드 추천.`
+        );
+      }
+    } catch (e: any) {
+      alert("일부 사진을 불러올 수 없었어요: " + (e?.message ?? "알 수 없는 오류"));
+    } finally {
+      setBusy(false);
+      setProgress(0);
+      if (ref.current) ref.current.value = "";
+    }
+  };
+
+  return (
+    <>
+      <input
+        ref={ref}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files && e.target.files.length > 0) handle(e.target.files);
+        }}
+      />
+      <button
+        onClick={() => ref.current?.click()}
+        disabled={busy}
+        className="btn-primary w-full text-sm disabled:opacity-50"
+      >
+        {busy ? `압축 중… ${progress}%` : "📤 여러 장 업로드"}
+      </button>
+    </>
   );
 }
 
