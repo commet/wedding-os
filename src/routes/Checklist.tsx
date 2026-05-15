@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import type { WeddingData, CheckItem, ChecklistSection } from "../lib/schema";
 import { defaultChecklist, recalcDueDates } from "../data/checklistTemplate";
@@ -11,6 +11,21 @@ export default function Checklist({ data, update }: Props) {
   const [view, setView] = useState<View>("timeline");
   const sections = data.checklist;
   const weddingDate = data.invitation.date;
+
+  // 결혼식 날짜 있는데 ddayOffset만 박힌 항목(dueDate 없음) 발견 시 자동 재계산
+  useEffect(() => {
+    if (!weddingDate || sections.length === 0) return;
+    const needsRecalc = sections.some((s) =>
+      s.items.some((i) => i.ddayOffset !== undefined && !i.dueDate)
+    );
+    if (needsRecalc) {
+      update((prev: WeddingData) => ({
+        ...prev,
+        checklist: recalcDueDates(prev.checklist, prev.invitation.date),
+      }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weddingDate, sections.length]);
 
   const allItems = useMemo(
     () => sections.flatMap((s) => s.items.map((i) => ({ ...i, sid: s.id, section: s.title, icon: s.icon }))),

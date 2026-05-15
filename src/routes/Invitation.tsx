@@ -26,16 +26,24 @@ export default function Invitation({ data, update }: Props) {
   };
 
   const share = async () => {
-    if (data.preferences.mode !== "supabase") {
-      alert("청첩장 링크를 카톡으로 공유하려면 [내 사이트 만들기] 모드로 전환해주세요. (더보기 → 저장 방식 다시 선택)");
+    // 모드 2: 실제 청첩장 링크
+    if (data.preferences.mode === "supabase") {
+      const url = window.location.origin + "/invitation";
+      try {
+        await navigator.clipboard.writeText(url);
+        alert("청첩장 링크가 복사되었어요.");
+      } catch {
+        prompt("아래 링크를 복사해주세요:", url);
+      }
       return;
     }
-    const url = window.location.origin + "/invitation";
+    // 모드 1: 카톡 채팅에 그대로 붙여넣을 텍스트 (링크 없이도 즉시 공유 가능)
+    const text = buildKakaoShareText(inv);
     try {
-      await navigator.clipboard.writeText(url);
-      alert("청첩장 링크가 복사되었어요.");
+      await navigator.clipboard.writeText(text);
+      alert("✓ 청첩장 내용이 복사되었어요.\n카톡 채팅에 그대로 붙여넣어 보내세요.");
     } catch {
-      prompt("아래 링크를 복사해주세요:", url);
+      prompt("아래 내용을 복사해 카톡에 붙여넣으세요:", text);
     }
   };
 
@@ -241,9 +249,23 @@ function Preview({ inv, locale }: { inv: InvitationContent; locale: Locale; }) {
         </div>
       </div>
 
-      <p className="text-xs text-center text-soft mt-4 leading-relaxed">
-        이 미리보기는 실제 청첩장과 거의 같은 모습이에요.<br />
-        편집 탭에서 사진·문구를 채우면 바로 반영됩니다.
+      <button
+        onClick={async () => {
+          const text = buildKakaoShareText(inv);
+          try {
+            await navigator.clipboard.writeText(text);
+            alert("✓ 청첩장 내용이 복사되었어요.\n카톡 채팅에 그대로 붙여넣어 보내세요.");
+          } catch {
+            prompt("아래 내용을 복사해 카톡에 붙여넣으세요:", text);
+          }
+        }}
+        className="mt-4 btn-primary w-full py-3.5 shadow-md"
+      >
+        💬 카톡으로 보낼 텍스트 복사
+      </button>
+      <p className="text-xs text-center text-soft mt-3 leading-relaxed">
+        모드 1에서도 청첩장을 카톡으로 보낼 수 있어요.<br />
+        진짜 청첩장 링크(웹사이트)는 [내 사이트 만들기] 모드에서.
       </p>
     </div>
   );
@@ -599,4 +621,56 @@ function formatDate(d: Date, locale: Locale): string {
   if (locale === "ko") return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
   if (locale === "en") return d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
   return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+}
+
+// 카톡 채팅창에 그대로 붙여넣을 청첩장 텍스트
+function buildKakaoShareText(inv: InvitationContent): string {
+  const lines: string[] = [];
+  const dateObj = inv.date ? new Date(inv.date) : null;
+  const validDate = dateObj && !isNaN(dateObj.getTime()) ? dateObj : null;
+  const dayKo = validDate ? `(${["일","월","화","수","목","금","토"][validDate.getDay()]})` : "";
+
+  lines.push(`💌 ${inv.groomName || "신랑"} ♥ ${inv.brideName || "신부"} 결혼합니다`);
+  lines.push("");
+  if (validDate) lines.push(`📅 ${formatDate(validDate, "ko")} ${dayKo}${inv.time ? ` ${inv.time}` : ""}`);
+  if (inv.venue) {
+    lines.push(`📍 ${inv.venue}${inv.venueHall ? ` ${inv.venueHall}` : ""}`);
+    if (inv.venueAddress) lines.push(`   ${inv.venueAddress}`);
+  }
+
+  if (inv.greeting) {
+    lines.push("");
+    lines.push("─ 모시는 글 ─");
+    lines.push(inv.greeting);
+  }
+
+  const groomParents = [inv.groomParents?.father, inv.groomParents?.mother].filter(Boolean).join(" · ");
+  const brideParents = [inv.brideParents?.father, inv.brideParents?.mother].filter(Boolean).join(" · ");
+  if (groomParents || brideParents) {
+    lines.push("");
+    lines.push("─ 혼주 ─");
+    if (groomParents) lines.push(`${groomParents} 의 ${inv.groomOrder || "아들"} ${inv.groomName}`);
+    if (brideParents) lines.push(`${brideParents} 의 ${inv.brideOrder || "딸"} ${inv.brideName}`);
+  }
+
+  if (inv.groomPhone || inv.bridePhone) {
+    lines.push("");
+    lines.push("─ 연락처 ─");
+    if (inv.groomPhone) lines.push(`🤵 신랑 ${inv.groomPhone}`);
+    if (inv.bridePhone) lines.push(`👰 신부 ${inv.bridePhone}`);
+  }
+
+  if (inv.groomAccount || inv.brideAccount) {
+    lines.push("");
+    lines.push("─ 마음 전하실 곳 ─");
+    if (inv.groomAccount) lines.push(`🤵 ${inv.groomAccount}`);
+    if (inv.brideAccount) lines.push(`👰 ${inv.brideAccount}`);
+  }
+
+  if (inv.venue) {
+    lines.push("");
+    lines.push(`🗺️ 오시는 길: https://map.kakao.com/link/search/${encodeURIComponent(inv.venue)}`);
+  }
+
+  return lines.join("\n");
 }

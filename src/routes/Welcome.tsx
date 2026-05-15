@@ -2,6 +2,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import type { WeddingData } from "../lib/schema";
 import { defaultData } from "../lib/schema";
+import { defaultChecklist } from "../data/checklistTemplate";
 
 type Props = {
   data: WeddingData;
@@ -69,22 +70,35 @@ export default function Welcome({ update }: Props) {
       window.open("https://github.com/commet/wedding-os", "_blank");
       return;
     }
-    if (id === "local") {
-      // 모드 1: 즉시 적용 + 데이터 리셋
-      update(() => ({
-        ...defaultData(),
-        preferences: { ...defaultData().preferences, mode: "local", isDemo: false },
-      }));
-      navigate("/dashboard");
-      return;
-    }
-    // 모드 2 (supabase): 셋업 안 끝났으면 mode 저장하지 않음.
-    // 데이터만 깨끗하게 리셋하고 isDemo 끔. mode는 Setup Step 5에서 최종 저장됨.
-    update(() => ({
-      ...defaultData(),
-      preferences: { ...defaultData().preferences, mode: null, isDemo: false },
-    }));
-    navigate("/setup");
+
+    update((prev: WeddingData) => {
+      // 데모 상태였으면 데이터 정리하되 "구조"(체크리스트 타임라인)는 자동 seed → 빈 화면 회피.
+      // 이미 사용자 데이터가 있는 상태(Settings에서 모드 변경)는 데이터 유지.
+      if (prev.preferences.isDemo) {
+        const base = defaultData();
+        return {
+          ...base,
+          // 결혼식 날짜 없어도 ddayOffset만 박혀있는 표준 타임라인 seed
+          checklist: defaultChecklist(),
+          preferences: {
+            ...base.preferences,
+            mode: id === "local" ? "local" : null,
+            isDemo: false,
+          },
+        };
+      }
+      // 모드만 바꾸기 — 데이터 유지
+      return {
+        ...prev,
+        preferences: {
+          ...prev.preferences,
+          mode: id === "local" ? "local" : null,
+          isDemo: false,
+        },
+      };
+    });
+
+    navigate(id === "local" ? "/dashboard" : "/setup");
   };
 
   if (step === "modeSelect") {
