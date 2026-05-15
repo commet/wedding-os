@@ -4,8 +4,23 @@ import { RING_CATALOG } from "../data/ringsTemplate";
 import FreshnessBadge from "../components/FreshnessBadge";
 import ChatbotBridgeModal from "../components/ChatbotBridgeModal";
 import Modal from "../components/Modal";
+import VendorActions from "../components/VendorActions";
 import { ringPriceCheckPrompt, BridgePrompt } from "../lib/chatbotBridge";
 import { todayISO } from "../lib/freshness";
+
+// 브랜드별 공식 사이트 — 모델 페이지는 변동이 잦아 메인 도메인만.
+// (curl 403도 실제 브라우저에서는 정상 동작)
+const BRAND_SITES: Record<string, string> = {
+  "티파니": "https://www.tiffany.com/",
+  "까르띠에": "https://www.cartier.com/",
+  "샤넬": "https://www.chanel.com/",
+  "불가리": "https://www.bulgari.com/",
+  "부쉐론": "https://www.boucheron.com/",
+  "쇼메": "https://www.chaumet.com/",
+  "피아제": "https://www.piaget.com/",
+  "반 클리프 아펠": "https://www.vancleefarpels.com/",
+  "드 비어스": "https://www.debeers.com/",
+};
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type Who = "groom" | "bride";
@@ -253,6 +268,14 @@ function RingCard({
           {otherLabel}: {starredByOther && "★"} {likedByOther && "♥"}
         </div>
       )}
+
+      <div className="mt-3 pt-3 border-t border-line">
+        <VendorActions
+          name={ring.brand}
+          query={ring.model}
+          officialUrl={BRAND_SITES[ring.brand]}
+        />
+      </div>
     </div>
   );
 }

@@ -69,12 +69,22 @@ export default function Welcome({ update }: Props) {
       window.open("https://github.com/commet/wedding-os", "_blank");
       return;
     }
-    // 깨끗한 빈 데이터로 초기화 (데모 데이터 제거)
+    if (id === "local") {
+      // 모드 1: 즉시 적용 + 데이터 리셋
+      update(() => ({
+        ...defaultData(),
+        preferences: { ...defaultData().preferences, mode: "local", isDemo: false },
+      }));
+      navigate("/dashboard");
+      return;
+    }
+    // 모드 2 (supabase): 셋업 안 끝났으면 mode 저장하지 않음.
+    // 데이터만 깨끗하게 리셋하고 isDemo 끔. mode는 Setup Step 5에서 최종 저장됨.
     update(() => ({
       ...defaultData(),
-      preferences: { ...defaultData().preferences, mode: id, isDemo: false },
+      preferences: { ...defaultData().preferences, mode: null, isDemo: false },
     }));
-    navigate(id === "local" ? "/dashboard" : "/setup");
+    navigate("/setup");
   };
 
   if (step === "modeSelect") {

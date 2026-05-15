@@ -8,6 +8,7 @@ import {
   type SdmCatalogEntry,
 } from "../data/sdmCatalog";
 import Modal from "../components/Modal";
+import VendorActions from "../components/VendorActions";
 
 type Props = { data: WeddingData; update: (patch: any) => void };
 
@@ -238,9 +239,8 @@ function CatalogCard({
   added: boolean;
   onAdd: () => void;
 }) {
-  const mapUrl = `https://map.kakao.com/link/search/${encodeURIComponent(entry.name)}`;
   return (
-    <div className={`card p-3 ${added ? "opacity-60" : ""}`}>
+    <div className={`card p-3 ${added ? "opacity-70" : ""}`}>
       <div className="font-medium text-sm">{entry.name}</div>
       <div className="text-xs text-soft mt-1 line-clamp-2">{entry.vibe}</div>
       {entry.region && (
@@ -248,23 +248,15 @@ function CatalogCard({
           📍 {entry.region}
         </span>
       )}
-      <div className="mt-3 flex items-center gap-2">
+      <div className="mt-3 space-y-2">
         <button
           onClick={onAdd}
           disabled={added}
-          className={`flex-1 text-xs py-1.5 rounded-md ${added ? "bg-cream text-soft" : "bg-gold/10 text-gold border border-gold/30"}`}
+          className={`w-full text-xs py-1.5 rounded-md ${added ? "bg-cream text-soft" : "bg-gold/10 text-gold border border-gold/30"}`}
         >
           {added ? "✓ 담음" : "+ 담기"}
         </button>
-        <a
-          href={mapUrl}
-          target="_blank"
-          rel="noopener"
-          className="text-xs py-1.5 px-2.5 rounded-md bg-white border border-line text-soft"
-          onClick={(e) => e.stopPropagation()}
-        >
-          🗺️
-        </a>
+        <VendorActions name={entry.name} region={entry.region} />
       </div>
     </div>
   );
@@ -277,7 +269,6 @@ function MyVendorCard({
   onUpdate: (patch: Partial<SdmVendor>) => void;
   onRemove: () => void;
 }) {
-  const mapUrl = `https://map.kakao.com/link/search/${encodeURIComponent(v.name)}`;
   return (
     <div className="card space-y-2">
       <div className="flex items-start justify-between">
@@ -285,18 +276,10 @@ function MyVendorCard({
           <div className="font-medium text-sm">{v.name}</div>
           {v.region && <div className="text-xs text-soft">📍 {v.region}</div>}
         </div>
-        <div className="flex items-center gap-2">
-          <a
-            href={mapUrl}
-            target="_blank"
-            rel="noopener"
-            className="text-xs text-soft border border-line rounded-md px-2 py-1"
-          >
-            🗺️ 지도
-          </a>
-          <button onClick={onRemove} className="text-soft text-xs">×</button>
-        </div>
+        <button onClick={onRemove} className="text-soft text-xs">×</button>
       </div>
+      <VendorActions name={v.name} region={v.region} officialUrl={v.link} />
+
       <div className="flex gap-1.5 flex-wrap">
         {STATUS_OPTIONS.map((s) => (
           <button

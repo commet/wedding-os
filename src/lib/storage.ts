@@ -39,10 +39,26 @@ export const localStorageDriver: StorageDriver = {
   },
 };
 
-function migrate(data: WeddingData): WeddingData {
-  // 향후 schemaVersion 마이그레이션 자리.
-  if (!data.schemaVersion) data.schemaVersion = SCHEMA_VERSION;
-  return data;
+function migrate(raw: unknown): WeddingData {
+  // 누락된 필드를 defaultData로 안전하게 보충.
+  // 옛 버전에서 저장된 데이터에 새 필드(예: sdm)가 없어도 깨지지 않도록.
+  const base = defaultData();
+  const data = (raw ?? {}) as Partial<WeddingData>;
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    preferences: { ...base.preferences, ...(data.preferences ?? {}) },
+    invitation:  { ...base.invitation,  ...(data.invitation  ?? {}) },
+    rings:       Array.isArray(data.rings)    ? data.rings    : [],
+    sdm:         Array.isArray(data.sdm)      ? data.sdm      : [],
+    hotels:      Array.isArray(data.hotels)   ? data.hotels   : [],
+    flights:     Array.isArray(data.flights)  ? data.flights  : [],
+    honeymoon:   { ...base.honeymoon, ...(data.honeymoon ?? {}),
+                   regions: Array.isArray(data.honeymoon?.regions) ? data.honeymoon!.regions : [] },
+    checklist:   Array.isArray(data.checklist) ? data.checklist : [],
+    video:       { ...base.video, ...(data.video ?? {}),
+                   acts: Array.isArray(data.video?.acts) ? data.video!.acts : [],
+                   photos: Array.isArray(data.video?.photos) ? data.video!.photos : [] },
+  };
 }
 
 /** 현재 저장된 모드만 보고 드라이버 선택. preferences.mode 없으면 local. */
