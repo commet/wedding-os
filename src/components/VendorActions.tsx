@@ -12,8 +12,11 @@ type Props = {
 export default function VendorActions({ name, query, region, officialUrl, size = "xs" }: Props) {
   const fullQuery = query ? `${name} ${query}` : name;
   const mapQuery = region ? `${name} ${region}` : name;
+  // 인스타는 explore/tags 패턴이 비로그인 상태에서도 200. 핸들 추측보다 안전.
+  // 태그는 공백·괄호 제거된 핵심 이름만.
+  const tag = name.replace(/\([^)]*\)/g, "").replace(/[\s·]+/g, "").trim();
   const google = `https://www.google.com/search?q=${encodeURIComponent(fullQuery)}`;
-  const instagram = `https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent(name)}`;
+  const instagram = `https://www.instagram.com/explore/tags/${encodeURIComponent(tag)}/`;
   const kakaoMap = `https://map.kakao.com/link/search/${encodeURIComponent(mapQuery)}`;
 
   const cls = size === "sm"

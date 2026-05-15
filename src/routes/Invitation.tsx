@@ -2,6 +2,8 @@ import { useState } from "react";
 import type { WeddingData, InvitationContent } from "../lib/schema";
 import Modal from "../components/Modal";
 import { STOCK_HERO, STOCK_GALLERY } from "../data/stockPhotos";
+import { PAPER_INVITATIONS, MOBILE_INVITATIONS } from "../data/invitationPlatforms";
+import VendorActions from "../components/VendorActions";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type Tab = "edit" | "preview";
@@ -403,6 +405,34 @@ function EditForm({ inv, set }: { inv: InvitationContent; set: (k: any, v: any) 
         실제로 카톡으로 보내려면 [더보기 → 저장 방식]에서 [내 사이트 만들기]로 전환하세요.
       </p>
 
+      {/* 다른 청첩장 서비스도 알아보기 */}
+      <section className="card bg-cream/50 space-y-3">
+        <h3 className="font-medium text-sm">📑 다른 청첩장 서비스도 알아보기</h3>
+        <p className="text-xs text-soft leading-relaxed">
+          여기서 직접 만드는 게 부담이면, 익숙한 청첩장 업체에서 비슷한 결과를 얻을 수 있어요.
+          객관적으로 알아보세요.
+        </p>
+        <div>
+          <div className="text-xs text-soft mb-2">🖨️ 종이 청첩장</div>
+          <div className="space-y-2">
+            {PAPER_INVITATIONS.map((p) => (
+              <PlatformRow key={p.name} entry={p} />
+            ))}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs text-soft mb-2">📱 모바일 청첩장</div>
+          <div className="space-y-2">
+            {MOBILE_INVITATIONS.map((p) => (
+              <PlatformRow key={p.name} entry={p} />
+            ))}
+          </div>
+        </div>
+        <p className="text-[11px] text-soft pt-1">
+          ⚠️ 가격·정책은 변동 잦음. 직접 확인 필요.
+        </p>
+      </section>
+
       {picker && (
         <PhotoPickerModal
           key={picker}
@@ -497,6 +527,32 @@ function GalleryEditor({ gallery, onChange }: { gallery: { url: string; caption?
           className="btn-secondary text-sm"
           onClick={() => { if (url.trim()) { onChange([...gallery, { url: url.trim() }]); setUrl(""); } }}
         >추가</button>
+      </div>
+    </div>
+  );
+}
+
+function PlatformRow({ entry }: { entry: { name: string; desc: string; url?: string } }) {
+  return (
+    <div className="bg-white rounded-lg p-2.5 border border-line">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="font-medium text-sm">{entry.name}</div>
+          <div className="text-[11px] text-soft mt-0.5">{entry.desc}</div>
+        </div>
+        {entry.url && (
+          <a
+            href={entry.url}
+            target="_blank"
+            rel="noopener"
+            className="text-[11px] text-gold border border-gold/30 rounded px-2 py-1 flex-shrink-0"
+          >
+            홈피 ↗
+          </a>
+        )}
+      </div>
+      <div className="mt-2">
+        <VendorActions name={entry.name} />
       </div>
     </div>
   );

@@ -153,42 +153,53 @@ export default function Welcome({ update }: Props) {
 
   // ─── 감성 랜딩 ───
   return (
-    <div className="max-w-app mx-auto">
+    <div className="max-w-app mx-auto bg-gradient-to-b from-cream via-white to-cream/50 min-h-screen">
       {/* 히어로 */}
-      <div className="px-6 pt-16 pb-12 text-center">
-        <div className="text-4xl mb-4">💍</div>
-        <h1 className="font-serif text-3xl leading-snug mb-3">
-          결혼 준비,<br />우리 둘이서 충분해요
-        </h1>
-        <p className="text-soft text-sm leading-relaxed">
-          청첩장부터 식전영상, 체크리스트까지<br />
-          한 곳에서 함께 만들어요.
-        </p>
+      <div className="px-6 pt-20 pb-14 text-center relative">
+        <div className="absolute top-10 left-1/2 -translate-x-1/2 w-32 h-32 bg-gold/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="relative">
+          <div className="text-5xl mb-5 opacity-90">🤍</div>
+          <div className="text-xs text-gold tracking-[0.3em] uppercase mb-3">Wedding OS</div>
+          <h1 className="font-serif text-[2rem] leading-tight mb-4 text-ink">
+            결혼 준비,<br />
+            <span className="text-gold">우리 둘이서</span> 충분해요
+          </h1>
+          <p className="text-soft text-sm leading-relaxed">
+            청첩장 · 식전영상 · 체크리스트까지<br />
+            한 곳에서 함께 만들어요.
+          </p>
+        </div>
       </div>
 
       {/* 메인 CTA */}
       <div className="px-6 space-y-3">
-        <button onClick={browseDemo} className="btn-primary w-full text-base py-4">
-          ✨ 예시로 둘러보기
+        <button
+          onClick={browseDemo}
+          className="btn-primary w-full text-base py-4 shadow-lg shadow-gold/20"
+        >
+          ✨ 먼저 예시로 둘러보기
         </button>
         <p className="text-center text-xs text-soft">
           가상 커플의 완성된 결혼식을 미리 구경할 수 있어요
         </p>
         <button onClick={startMine} className="btn-secondary w-full">
-          내 결혼식 바로 시작하기
+          내 결혼식 바로 시작하기 →
         </button>
       </div>
 
       {/* 기능 미리보기 */}
-      <div className="px-6 py-12">
-        <p className="text-center text-xs text-soft mb-5 tracking-wide">이런 걸 할 수 있어요</p>
+      <div className="px-6 py-14">
+        <p className="text-center text-xs text-gold mb-6 tracking-[0.2em] uppercase">What's inside</p>
         <div className="space-y-3">
           {FEATURES.map((f) => (
-            <div key={f.title} className="card flex items-center gap-4">
-              <span className="text-2xl">{f.icon}</span>
-              <div>
+            <div
+              key={f.title}
+              className="card flex items-center gap-4 bg-white/80 backdrop-blur border border-line/60 hover:border-gold/40 transition"
+            >
+              <span className="text-3xl">{f.icon}</span>
+              <div className="flex-1">
                 <div className="font-medium text-sm">{f.title}</div>
-                <div className="text-xs text-soft mt-0.5">{f.desc}</div>
+                <div className="text-xs text-soft mt-0.5 leading-relaxed">{f.desc}</div>
               </div>
             </div>
           ))}
@@ -197,17 +208,19 @@ export default function Welcome({ update }: Props) {
 
       {/* 하단 반복 CTA */}
       <div className="px-6 pb-10">
-        <button onClick={browseDemo} className="btn-primary w-full py-4">
-          ✨ 예시로 둘러보기
+        <button onClick={browseDemo} className="btn-primary w-full py-4 shadow-lg shadow-gold/20">
+          ✨ 먼저 예시로 둘러보기
         </button>
       </div>
 
-      <p className="px-6 pb-12 text-center text-xs text-soft leading-relaxed">
-        개인적으로 만든 도구라 오류가 있을 수 있어요.<br />
-        문제나 제안은{" "}
-        <a href="mailto:yclee913@gmail.com" className="underline">yclee913@gmail.com</a>
-        {" "}으로 편하게 알려주세요.
-      </p>
+      <div className="px-6 pb-14 text-center text-xs text-soft leading-relaxed border-t border-line/50 pt-8 mt-4">
+        <p>개인적으로 만든 도구라 오류가 있을 수 있어요.</p>
+        <p className="mt-1">
+          문제·제안은{" "}
+          <a href="mailto:yclee913@gmail.com" className="underline text-gold">yclee913@gmail.com</a>
+          {" "}으로 편하게.
+        </p>
+      </div>
     </div>
   );
 }
