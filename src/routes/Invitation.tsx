@@ -12,12 +12,24 @@ import { compressImage, dataUrlSize, formatBytes } from "../lib/imageCompress";
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type Tab = "edit" | "preview";
 type Locale = "ko" | "en" | "zh";
-type Theme = "cream" | "white" | "sage";
+type Theme = "cream" | "white" | "sage" | "rose" | "navy" | "sand" | "slate" | "blush";
+type FontStyle = "serif" | "sans" | "handwriting";
 
-const THEME: Record<Theme, { heroGrad: string; accent: string; chip: string }> = {
-  cream: { heroGrad: "from-cream to-taupe/30", accent: "text-gold", chip: "bg-gold" },
-  white: { heroGrad: "from-gray-50 to-gray-200", accent: "text-soft", chip: "bg-ink" },
-  sage:  { heroGrad: "from-sage/10 to-sage/30", accent: "text-sage", chip: "bg-sage" },
+const THEME: Record<Theme, { heroGrad: string; accent: string; chip: string; swatch: string; label: string }> = {
+  cream: { heroGrad: "from-cream to-taupe/30",         accent: "text-gold",         chip: "bg-gold",         swatch: "bg-gold",         label: "크림" },
+  white: { heroGrad: "from-gray-50 to-gray-200",        accent: "text-soft",         chip: "bg-ink",          swatch: "bg-ink",          label: "화이트" },
+  sage:  { heroGrad: "from-sage/10 to-sage/30",         accent: "text-sage",         chip: "bg-sage",         swatch: "bg-sage",         label: "세이지" },
+  rose:  { heroGrad: "from-rose-50 to-rose-200/60",     accent: "text-rose-600",     chip: "bg-rose-500",     swatch: "bg-rose-400",     label: "로즈" },
+  navy:  { heroGrad: "from-slate-100 to-slate-300",     accent: "text-blue-900",     chip: "bg-blue-900",     swatch: "bg-blue-900",     label: "네이비" },
+  sand:  { heroGrad: "from-orange-50 to-orange-200/60", accent: "text-orange-700",   chip: "bg-orange-700",   swatch: "bg-orange-400",   label: "샌드" },
+  slate: { heroGrad: "from-slate-50 to-slate-200",      accent: "text-slate-700",    chip: "bg-slate-700",    swatch: "bg-slate-500",    label: "슬레이트" },
+  blush: { heroGrad: "from-pink-50 to-pink-200/40",     accent: "text-pink-700",     chip: "bg-pink-500",     swatch: "bg-pink-300",     label: "블러시" },
+};
+
+const FONT: Record<FontStyle, { class: string; label: string; sample: string }> = {
+  serif:       { class: "font-serif", label: "정통 (세리프)", sample: "도현 · 지윤" },
+  sans:        { class: "font-sans",  label: "모던 (산세리프)", sample: "도현 · 지윤" },
+  handwriting: { class: "font-hand",  label: "손글씨", sample: "도현 · 지윤" },
 };
 
 export default function Invitation({ data, update }: Props) {
@@ -304,6 +316,7 @@ function Preview({
   hideShareBox?: boolean;
 }) {
   const theme = THEME[(inv.theme as Theme) ?? "cream"];
+  const fontClass = FONT[(inv.fontStyle as FontStyle) ?? "serif"].class;
   const dateObj = inv.date ? new Date(inv.date) : null;
   const validDate = dateObj && !isNaN(dateObj.getTime()) ? dateObj : null;
   const dday = validDate ? Math.ceil((validDate.getTime() - Date.now()) / 86400000) : null;
@@ -326,7 +339,7 @@ function Preview({
           )}
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/50 to-transparent p-6 text-white text-center">
             <div className="text-xs tracking-[0.2em] uppercase mb-2 opacity-90">{t("Wedding Invitation", locale)}</div>
-            <div className="font-serif text-2xl">{names}</div>
+            <div className={`${fontClass} text-2xl`}>{names}</div>
             {validDate && (
               <div className="text-sm mt-2 opacity-90">{formatDate(validDate, locale)}{inv.time && ` · ${inv.time}`}</div>
             )}
@@ -341,7 +354,7 @@ function Preview({
                 <div className="text-soft text-xs mb-1">
                   {locale === "ko" ? "결혼식이 끝났어요" : locale === "en" ? "Just Married" : "已結婚"}
                 </div>
-                <div className={`font-serif text-3xl ${theme.accent}`}>
+                <div className={`${fontClass} text-3xl ${theme.accent}`}>
                   D+{Math.abs(dday)}
                 </div>
                 <p className="text-xs text-soft mt-2">
@@ -353,7 +366,7 @@ function Preview({
                 <div className="text-soft text-xs mb-1">
                   {locale === "ko" ? "결혼식까지" : locale === "en" ? "Days to go" : "距婚禮"}
                 </div>
-                <div className={`font-serif text-3xl ${theme.accent}`}>
+                <div className={`${fontClass} text-3xl ${theme.accent}`}>
                   {dday > 0 ? `D-${dday}` : "D-DAY"}
                 </div>
               </>
@@ -391,7 +404,7 @@ function Preview({
         {validDate && (
           <div className="px-7 py-7 border-b border-line">
             <h3 className={`text-sm ${theme.accent} mb-4 text-center tracking-wide`}>{t("예식일", locale)}</h3>
-            <MiniCalendar date={validDate} chipClass={theme.chip} />
+            <MiniCalendar date={validDate} chipClass={theme.chip} fontClass={fontClass} />
           </div>
         )}
 
@@ -561,7 +574,7 @@ function AccountSection({ inv, locale, accent }: { inv: InvitationContent; local
   );
 }
 
-function MiniCalendar({ date, chipClass }: { date: Date; chipClass: string; }) {
+function MiniCalendar({ date, chipClass, fontClass = "font-serif" }: { date: Date; chipClass: string; fontClass?: string; }) {
   const year = date.getFullYear();
   const month = date.getMonth();
   const day = date.getDate();
@@ -575,7 +588,7 @@ function MiniCalendar({ date, chipClass }: { date: Date; chipClass: string; }) {
 
   return (
     <div>
-      <div className="text-center font-serif text-lg mb-3">{year}.{String(month + 1).padStart(2, "0")}</div>
+      <div className={`text-center ${fontClass} text-lg mb-3`}>{year}.{String(month + 1).padStart(2, "0")}</div>
       <div className="grid grid-cols-7 gap-1 text-center text-xs">
         {WD.map((w, i) => (
           <div key={w} className={`py-1 ${i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-soft"}`}>{w}</div>
@@ -627,21 +640,38 @@ function EditForm({ inv, set }: { inv: InvitationContent; set: (k: any, v: any) 
         />
 
         <label className="label mt-2">청첩장 색감</label>
-        <div className="flex gap-2">
-          {([
-            { id: "cream", label: "크림", sw: "bg-gold" },
-            { id: "white", label: "화이트", sw: "bg-ink" },
-            { id: "sage", label: "세이지", sw: "bg-sage" },
-          ] as const).map((th) => (
-            <button
-              key={th.id}
-              onClick={() => set("theme", th.id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 text-sm py-2 rounded-lg border ${theme === th.id ? "border-gold bg-gold/5" : "border-line"}`}
-            >
-              <span className={`w-3 h-3 rounded-full ${th.sw}`} />
-              {th.label}
-            </button>
-          ))}
+        <div className="grid grid-cols-4 gap-2">
+          {(Object.keys(THEME) as Theme[]).map((id) => {
+            const t = THEME[id];
+            return (
+              <button
+                key={id}
+                onClick={() => set("theme", id)}
+                className={`flex flex-col items-center gap-1.5 py-2.5 rounded-lg border-2 ${theme === id ? "border-gold bg-gold/5" : "border-line bg-white"}`}
+              >
+                <span className={`w-5 h-5 rounded-full ${t.swatch}`} />
+                <span className="text-[11px]">{t.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <label className="label mt-3">폰트 톤</label>
+        <div className="grid grid-cols-3 gap-2">
+          {(Object.keys(FONT) as FontStyle[]).map((id) => {
+            const f = FONT[id];
+            const isOn = ((inv.fontStyle as FontStyle) ?? "serif") === id;
+            return (
+              <button
+                key={id}
+                onClick={() => set("fontStyle", id)}
+                className={`flex flex-col items-center gap-1 py-3 rounded-lg border-2 ${isOn ? "border-gold bg-gold/5" : "border-line bg-white"}`}
+              >
+                <span className={`${f.class} text-base`}>{f.sample}</span>
+                <span className="text-[10px] text-soft">{f.label}</span>
+              </button>
+            );
+          })}
         </div>
       </Section>
 

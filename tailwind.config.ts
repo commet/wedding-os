@@ -15,7 +15,8 @@ export default {
       },
       fontFamily: {
         sans: ['"Pretendard"', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
-        serif: ['"Noto Serif KR"', 'Georgia', 'serif'],
+        serif: ['"Noto Serif KR"', '"Gowun Batang"', 'Georgia', 'serif'],
+        hand: ['"Nanum Pen Script"', 'cursive'],
       },
       maxWidth: {
         app: "480px",
