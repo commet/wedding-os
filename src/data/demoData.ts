@@ -102,6 +102,8 @@ export function demoData(): WeddingData {
       ],
       rsvpEnabled: true,
       theme: "cream",
+      // 데모는 외국 하객 케이스를 보여주려 다국어 켜둠 — 사용자는 자기 결혼식 시작 시 빈 배열로 리셋됨.
+      enabledLocales: ["en", "zh"],
     },
     rings: demoRings(),
     sdm: demoSdm(),

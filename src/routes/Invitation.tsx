@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import type { WeddingData, InvitationContent } from "../lib/schema";
 import Modal from "../components/Modal";
 import { STOCK_HERO, STOCK_GALLERY } from "../data/stockPhotos";
@@ -28,6 +28,12 @@ export default function Invitation({ data, update }: Props) {
   const [locale, setLocale] = useState<Locale>("ko");
   const [showRsvp, setShowRsvp] = useState(false);
   const inv = data.invitation;
+
+  // 활성 언어가 바뀌어 현재 locale 이 더 이상 허용되지 않으면 한국어로 fallback.
+  useEffect(() => {
+    const allowed: Locale[] = ["ko", ...((inv.enabledLocales ?? []) as Locale[])];
+    if (!allowed.includes(locale)) setLocale("ko");
+  }, [inv.enabledLocales, locale]);
 
   const set = <K extends keyof InvitationContent>(key: K, value: InvitationContent[K]) => {
     update((prev: WeddingData) => ({ ...prev, invitation: { ...prev.invitation, [key]: value } }));
@@ -76,9 +82,9 @@ export default function Invitation({ data, update }: Props) {
           {!guest && (
             <TabBtn active={tab === "edit"} onClick={() => setTab("edit")}>편집</TabBtn>
           )}
-          {tab === "preview" && (
+          {tab === "preview" && (inv.enabledLocales?.length ?? 0) > 0 && (
             <div className="ml-auto flex gap-1">
-              {(["ko", "en", "zh"] as const).map((l) => (
+              {(["ko", ...(inv.enabledLocales ?? [])] as Locale[]).map((l) => (
                 <button
                   key={l}
                   onClick={() => setLocale(l)}
@@ -636,6 +642,31 @@ function EditForm({ inv, set }: { inv: InvitationContent; set: (k: any, v: any) 
           <input className="input" placeholder="어머니" value={inv.brideParents?.mother ?? ""} onChange={(e) => set("brideParents", { ...inv.brideParents, mother: e.target.value })} />
         </div>
         <input className="input" placeholder="관계 (예: 장녀, 외동딸)" value={inv.brideOrder ?? ""} onChange={(e) => set("brideOrder", e.target.value)} />
+      </Section>
+
+      <Section title="외국 하객 (선택)">
+        <p className="text-xs text-soft leading-relaxed">
+          외국에 사는 가족·친구가 있으면 영문·중문을 추가로 켤 수 있어요.
+          체크하면 미리보기 상단에 언어 전환 버튼이 보입니다.
+        </p>
+        {([
+          { id: "en" as const, label: "🇺🇸 영문 추가" },
+          { id: "zh" as const, label: "🇨🇳 중문(번체) 추가" },
+        ]).map((opt) => {
+          const on = (inv.enabledLocales ?? []).includes(opt.id);
+          return (
+            <button
+              key={opt.id}
+              onClick={() => {
+                const cur = inv.enabledLocales ?? [];
+                set("enabledLocales", on ? cur.filter((x) => x !== opt.id) : [...cur, opt.id]);
+              }}
+              className={`w-full text-sm py-2 rounded-lg border ${on ? "border-gold bg-gold/5 text-gold" : "border-line text-soft"}`}
+            >
+              {on ? "✓ " : ""}{opt.label}
+            </button>
+          );
+        })}
       </Section>
 
       <Section title="배경 음악 (선택)">

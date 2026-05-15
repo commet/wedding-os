@@ -120,6 +120,8 @@ export type InvitationContent = {
   bgmUrl?: string;
   rsvpEnabled?: boolean;
   theme?: "cream" | "white" | "sage"; // 청첩장 톤
+  // 외국 하객을 위한 추가 언어. 빈 배열/undefined면 한국어만 — 다국어 칩 안 보임.
+  enabledLocales?: ("en" | "zh")[];
   translations?: {
     en?: Partial<InvitationContent>;
     zh?: Partial<InvitationContent>;
