@@ -89,7 +89,7 @@ export type SdmCatalogEntry = {
 export const SDM_CATALOG: SdmCatalogEntry[] = [
   // ══════ 📸 스튜디오 ══════
   // 청담 / 강남 라인
-  { id: "s-lamuse",     category: "studio", name: "라뮤즈 (Lamuse)",          vibe: "자연광·따뜻한 톤, 가장 자주 언급",   region: "청담" },
+  { id: "s-lamuse",     category: "studio", name: "라뮤즈 (Lamuse)",          vibe: "자연광·따뜻한 톤",                     region: "청담" },
   { id: "s-eutteum",    category: "studio", name: "으뜸 스튜디오",             vibe: "전통적·고급 화보",                    region: "송파" },
   { id: "s-urbanchic",  category: "studio", name: "어반시크 (UrbanChic)",      vibe: "모던·시크 패션화보",                 region: "강남" },
   { id: "s-life",       category: "studio", name: "라이프 스튜디오",            vibe: "라이프스타일·일상 컨셉",              region: "강남" },

@@ -5,6 +5,7 @@ import { STOCK_HERO, STOCK_GALLERY } from "../data/stockPhotos";
 import { PAPER_INVITATIONS, MOBILE_INVITATIONS } from "../data/invitationPlatforms";
 import VendorActions from "../components/VendorActions";
 import { safeMediaSrc, safeHref, safeTel, isOwner } from "../lib/security";
+import { insertRsvp, type RsvpInput } from "../lib/storage.supabase";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type Tab = "edit" | "preview";
@@ -21,8 +22,10 @@ export default function Invitation({ data, update }: Props) {
   // 청첩장 페이지는 게스트도 접근. 게스트에겐 편집 탭을 노출하지 않음.
   // (모드 2에서 anon 키만으론 권한 분리가 안 되므로, 최소한의 UI 가드.)
   const guest = data.preferences.mode === "supabase" && !isOwner();
+  const canRsvp = data.preferences.mode === "supabase" && !!data.preferences.supabase;
   const [tab, setTab] = useState<Tab>("preview");
   const [locale, setLocale] = useState<Locale>("ko");
+  const [showRsvp, setShowRsvp] = useState(false);
   const inv = data.invitation;
 
   const set = <K extends keyof InvitationContent>(key: K, value: InvitationContent[K]) => {
@@ -91,9 +94,149 @@ export default function Invitation({ data, update }: Props) {
       {tab === "edit" && !guest ? (
         <EditForm inv={inv} set={set} />
       ) : (
-        <Preview inv={inv} locale={locale} />
+        <Preview
+          inv={inv}
+          locale={locale}
+          rsvpEnabled={canRsvp}
+          onRsvpClick={() => setShowRsvp(true)}
+        />
+      )}
+
+      {showRsvp && (
+        <RsvpModal
+          locale={locale}
+          supabase={data.preferences.supabase}
+          onClose={() => setShowRsvp(false)}
+        />
       )}
     </div>
+  );
+}
+
+function RsvpModal({
+  locale, supabase, onClose,
+}: {
+  locale: Locale;
+  supabase?: { url: string; anonKey: string };
+  onClose: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [attending, setAttending] = useState<boolean | null>(null);
+  const [side, setSide] = useState<"groom" | "bride">("groom");
+  const [guests, setGuests] = useState(1);
+  const [meal, setMeal] = useState("");
+  const [message, setMessage] = useState("");
+  const [status, setStatus] = useState<"idle" | "sending" | "ok" | "fail">("idle");
+  const [errMsg, setErrMsg] = useState("");
+
+  const submit = async () => {
+    if (!name.trim()) return setErrMsg("이름을 적어주세요");
+    if (attending === null) return setErrMsg("참석 여부를 선택해주세요");
+    if (!supabase) return setErrMsg("아직 청첩장 셋업이 안 끝났어요");
+    setStatus("sending");
+    setErrMsg("");
+    const r = await insertRsvp(supabase.url, supabase.anonKey, {
+      name: name.trim(),
+      attending,
+      side,
+      guests: attending ? guests : 0,
+      meal: meal.trim() || undefined,
+      message: message.trim() || undefined,
+    } as RsvpInput);
+    if (r.ok) setStatus("ok");
+    else {
+      setStatus("fail");
+      setErrMsg(r.reason ?? "전송 실패");
+    }
+  };
+
+  return (
+    <Modal open onClose={onClose} title={t("참석 의사 전달", locale)}>
+      {status === "ok" ? (
+        <div className="text-center py-6 space-y-3">
+          <div className="text-3xl">💌</div>
+          <p className="text-sm">{t("축하의 마음으로 참석해 주시는 분들을 위해", locale)}</p>
+          <p className="text-base font-medium text-gold">{t("전송됐어요. 감사합니다.", locale)}</p>
+          <button onClick={onClose} className="btn-primary mt-2">닫기</button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-xs text-soft">신랑·신부가 따뜻한 마음으로 확인할게요.</p>
+
+          <div>
+            <label className="label">{t("성함", locale)}</label>
+            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="홍길동" />
+          </div>
+
+          <div>
+            <label className="label">{t("어느 쪽", locale)}</label>
+            <div className="flex gap-2">
+              {(["groom", "bride"] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setSide(s)}
+                  className={`flex-1 text-sm py-2 rounded-lg border ${side === s ? "border-gold bg-gold/5 text-gold" : "border-line text-soft"}`}
+                >
+                  {s === "groom" ? `🤵 ${t("신랑 측", locale)}` : `👰 ${t("신부 측", locale)}`}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="label">{t("참석 여부", locale)}</label>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setAttending(true)}
+                className={`flex-1 text-sm py-2 rounded-lg border ${attending === true ? "border-gold bg-gold/5 text-gold" : "border-line text-soft"}`}
+              >
+                ✓ {t("참석", locale)}
+              </button>
+              <button
+                onClick={() => setAttending(false)}
+                className={`flex-1 text-sm py-2 rounded-lg border ${attending === false ? "border-gold bg-gold/5 text-gold" : "border-line text-soft"}`}
+              >
+                ✗ {t("불참", locale)}
+              </button>
+            </div>
+          </div>
+
+          {attending === true && (
+            <div>
+              <label className="label">{t("참석 인원 (본인 포함)", locale)}</label>
+              <input
+                type="number"
+                min={1}
+                max={20}
+                className="input"
+                value={guests}
+                onChange={(e) => setGuests(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="label">{t("축하 메시지 (선택)", locale)}</label>
+            <textarea
+              className="input min-h-[70px]"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="두 분의 결혼을 축하합니다…"
+            />
+          </div>
+
+          {errMsg && <p className="text-red-500 text-sm">{errMsg}</p>}
+
+          <button
+            onClick={submit}
+            disabled={status === "sending"}
+            className="btn-primary w-full disabled:opacity-50"
+          >
+            {status === "sending" ? t("전송 중…", locale) : t("참석 의사 전하기", locale)}
+          </button>
+        </div>
+      )}
+    </Modal>
   );
 }
 
@@ -110,7 +253,14 @@ function TabBtn({ active, onClick, children }: any) {
 
 /* ════════════ 미리보기 — 실제 청첩장 ════════════ */
 
-function Preview({ inv, locale }: { inv: InvitationContent; locale: Locale; }) {
+function Preview({
+  inv, locale, rsvpEnabled, onRsvpClick,
+}: {
+  inv: InvitationContent;
+  locale: Locale;
+  rsvpEnabled?: boolean;
+  onRsvpClick?: () => void;
+}) {
   const theme = THEME[(inv.theme as Theme) ?? "cream"];
   const dateObj = inv.date ? new Date(inv.date) : null;
   const validDate = dateObj && !isNaN(dateObj.getTime()) ? dateObj : null;
@@ -256,13 +406,27 @@ function Preview({ inv, locale }: { inv: InvitationContent; locale: Locale; }) {
         <div className="px-7 py-7 text-center">
           <h3 className={`text-sm ${theme.accent} mb-2 tracking-wide`}>{t("참석 의사 전달", locale)}</h3>
           <p className="text-xs text-soft mb-3">{t("축하의 마음으로 참석해 주시는 분들을 위해", locale)}</p>
-          <button className="btn-secondary text-sm w-full" disabled>
+          <button
+            className="btn-primary text-sm w-full"
+            onClick={onRsvpClick}
+            disabled={!rsvpEnabled || !onRsvpClick}
+          >
             {t("참석 여부 전하기", locale)}
           </button>
-          <p className="text-[11px] text-soft mt-2">
-            {t("실제 RSVP는 [내 사이트] 모드에서 작동합니다", locale)}
-          </p>
+          {!rsvpEnabled && (
+            <p className="text-[11px] text-soft mt-2">
+              {t("실제 RSVP는 [내 사이트] 모드에서 작동합니다", locale)}
+            </p>
+          )}
         </div>
+
+        {/* BGM */}
+        {safeMediaSrc(inv.bgmUrl) && (
+          <div className="px-7 py-4 border-t border-line text-center">
+            <p className="text-xs text-soft mb-2">🎵 {t("배경 음악", locale)}</p>
+            <audio src={safeMediaSrc(inv.bgmUrl)} controls className="w-full" />
+          </div>
+        )}
 
         {/* 푸터 */}
         <div className="bg-cream py-6 text-center text-xs text-soft">
@@ -439,6 +603,26 @@ function EditForm({ inv, set }: { inv: InvitationContent; set: (k: any, v: any) 
         <input className="input" placeholder="관계 (예: 장녀, 외동딸)" value={inv.brideOrder ?? ""} onChange={(e) => set("brideOrder", e.target.value)} />
       </Section>
 
+      <Section title="배경 음악 (선택)">
+        <label className="label">음원 주소 (mp3 URL)</label>
+        <input
+          className="input text-sm"
+          value={inv.bgmUrl ?? ""}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (!v) { set("bgmUrl", undefined); return; }
+            const clean = safeMediaSrc(v);
+            set("bgmUrl", clean ?? v);
+          }}
+          placeholder="https://...mp3"
+        />
+        <p className="text-xs text-soft leading-relaxed">
+          저작권 무료 음원은 <a href="https://pixabay.com/music/" target="_blank" rel="noopener noreferrer" className="underline">Pixabay Music</a>·{" "}
+          <a href="https://incompetech.com/" target="_blank" rel="noopener noreferrer" className="underline">Incompetech</a>{" "}에서 받을 수 있어요.
+          파일 URL을 그대로 붙여넣으세요.
+        </p>
+      </Section>
+
       <Section title="갤러리">
         <button onClick={() => setPicker("gallery")} className="btn-secondary w-full text-sm">
           📷 추천 사진에서 추가
@@ -483,8 +667,11 @@ function EditForm({ inv, set }: { inv: InvitationContent; set: (k: any, v: any) 
             ))}
           </div>
         </div>
-        <p className="text-[11px] text-soft pt-1">
-          ⚠️ 가격·정책은 변동 잦음. 직접 확인 필요.
+        <p className="text-[11px] text-soft pt-1 leading-relaxed">
+          ⚠️ 가격·정책은 변동 잦음. 직접 확인 필요. 어느 업체와도 제휴·후원 관계 없습니다.
+          표시 삭제·정정 요청은{" "}
+          <a href="mailto:yclee913@gmail.com" rel="noopener noreferrer" className="underline">yclee913@gmail.com</a>
+          {" "}으로 — 24시간 내 처리.
         </p>
       </section>
 

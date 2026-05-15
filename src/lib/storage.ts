@@ -114,18 +114,54 @@ export function useWeddingData() {
       setData((prev) => {
         const base = prev ?? defaultData();
         const next = typeof patch === "function" ? patch(base) : { ...base, ...patch };
-        const driver = selectDriver(next);
-        // fire-and-forget save
-        driver.save(next).catch(() => {});
-        // localStorage에도 항상 미러 — 모드 2여도 오프라인 fallback
-        if (driver !== localStorageDriver) localStorageDriver.save(next).catch(() => {});
+        // 저장은 큐로 직렬화 — 빠르게 연속 update 가 와도 호출 순서대로 반영되도록.
+        // (앞 요청이 네트워크 지연으로 늦게 도착해 새 값을 덮어쓰는 race 방지.)
+        enqueueSave(next);
         return next;
       });
     },
     []
   );
 
+  // 실시간 협업 — 모드 2일 때만, Supabase Realtime postgres_changes 구독.
+  // 신랑·신부 동시 편집 시 다른 쪽 화면이 자동 갱신됨.
+  const supabaseUrl = data?.preferences.supabase?.url;
+  const supabaseKey = data?.preferences.supabase?.anonKey;
+  const isSupabaseMode = data?.preferences.mode === "supabase";
+  useEffect(() => {
+    if (!isSupabaseMode || !supabaseUrl || !supabaseKey) return;
+    const driver = createSupabaseStorage(supabaseUrl, supabaseKey, data?.preferences.supabase?.configId);
+    if (!driver.subscribe) return;
+    const unsubscribe = driver.subscribe((next) => {
+      setData((prev) => {
+        if (!prev) return next;
+        // 큰 객체 변경 비교 — JSON.stringify는 비용 있지만 사용 빈도가 낮아 OK.
+        if (JSON.stringify(prev) === JSON.stringify(next)) return prev;
+        return next;
+      });
+      localStorageDriver.save(next).catch(() => {});
+    });
+    return () => { try { unsubscribe(); } catch {} };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabaseUrl, supabaseKey, isSupabaseMode]);
+
   return { data, loading, update };
+}
+
+// 직렬 저장 큐. 모든 save 호출이 이 chain 위에서 순차 실행된다.
+// 실패는 조용히 — 다음 save 가 올바른 최신 상태를 다시 쓰면 정상화됨.
+let saveChain: Promise<unknown> = Promise.resolve();
+function enqueueSave(next: WeddingData) {
+  const driver = selectDriver(next);
+  saveChain = saveChain
+    .then(() => driver.save(next))
+    .catch(() => undefined);
+  if (driver !== localStorageDriver) {
+    // 모드 2여도 localStorage에 항상 미러 — 오프라인 fallback / 새 기기 import 시 출발점.
+    saveChain = saveChain
+      .then(() => localStorageDriver.save(next))
+      .catch(() => undefined);
+  }
 }
 
 // 데이터 export / import — 모드 전환 또는 백업용.

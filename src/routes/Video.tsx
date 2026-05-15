@@ -14,6 +14,7 @@ import Modal from "../components/Modal";
 import ChatbotBridgeModal from "../components/ChatbotBridgeModal";
 import { videoEditPrompt, BridgePrompt } from "../lib/chatbotBridge";
 import { STOCK_GALLERY } from "../data/stockPhotos";
+import { safeMediaSrc } from "../lib/security";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 
@@ -69,11 +70,16 @@ export default function Video({ data, update }: Props) {
     }));
 
   const addPhotos = (urls: string[]) => {
+    const safe = urls.map((u) => safeMediaSrc(u)).filter((u): u is string => !!u);
+    if (safe.length === 0) {
+      alert("https:// 로 시작하는 사진 주소만 추가할 수 있어요.");
+      return;
+    }
     setVideo((v) => ({
       ...v,
       photos: [
         ...v.photos,
-        ...urls.map((url, i): VideoPhoto => ({
+        ...safe.map((url, i): VideoPhoto => ({
           id: `vp-${Date.now()}-${i}`,
           url,
           durationSec: 4,
@@ -110,7 +116,15 @@ export default function Video({ data, update }: Props) {
   };
   const applyAI = (parsed: any) => {
     if (!parsed) return;
-    setVideo(() => normalizeVideo(parsed));
+    // AI 답변은 신뢰할 수 없음 — URL/오디오 src 는 안전한 것만 통과.
+    // (악의적·잘못된 URL로 외부 추적 픽셀이 박히지 않도록.)
+    const normalized = normalizeVideo(parsed);
+    const safe: VideoConfig = {
+      ...normalized,
+      photos: normalized.photos.filter((p) => !!safeMediaSrc(p.url)),
+      bgmUrl: safeMediaSrc(normalized.bgmUrl),
+    };
+    setVideo(() => safe);
     setAiRequest("");
     setBridge(null);
   };
@@ -210,7 +224,9 @@ export default function Video({ data, update }: Props) {
             {config.photos.map((photo, i) => (
               <div key={photo.id} className="card p-3">
                 <div className="flex items-center gap-3">
-                  <img src={photo.url} alt="" className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
+                  {safeMediaSrc(photo.url) && (
+                    <img src={safeMediaSrc(photo.url)} alt="" className="w-16 h-16 rounded-lg object-cover flex-shrink-0" />
+                  )}
                   <div className="flex-1 min-w-0">
                     <input
                       className="text-sm w-full bg-transparent outline-none"
@@ -283,7 +299,16 @@ export default function Video({ data, update }: Props) {
           <input
             className="input text-sm"
             value={config.bgmUrl ?? ""}
-            onChange={(e) => setVideo((v) => ({ ...v, bgmUrl: e.target.value || undefined }))}
+            onChange={(e) => {
+              const v = e.target.value;
+              setVideo((p) => ({ ...p, bgmUrl: v || undefined }));
+            }}
+            onBlur={(e) => {
+              const v = e.target.value;
+              if (v && !safeMediaSrc(v)) {
+                alert("배경음악 주소는 https:// 로 시작해야 해요.");
+              }
+            }}
             placeholder="https://...mp3"
           />
         </div>
@@ -391,7 +416,7 @@ export default function Video({ data, update }: Props) {
           <a
             href="https://github.com/commet/wedding-os"
             target="_blank"
-            rel="noopener"
+            rel="noopener noreferrer"
             className="text-xs text-gold underline"
           >
             GitHub에서 받기 ↗

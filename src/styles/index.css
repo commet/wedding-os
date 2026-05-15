@@ -26,6 +26,18 @@
   }
 }
 
+/* 인쇄·PDF 출력 — 청첩장 미리보기와 체크리스트만 깔끔히 인쇄되도록.
+   다른 페이지 헤더/네비/배경 그라데이션은 인쇄에서 제거. */
+@media print {
+  header, nav, .no-print { display: none !important; }
+  body { background: white !important; color: black !important; }
+  .card { box-shadow: none !important; break-inside: avoid; }
+  .sticky { position: static !important; }
+  main { padding-bottom: 0 !important; }
+  a { color: inherit !important; text-decoration: none !important; }
+  @page { margin: 12mm; }
+}
+
 @layer components {
   /* inline-flex + center: <a> 태그로 써도 텍스트가 겹치지 않게 */
   .btn-primary {

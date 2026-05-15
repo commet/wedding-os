@@ -1,5 +1,7 @@
 // 다른 청첩장 플랫폼·업체 안내.
-// wedding-os 직접 비교가 아니라 "객관적으로 알아보기" 목적.
+// wedding-os 와 비교/평가 목적이 아니라, 사용자가 시장의 다른 옵션을 알 수 있도록 정리한 목록.
+// 평가성 표현은 피하고 사실 위주의 짧은 설명만 둠.
+// 표시 삭제·정정 요청은 yclee913@gmail.com 으로 — 24시간 내 처리.
 // URL은 메인 도메인 위주 (URL이 변하기 쉬워서).
 
 export type PlatformEntry = {
@@ -9,19 +11,19 @@ export type PlatformEntry = {
 };
 
 export const PAPER_INVITATIONS: PlatformEntry[] = [
-  { name: "바른손카드",   desc: "전통 강자, 디자인 종류 가장 많음",  url: "https://www.barunsoncard.com/" },
-  { name: "카드마을",     desc: "온라인 가성비, 빠른 제작",          url: "https://www.cardmaeul.com/" },
-  { name: "잇츠카드",     desc: "모바일·종이 번들 인기",             url: "https://www.itscard.co.kr/" },
-  { name: "디얼디어",     desc: "감성 디자인",                       url: "https://www.deardear.co.kr/" },
-  { name: "보자기카드",   desc: "한국적 정통",                       url: "https://www.bojagicard.co.kr/" },
-  { name: "옵션더카드",   desc: "프리미엄 커스텀 디자인" },
+  { name: "바른손카드",   desc: "종이 청첩장 전문",                  url: "https://www.barunsoncard.com/" },
+  { name: "카드마을",     desc: "온라인 주문 제작",                  url: "https://www.cardmaeul.com/" },
+  { name: "잇츠카드",     desc: "종이·모바일 청첩장",                url: "https://www.itscard.co.kr/" },
+  { name: "디얼디어",     desc: "종이 청첩장 제작",                  url: "https://www.deardear.co.kr/" },
+  { name: "보자기카드",   desc: "종이 청첩장 제작",                  url: "https://www.bojagicard.co.kr/" },
+  { name: "옵션더카드",   desc: "커스텀 디자인 청첩장" },
 ];
 
 export const MOBILE_INVITATIONS: PlatformEntry[] = [
-  { name: "더무드 (theMood)",   desc: "감성·디자인 다양",            url: "https://themood.co.kr/" },
-  { name: "마음꽃",             desc: "한국적·따뜻한 디자인" },
-  { name: "카드의정석",         desc: "RSVP·갤러리·BGM 풍부" },
-  { name: "잇츠카드 모바일",     desc: "심플·빠른 제작",              url: "https://www.itscard.co.kr/" },
-  { name: "바른손 모바일",       desc: "종이와 디자인 연결",          url: "https://www.barunsoncard.com/" },
-  { name: "카카오톡 청첩장",     desc: "카톡 내에서 바로 제작·발송",   url: "https://moa.kakao.com/" },
+  { name: "더무드 (theMood)",   desc: "모바일 청첩장 제작",          url: "https://themood.co.kr/" },
+  { name: "마음꽃",             desc: "모바일 청첩장 제작" },
+  { name: "카드의정석",         desc: "모바일 청첩장 (RSVP·갤러리·BGM 지원)" },
+  { name: "잇츠카드 모바일",     desc: "모바일 청첩장 제작",          url: "https://www.itscard.co.kr/" },
+  { name: "바른손 모바일",       desc: "모바일 청첩장 제작",          url: "https://www.barunsoncard.com/" },
+  { name: "카카오톡 청첩장",     desc: "카카오톡 내 청첩장 발송 (Kakao Corp.)", url: "https://moa.kakao.com/" },
 ];

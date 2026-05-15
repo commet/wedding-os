@@ -3,15 +3,13 @@ import { useNavigate, Link } from "react-router-dom";
 import type { WeddingData } from "../lib/schema";
 import { exportData, importData } from "../lib/storage";
 import { todayISO } from "../lib/freshness";
-import { getSecrets, setSecrets, clearSecrets, clearOwner } from "../lib/security";
+import { clearSecrets, clearOwner, isOwner, markOwner } from "../lib/security";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 
 export default function Settings({ data, update }: Props) {
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
-  // AI 키는 WeddingData 가 아니라 별도 secrets 저장소에서 관리 — 모드 2의 공개 row 로 새지 않도록.
-  const [aiKey, setAiKey] = useState<string>(getSecrets().aiKey ?? "");
 
   const handleExport = () => {
     exportData(data);
@@ -24,17 +22,12 @@ export default function Settings({ data, update }: Props) {
   const handleImport = async (file: File) => {
     try {
       const imported = await importData(file, data);
-      if (confirm("현재 데이터를 덮어쓸까요?\n(연결 정보·AI 키는 안전하게 그대로 둡니다)")) {
+      if (confirm("현재 데이터를 덮어쓸까요?\n(연결 정보는 안전하게 그대로 둡니다)")) {
         update(() => imported);
       }
     } catch (e) {
       alert("파일을 읽을 수 없어요. JSON 백업 파일이 맞는지 확인해주세요.");
     }
-  };
-
-  const saveAiKey = () => {
-    setSecrets({ aiKey: aiKey.trim() });
-    alert("저장됐어요. AI 키는 이 기기에만 저장되며, 백업 파일이나 모드 2 동기화에는 포함되지 않습니다.");
   };
 
   const reset = () => {
@@ -73,6 +66,18 @@ export default function Settings({ data, update }: Props) {
       </section>
 
       <section className="card space-y-3">
+        <h3 className="font-medium">📄 PDF로 저장 (인쇄)</h3>
+        <p className="text-sm text-soft leading-relaxed">
+          청첩장이나 체크리스트를 PDF로 저장하고 싶을 때 — 각 페이지에서{" "}
+          <b className="text-ink">Cmd/Ctrl + P</b>로 인쇄 → <b>"PDF로 저장"</b>을 선택하세요.
+          인쇄 친화 스타일이 자동 적용됩니다.
+        </p>
+        <p className="text-xs text-soft">
+          (모바일은 일반적으로 브라우저 메뉴 → "공유" → "프린트" 흐름)
+        </p>
+      </section>
+
+      <section className="card space-y-3">
         <h3 className="font-medium">데이터 백업</h3>
         <p className="text-sm text-soft">
           모든 데이터를 한 파일(JSON)로 내보내거나, 다시 불러올 수 있어요.
@@ -101,23 +106,12 @@ export default function Settings({ data, update }: Props) {
         )}
       </section>
 
-      <section className="card space-y-3">
-        <h3 className="font-medium">AI 키 (선택)</h3>
-        <p className="text-sm text-soft">
-          본인 Anthropic API 키를 입력하면 챗봇 복붙 없이 바로 AI 편집이 가능해요.
-          입력하지 않으면 기본은 챗봇 복붙 방식으로 동작합니다.
-        </p>
-        <input
-          type="password"
-          className="input text-xs"
-          value={aiKey}
-          onChange={(e) => setAiKey(e.target.value)}
-          placeholder="sk-ant-..."
-        />
-        <button onClick={saveAiKey} className="btn-secondary w-full">저장</button>
-        <p className="text-xs text-soft">
-          AI 키는 <b>이 기기에만</b> 저장됩니다. 백업 파일에도, 모드 2 동기화에도 포함되지 않아요.
-          다른 기기에서 쓰려면 그 기기에서 다시 입력해주세요.
+      <section className="card space-y-2 bg-cream/50">
+        <h3 className="font-medium text-sm">🤖 AI 편집 방식</h3>
+        <p className="text-xs text-soft leading-relaxed">
+          현재는 <b className="text-ink">챗봇 다리 방식</b>만 지원해요 — ChatGPT/Claude/Gemini 무료 버전에
+          프롬프트를 복붙하고, 답변을 다시 붙여넣으면 영상·정보가 갱신됩니다.
+          본인 API 키 직접 호출은 안전·비용 이슈로 일단 미지원.
         </p>
       </section>
 
@@ -133,6 +127,7 @@ export default function Settings({ data, update }: Props) {
           <Link to="/setup" className="btn-secondary w-full inline-block text-center">
             셋업 가이드 다시 보기
           </Link>
+          <OwnerToggle />
         </section>
       )}
 
@@ -160,6 +155,41 @@ export default function Settings({ data, update }: Props) {
         <span>·</span>
         <a href="https://github.com/commet/wedding-os" target="_blank" rel="noopener noreferrer" className="underline">GitHub</a>
       </p>
+    </div>
+  );
+}
+
+// 모드 2 에서 부부 두 번째 기기는 셋업 위저드를 거치지 않을 수 있음(같은 URL 공유 또는 데이터 import).
+// 본인이라는 걸 표시해야 청첩장 페이지에서 편집 탭이 노출됨.
+function OwnerToggle() {
+  const [owner, setOwner] = useState(isOwner());
+
+  const toggle = () => {
+    if (owner) {
+      if (!confirm("이 기기를 '게스트' 로 되돌릴까요?\n청첩장의 편집 탭이 숨겨집니다.")) return;
+      clearOwner();
+      setOwner(false);
+    } else {
+      if (!confirm(
+        "이 기기를 청첩장의 오너로 표시할까요?\n\n" +
+        "오너만 청첩장의 편집 탭을 볼 수 있어요.\n" +
+        "본인(부부) 기기에서만 켜주세요. 단톡방·SNS 공유받은 기기에서 켜면 안 됩니다."
+      )) return;
+      markOwner();
+      setOwner(true);
+    }
+  };
+
+  return (
+    <div className="pt-2 border-t border-line space-y-2">
+      <p className="text-xs text-soft">
+        이 기기는 현재{" "}
+        <b className={owner ? "text-gold" : "text-soft"}>{owner ? "오너 (편집 가능)" : "게스트 (보기 전용)"}</b>
+        예요.
+      </p>
+      <button onClick={toggle} className="btn-secondary w-full text-xs">
+        {owner ? "이 기기를 게스트로 되돌리기" : "이 기기를 오너로 표시"}
+      </button>
     </div>
   );
 }

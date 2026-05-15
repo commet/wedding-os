@@ -18,6 +18,7 @@ import type {
   VideoEffect,
   VideoFilter,
 } from "../lib/schema";
+import { safeMediaSrc } from "../lib/security";
 
 export const VIDEO_W = 1920;
 export const VIDEO_H = 1080;
@@ -107,10 +108,12 @@ const PhotoScene: React.FC<{ photo: VideoPhoto }> = ({ photo }) => {
           filter: VIDEO_FILTER_CSS[photo.filter],
         }}
       >
-        <Img
-          src={photo.url}
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-        />
+        {safeMediaSrc(photo.url) && (
+          <Img
+            src={safeMediaSrc(photo.url)!}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
+        )}
       </AbsoluteFill>
       {photo.caption && <Caption text={photo.caption} />}
     </AbsoluteFill>
@@ -303,7 +306,7 @@ export const WeddingVideo: React.FC<{ config: VideoConfig; coupleNames?: string 
           </Sequence>
         );
       })}
-      {config.bgmUrl && <Audio src={config.bgmUrl} volume={0.8} />}
+      {safeMediaSrc(config.bgmUrl) && <Audio src={safeMediaSrc(config.bgmUrl)!} volume={0.8} />}
     </AbsoluteFill>
   );
 };

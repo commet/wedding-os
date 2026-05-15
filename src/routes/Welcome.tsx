@@ -2,6 +2,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import type { WeddingData } from "../lib/schema";
 import { defaultData } from "../lib/schema";
+import { markOwner } from "../lib/security";
 import { defaultChecklist } from "../data/checklistTemplate";
 
 type Props = {
@@ -67,7 +68,7 @@ export default function Welcome({ update }: Props) {
 
   const selectMode = (id: typeof MODES[number]["id"]) => {
     if (id === "devOnly") {
-      window.open("https://github.com/commet/wedding-os", "_blank");
+      window.open("https://github.com/commet/wedding-os", "_blank", "noopener,noreferrer");
       return;
     }
 
@@ -98,6 +99,9 @@ export default function Welcome({ update }: Props) {
       };
     });
 
+    // 모드 1은 본인 기기 단일 사용 — 항상 오너로 표시. (모드 2로 전환해도 유지.)
+    // 모드 2(supabase)는 Setup 위저드의 saveAndFinish 에서 markOwner() 호출.
+    if (id === "local") markOwner();
     navigate(id === "local" ? "/dashboard" : "/setup");
   };
 
@@ -231,8 +235,11 @@ export default function Welcome({ update }: Props) {
         <p>개인적으로 만든 도구라 오류가 있을 수 있어요.</p>
         <p className="mt-1">
           문제·제안은{" "}
-          <a href="mailto:yclee913@gmail.com" className="underline text-gold">yclee913@gmail.com</a>
+          <a href="mailto:yclee913@gmail.com" rel="noopener noreferrer" className="underline text-gold">yclee913@gmail.com</a>
           {" "}으로 편하게.
+        </p>
+        <p className="mt-2">
+          <a href="/privacy" className="underline">개인정보 · 보안 안내</a>
         </p>
       </div>
     </div>

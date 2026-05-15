@@ -197,7 +197,7 @@ function Step1({ onNext }: { onNext: () => void }) {
       <a
         href="https://supabase.com/dashboard/sign-up"
         target="_blank"
-        rel="noopener"
+        rel="noopener noreferrer"
         className="btn-primary w-full text-center"
       >
         Supabase 가입하러 가기 ↗
@@ -411,7 +411,7 @@ function Step5({ onFinish, onBack }: { onFinish: () => void; onBack: () => void 
       <a
         href="https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fcommet%2Fwedding-os"
         target="_blank"
-        rel="noopener"
+        rel="noopener noreferrer"
         className="btn-secondary w-full text-center"
       >
         Vercel 1-클릭 배포 (나중에 해도 됨) ↗

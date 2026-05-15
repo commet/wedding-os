@@ -31,12 +31,25 @@ export default function ChatbotBridgeModal({ open, onClose, prompt, onApply }: P
     }
     const parsed = extractJSON(reply);
     if (!parsed) {
-      setParseError("답변에서 JSON을 못 찾았어요. 답변 전체를 그대로 붙여넣었는지 확인해주세요.");
+      setParseError(
+        "답변에서 JSON을 못 찾았어요.\n" +
+        "→ 챗봇 답변에 { } 로 둘러싼 JSON 블록이 있는지 확인하세요.\n" +
+        "→ 또는 답변을 보고 본인이 직접 카드에 정보를 입력해도 됩니다."
+      );
       return;
     }
     setParseError(null);
     onApply?.(parsed);
     onClose();
+  };
+
+  const copyExpectedShape = async () => {
+    if (!prompt.expectedShape || prompt.expectedShape === "text") return;
+    const example = "위 프롬프트의 JSON 형식 부분만 그대로 답변해주세요.";
+    try {
+      await navigator.clipboard.writeText(example);
+      alert("힌트가 복사됐어요. 챗봇에 이어서 보내주세요.");
+    } catch {}
   };
 
   return (
@@ -68,10 +81,23 @@ export default function ChatbotBridgeModal({ open, onClose, prompt, onApply }: P
             value={reply}
             onChange={(e) => setReply(e.target.value)}
           />
-          {parseError && <p className="text-red-500 text-sm mt-2">{parseError}</p>}
+          {parseError && (
+            <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs space-y-2">
+              <p className="text-soft whitespace-pre-line">{parseError}</p>
+              {prompt.expectedShape === "json" && (
+                <button onClick={copyExpectedShape} className="text-gold underline">
+                  💡 챗봇에게 다시 요청할 텍스트 복사
+                </button>
+              )}
+            </div>
+          )}
           <button className="btn-primary w-full mt-3" onClick={apply}>
             적용하기
           </button>
+          <p className="text-[11px] text-soft text-center mt-2">
+            챗봇이 JSON 형식을 안 지키거나 안 따라줘도 괜찮아요.
+            답변을 보고 본인이 직접 카드를 수정해도 OK.
+          </p>
         </div>
       </div>
     </Modal>

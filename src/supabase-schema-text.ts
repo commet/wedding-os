@@ -6,10 +6,12 @@ const SchemaText = `-- Wedding OS — Supabase 셋업 SQL
 --   2) 아래 SQL 전체를 복사해서 붙여넣고 "Run" 클릭
 --   3) 끝.
 --
--- 안전성:
---   - RLS(Row Level Security)를 켭니다 — 누구나 데이터 마음대로 읽지 못하도록
---   - 모든 정책은 사용자가 anon key로 자기 데이터에 접근 가능, 그 외엔 차단
---   - 본 도구의 제작자는 사용자의 Supabase에 접근할 수 없습니다
+-- 안전성 메모:
+--   - RLS 를 켭니다.
+--   - 현재 버전은 인증을 사용하지 않아서, anon key 보유자라면 누구나 청첩장 row 를 읽고 쓸 수 있습니다.
+--     → 청첩장 URL 은 가까운 가족·친구에게만 공유하세요.
+--   - RSVP 와 코멘트는 권한을 좁혀 게스트가 INSERT 만 가능. 다른 사람 응답을 보거나 변경할 수 없습니다.
+--   - 본 도구의 제작자는 사용자의 Supabase 에 접근할 수 없습니다.
 -- ------------------------------------------------------------------
 
 create table if not exists public.wedding_data (
@@ -44,17 +46,21 @@ alter table public.wedding_data enable row level security;
 alter table public.rsvp enable row level security;
 alter table public.collab_comments enable row level security;
 
-drop policy if exists "wedding_data_all" on public.wedding_data;
-create policy "wedding_data_all" on public.wedding_data
-  for all using (true) with check (true);
+-- wedding_data: 단일 부부 가정 — read/write 허용
+drop policy if exists "wedding_data_all"    on public.wedding_data;
+drop policy if exists "wedding_data_read"   on public.wedding_data;
+drop policy if exists "wedding_data_write"  on public.wedding_data;
+create policy "wedding_data_read"  on public.wedding_data for select using (true);
+create policy "wedding_data_write" on public.wedding_data for all    using (true) with check (true);
 
-drop policy if exists "rsvp_all" on public.rsvp;
-create policy "rsvp_all" on public.rsvp
-  for all using (true) with check (true);
+-- rsvp / collab: INSERT 만 허용 (게스트 간 정보 보호)
+drop policy if exists "rsvp_all"            on public.rsvp;
+drop policy if exists "rsvp_insert_only"    on public.rsvp;
+create policy "rsvp_insert_only"    on public.rsvp for insert with check (true);
 
-drop policy if exists "collab_all" on public.collab_comments;
-create policy "collab_all" on public.collab_comments
-  for all using (true) with check (true);
+drop policy if exists "collab_all"          on public.collab_comments;
+drop policy if exists "collab_insert_only"  on public.collab_comments;
+create policy "collab_insert_only"  on public.collab_comments for insert with check (true);
 
 create or replace function public.touch_updated_at()
 returns trigger as $$

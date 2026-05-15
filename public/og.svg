@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FAF8F5"/>
+      <stop offset="100%" stop-color="#F2E9D8"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="40%" r="40%">
+      <stop offset="0%" stop-color="#B8956A" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#B8956A" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+  <g text-anchor="middle" font-family="'Noto Serif KR', Georgia, serif" fill="#3A3A3A">
+    <text x="600" y="200" font-size="22" letter-spacing="8" fill="#B8956A">WEDDING OS</text>
+    <text x="600" y="320" font-size="78" font-weight="600">결혼 준비,</text>
+    <text x="600" y="410" font-size="78" font-weight="600">
+      <tspan fill="#B8956A">우리 둘이서</tspan> 충분해요
+    </text>
+    <text x="600" y="490" font-size="26" fill="#6B6B6B">청첩장 · 식전영상 · 체크리스트까지</text>
+    <text x="600" y="528" font-size="26" fill="#6B6B6B">한 곳에서 함께</text>
+  </g>
+  <g transform="translate(600 575)">
+    <circle cx="-12" cy="0" r="3" fill="#B8956A"/>
+    <circle cx="0" cy="0" r="3" fill="#B8956A"/>
+    <circle cx="12" cy="0" r="3" fill="#B8956A"/>
+  </g>
+</svg>

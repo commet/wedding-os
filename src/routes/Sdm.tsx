@@ -202,9 +202,14 @@ export default function Sdm({ data, update }: Props) {
       <div className="card bg-cream/50 text-xs text-soft leading-relaxed space-y-2">
         <p>{SDM_PRICE_RANGE_NOTE}</p>
         <p>
-          ⚠️ 이 목록은 결혼 카페·후기에서 자주 언급되는 곳의 출발점이에요.
-          완전한 리스트도, 순위도 아닙니다. 업체 이전·실장 이동·이름 변경이 잦으니
-          최종 결정 전 직접 확인이 꼭 필요해요. <strong>어떤 업체와도 제휴 없음</strong>.
+          ⚠️ 이 목록은 결혼 준비 단계에서의 출발점일 뿐이에요. 완전한 리스트도, 순위도, 추천도 아닙니다.
+          업체 이전·실장 이동·이름 변경이 잦으니 최종 결정 전 직접 확인이 꼭 필요해요.
+          <strong> 어떤 업체와도 제휴·후원·광고 관계 없음</strong>.
+        </p>
+        <p>
+          표시 삭제·정정 요청은{" "}
+          <a href="mailto:yclee913@gmail.com" rel="noopener noreferrer" className="underline">yclee913@gmail.com</a>
+          {" "}으로 — 24시간 내 처리해드립니다.
         </p>
       </div>
 
@@ -232,7 +237,7 @@ export default function Sdm({ data, update }: Props) {
               <a
                 href={c.url}
                 target="_blank"
-                rel="noopener"
+                rel="noopener noreferrer"
                 className="block card hover:bg-cream/50 text-sm"
               >
                 {c.name} ↗

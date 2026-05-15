@@ -62,6 +62,33 @@ export function createSupabaseStorage(
   };
 }
 
+/** 하객 RSVP 제출 — supabase.rsvp 테이블에 직접 insert */
+export type RsvpInput = {
+  name: string;
+  attending: boolean;
+  side?: "groom" | "bride";
+  guests?: number;
+  meal?: string;
+  message?: string;
+};
+
+export async function insertRsvp(
+  url: string,
+  anonKey: string,
+  rsvp: RsvpInput
+): Promise<{ ok: boolean; reason?: string }> {
+  try {
+    if (!url || !anonKey) return { ok: false, reason: "연결 정보 없음" };
+    if (!rsvp.name.trim()) return { ok: false, reason: "이름을 입력해주세요" };
+    const client = createClient(url, anonKey);
+    const { error } = await client.from("rsvp").insert([rsvp]);
+    if (error) return { ok: false, reason: error.message };
+    return { ok: true };
+  } catch (e: any) {
+    return { ok: false, reason: e?.message ?? "알 수 없는 오류" };
+  }
+}
+
 /** 사용자 Supabase에 ping — 셋업 위저드 검증용 */
 export async function pingSupabase(url: string, anonKey: string): Promise<{ ok: boolean; reason?: string; }> {
   try {
