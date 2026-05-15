@@ -3,14 +3,15 @@ import { useNavigate, Link } from "react-router-dom";
 import type { WeddingData } from "../lib/schema";
 import { exportData, importData } from "../lib/storage";
 import { todayISO } from "../lib/freshness";
+import { getSecrets, setSecrets, clearSecrets, clearOwner } from "../lib/security";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 
 export default function Settings({ data, update }: Props) {
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [aiKey, setAiKey] = useState(data.preferences.aiKey ?? "");
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  // AI 키는 WeddingData 가 아니라 별도 secrets 저장소에서 관리 — 모드 2의 공개 row 로 새지 않도록.
+  const [aiKey, setAiKey] = useState<string>(getSecrets().aiKey ?? "");
 
   const handleExport = () => {
     exportData(data);
@@ -22,8 +23,8 @@ export default function Settings({ data, update }: Props) {
 
   const handleImport = async (file: File) => {
     try {
-      const imported = await importData(file);
-      if (confirm("현재 데이터를 덮어쓸까요? (취소 시 변화 없음)")) {
+      const imported = await importData(file, data);
+      if (confirm("현재 데이터를 덮어쓸까요?\n(연결 정보·AI 키는 안전하게 그대로 둡니다)")) {
         update(() => imported);
       }
     } catch (e) {
@@ -32,15 +33,15 @@ export default function Settings({ data, update }: Props) {
   };
 
   const saveAiKey = () => {
-    update((prev: WeddingData) => ({
-      ...prev,
-      preferences: { ...prev.preferences, aiKey: aiKey.trim() || undefined },
-    }));
+    setSecrets({ aiKey: aiKey.trim() });
+    alert("저장됐어요. AI 키는 이 기기에만 저장되며, 백업 파일이나 모드 2 동기화에는 포함되지 않습니다.");
   };
 
   const reset = () => {
     if (!confirm("정말 모든 데이터를 지울까요? 되돌릴 수 없어요.")) return;
     localStorage.removeItem("wedding-os/v1");
+    clearSecrets();
+    clearOwner();
     window.location.href = "/";
   };
 
@@ -115,7 +116,8 @@ export default function Settings({ data, update }: Props) {
         />
         <button onClick={saveAiKey} className="btn-secondary w-full">저장</button>
         <p className="text-xs text-soft">
-          키는 이 기기/이 Supabase 안에만 저장되며, 본인 외엔 접근 불가합니다.
+          AI 키는 <b>이 기기에만</b> 저장됩니다. 백업 파일에도, 모드 2 동기화에도 포함되지 않아요.
+          다른 기기에서 쓰려면 그 기기에서 다시 입력해주세요.
         </p>
       </section>
 

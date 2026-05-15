@@ -188,13 +188,15 @@ export type Preferences = {
   mode: Mode | null;            // null = 아직 모드 미선택
   locale: "ko" | "en" | "zh";
   isDemo?: boolean;             // true = 예시 데이터로 둘러보는 중
-  aiKey?: string;               // 선택, 본인 키 입력 시
   supabase?: {                  // 모드 2일 때만
     url: string;
     anonKey: string;
     configId?: string;
   };
   lastBackupAt?: string;        // ISO date — 마지막 export 시점
+  // aiKey 는 더 이상 여기 저장하지 않음 — 모드 2에선 공개 row 로 새어버리는 위험 때문에
+  // lib/security.ts 의 getSecrets()/setSecrets() 가 별도 localStorage 키로 보관함.
+  // 이전 버전 호환은 storage.ts 의 migrate() 가 발견 시 secrets 로 옮긴 뒤 제거.
 };
 
 export type WeddingData = {

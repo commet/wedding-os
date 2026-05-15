@@ -8,6 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import { defaultData, WeddingData, SCHEMA_VERSION } from "./schema";
 import { createSupabaseStorage } from "./storage.supabase";
 import { demoData } from "../data/demoData";
+import { setSecrets } from "./security";
 
 const LS_KEY = "wedding-os/v1";
 
@@ -44,9 +45,19 @@ function migrate(raw: unknown): WeddingData {
   // 옛 버전에서 저장된 데이터에 새 필드(예: sdm)가 없어도 깨지지 않도록.
   const base = defaultData();
   const data = (raw ?? {}) as Partial<WeddingData>;
+
+  // 이전 버전 호환: preferences.aiKey 가 남아 있다면 별도 secrets 저장소로 이전 후 제거.
+  // (공개될 수 있는 WeddingData 트리에 sk-ant-... 같은 결제 키가 들어가는 걸 막기 위함.)
+  const prefsRaw = (data.preferences ?? {}) as Partial<{ aiKey: string } & WeddingData["preferences"]>;
+  if (typeof prefsRaw.aiKey === "string" && prefsRaw.aiKey) {
+    try { setSecrets({ aiKey: prefsRaw.aiKey }); } catch { /* noop */ }
+  }
+  const { aiKey: _drop, ...prefsSafe } = prefsRaw;
+  void _drop;
+
   return {
     schemaVersion: SCHEMA_VERSION,
-    preferences: { ...base.preferences, ...(data.preferences ?? {}) },
+    preferences: { ...base.preferences, ...prefsSafe },
     invitation:  { ...base.invitation,  ...(data.invitation  ?? {}) },
     rings:       Array.isArray(data.rings)    ? data.rings    : [],
     sdm:         Array.isArray(data.sdm)      ? data.sdm      : [],
@@ -117,9 +128,21 @@ export function useWeddingData() {
   return { data, loading, update };
 }
 
-// 데이터 export / import — 모드 전환 또는 백업용
+// 데이터 export / import — 모드 전환 또는 백업용.
+//
+// 보안: 백업 파일은 사용자가 친구에게 보내 의견을 묻거나, 클라우드에 올리는 경우가 잦다.
+// 따라서 export 시 시크릿(supabase anonKey 등) 은 제거한다.
+// 모드 2 설정은 사용자가 새 기기에서 Setup 위저드로 다시 입력하도록 안내.
 export function exportData(data: WeddingData): void {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const sanitized: WeddingData = {
+    ...data,
+    preferences: {
+      ...data.preferences,
+      // supabase 연결 정보는 백업에 포함하지 않음 — 친구에게 백업 공유 시 키 노출 방지.
+      supabase: undefined,
+    },
+  };
+  const blob = new Blob([JSON.stringify(sanitized, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   const name = `wedding-os-backup-${new Date().toISOString().split("T")[0]}.json`;
@@ -131,8 +154,19 @@ export function exportData(data: WeddingData): void {
   URL.revokeObjectURL(url);
 }
 
-export async function importData(file: File): Promise<WeddingData> {
+// import 시 환경설정(특히 preferences.supabase) 은 현재 값을 유지한다.
+// 그렇지 않으면 악의적으로 작성된 백업 파일이 사용자의 모드 2 연결을 공격자의 Supabase 로 바꿔치기할 수 있음.
+export async function importData(file: File, current: WeddingData): Promise<WeddingData> {
   const text = await file.text();
-  const parsed = JSON.parse(text) as WeddingData;
-  return migrate(parsed);
+  const parsed = JSON.parse(text) as unknown;
+  const migrated = migrate(parsed);
+  return {
+    ...migrated,
+    preferences: {
+      ...migrated.preferences,
+      // 백업이 모드·로케일·디스플레이 설정을 가져오는 건 허용,
+      // 단 supabase 연결 정보는 항상 현재 기기 값으로 강제 — 데이터 탈취 방지.
+      supabase: current.preferences.supabase,
+    },
+  };
 }

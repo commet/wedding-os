@@ -1,0 +1,103 @@
+// 보안 유틸 — URL/이미지/시크릿 처리 한 곳에서.
+//
+// 원칙:
+//   1) 사용자 입력이나 AI 답변이 그대로 href / src 로 들어가지 않도록 검증.
+//   2) 진짜 시크릿(AI 키, supabase anon key) 은 WeddingData 와 분리해 별도 localStorage 키에 보관.
+//      → 모드 2에서 공개 row 로 새지 않도록.
+//   3) 오너 표식은 클라이언트 신뢰 한도 내에서만 — 진짜 권한은 Supabase Auth 가 들어와야 끝남.
+
+/** 안전한 외부 링크 — javascript: / data: / vbscript: 차단. http(s), mailto, tel 만 허용. */
+export function safeHref(url: unknown): string | undefined {
+  if (typeof url !== "string") return undefined;
+  const trimmed = url.trim();
+  if (!trimmed) return undefined;
+  try {
+    // base 를 줘서 상대 경로도 처리. 절대경로일 땐 base 무시됨.
+    const parsed = new URL(trimmed, typeof window !== "undefined" ? window.location.origin : "https://x");
+    const ok = ["http:", "https:", "mailto:", "tel:"].includes(parsed.protocol);
+    return ok ? trimmed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** 이미지/오디오 src 용 — http(s) 와 data:image|audio 만 허용. */
+export function safeMediaSrc(url: unknown): string | undefined {
+  if (typeof url !== "string") return undefined;
+  const trimmed = url.trim();
+  if (!trimmed) return undefined;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^data:(image|audio)\//i.test(trimmed)) return trimmed;
+  return undefined;
+}
+
+/** 전화번호 — 숫자, 하이픈, +, 공백, 괄호만 남김. tel: 핸들러에 인젝션되지 않도록. */
+export function safeTel(phone: unknown): string | undefined {
+  if (typeof phone !== "string") return undefined;
+  const cleaned = phone.replace(/[^\d+\-\s()]/g, "").trim();
+  return cleaned || undefined;
+}
+
+/** Supabase URL 호스트 화이트리스트 — 공식 도메인만 허용. */
+export function isSupabaseHost(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return (
+      u.protocol === "https:" &&
+      /^[A-Za-z0-9-]+\.supabase\.(co|in)$/.test(u.host)
+    );
+  } catch {
+    return false;
+  }
+}
+
+// ── 시크릿 분리 저장소 ────────────────────────────────
+// 이 키는 절대 WeddingData 와 함께 export/sync 되지 않는다.
+
+const SECRETS_KEY = "wedding-os/secrets/v1";
+
+type Secrets = {
+  aiKey?: string;
+};
+
+export function getSecrets(): Secrets {
+  try {
+    const raw = localStorage.getItem(SECRETS_KEY);
+    return raw ? (JSON.parse(raw) as Secrets) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function setSecrets(patch: Secrets): void {
+  try {
+    const current = getSecrets();
+    const next = { ...current, ...patch };
+    // 빈 문자열은 삭제로 취급
+    if (next.aiKey === "" || next.aiKey === undefined) delete next.aiKey;
+    localStorage.setItem(SECRETS_KEY, JSON.stringify(next));
+  } catch { /* 저장 실패는 조용히 — 사용자가 다시 입력하면 됨 */ }
+}
+
+export function clearSecrets(): void {
+  try { localStorage.removeItem(SECRETS_KEY); } catch { /* noop */ }
+}
+
+// ── 오너 마커 ────────────────────────────────────────
+// 모드 2에서 "이 기기가 청첩장의 주인" 임을 표시. 게스트가 편집 탭에 접근하지 못하도록.
+// 클라이언트 신뢰 한도 내에서만 — 실제 보호는 Supabase Auth 도입 시 적용됨.
+
+const OWNER_KEY = "wedding-os/owner/v1";
+
+export function isOwner(): boolean {
+  try { return localStorage.getItem(OWNER_KEY) === "1"; }
+  catch { return false; }
+}
+
+export function markOwner(): void {
+  try { localStorage.setItem(OWNER_KEY, "1"); } catch { /* noop */ }
+}
+
+export function clearOwner(): void {
+  try { localStorage.removeItem(OWNER_KEY); } catch { /* noop */ }
+}
