@@ -118,19 +118,45 @@ export function useWeddingData() {
   const [data, setData] = useState<WeddingData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // 초기 로드: localStorage에 일단 미리보기를 받아두고, 그 안의 mode 보고 진짜 드라이버 결정.
-  // 저장된 게 전혀 없으면 → 데모 데이터로 시작 (첫 방문자가 빈 화면 대신 완성된 예시를 봄).
+  // 초기 로드:
+  //   1) localStorage 가 있으면 — 모드 1 또는 모드 2 사용자(오너)
+  //   2) localStorage 비어 있고 환경변수가 있으면 — 모드 2 게스트 (사용자가 Vercel 배포한 사이트)
+  //   3) 둘 다 없으면 — 첫 방문자, 데모 데이터로 시작
   useEffect(() => {
     (async () => {
       const fromLocal = await localStorageDriver.load();
-      if (!fromLocal) {
-        setData(demoData());
+      if (fromLocal) {
+        const driver = selectDriver(fromLocal);
+        const fromActual = (await driver.load()) ?? fromLocal;
+        setData(fromActual);
         setLoading(false);
         return;
       }
-      const driver = selectDriver(fromLocal);
-      const fromActual = (await driver.load()) ?? fromLocal ?? defaultData();
-      setData(fromActual);
+
+      // 환경변수 기반 supabase 로드 시도 (모드 2 사용자가 배포한 사이트에 게스트로 진입한 경우)
+      const envUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+      const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+      if (envUrl && envKey) {
+        try {
+          const envDriver = createSupabaseStorage(envUrl, envKey, "default");
+          const fromEnv = await envDriver.load();
+          if (fromEnv) {
+            setData({
+              ...fromEnv,
+              preferences: {
+                ...fromEnv.preferences,
+                mode: "supabase",
+                supabase: { url: envUrl, anonKey: envKey, configId: "default" },
+                isDemo: false,
+              },
+            });
+            setLoading(false);
+            return;
+          }
+        } catch { /* fall through to demo */ }
+      }
+
+      setData(demoData());
       setLoading(false);
     })();
   }, []);

@@ -21,9 +21,11 @@ export default function AppShell({ data, children }: Props) {
   const navigate = useNavigate();
   const isWelcome = location.pathname === "/";
   const isSetup = location.pathname === "/setup";
+  const isGuestInvitation = location.pathname === "/i";
   const isDemo = !!data.preferences.isDemo;
-  // 데모 중에도 하단 탭은 보여서 둘러볼 수 있게.
-  const showNav = !isWelcome && !isSetup && (data.preferences.mode || isDemo);
+  // 게스트 청첩장 페이지(/i)는 받는 사람용 — 헤더·탭·배너 다 숨김.
+  const showNav = !isWelcome && !isSetup && !isGuestInvitation && (data.preferences.mode || isDemo);
+  const showChrome = !isWelcome && !isGuestInvitation;
 
   const backupStale = isBackupStale(data.preferences.lastBackupAt) && data.preferences.mode === "local";
 
@@ -32,7 +34,7 @@ export default function AppShell({ data, children }: Props) {
   return (
     <div className="min-h-screen max-w-app mx-auto flex flex-col">
       {/* 상단 헤더 */}
-      {!isWelcome && (
+      {showChrome && (
         <header className="sticky top-0 z-30 bg-cream/90 backdrop-blur border-b border-line">
           <div className="px-4 py-3 flex items-center justify-between">
             <Link to="/dashboard" className="font-serif text-lg text-ink">
@@ -47,8 +49,8 @@ export default function AppShell({ data, children }: Props) {
         </header>
       )}
 
-      {/* 데모 배너 */}
-      {isDemo && !isWelcome && (
+      {/* 데모 배너 — 게스트 청첩장 페이지에선 안 보임 */}
+      {isDemo && !isWelcome && !isGuestInvitation && (
         <div className="mx-4 mt-3 p-3 bg-gold/10 border border-gold/30 rounded-xl flex items-center gap-3">
           <span className="text-sm flex-1">
             ✨ <strong>예시 데이터로 둘러보는 중</strong>
@@ -61,8 +63,8 @@ export default function AppShell({ data, children }: Props) {
         </div>
       )}
 
-      {/* 백업 알림 (모드 1, 7일 이상 안 함) */}
-      {backupStale && (
+      {/* 백업 알림 (모드 1, 7일 이상 안 함) — 게스트 청첩장에선 안 보임 */}
+      {backupStale && !isGuestInvitation && (
         <div className="mx-4 mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-xl text-sm">
           ⚠️ <strong>오래 백업을 안 했어요.</strong>{" "}
           <Link to="/settings" className="underline">

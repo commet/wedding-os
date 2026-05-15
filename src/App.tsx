@@ -33,13 +33,15 @@ export default function App() {
   const isDemo = data?.preferences.isDemo ?? false;
   const isWelcome = location.pathname === "/";
   const isSetup = location.pathname === "/setup";
+  const isGuestInvitation = location.pathname === "/i";
 
   // 모드가 정해진 사용자는 랜딩을 건너뛴다.
   if (mode && isWelcome) {
     return <Navigate to="/dashboard" replace />;
   }
   // 모드도 없고 데모도 아니면 (= 내 결혼식 시작 직후 빈 상태) 랜딩으로.
-  if (!mode && !isDemo && !isWelcome && !isSetup) {
+  // 단, /i (게스트 청첩장) 는 받는 사람이 비어 있어도 들어올 수 있으므로 예외.
+  if (!mode && !isDemo && !isWelcome && !isSetup && !isGuestInvitation) {
     return <Navigate to="/" replace />;
   }
 
@@ -58,6 +60,7 @@ export default function App() {
         <Route path="/honeymoon" element={<Navigate to="/trip" replace />} />
         <Route path="/checklist" element={<Checklist data={data!} update={update} />} />
         <Route path="/invitation" element={<Invitation data={data!} update={update} />} />
+        <Route path="/i" element={<Invitation data={data!} update={update} />} />
         <Route
           path="/video"
           element={

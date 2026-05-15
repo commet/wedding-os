@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import type { WeddingData, InvitationContent } from "../lib/schema";
 import Modal from "../components/Modal";
 import { STOCK_HERO, STOCK_GALLERY } from "../data/stockPhotos";
@@ -20,9 +21,11 @@ const THEME: Record<Theme, { heroGrad: string; accent: string; chip: string }> =
 };
 
 export default function Invitation({ data, update }: Props) {
-  // 청첩장 페이지는 게스트도 접근. 게스트에겐 편집 탭을 노출하지 않음.
-  // (모드 2에서 anon 키만으론 권한 분리가 안 되므로, 최소한의 UI 가드.)
-  const guest = data.preferences.mode === "supabase" && !isOwner();
+  const location = useLocation();
+  // /i 경로 = 게스트 청첩장 라우트. 받는 사람용으로 헤더·편집·공유 다 숨김.
+  const isGuestRoute = location.pathname === "/i";
+  // 모드 2 청첩장이지만 오너 표시 없는 기기 — 게스트로 취급
+  const guest = isGuestRoute || (data.preferences.mode === "supabase" && !isOwner());
   const canRsvp = data.preferences.mode === "supabase" && !!data.preferences.supabase;
   const [tab, setTab] = useState<Tab>("preview");
   const [locale, setLocale] = useState<Locale>("ko");
@@ -40,7 +43,7 @@ export default function Invitation({ data, update }: Props) {
   };
 
   const share = async () => {
-    // 모드 2: 실제 청첩장 링크
+    // 모드 2: 실제 청첩장 링크 — 게스트 전용 라우트 /i 공유
     if (data.preferences.mode === "supabase") {
       const proceed = confirm(
         "⚠️ 청첩장 공유 전에 꼭 확인해주세요\n\n" +
@@ -51,7 +54,7 @@ export default function Invitation({ data, update }: Props) {
         "복사할까요?"
       );
       if (!proceed) return;
-      const url = window.location.origin + "/invitation";
+      const url = window.location.origin + "/i";
       try {
         await navigator.clipboard.writeText(url);
         alert("청첩장 링크가 복사되었어요.");
@@ -71,32 +74,62 @@ export default function Invitation({ data, update }: Props) {
   };
 
   return (
-    <div className="pb-6">
-      <div className="sticky top-[57px] z-20 bg-cream border-b border-line">
-        <div className="px-5 py-3 flex items-center justify-between">
-          <h1 className="font-serif text-xl">모바일 청첩장</h1>
-          <button onClick={share} className="btn-ghost text-sm">공유</button>
+    <div className={isGuestRoute ? "" : "pb-6"}>
+      {/* 헤더·탭 — 게스트 라우트에선 숨김 (받는 사람은 청첩장만 봄) */}
+      {!isGuestRoute && (
+        <div className="sticky top-[57px] z-20 bg-cream border-b border-line">
+          <div className="px-5 py-3 flex items-center justify-between">
+            <h1 className="font-serif text-xl">모바일 청첩장</h1>
+            <button onClick={share} className="btn-ghost text-sm">공유</button>
+          </div>
+          <div className="px-5 pb-3 flex gap-2 items-center">
+            <TabBtn active={tab === "preview"} onClick={() => setTab("preview")}>미리보기</TabBtn>
+            {!guest && (
+              <TabBtn active={tab === "edit"} onClick={() => setTab("edit")}>편집</TabBtn>
+            )}
+            {tab === "preview" && (inv.enabledLocales?.length ?? 0) > 0 && (
+              <div className="ml-auto flex gap-1">
+                {(["ko", ...(inv.enabledLocales ?? [])] as Locale[]).map((l) => (
+                  <button
+                    key={l}
+                    onClick={() => setLocale(l)}
+                    className={`text-xs px-2.5 py-1 rounded-full ${locale === l ? "bg-gold text-white" : "bg-white border border-line text-soft"}`}
+                  >
+                    {l === "ko" ? "한" : l === "en" ? "EN" : "中"}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-        <div className="px-5 pb-3 flex gap-2 items-center">
-          <TabBtn active={tab === "preview"} onClick={() => setTab("preview")}>미리보기</TabBtn>
-          {!guest && (
-            <TabBtn active={tab === "edit"} onClick={() => setTab("edit")}>편집</TabBtn>
-          )}
-          {tab === "preview" && (inv.enabledLocales?.length ?? 0) > 0 && (
-            <div className="ml-auto flex gap-1">
-              {(["ko", ...(inv.enabledLocales ?? [])] as Locale[]).map((l) => (
-                <button
-                  key={l}
-                  onClick={() => setLocale(l)}
-                  className={`text-xs px-2.5 py-1 rounded-full ${locale === l ? "bg-gold text-white" : "bg-white border border-line text-soft"}`}
-                >
-                  {l === "ko" ? "한" : l === "en" ? "EN" : "中"}
-                </button>
-              ))}
-            </div>
-          )}
+      )}
+
+      {/* 게스트 라우트 — 헤더 대신 부드러운 언어 전환만 (활성 언어 있을 때) */}
+      {isGuestRoute && (inv.enabledLocales?.length ?? 0) > 0 && (
+        <div className="flex justify-center gap-1 pt-3 pb-2">
+          {(["ko", ...(inv.enabledLocales ?? [])] as Locale[]).map((l) => (
+            <button
+              key={l}
+              onClick={() => setLocale(l)}
+              className={`text-xs px-3 py-1 rounded-full ${locale === l ? "bg-gold text-white" : "bg-white border border-line text-soft"}`}
+            >
+              {l === "ko" ? "한" : l === "en" ? "EN" : "中"}
+            </button>
+          ))}
         </div>
-      </div>
+      )}
+
+      {/* 게스트가 오너 기기인 경우 — 작은 안내 */}
+      {isGuestRoute && isOwner() && (
+        <div className="px-5 pt-2 pb-1">
+          <a
+            href="/invitation"
+            className="text-[11px] text-soft underline"
+          >
+            ← 편집 화면으로 (오너만 보임)
+          </a>
+        </div>
+      )}
 
       {tab === "edit" && !guest ? (
         <EditForm inv={inv} set={set} />
@@ -106,6 +139,7 @@ export default function Invitation({ data, update }: Props) {
           locale={locale}
           rsvpEnabled={canRsvp}
           onRsvpClick={() => setShowRsvp(true)}
+          hideShareBox={isGuestRoute}
         />
       )}
 
@@ -261,12 +295,13 @@ function TabBtn({ active, onClick, children }: any) {
 /* ════════════ 미리보기 — 실제 청첩장 ════════════ */
 
 function Preview({
-  inv, locale, rsvpEnabled, onRsvpClick,
+  inv, locale, rsvpEnabled, onRsvpClick, hideShareBox,
 }: {
   inv: InvitationContent;
   locale: Locale;
   rsvpEnabled?: boolean;
   onRsvpClick?: () => void;
+  hideShareBox?: boolean;
 }) {
   const theme = THEME[(inv.theme as Theme) ?? "cream"];
   const dateObj = inv.date ? new Date(inv.date) : null;
@@ -473,24 +508,28 @@ function Preview({
         </div>
       </div>
 
-      <button
-        onClick={async () => {
-          const text = buildKakaoShareText(inv);
-          try {
-            await navigator.clipboard.writeText(text);
-            alert("✓ 청첩장 내용이 복사되었어요.\n카톡 채팅에 그대로 붙여넣어 보내세요.");
-          } catch {
-            prompt("아래 내용을 복사해 카톡에 붙여넣으세요:", text);
-          }
-        }}
-        className="mt-4 btn-primary w-full py-3.5 shadow-md"
-      >
-        💬 카톡으로 보낼 텍스트 복사
-      </button>
-      <p className="text-xs text-center text-soft mt-3 leading-relaxed">
-        모드 1에서도 청첩장을 카톡으로 보낼 수 있어요.<br />
-        진짜 청첩장 링크(웹사이트)는 [내 사이트 만들기] 모드에서.
-      </p>
+      {!hideShareBox && (
+        <>
+          <button
+            onClick={async () => {
+              const text = buildKakaoShareText(inv);
+              try {
+                await navigator.clipboard.writeText(text);
+                alert("✓ 청첩장 내용이 복사되었어요.\n카톡 채팅에 그대로 붙여넣어 보내세요.");
+              } catch {
+                prompt("아래 내용을 복사해 카톡에 붙여넣으세요:", text);
+              }
+            }}
+            className="mt-4 btn-primary w-full py-3.5 shadow-md"
+          >
+            💬 카톡으로 보낼 텍스트 복사
+          </button>
+          <p className="text-xs text-center text-soft mt-3 leading-relaxed">
+            모드 1에서도 청첩장을 카톡으로 보낼 수 있어요.<br />
+            진짜 청첩장 링크(웹사이트)는 [내 사이트 만들기] 모드에서.
+          </p>
+        </>
+      )}
     </div>
   );
 }
