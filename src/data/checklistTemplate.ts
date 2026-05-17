@@ -1,4 +1,5 @@
 import type { ChecklistSection, CheckItem } from "../lib/schema";
+import { formatISODateLocal, parseISODateLocal } from "../lib/date";
 
 // 표준 결혼 준비 타임라인.
 // 각 항목에 ddayOffset(결혼식 D-day 기준 상대 일수)이 있어,
@@ -130,8 +131,7 @@ const TEMPLATE: Tmpl[] = [
 
 /** 결혼식 날짜(ISO)가 주어지면 각 항목의 dueDate를 자동 계산. 없으면 dueDate 비움. */
 export function defaultChecklist(weddingDateISO?: string): ChecklistSection[] {
-  const base = weddingDateISO ? new Date(weddingDateISO) : null;
-  const validBase = base && !isNaN(base.getTime()) ? base : null;
+  const validBase = parseISODateLocal(weddingDateISO);
 
   return TEMPLATE.map((sec) => ({
     id: id(),
@@ -142,7 +142,7 @@ export function defaultChecklist(weddingDateISO?: string): ChecklistSection[] {
       if (validBase) {
         const d = new Date(validBase);
         d.setDate(d.getDate() + it.dday);
-        dueDate = d.toISOString().split("T")[0];
+        dueDate = formatISODateLocal(d);
       }
       return {
         id: id(),
@@ -158,8 +158,7 @@ export function defaultChecklist(weddingDateISO?: string): ChecklistSection[] {
 
 /** 결혼식 날짜가 바뀌었을 때 기존 체크리스트의 dueDate를 재계산. */
 export function recalcDueDates(sections: ChecklistSection[], weddingDateISO?: string): ChecklistSection[] {
-  const base = weddingDateISO ? new Date(weddingDateISO) : null;
-  const validBase = base && !isNaN(base.getTime()) ? base : null;
+  const validBase = parseISODateLocal(weddingDateISO);
   return sections.map((sec) => ({
     ...sec,
     items: sec.items.map((it) => {
@@ -167,7 +166,7 @@ export function recalcDueDates(sections: ChecklistSection[], weddingDateISO?: st
       if (!validBase) return { ...it, dueDate: undefined };
       const d = new Date(validBase);
       d.setDate(d.getDate() + it.ddayOffset);
-      return { ...it, dueDate: d.toISOString().split("T")[0] };
+      return { ...it, dueDate: formatISODateLocal(d) };
     }),
   }));
 }

@@ -2,20 +2,31 @@ import { Link } from "react-router-dom";
 import type { WeddingData } from "../lib/schema";
 import { useMemo } from "react";
 import { daysSince } from "../lib/freshness";
+import { recalcDueDates } from "../data/checklistTemplate";
+import { daysUntilISODate, parseISODateLocal } from "../lib/date";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 
-export default function Dashboard({ data }: Props) {
+export default function Dashboard({ data, update }: Props) {
   const dday = useMemo(() => {
-    if (!data.invitation.date) return null;
-    const t = new Date(data.invitation.date).getTime();
-    if (isNaN(t)) return null;
-    return Math.ceil((t - Date.now()) / (1000 * 60 * 60 * 24));
+    return daysUntilISODate(data.invitation.date);
   }, [data.invitation.date]);
 
   const checklistTotal = data.checklist.reduce((n, s) => n + s.items.length, 0);
   const checklistDone = data.checklist.reduce((n, s) => n + s.items.filter((i) => i.done).length, 0);
   const progress = checklistTotal > 0 ? Math.round((checklistDone / checklistTotal) * 100) : 0;
+  const remaining = Math.max(checklistTotal - checklistDone, 0);
+  const firstPending = useMemo(() => {
+    return data.checklist
+      .flatMap((s) => s.items.map((i) => ({ section: s.title, item: i })))
+      .filter((x) => !x.item.done)
+      .sort((a, b) => {
+        if (!a.item.dueDate && !b.item.dueDate) return 0;
+        if (!a.item.dueDate) return 1;
+        if (!b.item.dueDate) return -1;
+        return a.item.dueDate.localeCompare(b.item.dueDate);
+      })[0];
+  }, [data.checklist]);
 
   const upcoming = useMemo(() => {
     const items = data.checklist.flatMap((s) =>
@@ -37,6 +48,19 @@ export default function Dashboard({ data }: Props) {
   const guestAttending = (data.guests ?? []).filter((g) => g.status === "참석").length;
   const sdmCount = data.sdm.filter((v) => v.category !== "snap").length;
   const snapCount = data.sdm.filter((v) => v.category === "snap").length;
+
+  const setWeddingDate = (date: string) => {
+    update((prev: WeddingData) => {
+      const next = {
+        ...prev,
+        invitation: { ...prev.invitation, date },
+      };
+      return {
+        ...next,
+        checklist: recalcDueDates(next.checklist, date),
+      };
+    });
+  };
 
   const MENU_GROUPS: { title: string; items: { to: string; label: string; sub: string }[] }[] = [
     {
@@ -80,6 +104,27 @@ export default function Dashboard({ data }: Props) {
             <p className="text-[13px] text-soft leading-relaxed mb-8">
               청첩장 정보부터 한 줄씩 채워보세요.
             </p>
+            <div className="text-left border border-hair bg-cream/35 px-4 py-4 mb-6">
+              <div className="eyebrow-gold mb-2">Wedding day</div>
+              <label className="block">
+                <span className="text-[12px] text-soft">예식 날짜를 먼저 넣어보세요</span>
+                <input
+                  type="date"
+                  className="input mt-2 bg-paper"
+                  value={data.invitation.date}
+                  onChange={(e) => setWeddingDate(e.target.value)}
+                />
+              </label>
+              <div className="mt-4 flex items-end justify-between border-t border-hair pt-4">
+                <div>
+                  <div className="eyebrow">오늘 기준</div>
+                  <div className="text-[12px] text-soft mt-1">
+                    날짜를 넣으면 체크리스트 마감일도 같이 맞춰집니다.
+                  </div>
+                </div>
+                <DdayMark dday={dday} />
+              </div>
+            </div>
             <Link to="/invitation" className="btn-primary px-8 py-3.5 text-[12.5px]">
               청첩장 정보 입력 →
             </Link>
@@ -159,23 +204,55 @@ export default function Dashboard({ data }: Props) {
         </>
       )}
 
-      {/* ─── 진행률 — 박스 없이 한 줄 ─── */}
+      {/* ─── 진행률 — 시각 카드 ─── */}
       {checklistTotal > 0 && (
         <>
           <Link to="/checklist" className="block page py-8 hover:bg-cream/40 transition">
-            <div className="flex items-baseline justify-between mb-3">
-              <h2 className="eyebrow">전체 진행률</h2>
-              <span className="font-serif text-xl text-ink tabular-nums">{progress}<span className="text-soft text-sm">%</span></span>
+            <div className="border border-hair bg-paper px-4 py-4 shadow-[0_18px_45px_rgba(45,35,25,0.06)]">
+              <div className="flex items-start justify-between gap-4 mb-5">
+                <div>
+                  <h2 className="eyebrow-gold mb-1">현재 진행률</h2>
+                  <p className="text-[12px] text-soft">
+                    완료한 항목과 남은 일을 한 번에 봅니다.
+                  </p>
+                </div>
+                <span className="font-serif text-[2.6rem] leading-none text-ink tabular-nums">
+                  {progress}<span className="text-gold text-[1.35rem]">%</span>
+                </span>
+              </div>
+              <div className="h-2.5 bg-line overflow-hidden">
+                <div
+                  className="h-full bg-ink transition-all duration-500"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="bg-cream/50 px-3 py-3">
+                  <div className="eyebrow">완료</div>
+                  <div className="font-serif text-xl text-ink tabular-nums mt-1">
+                    {checklistDone} / {checklistTotal}
+                  </div>
+                </div>
+                <div className="bg-cream/50 px-3 py-3">
+                  <div className="eyebrow">남은 일</div>
+                  <div className="font-serif text-xl text-ink tabular-nums mt-1">
+                    {remaining}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 flex items-center justify-between">
+                <p className="text-[12px] text-soft leading-relaxed pr-3">
+                  {firstPending ? (
+                    <>
+                      다음 체크 · <span className="text-ink">{firstPending.item.text}</span>
+                    </>
+                  ) : (
+                    "체크리스트로 이동"
+                  )}
+                </p>
+                <span className="text-soft">→</span>
+              </div>
             </div>
-            <div className="w-full h-px bg-line relative">
-              <div
-                className="absolute top-0 left-0 h-px bg-ink transition-all"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <p className="eyebrow mt-3">
-              {checklistDone} / {checklistTotal} 완료
-            </p>
           </Link>
           <div className="hairline" />
         </>
@@ -215,10 +292,42 @@ export default function Dashboard({ data }: Props) {
   );
 }
 
+function DdayMark({ dday }: { dday: number | null }) {
+  if (dday === null) {
+    return (
+      <div className="text-right">
+        <div className="font-serif text-2xl text-soft">D-?</div>
+        <div className="eyebrow mt-1">날짜 대기</div>
+      </div>
+    );
+  }
+  if (dday === 0) {
+    return (
+      <div className="text-right">
+        <div className="font-serif text-2xl text-gold">D-DAY</div>
+        <div className="eyebrow mt-1">오늘</div>
+      </div>
+    );
+  }
+  if (dday < 0) {
+    return (
+      <div className="text-right">
+        <div className="font-serif text-2xl text-soft tabular-nums">D+{Math.abs(dday)}</div>
+        <div className="eyebrow mt-1">예식 후</div>
+      </div>
+    );
+  }
+  return (
+    <div className="text-right">
+      <div className="font-serif text-3xl text-ink tabular-nums">D-{dday}</div>
+      <div className="eyebrow mt-1">남았습니다</div>
+    </div>
+  );
+}
+
 function formatWeddingDate(iso?: string): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "";
+  const d = parseISODateLocal(iso);
+  if (!d) return "";
   const days = ["일", "월", "화", "수", "목", "금", "토"];
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")} ${days[d.getDay()]}`;
 }

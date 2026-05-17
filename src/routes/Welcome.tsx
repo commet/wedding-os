@@ -103,6 +103,7 @@ export default function Welcome({ data, update }: Props) {
       }
       return {
         ...prev,
+        checklist: prev.checklist.length ? prev.checklist : defaultChecklist(prev.invitation.date),
         preferences: {
           ...prev.preferences,
           mode: id === "local" ? "local" : null,
@@ -208,7 +209,7 @@ export default function Welcome({ data, update }: Props) {
       </section>
 
       {/* 2. 메인 CTA — 박스 없이 sharp 한 두 버튼 */}
-      <section className="page pb-20">
+      <section className="page pb-8">
         <button
           onClick={browseDemo}
           className="btn-primary w-full py-4 text-[13px]"
@@ -225,8 +226,8 @@ export default function Welcome({ data, update }: Props) {
       <div className="hairline" />
 
       {/* 3. What's inside — 번호 매겨진 hairline 리스트 */}
-      <section className="page py-16">
-        <div className="eyebrow-gold mb-8">What's inside</div>
+      <section className="page pt-8 pb-14">
+        <div className="eyebrow-gold mb-6">What's inside</div>
         <ul className="stack">
           {FEATURES.map((f) => (
             <li key={f.title} className="flex items-baseline gap-5">

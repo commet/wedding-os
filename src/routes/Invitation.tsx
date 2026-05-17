@@ -11,6 +11,7 @@ import { compressImage, dataUrlSize, formatBytes } from "../lib/imageCompress";
 import { uploadImage } from "../lib/imageStore";
 import SafeImg from "../components/SafeImg";
 import { useSaveStatus } from "../lib/storage";
+import { daysUntilISODate, parseISODateLocal } from "../lib/date";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type Tab = "edit" | "preview";
@@ -412,9 +413,8 @@ function Preview({
 }) {
   const theme = THEME[(inv.theme as Theme) ?? "cream"];
   const fontClass = FONT[(inv.fontStyle as FontStyle) ?? "serif"].class;
-  const dateObj = inv.date ? new Date(inv.date) : null;
-  const validDate = dateObj && !isNaN(dateObj.getTime()) ? dateObj : null;
-  const dday = validDate ? Math.ceil((validDate.getTime() - Date.now()) / 86400000) : null;
+  const validDate = parseISODateLocal(inv.date);
+  const dday = daysUntilISODate(inv.date);
 
   const names = locale === "en"
     ? `${inv.groomEnglishName || inv.groomName || "Groom"} & ${inv.brideEnglishName || inv.brideName || "Bride"}`
@@ -1241,8 +1241,8 @@ function formatDate(d: Date, locale: Locale): string {
 
 function formatShareDate(inv: InvitationContent): string {
   if (!inv.date) return "";
-  const d = new Date(inv.date);
-  if (isNaN(d.getTime())) return "";
+  const d = parseISODateLocal(inv.date);
+  if (!d) return "";
   const dayKo = ["일", "월", "화", "수", "목", "금", "토"][d.getDay()];
   return `${formatDate(d, "ko")} (${dayKo})${inv.time ? ` ${inv.time}` : ""}`;
 }
@@ -1250,8 +1250,7 @@ function formatShareDate(inv: InvitationContent): string {
 // 카톡 채팅창에 그대로 붙여넣을 청첩장 텍스트
 function buildKakaoShareText(inv: InvitationContent): string {
   const lines: string[] = [];
-  const dateObj = inv.date ? new Date(inv.date) : null;
-  const validDate = dateObj && !isNaN(dateObj.getTime()) ? dateObj : null;
+  const validDate = parseISODateLocal(inv.date);
   const dayKo = validDate ? `(${["일","월","화","수","목","금","토"][validDate.getDay()]})` : "";
 
   lines.push(`💌 ${inv.groomName || "신랑"} ♥ ${inv.brideName || "신부"} 결혼합니다`);

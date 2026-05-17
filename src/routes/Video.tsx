@@ -18,6 +18,7 @@ import { STOCK_GALLERY } from "../data/stockPhotos";
 import { safeMediaSrc } from "../lib/security";
 import { canAutoRecord, recordCurrentTab, downloadBlob } from "../lib/videoExport";
 import { compressImage } from "../lib/imageCompress";
+import { parseISODateLocal } from "../lib/date";
 import {
   VIDEO_TEMPLATES,
   findTemplate,
@@ -1159,9 +1160,8 @@ function PhotoAdd({ onAdd }: { onAdd: (urls: string[]) => void }) {
 }
 
 function formatWeddingDate(iso?: string): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "";
+  const d = parseISODateLocal(iso);
+  if (!d) return "";
   const days = ["일", "월", "화", "수", "목", "금", "토"];
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(
     d.getDate()
