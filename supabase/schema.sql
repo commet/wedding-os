@@ -7,24 +7,27 @@
 --
 -- 안전성 메모:
 --   - RLS(Row Level Security)를 켭니다.
---   - 현재 버전은 인증을 사용하지 않아서, anon key 를 가진 누구나 청첩장 row 를 읽고 쓸 수 있습니다.
---     (청첩장 URL = anon key 노출과 동일하므로 공개 게시는 권장하지 않습니다.)
---   - 다만 RSVP 와 코멘트 테이블은 권한을 좁혀, 게스트가 다른 사람의 응답을 변경/삭제하거나
---     읽을 수 없도록 INSERT 만 허용합니다. (사용자가 본인 대시보드에서 직접 조회.)
+--   - 공개 청첩장은 invitation JSON 만 읽습니다. 예산·하객·체크리스트는 공개 응답에 포함되지 않습니다.
+--   - 전체 데이터 읽기/쓰기는 앱이 로컬에 보관하는 owner token 을 RPC 에 전달할 때만 허용합니다.
+--   - RSVP 와 코멘트 테이블은 게스트가 INSERT 만 가능. 다른 사람 응답을 보거나 변경할 수 없습니다.
 --   - 본 도구의 제작자는 사용자의 Supabase 에 접근할 수 없습니다.
 -- ------------------------------------------------------------------
+
+create extension if not exists pgcrypto;
 
 -- 1. 메인 데이터 테이블
 create table if not exists public.wedding_data (
   id text primary key default 'default',
   data jsonb not null default '{}'::jsonb,
   version int not null default 1,
+  owner_token_hash text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
 -- 옛 스키마 호환 — version 컬럼이 없으면 추가.
 alter table public.wedding_data add column if not exists version int not null default 1;
+alter table public.wedding_data add column if not exists owner_token_hash text;
 
 -- 2. RSVP 테이블 (하객 응답)
 create table if not exists public.rsvp (
@@ -55,13 +58,10 @@ alter table public.rsvp enable row level security;
 alter table public.collab_comments enable row level security;
 
 -- 5. 정책
---    wedding_data: 단일 부부 가정 — 청첩장 표시·편집에 모두 필요해 read/write 허용.
---                  (auth 도입 시 본 정책을 owner 기반으로 교체할 것.)
+--    wedding_data: 직접 SELECT/UPDATE 는 막고, 아래 SECURITY DEFINER RPC 로만 접근합니다.
 drop policy if exists "wedding_data_all"    on public.wedding_data;
 drop policy if exists "wedding_data_read"   on public.wedding_data;
 drop policy if exists "wedding_data_write"  on public.wedding_data;
-create policy "wedding_data_read"  on public.wedding_data for select using (true);
-create policy "wedding_data_write" on public.wedding_data for all    using (true) with check (true);
 
 --    rsvp: 게스트는 자기 응답을 INSERT 만 가능. SELECT/UPDATE/DELETE 는 차단.
 --          → 한 명의 악의적 게스트가 다른 게스트의 응답을 보거나 지우는 걸 방지.
@@ -74,6 +74,110 @@ create policy "rsvp_insert_only" on public.rsvp for insert with check (true);
 drop policy if exists "collab_all"         on public.collab_comments;
 drop policy if exists "collab_insert_only" on public.collab_comments;
 create policy "collab_insert_only" on public.collab_comments for insert with check (true);
+
+-- 5-1. 공개/오너 RPC
+create or replace function public.ensure_wedding_owner(p_id text, p_token text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  existing_hash text;
+begin
+  if p_token is null or length(p_token) < 32 then
+    raise exception 'owner token required' using errcode = 'P0001';
+  end if;
+
+  insert into public.wedding_data (id, data, owner_token_hash)
+  values (p_id, '{}'::jsonb, crypt(p_token, gen_salt('bf')))
+  on conflict (id) do nothing;
+
+  select owner_token_hash into existing_hash
+  from public.wedding_data
+  where id = p_id
+  for update;
+
+  if existing_hash is null then
+    update public.wedding_data
+    set owner_token_hash = crypt(p_token, gen_salt('bf'))
+    where id = p_id;
+    return;
+  end if;
+
+  if existing_hash <> crypt(p_token, existing_hash) then
+    raise exception 'owner token mismatch' using errcode = 'P0001';
+  end if;
+end;
+$$;
+
+create or replace function public.load_wedding_data(p_id text default 'default', p_token text default null)
+returns table(data jsonb, version int)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform public.ensure_wedding_owner(p_id, p_token);
+
+  return query
+  select w.data, w.version
+  from public.wedding_data w
+  where w.id = p_id;
+end;
+$$;
+
+create or replace function public.save_wedding_data(
+  p_id text default 'default',
+  p_token text default null,
+  p_data jsonb default '{}'::jsonb,
+  p_expected_version int default null
+)
+returns table(ok boolean, version int, conflict boolean, reason text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_version int;
+  next_version int;
+begin
+  perform public.ensure_wedding_owner(p_id, p_token);
+
+  select w.version into current_version
+  from public.wedding_data w
+  where w.id = p_id
+  for update;
+
+  if p_expected_version is not null and current_version is not null and current_version <> p_expected_version then
+    return query select false, current_version, true, 'version conflict';
+    return;
+  end if;
+
+  update public.wedding_data
+  set data = p_data,
+      updated_at = now()
+  where id = p_id
+  returning public.wedding_data.version into next_version;
+
+  return query select true, next_version, false, null::text;
+end;
+$$;
+
+create or replace function public.get_public_invitation(p_id text default 'default')
+returns jsonb
+language sql
+security definer
+set search_path = public
+as $$
+  select coalesce(data->'invitation', '{}'::jsonb)
+  from public.wedding_data
+  where id = p_id
+$$;
+
+grant execute on function public.load_wedding_data(text, text) to anon, authenticated;
+grant execute on function public.save_wedding_data(text, text, jsonb, int) to anon, authenticated;
+grant execute on function public.get_public_invitation(text) to anon, authenticated;
 
 -- 6. updated_at 자동 갱신 + version 자동 증가 (낙관적 동시성)
 create or replace function public.touch_updated_at()

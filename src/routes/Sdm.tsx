@@ -10,7 +10,7 @@ import {
 import Modal from "../components/Modal";
 import VendorActions from "../components/VendorActions";
 
-type Props = { data: WeddingData; update: (patch: any) => void };
+type Props = { data: WeddingData; update: (patch: any) => void; initialCategory?: SdmCategory };
 
 const CAT_LABEL: Record<SdmCategory, string> = {
   studio: "스튜디오",
@@ -35,8 +35,10 @@ const REGION_GROUPS: { key: string; label: string; match: (r?: string) => boolea
   { key: "nationwide",label: "전국 체인",match: (r) => !!r && r.includes("전국") },
 ];
 
-export default function Sdm({ data, update }: Props) {
-  const [cat, setCat] = useState<SdmCategory>("studio");
+export default function Sdm({ data, update, initialCategory = "studio" }: Props) {
+  const snapOnly = initialCategory === "snap";
+  const categories: SdmCategory[] = snapOnly ? ["snap"] : ["studio", "dress", "makeup"];
+  const [cat, setCat] = useState<SdmCategory>(initialCategory);
   const [region, setRegion] = useState<string>("all");
   const [query, setQuery] = useState("");
   const [showAdd, setShowAdd] = useState(false);
@@ -90,13 +92,14 @@ export default function Sdm({ data, update }: Props) {
   return (
     <div className="page pt-8 pb-10 space-y-8">
       <div>
-        <div className="eyebrow-gold mb-2">Studio · Dress · Makeup · Snap</div>
-        <h1 className="font-serif text-[2rem] leading-none">스드메 · 스냅</h1>
+        <div className="eyebrow-gold mb-2">{snapOnly ? "Wedding Day Snap" : "Studio · Dress · Makeup"}</div>
+        <h1 className="font-serif text-[2rem] leading-none">{snapOnly ? "본식 스냅" : "스드메"}</h1>
       </div>
 
       {/* 카테고리 — underline 탭 */}
+      {!snapOnly && (
       <div className="flex items-center gap-6 border-b border-hair pb-3 overflow-x-auto -mx-6 px-6">
-        {(["studio", "dress", "makeup", "snap"] as SdmCategory[]).map((c) => (
+        {categories.map((c) => (
           <button
             key={c}
             onClick={() => setCat(c)}
@@ -108,6 +111,7 @@ export default function Sdm({ data, update }: Props) {
           </button>
         ))}
       </div>
+      )}
 
       {/* 가이드 (접이식) — hairline */}
       <details className="border-b border-hair pb-5">

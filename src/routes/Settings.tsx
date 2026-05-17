@@ -3,13 +3,14 @@ import { useNavigate, Link } from "react-router-dom";
 import type { WeddingData } from "../lib/schema";
 import { exportData, importData } from "../lib/storage";
 import { todayISO } from "../lib/freshness";
-import { clearSecrets, clearOwner, isOwner, markOwner } from "../lib/security";
+import { clearSecrets, clearOwner, getOrCreateOwnerToken, isOwner } from "../lib/security";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 
 export default function Settings({ data, update }: Props) {
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
+  const [inviteCopied, setInviteCopied] = useState(false);
 
   const handleExport = async () => {
     // exportData 는 idb 사진을 base64 로 인라인하느라 async — 큰 갤러리면 잠깐 걸림.
@@ -33,6 +34,18 @@ export default function Settings({ data, update }: Props) {
       }
     } catch (e) {
       alert("파일을 읽을 수 없어요. JSON 백업 파일이 맞는지 확인해주세요.");
+    }
+  };
+
+  const copyEditorInvite = async () => {
+    const token = getOrCreateOwnerToken();
+    const url = `${window.location.origin}/dashboard#ownerToken=${encodeURIComponent(token)}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setInviteCopied(true);
+      window.setTimeout(() => setInviteCopied(false), 2400);
+    } catch {
+      prompt("아래 편집 초대 링크를 복사해주세요:", url);
     }
   };
 
@@ -117,9 +130,9 @@ export default function Settings({ data, update }: Props) {
 
       <Section title="AI 편집 방식">
         <p className="text-[12px] text-soft leading-relaxed">
-          현재는 <b className="text-ink">챗봇 다리 방식</b>만 지원해요 — ChatGPT / Claude / Gemini 무료 버전에
-          프롬프트를 복붙하고, 답변을 다시 붙여넣으면 영상 · 정보가 갱신됩니다.
-          본인 API 키 직접 호출은 안전 · 비용 이슈로 일단 미지원.
+          앱이 AI 비용을 대신 청구하거나 서버로 내용을 보내지 않도록,
+          현재는 <b className="text-ink">챗봇 다리 방식</b>으로 동작합니다.
+          프롬프트를 ChatGPT / Claude / Gemini에 붙여넣고, 답변을 다시 붙여넣으면 영상 · 정보가 갱신됩니다.
         </p>
       </Section>
 
@@ -132,14 +145,22 @@ export default function Settings({ data, update }: Props) {
           <Link to="/setup" className="text-[12px] underline underline-offset-4 text-ink hover:text-gold inline-block mt-3">
             셋업 가이드 다시 보기 →
           </Link>
+          <div className="pt-4 mt-4 border-t border-hair space-y-2">
+            <p className="text-[11.5px] text-soft leading-relaxed">
+              다른 기기에서 함께 편집하려면 편집 초대 링크를 보내세요. 이 링크는 청첩장 링크가 아니라 오너 권한 링크입니다.
+            </p>
+            <button onClick={copyEditorInvite} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
+              {inviteCopied ? "복사됨" : "편집 초대 링크 복사 →"}
+            </button>
+          </div>
           <OwnerToggle />
         </Section>
       )}
 
       <Section title="문의 / 오류 신고">
         <p className="text-[12.5px] text-soft mb-4 leading-relaxed">
-          이상하거나 안 되는 게 있으면 부담 없이 알려주세요.
-          개인적으로 만든 도구라 오류가 있을 수밖에 없어요.
+          이상하거나 안 되는 흐름이 있으면 알려주세요.
+          화면 이름과 상황을 같이 보내주시면 빠르게 확인할 수 있어요.
         </p>
         <Link to="/contact" className="btn-primary px-6 py-3 text-[12px]">
           문의하기 →
@@ -153,7 +174,7 @@ export default function Settings({ data, update }: Props) {
       </Section>
 
       <p className="text-center text-[11px] text-soft pt-4 border-t border-hair space-x-3">
-        <span>Wedding OS · 개인 프로젝트</span>
+        <span>Wedding OS</span>
         <span>·</span>
         <Link to="/privacy" className="underline underline-offset-2">개인정보 · 보안 안내</Link>
         <span>·</span>
@@ -173,37 +194,33 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-// 모드 2 에서 부부 두 번째 기기는 셋업 위저드를 거치지 않을 수 있음(같은 URL 공유 또는 데이터 import).
-// 본인이라는 걸 표시해야 청첩장 페이지에서 편집 탭이 노출됨.
+// 모드 2 편집 권한은 owner token 이 있는 기기에서만 유효하다.
+// 두 번째 기기는 "편집 초대 링크"로 들어오면 hash 에서 token 을 받아 owner 상태가 된다.
 function OwnerToggle() {
   const [owner, setOwner] = useState(isOwner());
 
-  const toggle = () => {
-    if (owner) {
-      if (!confirm("이 기기를 '게스트' 로 되돌릴까요?\n청첩장의 편집 탭이 숨겨집니다.")) return;
-      clearOwner();
-      setOwner(false);
-    } else {
-      if (!confirm(
-        "이 기기를 청첩장의 오너로 표시할까요?\n\n" +
-        "오너만 청첩장의 편집 탭을 볼 수 있어요.\n" +
-        "본인(부부) 기기에서만 켜주세요. 단톡방·SNS 공유받은 기기에서 켜면 안 됩니다."
-      )) return;
-      markOwner();
-      setOwner(true);
-    }
+  const becomeGuest = () => {
+    if (!confirm("이 기기를 보기 전용으로 바꿀까요?\n청첩장 편집 탭이 숨겨집니다.")) return;
+    clearOwner();
+    setOwner(false);
   };
 
   return (
     <div className="pt-4 mt-4 border-t border-hair space-y-2">
       <p className="text-[11.5px] text-soft">
         이 기기는 현재{" "}
-        <b className={owner ? "text-gold" : "text-soft"}>{owner ? "오너 (편집 가능)" : "게스트 (보기 전용)"}</b>
+        <b className={owner ? "text-gold" : "text-soft"}>{owner ? "편집 가능" : "보기 전용"}</b>
         예요.
       </p>
-      <button onClick={toggle} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
-        {owner ? "이 기기를 게스트로 되돌리기" : "이 기기를 오너로 표시"} →
-      </button>
+      {owner ? (
+        <button onClick={becomeGuest} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
+          이 기기를 보기 전용으로 바꾸기 →
+        </button>
+      ) : (
+        <p className="text-[11.5px] text-soft leading-relaxed">
+          편집 권한이 필요하면 부부의 기존 편집 기기에서 [편집 초대 링크]를 받아 다시 열어주세요.
+        </p>
+      )}
     </div>
   );
 }

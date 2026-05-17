@@ -56,8 +56,8 @@ export default function Contact({ data }: Props) {
       </div>
 
       <p className="text-[13px] text-soft leading-relaxed border-b border-hair pb-6">
-        개인적으로 만든 도구라 오류가 있을 수 있어요. 편하게 알려주시면 가능한 한 빨리 살펴볼게요.
-        하루 24시간 답변은 못 드릴 수 있지만, 며칠 안에는 꼭 답장드립니다.
+        화면 이름, 눌렀던 버튼, 기대했던 결과를 적어주시면 빠르게 확인할 수 있어요.
+        캡처가 있으면 메일 앱에서 함께 첨부해주세요.
       </p>
 
       <div className="space-y-5">

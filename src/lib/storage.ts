@@ -6,9 +6,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { defaultData, WeddingData, SCHEMA_VERSION } from "./schema";
-import { createSupabaseStorage } from "./storage.supabase";
+import { createSupabaseStorage, loadPublicInvitation } from "./storage.supabase";
 import { demoData } from "../data/demoData";
-import { setSecrets, isSupabaseHost } from "./security";
+import { getOwnerToken, setOwnerToken, setSecrets, isSupabaseHost } from "./security";
 import { inlineIdbForExport } from "./imageStore";
 
 const LS_KEY = "wedding-os/v1";
@@ -244,6 +244,7 @@ export function useWeddingData() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      consumeOwnerTokenFromHash();
       const fromLocal = await localStorageDriver.load();
       if (cancelled) return;
       if (fromLocal) {
@@ -256,25 +257,50 @@ export function useWeddingData() {
         return;
       }
 
-      // 환경변수 기반 supabase 로드 시도 (모드 2 사용자가 배포한 사이트에 게스트로 진입한 경우)
+      // 환경변수 기반 supabase 로드 시도 (배포된 공개 청첩장에 게스트로 진입한 경우).
+      // 공개 라우트에서는 전체 wedding_data 를 절대 내려받지 않고 invitation JSON 만 로드한다.
       const envUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
       const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
       if (envUrl && envKey) {
         try {
-          const envDriver = createSupabaseStorage(envUrl, envKey, "default");
-          const fromEnv = await envDriver.load();
+          if (getOwnerToken()) {
+            const envDriver = createSupabaseStorage(envUrl, envKey, "default");
+            const fromFullEnv = await envDriver.load();
+            if (cancelled) return;
+            if (fromFullEnv) {
+              setData({
+                ...fromFullEnv.data,
+                preferences: {
+                  ...fromFullEnv.data.preferences,
+                  mode: "supabase",
+                  supabase: { url: envUrl, anonKey: envKey, configId: "default" },
+                  isDemo: false,
+                },
+              });
+              _localVersion = fromFullEnv.version;
+              setLoading(false);
+              return;
+            }
+          }
+
+          const fromEnv = await loadPublicInvitation(envUrl, envKey, "default");
           if (cancelled) return;
-          if (fromEnv) {
+          if (fromEnv.ok && fromEnv.invitation) {
+            const base = defaultData();
             setData({
-              ...fromEnv.data,
+              ...base,
+              invitation: {
+                ...base.invitation,
+                ...fromEnv.invitation,
+              },
               preferences: {
-                ...fromEnv.data.preferences,
+                ...base.preferences,
                 mode: "supabase",
                 supabase: { url: envUrl, anonKey: envKey, configId: "default" },
                 isDemo: false,
               },
             });
-            _localVersion = fromEnv.version;
+            _localVersion = undefined;
             setLoading(false);
             return;
           }
@@ -334,6 +360,16 @@ export function useWeddingData() {
   }, [supabaseUrl, supabaseKey, isSupabaseMode]);
 
   return { data, loading, update };
+}
+
+function consumeOwnerTokenFromHash() {
+  if (typeof window === "undefined") return;
+  const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : "";
+  if (!hash) return;
+  const params = new URLSearchParams(hash);
+  const token = params.get("ownerToken");
+  if (!token || !setOwnerToken(token)) return;
+  window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}`);
 }
 
 // 직렬 저장 큐. 모든 save 호출이 이 chain 위에서 순차 실행된다.

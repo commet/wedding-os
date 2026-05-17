@@ -17,18 +17,23 @@ const TEMPLATE: Tmpl[] = [
   {
     icon: "🏛️", title: "예식장 · 업체",
     items: [
+      { text: "양가 상견례 / 결혼 준비 범위 합의", dday: -390, priority: "yellow" },
       { text: "예식 날짜·시간 확정", dday: -365 },
       { text: "예식장 예약 + 계약금", dday: -360, priority: "red" },
+      { text: "계약 조건 확인 (취소·환불·보증인원·식대·주차·부가세)", dday: -355, priority: "red" },
       { text: "스튜디오·드레스·메이크업(스드메) 계약", dday: -300 },
+      { text: "본식 스냅·영상 촬영 여부 결정", dday: -180 },
       { text: "예식장 식순·식사 메뉴 확정", dday: -60 },
+      { text: "주차·셔틀·혼주 동선 확인", dday: -30 },
       { text: "예식장 최종 미팅", dday: -14 },
+      { text: "잔금·정산 방식 확인", dday: -7 },
     ],
   },
   {
     icon: "💍", title: "결혼반지",
     items: [
       { text: "브랜드 후보 비교", dday: -150 },
-      { text: "신부와 함께 2~3개로 좁히기", dday: -135 },
+      { text: "둘이 함께 2~3개로 좁히기", dday: -135 },
       { text: "매장 방문 + 실물 착용", dday: -120 },
       { text: "최종 결정 및 주문", dday: -110, priority: "yellow" },
       { text: "각인 문구 결정", dday: -100 },
@@ -42,10 +47,13 @@ const TEMPLATE: Tmpl[] = [
       { text: "모시는 글 문구 작성", dday: -100 },
       { text: "하객 명단 양가 취합", dday: -90, priority: "yellow" },
       { text: "종이 청첩장 업체 선정 + 시안", dday: -75 },
+      { text: "이름·날짜·주소·계좌 오탈자 검수", dday: -65, priority: "red" },
       { text: "종이 청첩장 인쇄", dday: -60 },
       { text: "모바일 청첩장 제작", dday: -45 },
+      { text: "모바일 청첩장 테스트 발송", dday: -35 },
       { text: "종이 청첩장 배부 시작", dday: -40 },
       { text: "모바일 청첩장 카톡 발송", dday: -30, priority: "red" },
+      { text: "참석 여부 1차 취합", dday: -14 },
     ],
   },
   {
@@ -53,9 +61,22 @@ const TEMPLATE: Tmpl[] = [
     items: [
       { text: "스냅 업체 리서치 + 포트폴리오 비교", dday: -150 },
       { text: "스냅 업체 선정 및 계약", dday: -120, priority: "yellow" },
+      { text: "촬영 원본·보정본 제공 범위 확인", dday: -110 },
       { text: "식전영상용 사진 양가 수집", dday: -60 },
       { text: "식전영상 편집", dday: -30 },
+      { text: "식전영상 예식장 재생 테스트", dday: -10, priority: "yellow" },
       { text: "식전영상 최종본 예식장 전달", dday: -7, priority: "red" },
+    ],
+  },
+  {
+    icon: "👗", title: "의상 · 뷰티",
+    items: [
+      { text: "드레스 투어 / 예복 상담 일정 잡기", dday: -180 },
+      { text: "촬영 드레스·예복 결정", dday: -120 },
+      { text: "본식 드레스·예복 결정", dday: -90, priority: "yellow" },
+      { text: "헤어·메이크업 리허설", dday: -45 },
+      { text: "본식 가봉 / 사이즈 최종 확인", dday: -21, priority: "red" },
+      { text: "부케·부토니에 색감 확정", dday: -14 },
     ],
   },
   {
@@ -63,6 +84,7 @@ const TEMPLATE: Tmpl[] = [
     items: [
       { text: "예식장 근처 호텔 후보 가격 비교", dday: -90 },
       { text: "객실 플랜 수립 + 예약", dday: -45, priority: "yellow" },
+      { text: "지방/해외 하객 안내 메시지 정리", dday: -30 },
     ],
   },
   {
@@ -71,8 +93,9 @@ const TEMPLATE: Tmpl[] = [
       { text: "여행지 결정", dday: -120 },
       { text: "항공권 예약", dday: -100, priority: "red" },
       { text: "숙소 예약", dday: -90 },
+      { text: "여권·비자·입국 요건 확인", dday: -60, priority: "red" },
       { text: "여행 일정 짜기", dday: -30 },
-      { text: "여권 만료일 확인 / 환전", dday: -14 },
+      { text: "여행자보험 / 환전 / 로밍 준비", dday: -14 },
     ],
   },
   {
@@ -82,18 +105,25 @@ const TEMPLATE: Tmpl[] = [
       { text: "혼주 한복/양복 준비", dday: -45 },
       { text: "답례품 결정 + 주문", dday: -30 },
       { text: "사회자 · 축가 섭외", dday: -30 },
+      { text: "주례·사회자·축가 큐시트 공유", dday: -14, priority: "yellow" },
       { text: "2차 장소 결정", dday: -21 },
       { text: "예식 당일 타임라인 정리", dday: -7 },
+      { text: "혼주·가족 촬영 순서 공유", dday: -5 },
+      { text: "당일 담당자 연락망 정리", dday: -3, priority: "yellow" },
       { text: "준비물 체크 (예물·서류·소품)", dday: -2, priority: "red" },
+      { text: "계약 업체 잔금 / 팁 / 사례비 봉투 준비", dday: -1, priority: "red" },
     ],
   },
   {
     icon: "📋", title: "행정 · 신혼집",
     items: [
       { text: "신혼집 계약 / 입주 준비", dday: -120 },
-      { text: "혼인신고 서류 준비", dday: -7 },
+      { text: "전입·전세보증·관리비 계정 확인", dday: -30 },
+      { text: "혼인신고서·신분증·증인 2명 서명 확인", dday: -7 },
+      { text: "혼인신고 방문/우편 제출 방법 확인", dday: -3 },
       { text: "혼인신고", dday: 1 },
       { text: "주소 이전 · 각종 명의 변경", dday: 14 },
+      { text: "예식 비용 최종 정산 / 영수증 정리", dday: 7 },
     ],
   },
 ];

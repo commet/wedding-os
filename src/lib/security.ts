@@ -60,6 +60,7 @@ const SECRETS_KEY = "wedding-os/secrets/v1";
 
 type Secrets = {
   aiKey?: string;
+  ownerToken?: string;
 };
 
 export function getSecrets(): Secrets {
@@ -83,6 +84,40 @@ export function setSecrets(patch: Secrets): void {
 
 export function clearSecrets(): void {
   try { localStorage.removeItem(SECRETS_KEY); } catch { /* noop */ }
+}
+
+export function getOrCreateOwnerToken(): string {
+  const current = getSecrets().ownerToken;
+  if (current && current.length >= 32) return current;
+  const token = createToken();
+  setSecrets({ ownerToken: token });
+  return token;
+}
+
+export function getOwnerToken(): string | undefined {
+  const token = getSecrets().ownerToken;
+  return token && token.length >= 32 ? token : undefined;
+}
+
+export function setOwnerToken(token: string): boolean {
+  const clean = token.trim();
+  if (clean.length < 32) return false;
+  setSecrets({ ownerToken: clean });
+  markOwner();
+  return true;
+}
+
+function createToken(): string {
+  const c = typeof globalThis !== "undefined" ? globalThis.crypto : undefined;
+  if (c?.randomUUID) {
+    return `${c.randomUUID()}-${c.randomUUID()}`;
+  }
+  const bytes = new Uint8Array(32);
+  if (c?.getRandomValues) {
+    c.getRandomValues(bytes);
+    return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
 }
 
 // ── 오너 마커 ────────────────────────────────────────

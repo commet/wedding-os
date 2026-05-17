@@ -10,6 +10,7 @@ import { insertRsvp, type RsvpInput } from "../lib/storage.supabase";
 import { compressImage, dataUrlSize, formatBytes } from "../lib/imageCompress";
 import { uploadImage } from "../lib/imageStore";
 import SafeImg from "../components/SafeImg";
+import { useSaveStatus } from "../lib/storage";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type Tab = "edit" | "preview";
@@ -67,6 +68,12 @@ export default function Invitation({ data, update }: Props) {
   };
 
   const [shareText, setShareText] = useState<string | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
+
+  const markShareCopied = () => {
+    setShareCopied(true);
+    window.setTimeout(() => setShareCopied(false), 2400);
+  };
 
   const share = async () => {
     const missing = missingInvitationFields();
@@ -79,19 +86,22 @@ export default function Invitation({ data, update }: Props) {
     }
     // 모드 2: 실제 청첩장 링크 — 게스트 전용 라우트 /i 공유
     if (data.preferences.mode === "supabase") {
-      const proceed = confirm(
-        "⚠️ 청첩장 공유 전에 꼭 확인해주세요\n\n" +
-        "현재 버전은 인증 없이 동작합니다. 링크를 받은 사람은 브라우저 개발자 도구로\n" +
-        "데이터를 수정·삭제할 가능성이 있어요.\n\n" +
-        "→ 가까운 가족·친한 친구에게만 공유하시고,\n" +
-        "단톡방·SNS 공개 게시는 보안 업데이트 이전까지 권장하지 않습니다.\n\n" +
-        "복사할까요?"
-      );
-      if (!proceed) return;
       const url = window.location.origin + "/i";
+      const title = `${inv.groomName || "신랑"} · ${inv.brideName || "신부"} 결혼합니다`;
+      const text = inv.date || inv.venue
+        ? [formatShareDate(inv), inv.venue].filter(Boolean).join(" · ")
+        : "청첩장을 확인해주세요.";
+      if (navigator.share) {
+        try {
+          await navigator.share({ title, text, url });
+          return;
+        } catch (e: any) {
+          if (e?.name === "AbortError") return;
+        }
+      }
       try {
         await navigator.clipboard.writeText(url);
-        alert("청첩장 링크가 복사되었어요.");
+        markShareCopied();
       } catch {
         prompt("아래 링크를 복사해주세요:", url);
       }
@@ -106,7 +116,7 @@ export default function Invitation({ data, update }: Props) {
     try {
       await navigator.clipboard.writeText(shareText);
       setShareText(null);
-      alert("✓ 청첩장 내용이 복사되었어요.\n카톡 채팅에 그대로 붙여넣어 보내세요.");
+      markShareCopied();
     } catch {
       prompt("아래 내용을 복사해 카톡에 붙여넣으세요:", shareText);
       setShareText(null);
@@ -143,7 +153,7 @@ export default function Invitation({ data, update }: Props) {
               <h1 className="font-serif text-xl text-ink">모바일 청첩장</h1>
             </div>
             <button onClick={share} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold transition">
-              공유 →
+              {shareCopied ? "복사됨" : "공유 →"}
             </button>
           </div>
           <div className="page pb-3 flex items-center gap-6">
@@ -202,6 +212,7 @@ export default function Invitation({ data, update }: Props) {
           onRsvpClick={() => setShowRsvp(true)}
           hideShareBox={isGuestRoute}
           onShare={share}
+          shareCopied={shareCopied}
         />
       )}
 
@@ -275,7 +286,7 @@ function RsvpModal({
     <Modal open onClose={onClose} title={t("참석 의사 전달", locale)}>
       {status === "ok" ? (
         <div className="text-center py-6 space-y-3">
-          <div className="text-3xl">💌</div>
+          <div className="eyebrow-gold">RSVP</div>
           <p className="text-sm">{t("축하의 마음으로 참석해 주시는 분들을 위해", locale)}</p>
           <p className="text-base font-medium text-gold">{t("전송됐어요. 감사합니다.", locale)}</p>
           <button onClick={onClose} className="btn-primary mt-2">닫기</button>
@@ -296,9 +307,9 @@ function RsvpModal({
                 <button
                   key={s}
                   onClick={() => setSide(s)}
-                  className={`flex-1 text-sm py-2 rounded-lg border ${side === s ? "border-gold bg-gold/5 text-gold" : "border-line text-soft"}`}
+                  className={`flex-1 text-sm py-2 border ${side === s ? "border-gold bg-gold/5 text-gold" : "border-line text-soft"}`}
                 >
-                  {s === "groom" ? `🤵 ${t("신랑 측", locale)}` : `👰 ${t("신부 측", locale)}`}
+                  {s === "groom" ? t("신랑 측", locale) : t("신부 측", locale)}
                 </button>
               ))}
             </div>
@@ -309,15 +320,15 @@ function RsvpModal({
             <div className="flex gap-2">
               <button
                 onClick={() => setAttending(true)}
-                className={`flex-1 text-sm py-2 rounded-lg border ${attending === true ? "border-gold bg-gold/5 text-gold" : "border-line text-soft"}`}
+                className={`flex-1 text-sm py-2 border ${attending === true ? "border-gold bg-gold/5 text-gold" : "border-line text-soft"}`}
               >
-                ✓ {t("참석", locale)}
+                {t("참석", locale)}
               </button>
               <button
                 onClick={() => setAttending(false)}
-                className={`flex-1 text-sm py-2 rounded-lg border ${attending === false ? "border-gold bg-gold/5 text-gold" : "border-line text-soft"}`}
+                className={`flex-1 text-sm py-2 border ${attending === false ? "border-gold bg-gold/5 text-gold" : "border-line text-soft"}`}
               >
-                ✗ {t("불참", locale)}
+                {t("불참", locale)}
               </button>
             </div>
           </div>
@@ -332,6 +343,18 @@ function RsvpModal({
                 className="input"
                 value={guests}
                 onChange={(e) => setGuests(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+              />
+            </div>
+          )}
+
+          {attending === true && (
+            <div>
+              <label className="label">{t("식사 메모 (선택)", locale)}</label>
+              <input
+                className="input"
+                value={meal}
+                onChange={(e) => setMeal(e.target.value)}
+                placeholder={t("예: 아동 1명, 채식, 알레르기", locale)}
               />
             </div>
           )}
@@ -377,7 +400,7 @@ function TabBtn({ active, onClick, children }: any) {
 /* ════════════ 미리보기 — 실제 청첩장 ════════════ */
 
 function Preview({
-  inv, locale, rsvpEnabled, onRsvpClick, hideShareBox, onShare,
+  inv, locale, rsvpEnabled, onRsvpClick, hideShareBox, onShare, shareCopied,
 }: {
   inv: InvitationContent;
   locale: Locale;
@@ -385,6 +408,7 @@ function Preview({
   onRsvpClick?: () => void;
   hideShareBox?: boolean;
   onShare?: () => void;
+  shareCopied?: boolean;
 }) {
   const theme = THEME[(inv.theme as Theme) ?? "cream"];
   const fontClass = FONT[(inv.fontStyle as FontStyle) ?? "serif"].class;
@@ -398,7 +422,7 @@ function Preview({
 
   return (
     <div className="px-5 py-4">
-      <div className="bg-white rounded-3xl overflow-hidden border border-line shadow-sm">
+      <div className="bg-white overflow-hidden border border-line">
         {/* 1. 히어로 */}
         <div className="relative">
           {inv.heroImageUrl ? (
@@ -429,7 +453,7 @@ function Preview({
                   D+{Math.abs(dday)}
                 </div>
                 <p className="text-xs text-soft mt-2">
-                  {locale === "ko" ? "함께해주셔서 감사합니다 💌" : locale === "en" ? "Thank you for being with us 💌" : "謝謝您的祝福 💌"}
+                  {locale === "ko" ? "함께해주셔서 감사합니다" : locale === "en" ? "Thank you for being with us" : "謝謝您的祝福"}
                 </p>
               </>
             ) : (
@@ -502,14 +526,14 @@ function Preview({
               <a
                 href={`https://map.kakao.com/link/search/${encodeURIComponent(inv.venue)}`}
                 target="_blank" rel="noopener noreferrer"
-                className="text-xs px-3 py-2 rounded-lg bg-cream border border-line"
+                className="text-xs px-3 py-2 bg-cream border border-line"
               >
                 카카오맵
               </a>
               <a
                 href={`https://map.naver.com/v5/search/${encodeURIComponent(inv.venue)}`}
                 target="_blank" rel="noopener noreferrer"
-                className="text-xs px-3 py-2 rounded-lg bg-cream border border-line"
+                className="text-xs px-3 py-2 bg-cream border border-line"
               >
                 네이버지도
               </a>
@@ -523,13 +547,13 @@ function Preview({
             <h3 className={`text-sm ${theme.accent} mb-3 text-center tracking-wide`}>{t("연락하기", locale)}</h3>
             <div className="flex gap-2">
               {safeTel(inv.groomPhone) && (
-                <a href={`tel:${safeTel(inv.groomPhone)}`} className="flex-1 text-center text-sm py-2.5 rounded-lg bg-cream border border-line">
-                  🤵 {t("신랑", locale)}
+                <a href={`tel:${safeTel(inv.groomPhone)}`} className="flex-1 text-center text-sm py-2.5 bg-cream border border-line">
+                  {t("신랑", locale)}
                 </a>
               )}
               {safeTel(inv.bridePhone) && (
-                <a href={`tel:${safeTel(inv.bridePhone)}`} className="flex-1 text-center text-sm py-2.5 rounded-lg bg-cream border border-line">
-                  👰 {t("신부", locale)}
+                <a href={`tel:${safeTel(inv.bridePhone)}`} className="flex-1 text-center text-sm py-2.5 bg-cream border border-line">
+                  {t("신부", locale)}
                 </a>
               )}
             </div>
@@ -577,7 +601,7 @@ function Preview({
         {/* BGM */}
         {safeMediaSrc(inv.bgmUrl) && (
           <div className="px-7 py-4 border-t border-line text-center">
-            <p className="text-xs text-soft mb-2">🎵 {t("배경 음악", locale)}</p>
+            <p className="text-xs text-soft mb-2">{t("배경 음악", locale)}</p>
             <audio src={safeMediaSrc(inv.bgmUrl)} controls className="w-full" />
           </div>
         )}
@@ -593,9 +617,9 @@ function Preview({
         <>
           <button
             onClick={onShare}
-            className="mt-4 btn-primary w-full py-3.5 shadow-md"
+            className="mt-4 btn-primary w-full py-3.5"
           >
-            💬 카톡으로 보낼 텍스트 복사
+            {shareCopied ? "복사됐어요" : "청첩장 공유하기"}
           </button>
           <p className="text-xs text-center text-soft mt-3 leading-relaxed">
             모드 1에서도 청첩장을 카톡으로 보낼 수 있어요.<br />
@@ -617,14 +641,14 @@ function AccountSection({ inv, locale, accent }: { inv: InvitationContent; local
       {open && (
         <div className="mt-3 space-y-2 text-sm">
           {inv.groomAccount && (
-            <div className="bg-cream rounded-lg py-2 px-3">
-              <span className="text-soft text-xs">🤵 {inv.groomName}</span>
+            <div className="bg-cream py-2 px-3">
+              <span className="text-soft text-xs">{t("신랑", locale)} · {inv.groomName}</span>
               <div>{inv.groomAccount}</div>
             </div>
           )}
           {inv.brideAccount && (
-            <div className="bg-cream rounded-lg py-2 px-3">
-              <span className="text-soft text-xs">👰 {inv.brideName}</span>
+            <div className="bg-cream py-2 px-3">
+              <span className="text-soft text-xs">{t("신부", locale)} · {inv.brideName}</span>
               <div>{inv.brideAccount}</div>
             </div>
           )}
@@ -676,10 +700,22 @@ function EditForm({ inv, set, mode }: {
 }) {
   const [picker, setPicker] = useState<null | "hero" | "gallery">(null);
   const theme = (inv.theme as Theme) ?? "cream";
+  const saveStatus = useSaveStatus();
+  const saveLabel =
+    saveStatus === "saving" ? "저장 중" :
+    saveStatus === "saved" ? "저장됨" :
+    saveStatus === "error" ? "저장 실패" :
+    mode === "local" ? "이 기기에 자동 저장" : "자동 저장";
 
   return (
     <div className="page pt-2 pb-6">
-      <Section title="대표 사진 & 색감">
+      <div className="sticky top-[145px] z-10 -mx-6 px-6 py-2 bg-paper/95 backdrop-blur border-b border-hair">
+        <div className={`eyebrow ${saveStatus === "error" ? "text-gold" : saveStatus === "saved" ? "text-sage" : "text-soft"}`}>
+          {saveLabel} · 입력하면 바로 반영됩니다
+        </div>
+      </div>
+
+      <Section title="대표 사진 & 색감" defaultOpen>
         {inv.heroImageUrl && (
           <SafeImg src={inv.heroImageUrl} alt="" className="w-full aspect-[3/4] object-cover rounded-xl" />
         )}
@@ -688,7 +724,7 @@ function EditForm({ inv, set, mode }: {
           onUploaded={(dataUrl) => set("heroImageUrl", dataUrl)}
         />
         <button onClick={() => setPicker("hero")} className="btn-secondary w-full text-sm">
-          📷 추천 사진에서 고르기
+          추천 사진에서 고르기
         </button>
         <label className="label">또는 사진 주소(URL) 직접 입력</label>
         <input
@@ -741,7 +777,7 @@ function EditForm({ inv, set, mode }: {
         </div>
       </Section>
 
-      <Section title="신랑 · 신부">
+      <Section title="신랑 · 신부" defaultOpen>
         <div className="grid grid-cols-2 gap-2">
           <Field label="신랑 이름"><input className="input" value={inv.groomName} onChange={(e) => set("groomName", e.target.value)} placeholder="도현" /></Field>
           <Field label="신부 이름"><input className="input" value={inv.brideName} onChange={(e) => set("brideName", e.target.value)} placeholder="지윤" /></Field>
@@ -752,7 +788,7 @@ function EditForm({ inv, set, mode }: {
         </div>
       </Section>
 
-      <Section title="예식 일정">
+      <Section title="예식 일정" defaultOpen>
         <Field label="날짜"><input type="date" className="input" value={inv.date} onChange={(e) => set("date", e.target.value)} /></Field>
         <Field label="시간"><input className="input" value={inv.time ?? ""} onChange={(e) => set("time", e.target.value)} placeholder="오후 3시" /></Field>
         <Field label="예식장"><input className="input" value={inv.venue} onChange={(e) => set("venue", e.target.value)} placeholder="서울대학교 교수회관" /></Field>
@@ -760,11 +796,11 @@ function EditForm({ inv, set, mode }: {
         <Field label="주소"><input className="input" value={inv.venueAddress ?? ""} onChange={(e) => set("venueAddress", e.target.value)} placeholder="서울특별시 관악구..." /></Field>
       </Section>
 
-      <Section title="모시는 글">
+      <Section title="모시는 글" defaultOpen>
         <textarea className="input min-h-[140px]" value={inv.greeting} onChange={(e) => set("greeting", e.target.value)} />
       </Section>
 
-      <Section title="혼주">
+      <Section title="혼주" defaultOpen={false}>
         <div className="text-xs text-soft">신랑 측</div>
         <div className="grid grid-cols-2 gap-2">
           <input className="input" placeholder="아버지" value={inv.groomParents?.father ?? ""} onChange={(e) => set("groomParents", { ...inv.groomParents, father: e.target.value })} />
@@ -779,7 +815,7 @@ function EditForm({ inv, set, mode }: {
         <input className="input" placeholder="관계 (예: 장녀, 외동딸)" value={inv.brideOrder ?? ""} onChange={(e) => set("brideOrder", e.target.value)} />
       </Section>
 
-      <Section title="외국 하객 (선택)">
+      <Section title="외국 하객 (선택)" defaultOpen={false}>
         <p className="text-xs text-soft leading-relaxed">
           외국에 사는 가족·친구가 있으면 영문·중문을 추가로 켤 수 있어요.
           체크하면 미리보기 상단에 언어 전환 버튼이 보입니다.
@@ -796,7 +832,7 @@ function EditForm({ inv, set, mode }: {
                 const cur = inv.enabledLocales ?? [];
                 set("enabledLocales", on ? cur.filter((x) => x !== opt.id) : [...cur, opt.id]);
               }}
-              className={`w-full text-sm py-2 rounded-lg border ${on ? "border-gold bg-gold/5 text-gold" : "border-line text-soft"}`}
+              className={`w-full text-sm py-2 border ${on ? "border-gold bg-gold/5 text-gold" : "border-line text-soft"}`}
             >
               {on ? "✓ " : ""}{opt.label}
             </button>
@@ -804,7 +840,7 @@ function EditForm({ inv, set, mode }: {
         })}
       </Section>
 
-      <Section title="배경 음악 (선택)">
+      <Section title="배경 음악 (선택)" defaultOpen={false}>
         <label className="label">음원 주소 (mp3 URL)</label>
         <input
           className="input text-sm"
@@ -824,7 +860,7 @@ function EditForm({ inv, set, mode }: {
         </p>
       </Section>
 
-      <Section title="갤러리">
+      <Section title="갤러리" defaultOpen={false}>
         <GalleryUploadButton
           mode={mode}
           onUploaded={(urls) =>
@@ -832,12 +868,12 @@ function EditForm({ inv, set, mode }: {
           }
         />
         <button onClick={() => setPicker("gallery")} className="btn-secondary w-full text-sm">
-          📷 추천 사진에서 추가
+          추천 사진에서 추가
         </button>
         <GalleryEditor gallery={inv.gallery ?? []} onChange={(g) => set("gallery", g)} />
       </Section>
 
-      <Section title="연락처 / 마음 전하실 곳">
+      <Section title="연락처 / 마음 전하실 곳" defaultOpen={false}>
         <div className="grid grid-cols-2 gap-2">
           <Field label="신랑 연락처"><input className="input" value={inv.groomPhone ?? ""} onChange={(e) => set("groomPhone", e.target.value)} placeholder="010-..." /></Field>
           <Field label="신부 연락처"><input className="input" value={inv.bridePhone ?? ""} onChange={(e) => set("bridePhone", e.target.value)} placeholder="010-..." /></Field>
@@ -847,11 +883,11 @@ function EditForm({ inv, set, mode }: {
       </Section>
 
       <p className="text-[11px] text-soft text-center leading-relaxed pt-6">
-        모드 1(휴대폰 저장)에서는 미리보기만 가능해요.<br />
-        실제로 카톡으로 보내려면 [더보기 → 저장 방식]에서 [내 사이트 만들기]로 전환.
+        휴대폰 저장 모드는 카톡에 붙여넣을 초대 문구를 만들 수 있어요.<br />
+        하객이 여는 청첩장 링크와 RSVP가 필요하면 [청첩장 링크 만들기]로 전환하세요.
       </p>
 
-      <Section title="다른 청첩장 서비스도 알아보기">
+      <Section title="다른 청첩장 서비스도 알아보기" defaultOpen={false}>
         <p className="text-[12.5px] text-soft leading-relaxed">
           여기서 직접 만드는 게 부담이면, 익숙한 청첩장 업체에서 비슷한 결과를 얻을 수 있어요.
           객관적으로 알아보세요.
@@ -945,7 +981,7 @@ function PhotoPickerModal({
         </button>
       )}
       <p className="text-xs text-soft mt-3 text-center">
-        사진 출처: Unsplash · 자유 이용 가능
+        사진 출처: Unsplash · 배포 전 사진별 사용 조건 확인 권장
       </p>
     </Modal>
   );
@@ -1001,7 +1037,7 @@ function HeroUploadButton({ onUploaded, mode }: {
         disabled={busy}
         className="btn-primary w-full text-sm disabled:opacity-50"
       >
-        {busy ? "압축 중…" : "📤 내 사진 업로드"}
+        {busy ? "압축 중…" : "내 사진 업로드"}
       </button>
     </>
   );
@@ -1062,7 +1098,7 @@ function GalleryUploadButton({ onUploaded, mode }: {
         disabled={busy}
         className="btn-primary w-full text-sm disabled:opacity-50"
       >
-        {busy ? `압축 중… ${progress}%` : "📤 여러 장 업로드"}
+        {busy ? `압축 중… ${progress}%` : "여러 장 업로드"}
       </button>
     </>
   );
@@ -1136,11 +1172,19 @@ function PlatformRow({ entry }: { entry: { name: string; desc: string; url?: str
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode; }) {
+function Section({ title, children, defaultOpen = true }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <section className="py-8 border-b border-hair last:border-b-0 space-y-4">
-      <h3 className="eyebrow-gold">{title}</h3>
-      <div className="space-y-3">{children}</div>
+    <section className="border-b border-hair last:border-b-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full py-5 flex items-baseline justify-between text-left"
+      >
+        <h3 className="eyebrow-gold">{title}</h3>
+        <span className="text-[12px] text-soft">{open ? "접기" : "열기"}</span>
+      </button>
+      {open && <div className="space-y-3 pb-8">{children}</div>}
     </section>
   );
 }
@@ -1179,6 +1223,8 @@ function t(ko: string, locale: Locale): string {
     "참석": { en: "Yes", zh: "出席" },
     "불참": { en: "No", zh: "缺席" },
     "참석 인원 (본인 포함)": { en: "Guests (incl. you)", zh: "人數 (含本人)" },
+    "식사 메모 (선택)": { en: "Meal note (optional)", zh: "用餐備註 (選填)" },
+    "예: 아동 1명, 채식, 알레르기": { en: "e.g. 1 child, vegetarian, allergy", zh: "例：兒童1位、素食、過敏" },
     "축하 메시지 (선택)": { en: "Message (optional)", zh: "祝福訊息 (選填)" },
     "전송 중…": { en: "Sending…", zh: "發送中…" },
     "참석 의사 전하기": { en: "Send RSVP", zh: "送出回覆" },
@@ -1191,6 +1237,14 @@ function formatDate(d: Date, locale: Locale): string {
   if (locale === "ko") return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
   if (locale === "en") return d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
   return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+}
+
+function formatShareDate(inv: InvitationContent): string {
+  if (!inv.date) return "";
+  const d = new Date(inv.date);
+  if (isNaN(d.getTime())) return "";
+  const dayKo = ["일", "월", "화", "수", "목", "금", "토"][d.getDay()];
+  return `${formatDate(d, "ko")} (${dayKo})${inv.time ? ` ${inv.time}` : ""}`;
 }
 
 // 카톡 채팅창에 그대로 붙여넣을 청첩장 텍스트

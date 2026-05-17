@@ -1,7 +1,7 @@
-// 결혼 비용 카테고리 + 한국 평균치.
+// 결혼 비용 카테고리 + 참고 기준값.
 //
-// ⚠️ 평균 비용은 듀오웨드 결혼 비용 보고서·한국소비자원·통계청 신혼부부 통계 등
-//   공개 자료의 일반적 범위를 기준으로 한 "참고치"입니다. 개인 상황·지역·시즌에 따라 크게 달라요.
+// ⚠️ 평균 비용은 공개 자료와 일반 견적 범위를 섞은 "참고치"입니다.
+//   개인 상황·지역·시즌·보증인원·계약 조건에 따라 크게 달라요.
 //   본 도구는 어떤 업체와도 제휴 관계 없음 — 객관적 가이드 목적.
 
 import type { BudgetItem } from "../lib/schema";
@@ -19,17 +19,31 @@ export const BUDGET_TEMPLATE: BudgetGroup[] = [
     items: [
       { category: "예식장 대관·홀비", avgKRW: 3_000_000, notes: "보증인원 외 별도 항목인 경우" },
       { category: "예식장 식대", avgKRW: 18_000_000, notes: "9만원 × 200명 기준 (호텔은 13~20만원)" },
+      { category: "부가세·봉사료·음주류", avgKRW: 1_500_000, notes: "견적서에 포함/별도 여부 확인" },
+      { category: "주차·셔틀·버스", avgKRW: 500_000, notes: "지방 하객·혼주 이동이 있으면 별도 확인" },
+      { category: "폐백실·혼주대기실 등 부대비", avgKRW: 500_000 },
+      { category: "계약금·취소 위약금", avgKRW: 0, notes: "비용보다 조건 확인용 항목" },
     ],
   },
   {
     key: "sdm",
-    title: "스드메 · 스냅",
+    title: "스드메",
     items: [
       { category: "스튜디오 (촬영)", avgKRW: 1_500_000 },
       { category: "드레스 (본식·촬영·2부)", avgKRW: 2_800_000 },
       { category: "메이크업 (리허설+본식)", avgKRW: 1_200_000 },
-      { category: "본식 스냅", avgKRW: 1_200_000 },
+      { category: "원본·보정본 추가 비용", avgKRW: 300_000, notes: "앨범·액자·원본 구매 조건 확인" },
+      { category: "스드메 추가금·출장비", avgKRW: 500_000, notes: "헬퍼비·피팅비·얼리/야간·지역 이동비 확인" },
+    ],
+  },
+  {
+    key: "snap",
+    title: "본식 스냅 · 영상",
+    items: [
+      { category: "본식 스냅", avgKRW: 1_200_000, notes: "스튜디오 촬영과 별도" },
       { category: "본식 영상 (DVD)", avgKRW: 800_000, notes: "선택 — 안 하는 커플도 많음" },
+      { category: "원판·가족사진 앨범 추가", avgKRW: 400_000 },
+      { category: "2인 촬영·대표 지정 추가금", avgKRW: 500_000 },
     ],
   },
   {
@@ -48,6 +62,7 @@ export const BUDGET_TEMPLATE: BudgetGroup[] = [
       { category: "함 (봉채)", avgKRW: 1_000_000, notes: "최근 생략하는 커플 많아짐" },
       { category: "이바지 / 폐백 음식", avgKRW: 500_000 },
       { category: "혼주 한복·정장", avgKRW: 1_500_000 },
+      { category: "혼주 헤어·메이크업", avgKRW: 500_000 },
     ],
   },
   {
@@ -58,6 +73,7 @@ export const BUDGET_TEMPLATE: BudgetGroup[] = [
       { category: "모바일 청첩장 (유료)", avgKRW: 100_000, notes: "직접 만들면 0원" },
       { category: "답례품 (식권·소품)", avgKRW: 1_500_000, notes: "1만원 × 150~200개" },
       { category: "부케 · 화환", avgKRW: 300_000 },
+      { category: "우편 발송·봉투·스티커", avgKRW: 100_000 },
     ],
   },
   {
@@ -68,6 +84,7 @@ export const BUDGET_TEMPLATE: BudgetGroup[] = [
       { category: "숙소 (5~7박)", avgKRW: 3_000_000 },
       { category: "현지 경비 (식비·투어·쇼핑)", avgKRW: 2_000_000 },
       { category: "여행자보험·환전 수수료", avgKRW: 200_000 },
+      { category: "공항 이동·로밍·유심", avgKRW: 300_000 },
     ],
   },
   {
@@ -85,6 +102,7 @@ export const BUDGET_TEMPLATE: BudgetGroup[] = [
     title: "기타",
     items: [
       { category: "사회자·축가 사례", avgKRW: 500_000 },
+      { category: "주례·사회자·축가 식사/교통", avgKRW: 300_000 },
       { category: "본식 후 2차 모임", avgKRW: 1_000_000 },
       { category: "예비비 (예상 외 지출)", avgKRW: 2_000_000, notes: "총 비용의 5~10%" },
     ],
@@ -110,5 +128,6 @@ export function defaultBudget(): BudgetItem[] {
 }
 
 export const BUDGET_TOTAL_NOTE =
-  "💡 한국 평균 결혼 비용은 약 3억 (신혼집 포함, 듀오웨드 2024 조사 기준). " +
-  "이 중 결혼식 자체는 5천만~1억, 신혼집이 1.5억~2.5억 수준이에요. 우리만의 우선순위를 정하면 절반으로 줄일 수도, 더 늘릴 수도.";
+  "참고 금액은 실제 견적을 넣기 전 감을 잡기 위한 기준값입니다. " +
+  "신혼집 포함 여부, 지역, 시즌, 보증인원, 부모님 지원 범위에 따라 총액이 크게 달라지므로 " +
+  "예식장·스드메·신혼여행·신혼집을 따로 나눠 보는 것을 권장합니다.";

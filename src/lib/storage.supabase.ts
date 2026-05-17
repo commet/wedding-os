@@ -5,7 +5,7 @@
 import { createClient } from "@supabase/supabase-js";
 import type { StorageDriver, RealtimeStatus } from "./storage";
 import type { WeddingData } from "./schema";
-import { isSupabaseHost } from "./security";
+import { getOrCreateOwnerToken, isSupabaseHost } from "./security";
 
 const DEFAULT_TABLE = "wedding_data";
 const DEFAULT_CONFIG_ID = "default";
@@ -45,102 +45,38 @@ export function createSupabaseStorage(
     return noopDriver;
   }
   const client = createClient(url, anonKey);
-
-  // 옛 스키마(version 컬럼 없음) 호환을 위해 첫 실패 시 자동 폴백.
-  // 사용자가 새 schema.sql 을 안 깐 상태에서도 앱이 동작하도록 — 충돌 검출은 비활성, 마지막 저장 wins.
-  let versionSupported: boolean = true;
-  const versionMissingError = (msg: string) =>
-    /column .*version.* does not exist/i.test(msg) || /could not find .*version.* column/i.test(msg);
+  const ownerToken = getOrCreateOwnerToken();
 
   return {
     async load() {
       try {
-        // version 까지 함께 select
         const r = await withRetry(
-          () => client.from(DEFAULT_TABLE).select("data, version").eq("id", configId).single(),
-          (res) => !res.error || versionMissingError(res.error?.message ?? ""),
+          () => client.rpc("load_wedding_data", { p_id: configId, p_token: ownerToken }).single(),
+          (res) => !res.error,
           2
         );
-        if (r.error) {
-          if (versionMissingError(r.error.message)) {
-            versionSupported = false;
-            // version 컬럼 없음 — data 만 로드
-            const r2 = await client.from(DEFAULT_TABLE).select("data").eq("id", configId).single();
-            if (r2.error || !r2.data?.data) return null;
-            return { data: r2.data.data as WeddingData };
-          }
-          return null;
-        }
-        if (!r.data?.data) return null;
-        return { data: r.data.data as WeddingData, version: r.data.version as number | undefined };
+        const row = r.data as { data?: WeddingData; version?: number } | null;
+        if (r.error || !row?.data) return null;
+        return { data: row.data, version: row.version };
       } catch {
         return null;
       }
     },
     async save(payload, expectedVersion) {
       try {
-        // 1) version 컬럼 없는 옛 스키마: 단순 upsert
-        if (!versionSupported) {
-          const r = await client.from(DEFAULT_TABLE).upsert({
-            id: configId,
-            data: payload,
-            updated_at: new Date().toISOString(),
-          });
-          return { ok: !r.error };
-        }
-
-        // 2) expectedVersion 모름(첫 save) — 무조건 upsert. version 은 default 1 또는 trigger 가 처리.
-        if (expectedVersion === undefined) {
-          const r = await withRetry(
-            () => client.from(DEFAULT_TABLE)
-              .upsert({ id: configId, data: payload, updated_at: new Date().toISOString() })
-              .select("version")
-              .single(),
-            (res) => !res.error,
-            3
-          );
-          if (r.error) {
-            if (versionMissingError(r.error.message)) {
-              versionSupported = false;
-              return this.save(payload); // 재귀: 옛 스키마 경로
-            }
-            return { ok: false };
-          }
-          return { ok: true, version: r.data?.version as number | undefined };
-        }
-
-        // 3) expectedVersion 있음 — 조건부 UPDATE 로 낙관적 동시성 검사
         const r = await withRetry(
-          () => client.from(DEFAULT_TABLE)
-            .update({ data: payload, updated_at: new Date().toISOString() })
-            .eq("id", configId)
-            .eq("version", expectedVersion)
-            .select("version"),
+          () => client.rpc("save_wedding_data", {
+            p_id: configId,
+            p_token: ownerToken,
+            p_data: payload,
+            p_expected_version: expectedVersion ?? null,
+          }).single(),
           (res) => !res.error,
           3
         );
-        if (r.error) {
-          if (versionMissingError(r.error.message)) {
-            versionSupported = false;
-            return this.save(payload);
-          }
-          return { ok: false };
-        }
-        // 0 rows updated → 누군가 먼저 저장함 (version mismatch) → conflict.
-        if (!r.data || r.data.length === 0) {
-          // row 자체가 없는 경우(첫 save)와 구분: INSERT 시도.
-          const ins = await client.from(DEFAULT_TABLE)
-            .insert({ id: configId, data: payload })
-            .select("version")
-            .single();
-          if (ins.error) {
-            // INSERT 실패 = 이미 row 있음 = 진짜 conflict
-            return { ok: false, conflict: true };
-          }
-          return { ok: true, version: ins.data?.version as number | undefined };
-        }
-        const newVersion = r.data[0]?.version as number | undefined;
-        return { ok: true, version: newVersion };
+        const row = r.data as { ok?: boolean; version?: number; conflict?: boolean } | null;
+        if (r.error || !row?.ok) return { ok: false, conflict: !!row?.conflict };
+        return { ok: true, version: row.version };
       } catch {
         return { ok: false };
       }
@@ -170,6 +106,23 @@ export function createSupabaseStorage(
       return () => { client.removeChannel(channel); };
     },
   };
+}
+
+export async function loadPublicInvitation(
+  url: string,
+  anonKey: string,
+  configId: string = DEFAULT_CONFIG_ID,
+): Promise<{ ok: boolean; invitation?: WeddingData["invitation"]; reason?: string }> {
+  try {
+    if (!url || !anonKey) return { ok: false, reason: "연결 정보 없음" };
+    if (!isSupabaseHost(url)) return { ok: false, reason: "안전하지 않은 호스트" };
+    const client = createClient(url, anonKey);
+    const r = await client.rpc("get_public_invitation", { p_id: configId });
+    if (r.error) return { ok: false, reason: r.error.message };
+    return { ok: true, invitation: r.data as WeddingData["invitation"] };
+  } catch (e: any) {
+    return { ok: false, reason: e?.message ?? "연결 실패" };
+  }
 }
 
 /** 하객 RSVP 제출 — supabase.rsvp 테이블에 직접 insert */
@@ -238,7 +191,7 @@ export async function insertRsvp(
 export async function pingSupabase(url: string, anonKey: string): Promise<{ ok: boolean; reason?: string; }> {
   try {
     const client = createClient(url, anonKey);
-    const { error } = await client.from(DEFAULT_TABLE).select("id").limit(1);
+    const { error } = await client.rpc("get_public_invitation", { p_id: DEFAULT_CONFIG_ID });
     if (error) {
       if (error.message.includes("does not exist")) {
         return { ok: false, reason: "테이블이 아직 없어요. 다음 단계에서 SQL을 실행해주세요." };

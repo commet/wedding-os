@@ -3,18 +3,21 @@ import type { WeddingData, BudgetItem } from "../lib/schema";
 import { defaultBudget, BUDGET_TEMPLATE, BUDGET_TOTAL_NOTE } from "../data/budgetTemplate";
 
 type Props = { data: WeddingData; update: (patch: any) => void };
-type View = "all" | "current";
+type View = "all" | "current" | "unpaid" | "over";
 
 export default function Budget({ data, update }: Props) {
   const items = data.budget ?? [];
   const [view, setView] = useState<View>("all");
+  const [customName, setCustomName] = useState("");
 
   const totals = useMemo(() => {
     const planned = items.reduce((s, b) => s + (b.planned ?? 0), 0);
     const actual = items.reduce((s, b) => s + (b.actual ?? 0), 0);
     const avg = items.reduce((s, b) => s + (b.avgKRW ?? 0), 0);
     const paid = items.filter((b) => b.paid).reduce((s, b) => s + (b.actual ?? b.planned ?? 0), 0);
-    return { planned, actual, avg, paid };
+    const unpaidCount = items.filter((b) => ((b.planned ?? 0) > 0 || (b.actual ?? 0) > 0) && !b.paid).length;
+    const overCount = items.filter((b) => (b.planned ?? 0) > 0 && (b.actual ?? 0) > (b.planned ?? 0)).length;
+    return { planned, actual, avg, paid, unpaidCount, overCount };
   }, [items]);
 
   const loadDefault = () => {
@@ -43,19 +46,20 @@ export default function Budget({ data, update }: Props) {
     }));
   };
 
-  const addCustom = () => {
-    const name = prompt("새 비용 항목 이름:");
-    if (!name?.trim()) return;
+  const addCustom = (name: string) => {
+    const cleanName = name.trim();
+    if (!cleanName) return;
     update((prev: WeddingData) => ({
       ...prev,
       budget: [
         ...(prev.budget ?? []),
         {
           id: `budget-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          category: name.trim(),
+          category: cleanName,
         },
       ],
     }));
+    setCustomName("");
   };
 
   // 그룹화 — 카테고리 prefix [그룹명] 기반
@@ -75,21 +79,21 @@ export default function Budget({ data, update }: Props) {
     return (
       <div className="page pt-20 pb-10 text-center space-y-8">
         <div>
-          <div className="eyebrow-gold mb-4">Budget</div>
+          <div className="eyebrow-gold mb-4">Money</div>
           <h2 className="display-sm mb-4">
-            얼마면 될까?<br />
-            <span className="italic font-light text-gold">미리 그려보세요.</span>
+            비용은 추정이 아니라,<br />
+            <span className="italic font-light text-gold">관리해야 합니다.</span>
           </h2>
           <p className="text-[13px] text-soft leading-relaxed">
-            한국 평균 비용을 기반으로 한 표준 카테고리를 불러오면<br />
-            우리 예산과 한눈에 비교돼요.
+            예식장·스드메·신혼여행까지 빠뜨리기 쉬운 항목을<br />
+            기준값과 함께 불러와 우리 예산을 잡아보세요.
           </p>
         </div>
         <p className="text-[12.5px] text-soft leading-relaxed border-y border-hair py-4">
           {BUDGET_TOTAL_NOTE}
         </p>
         <button onClick={loadDefault} className="btn-primary px-8 py-3.5 text-[12.5px]">
-          평균 비용 카테고리 불러오기 →
+          기본 비용 카테고리 불러오기 →
         </button>
       </div>
     );
@@ -98,17 +102,27 @@ export default function Budget({ data, update }: Props) {
   return (
     <div className="page pt-8 pb-10 space-y-8">
       <div>
-        <div className="eyebrow-gold mb-2">Budget</div>
-        <h1 className="font-serif text-[2rem] leading-none">예산 · 비용</h1>
+        <div className="eyebrow-gold mb-2">Money</div>
+        <h1 className="font-serif text-[2rem] leading-none">비용 관리</h1>
       </div>
 
       {/* 합계 요약 */}
       <div className="space-y-4 border-y border-hair py-6">
         <SummaryRow label="우리 예산 합계" value={totals.planned} accent />
         <SummaryRow label="실제 지출" value={totals.actual} muted />
-        <SummaryRow label="한국 평균 (참고)" value={totals.avg} muted />
+        <SummaryRow label="참고 기준값" value={totals.avg} muted />
         <div className="pt-3 border-t border-hair">
           <SummaryRow label="결제 완료" value={totals.paid} muted small />
+          <div className="grid grid-cols-2 gap-4 pt-3 text-[11.5px]">
+            <button onClick={() => setView("unpaid")} className="text-left border-t border-hair pt-2">
+              <span className="eyebrow">미결제</span>
+              <span className="block font-serif text-xl text-ink tabular-nums mt-1">{totals.unpaidCount}</span>
+            </button>
+            <button onClick={() => setView("over")} className="text-left border-t border-hair pt-2">
+              <span className="eyebrow">예산 초과</span>
+              <span className="block font-serif text-xl text-gold tabular-nums mt-1">{totals.overCount}</span>
+            </button>
+          </div>
           {totals.planned > 0 && (
             <div className="mt-3">
               <div className="flex items-baseline justify-between mb-1.5">
@@ -142,15 +156,51 @@ export default function Budget({ data, update }: Props) {
         >
           입력된 것만
         </button>
-        <button onClick={addCustom} className="ml-auto text-[12px] underline underline-offset-4 text-ink hover:text-gold">
-          + 항목 추가
+        <button
+          onClick={() => setView("unpaid")}
+          className={`text-[12px] tracking-wide pb-1 transition ${view === "unpaid" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+        >
+          미결제
+        </button>
+        <button
+          onClick={() => setView("over")}
+          className={`text-[12px] tracking-wide pb-1 transition ${view === "over" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+        >
+          초과
         </button>
       </div>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          addCustom(customName);
+        }}
+        className="flex items-end gap-3 border-b border-hair pb-2"
+      >
+        <input
+          className="input flex-1 text-[14px]"
+          value={customName}
+          onChange={(e) => setCustomName(e.target.value)}
+          placeholder="추가 비용 항목"
+        />
+        <button
+          type="submit"
+          disabled={!customName.trim()}
+          className="text-[12px] text-ink underline underline-offset-4 pb-3 hover:text-gold disabled:opacity-40 whitespace-nowrap"
+        >
+          추가 →
+        </button>
+      </form>
 
       {/* 그룹별 */}
       <div className="space-y-10">
         {Array.from(grouped.entries()).map(([group, list]) => {
-          const visible = view === "current" ? list.filter((b) => (b.planned ?? 0) > 0 || (b.actual ?? 0) > 0) : list;
+          const visible = list.filter((b) => {
+            if (view === "current") return (b.planned ?? 0) > 0 || (b.actual ?? 0) > 0;
+            if (view === "unpaid") return ((b.planned ?? 0) > 0 || (b.actual ?? 0) > 0) && !b.paid;
+            if (view === "over") return (b.planned ?? 0) > 0 && (b.actual ?? 0) > (b.planned ?? 0);
+            return true;
+          });
           if (visible.length === 0) return null;
           const groupPlanned = list.reduce((s, b) => s + (b.planned ?? 0), 0);
           const groupActual = list.reduce((s, b) => s + (b.actual ?? 0), 0);
@@ -181,7 +231,7 @@ export default function Budget({ data, update }: Props) {
       </div>
 
       <p className="text-[10.5px] text-soft text-center leading-relaxed">
-        평균 비용은 듀오웨드·한국소비자원 등 공개 자료 참고치 — 지역·시즌·취향에 따라 크게 달라집니다.
+        기본 금액은 실제 견적 전 감을 잡기 위한 참고치입니다. 지역·시즌·요일·보증인원·계약 조건에 따라 크게 달라집니다.
       </p>
     </div>
   );
@@ -211,7 +261,7 @@ function BudgetRow({ b, onChange, onRemove }: { b: BudgetItem; onChange: (p: Par
         <div className="flex-1 min-w-0">
           <div className="text-[14px] text-ink">{name}</div>
           {b.avgKRW && (
-            <div className="eyebrow mt-0.5">평균 <span className="tabular-nums">{fmtMan(b.avgKRW)}만</span></div>
+            <div className="eyebrow mt-0.5">기준 <span className="tabular-nums">{fmtMan(b.avgKRW)}만</span></div>
           )}
         </div>
         <div className="flex flex-col items-end flex-shrink-0">
@@ -264,7 +314,7 @@ function BudgetRow({ b, onChange, onRemove }: { b: BudgetItem; onChange: (p: Par
           <div className="flex items-center justify-between pt-2 border-t border-hair">
             {b.avgKRW && (
               <span className="text-[11px] text-soft">
-                평균 대비{" "}
+                기준값 대비{" "}
                 <span className={`tabular-nums ${(planned || actual) > b.avgKRW ? "text-gold" : "text-soft"}`}>
                   {planned || actual ? `${Math.round(((planned || actual) / b.avgKRW) * 100)}%` : "—"}
                 </span>

@@ -61,10 +61,12 @@ function TabBtn({ active, onClick, children }: any) {
 
 function Destinations({ data, update }: Props) {
   const [showCatalog, setShowCatalog] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const regions = data.honeymoon.regions;
 
   const addFromCatalog = (pick: HoneymoonPick) => {
     if (regions.some((r) => r.name === pick.region)) return;
+    const nextId = `region-${Date.now()}-${pick.id}`;
     update((prev: WeddingData) => ({
       ...prev,
       honeymoon: {
@@ -72,13 +74,14 @@ function Destinations({ data, update }: Props) {
         regions: [
           ...prev.honeymoon.regions,
           {
-            id: `region-${Date.now()}-${pick.id}`,
+            id: nextId,
             name: pick.region,
             notes: `${pick.vibe}\n\n[추천 시기] ${pick.bestSeason}\n[비행] ${pick.flightHours}\n[예산] ${pick.budgetKRWPerPerson}\n\n${pick.tip}`,
           },
         ],
       },
     }));
+    setExpandedId(nextId);
   };
 
   const removeRegion = (id: string) => {
@@ -106,38 +109,14 @@ function Destinations({ data, update }: Props) {
           <h2 className="eyebrow-gold mb-4">내 후보 · <span className="tabular-nums">{regions.length}</span></h2>
           <div className="divide-y divide-hair border-y border-hair">
             {regions.map((r) => (
-              <div key={r.id} className="py-5 space-y-3">
-                <div className="flex items-baseline justify-between">
-                  <div className="font-serif text-[17px] text-ink">{r.name}</div>
-                  <button onClick={() => removeRegion(r.id)} className="text-soft hover:text-ink text-sm">×</button>
-                </div>
-                <div className="grid grid-cols-2 gap-x-6">
-                  <input
-                    className="input text-[13px]"
-                    type="number"
-                    placeholder="기간 (일)"
-                    value={r.durationDays ?? ""}
-                    onChange={(e) => updateRegion(r.id, { durationDays: Number(e.target.value) || undefined })}
-                  />
-                  <input
-                    className="input text-[13px]"
-                    type="number"
-                    placeholder="예산 (원)"
-                    value={r.budgetKRW ?? ""}
-                    onChange={(e) => updateRegion(r.id, { budgetKRW: Number(e.target.value) || undefined })}
-                  />
-                </div>
-                <textarea
-                  className="input-boxed text-[13px] min-h-[80px]"
-                  placeholder="메모 / 일정"
-                  value={r.notes ?? ""}
-                  onChange={(e) => updateRegion(r.id, { notes: e.target.value })}
-                />
-                <SearchLinks
-                  label="이 여행지로 바로 검색"
-                  links={honeymoonSearchLinks(r.name.replace(/\s*\(.+\)/, ""))}
-                />
-              </div>
+              <RegionCard
+                key={r.id}
+                region={r}
+                open={expandedId === r.id}
+                onToggle={() => setExpandedId((id) => (id === r.id ? null : r.id))}
+                onRemove={() => removeRegion(r.id)}
+                onUpdate={(patch) => updateRegion(r.id, patch)}
+              />
             ))}
           </div>
         </section>
@@ -213,6 +192,89 @@ function Destinations({ data, update }: Props) {
           ))}
         </div>
       </Modal>
+    </div>
+  );
+}
+
+function RegionCard({
+  region,
+  open,
+  onToggle,
+  onRemove,
+  onUpdate,
+}: {
+  region: HoneymoonRegion;
+  open: boolean;
+  onToggle: () => void;
+  onRemove: () => void;
+  onUpdate: (patch: Partial<HoneymoonRegion>) => void;
+}) {
+  const cleanName = region.name.replace(/\s*\(.+\)/, "");
+  return (
+    <div className="py-4">
+      <div className="flex items-center gap-3">
+        <button onClick={onToggle} className="flex-1 min-w-0 text-left py-1">
+          <div className="flex items-center gap-2">
+            <div className="font-serif text-[17px] text-ink truncate">{region.name}</div>
+            <span className="text-[11px] text-soft">{open ? "접기" : "펼치기"}</span>
+          </div>
+          <div className="eyebrow mt-1">
+            {region.durationDays ? `${region.durationDays}일` : "기간 미정"}
+            <span className="mx-2">·</span>
+            {region.budgetKRW ? `${Math.round(region.budgetKRW / 10000).toLocaleString()}만원` : "예산 미정"}
+          </div>
+        </button>
+        <button
+          onClick={onRemove}
+          aria-label={`${region.name} 삭제`}
+          className="w-10 h-10 border border-hair text-lg leading-none text-soft hover:text-ink hover:border-ink flex items-center justify-center flex-shrink-0"
+        >
+          ×
+        </button>
+      </div>
+
+      {open && (
+        <div className="mt-4 pt-4 border-t border-hair space-y-4">
+          <div className="grid grid-cols-2 gap-x-4">
+            <div>
+              <label className="label">기간 · 비교용</label>
+              <input
+                className="input text-[13px]"
+                type="number"
+                placeholder="예: 7"
+                value={region.durationDays ?? ""}
+                onChange={(e) => onUpdate({ durationDays: Number(e.target.value) || undefined })}
+              />
+            </div>
+            <div>
+              <label className="label">총예산 · 비교용</label>
+              <input
+                className="input text-[13px]"
+                type="number"
+                placeholder="예: 8000000"
+                value={region.budgetKRW ?? ""}
+                onChange={(e) => onUpdate({ budgetKRW: Number(e.target.value) || undefined })}
+              />
+            </div>
+          </div>
+
+          <p className="text-[11.5px] text-soft leading-relaxed">
+            기간·예산은 후보 비교용입니다. 마이리얼트립·클룩·구글 같은 외부 사이트 검색에는 자동 필터로 반영되지 않습니다.
+          </p>
+
+          <textarea
+            className="input-boxed text-[13px] min-h-[92px]"
+            placeholder="일정 메모, 후보 숙소, 항공권 조건, 꼭 하고 싶은 액티비티"
+            value={region.notes ?? ""}
+            onChange={(e) => onUpdate({ notes: e.target.value })}
+          />
+
+          <SearchLinks
+            label="외부 사이트에서 다시 확인"
+            links={honeymoonSearchLinks(cleanName)}
+          />
+        </div>
+      )}
     </div>
   );
 }

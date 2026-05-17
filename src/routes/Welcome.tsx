@@ -23,22 +23,22 @@ const MODES = [
   {
     id: "local",
     title: "내 휴대폰에 저장",
-    oneLiner: "가입 없이 바로 시작",
-    difficulty: "가장 쉬움",
+    oneLiner: "혼자 정리하고 카톡에 텍스트로 공유",
+    difficulty: "가입 없음",
     highlight: true,
   },
   {
     id: "supabase",
-    title: "우리만의 결혼식 사이트",
-    oneLiner: "청첩장 링크 공유 · 함께 편집 · 하객 RSVP (베타)",
-    difficulty: "15분 셋업",
+    title: "청첩장 링크 만들기",
+    oneLiner: "링크 공유 · 함께 편집 · 하객 RSVP",
+    difficulty: "배포용",
     highlight: false,
   },
   {
     id: "devOnly",
-    title: "코드 받아 직접 고치기",
-    oneLiner: "디자인·기능 완전 자유 · 개발자용",
-    difficulty: "개발 지식 필요",
+    title: "개발자용으로 직접 고치기",
+    oneLiner: "코드 받아 디자인·기능까지 수정",
+    difficulty: "GitHub",
     highlight: false,
   },
 ] as const;
@@ -129,7 +129,7 @@ export default function Welcome({ data, update }: Props) {
             어떻게 시작할까요?
           </h1>
           <p className="text-soft text-[13px] leading-relaxed">
-            나중에 [더보기]에서 언제든 바꿀 수 있어요.
+            링크로 청첩장을 보낼 예정이면 두 번째를 고르세요.
           </p>
         </div>
 
@@ -146,7 +146,7 @@ export default function Welcome({ data, update }: Props) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline gap-2 mb-1.5">
                     <h2 className="font-serif text-lg text-ink">{m.title}</h2>
-                    {m.highlight && <span className="eyebrow-gold">추천</span>}
+                    {m.highlight && <span className="eyebrow-gold">빠름</span>}
                   </div>
                   <p className="text-[13px] text-soft leading-relaxed mb-2">{m.oneLiner}</p>
                   <span className="eyebrow">{m.difficulty}</span>
@@ -176,10 +176,10 @@ export default function Welcome({ data, update }: Props) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-hair">
-                  <tr><td className="py-3 text-soft">가입 필요</td><td className="text-center">·</td><td className="text-center">2곳</td><td className="text-center">GitHub</td></tr>
-                  <tr><td className="py-3 text-soft">청첩장 공유</td><td className="text-center">·</td><td className="text-center">✓</td><td className="text-center">✓</td></tr>
-                  <tr><td className="py-3 text-soft">함께 편집</td><td className="text-center">·</td><td className="text-center">✓</td><td className="text-center">✓</td></tr>
-                  <tr><td className="py-3 text-soft">하객 RSVP</td><td className="text-center">·</td><td className="text-center">✓</td><td className="text-center">✓</td></tr>
+                  <tr><td className="py-3 text-soft">가입 필요</td><td className="text-center">없음</td><td className="text-center">2곳</td><td className="text-center">GitHub</td></tr>
+                  <tr><td className="py-3 text-soft">청첩장 공유</td><td className="text-center">텍스트</td><td className="text-center">링크</td><td className="text-center">자유</td></tr>
+                  <tr><td className="py-3 text-soft">함께 편집</td><td className="text-center">한 기기</td><td className="text-center">가능</td><td className="text-center">가능</td></tr>
+                  <tr><td className="py-3 text-soft">하객 RSVP</td><td className="text-center">불가</td><td className="text-center">가능</td><td className="text-center">가능</td></tr>
                   <tr><td className="py-3 text-soft">비용</td><td className="text-center">무료</td><td className="text-center">무료</td><td className="text-center">무료</td></tr>
                 </tbody>
               </table>
@@ -257,7 +257,7 @@ export default function Welcome({ data, update }: Props) {
       {/* 5. 푸터 — 미니멀하게 */}
       <footer className="page py-10 border-t border-hair text-center">
         <p className="text-[11px] text-soft leading-relaxed">
-          개인적으로 만든 도구라 오류가 있을 수 있어요.
+          문의 · 정정 요청은 아래 메일로 보내주세요.
         </p>
         <p className="text-[11px] text-soft mt-2">
           문의는{" "}

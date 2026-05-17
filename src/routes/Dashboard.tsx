@@ -35,13 +35,24 @@ export default function Dashboard({ data }: Props) {
   const budgetCount = (data.budget ?? []).length;
   const guestCount = (data.guests ?? []).length;
   const guestAttending = (data.guests ?? []).filter((g) => g.status === "참석").length;
+  const sdmCount = data.sdm.filter((v) => v.category !== "snap").length;
+  const snapCount = data.sdm.filter((v) => v.category === "snap").length;
 
   const MENU_GROUPS: { title: string; items: { to: string; label: string; sub: string }[] }[] = [
+    {
+      title: "오늘 관리",
+      items: [
+        { to: "/checklist", label: "체크리스트", sub: checklistTotal > 0 ? `${checklistDone}/${checklistTotal} 완료 · ${progress}%` : "일정 · 할 일" },
+        { to: "/budget", label: "비용 관리", sub: budgetCount > 0 ? `${budgetCount}개 항목` : "예산 · 결제 · 초과 비용" },
+        { to: "/guests", label: "하객 명단", sub: guestCount > 0 ? `${guestCount}명 · 참석 ${guestAttending}` : "이름 · 축의금 · 식수" },
+      ],
+    },
     {
       title: "결정 · 예약",
       items: [
         { to: "/venues", label: "예식장", sub: venueCount > 0 ? `${venueCount}곳 담음` : "후보 비교 · 답사" },
-        { to: "/sdm", label: "스드메 · 스냅", sub: `${data.sdm.length}곳 담음` },
+        { to: "/sdm", label: "스드메", sub: sdmCount > 0 ? `${sdmCount}곳 담음` : "스튜디오 · 드레스 · 메이크업" },
+        { to: "/snap", label: "본식 스냅", sub: snapCount > 0 ? `${snapCount}곳 담음` : "당일 촬영 · 원판 · 앨범" },
         { to: "/rings", label: "결혼반지", sub: `${data.rings.length}개 후보` },
         { to: "/trip", label: "신혼여행", sub: `${data.honeymoon.regions.length}곳 · 항공 ${data.flights.length} · 숙소 ${data.hotels.length}` },
       ],
@@ -51,14 +62,6 @@ export default function Dashboard({ data }: Props) {
       items: [
         { to: "/invitation", label: "모바일 청첩장", sub: "정보 입력 · 카톡 공유" },
         { to: "/video", label: "식전영상", sub: "사진 · BGM · 자연어 편집" },
-        { to: "/guests", label: "하객 명단", sub: guestCount > 0 ? `${guestCount}명 · 참석 ${guestAttending}` : "이름 · 축의금 · 식수" },
-      ],
-    },
-    {
-      title: "관리",
-      items: [
-        { to: "/checklist", label: "체크리스트", sub: "일정 · 할 일" },
-        { to: "/budget", label: "예산 · 비용", sub: budgetCount > 0 ? `${budgetCount}개 항목` : "한국 평균 대비 비교" },
       ],
     },
   ];

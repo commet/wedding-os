@@ -22,6 +22,7 @@ export default function Guests({ data, update }: Props) {
   const guests = data.guests ?? [];
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
+  const [newGuestName, setNewGuestName] = useState("");
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -48,22 +49,23 @@ export default function Guests({ data, update }: Props) {
     return { total, attending: attending.length, declined: declined.length, pending, partySum, giftSum, mealCount, groom, bride };
   }, [guests]);
 
-  const addGuest = () => {
-    const name = prompt("하객 이름 (또는 호칭):");
-    if (!name?.trim()) return;
+  const addGuest = (name: string) => {
+    const cleanName = name.trim();
+    if (!cleanName) return;
     update((prev: WeddingData) => ({
       ...prev,
       guests: [
         ...(prev.guests ?? []),
         {
           id: `g-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-          name: name.trim(),
+          name: cleanName,
           side: filter === "groom" ? "groom" : filter === "bride" ? "bride" : "groom",
           status: "초대 예정",
           partyCount: 1,
         },
       ],
     }));
+    setNewGuestName("");
   };
 
   const updateGuest = (id: string, patch: Partial<Guest>) => {
@@ -95,9 +97,12 @@ export default function Guests({ data, update }: Props) {
             한 번에 관리되고 자동으로 집계됩니다.
           </p>
         </div>
-        <button onClick={addGuest} className="btn-primary px-8 py-3.5 text-[12.5px]">
-          첫 하객 추가하기 →
-        </button>
+        <AddGuestForm
+          value={newGuestName}
+          onChange={setNewGuestName}
+          onSubmit={() => addGuest(newGuestName)}
+          primary
+        />
       </div>
     );
   }
@@ -143,10 +148,12 @@ export default function Guests({ data, update }: Props) {
               </button>
             ))}
           </div>
-          <button onClick={addGuest} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold whitespace-nowrap ml-4">
-            + 추가
-          </button>
         </div>
+        <AddGuestForm
+          value={newGuestName}
+          onChange={setNewGuestName}
+          onSubmit={() => addGuest(newGuestName)}
+        />
       </div>
 
       {/* 명단 */}
@@ -164,6 +171,39 @@ export default function Guests({ data, update }: Props) {
         축의금 · 식수 합계는 자동 계산. 모드 1 에선 본인 휴대폰에만 저장.
       </p>
     </div>
+  );
+}
+
+function AddGuestForm({
+  value, onChange, onSubmit, primary,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+  primary?: boolean;
+}) {
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit();
+      }}
+      className={primary ? "space-y-3" : "flex items-end gap-3 border-b border-hair pb-2"}
+    >
+      <input
+        className={`input ${primary ? "text-center" : "flex-1"} text-[14px]`}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="하객 이름 또는 호칭"
+      />
+      <button
+        type="submit"
+        disabled={!value.trim()}
+        className={primary ? "btn-primary px-8 py-3.5 text-[12.5px] disabled:opacity-40" : "text-[12px] text-ink underline underline-offset-4 pb-3 hover:text-gold disabled:opacity-40 whitespace-nowrap"}
+      >
+        {primary ? "첫 하객 추가하기 →" : "추가 →"}
+      </button>
+    </form>
   );
 }
 

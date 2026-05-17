@@ -102,7 +102,7 @@ export type BudgetItem = {
   actual?: number;            // 실제 지출 (원)
   paid?: boolean;             // 결제 완료
   notes?: string;
-  /** 한국 평균 비용 (참고값). 사용자가 못 바꾸는 read-only 힌트. */
+  /** 참고 기준값. 사용자가 못 바꾸는 read-only 힌트. */
   avgKRW?: number;
 };
 
@@ -125,7 +125,8 @@ export type Guest = {
   invitedAt?: string;       // 청첩장 발송 일자
 };
 
-// 스드메·스냅 — 스튜디오 / 드레스 / 메이크업 / 본식 스냅
+// 스드메와 본식 스냅은 별도 메뉴로 보여주되 같은 vendor 모델을 공유한다.
+// studio/dress/makeup = 스드메, snap = 본식 당일 스냅
 export type SdmCategory = "studio" | "dress" | "makeup" | "snap";
 
 export type SdmVendor = {
@@ -296,7 +297,7 @@ export function defaultData(): WeddingData {
       date: "",
       venue: "",
       greeting:
-        "두 사람이 사랑으로 만나 하나가 되는 약속의 자리에 \n귀한 걸음으로 축복해 주시면 감사하겠습니다.",
+        "서로의 가장 좋은 친구가 되어\n같은 방향을 바라보며 걸어가려 합니다.\n귀한 걸음으로 함께해 주시면\n더없는 기쁨으로 간직하겠습니다.",
     },
     rings: [],
     sdm: [],

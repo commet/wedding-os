@@ -118,8 +118,8 @@ export default function Setup({ data, update }: Props) {
       <ProgressDots current={step} />
 
       <p className="text-[12.5px] text-soft leading-relaxed text-center">
-        무료 서비스 두 곳(Supabase + Vercel) 가입해<br />
-        우리 둘만의 결혼식 사이트를 만들어요. 약 15분.
+        Supabase와 Vercel의 무료 플랜으로 시작하되,<br />
+        사용량·휴면·상업 이용 조건은 배포 전 직접 확인하세요.
       </p>
 
       {step === 1 && <Step1 onNext={() => setStep(2)} />}
@@ -216,8 +216,9 @@ function Step1({ onNext }: { onNext: () => void }) {
   return (
     <StepCard icon="01" title="Supabase 가입하기">
       <p className="text-sm text-soft leading-relaxed">
-        결혼식 정보·청첩장·하객 RSVP를 저장할 무료 데이터베이스예요.
-        평생 무료 플랜으로 사용 가능합니다.
+        결혼식 정보·청첩장·하객 RSVP를 저장할 데이터베이스예요.
+        작은 개인 사이트는 보통 무료 플랜 범위에서 시작할 수 있지만,
+        한도와 휴면 정책은 서비스 정책에 따라 바뀔 수 있습니다.
       </p>
 
       <div className="py-4 border-y border-hair text-[13px] space-y-2">
@@ -385,12 +386,9 @@ function Step4({
       </div>
 
       <div className="pl-4 border-l-2 border-gold/50 text-[12px] leading-relaxed text-soft">
-        <b className="text-ink">청첩장 공유 시 주의 —</b>
-        anon 키는 청첩장 페이지의 JavaScript 안에 그대로 들어가서 누구나 볼 수 있어요.
-        현재 버전의 [내 사이트] 모드는 인증을 사용하지 않으므로, 청첩장 URL 을 받은 사람이
-        브라우저 개발자 도구로 데이터를 수정·삭제할 가능성이 있습니다.
-        → <b className="text-ink">가까운 가족·친구에게만</b> 공유하시고, 단톡방·SNS 공개 게시는
-        보안 업데이트 이전까지 권장하지 않아요.
+        <b className="text-ink">공개 링크 보호 —</b>
+        청첩장 링크를 받은 사람은 청첩장에 필요한 정보만 볼 수 있어요.
+        예산·하객 명단·체크리스트 같은 준비 데이터는 로컬 오너 토큰이 있는 기기에서만 읽고 저장합니다.
       </div>
 
       <button
@@ -423,23 +421,22 @@ function Step4({
   );
 }
 
-// ─── Step 5: 배포 ───
+// ─── Step 5: 저장 + 배포 ───
 function Step5({ onFinish, onBack }: { onFinish: () => void; onBack: () => void }) {
   return (
-    <StepCard icon="05" title="끝! 배포는 선택">
+    <StepCard icon="05" title="저장하고 링크 배포하기">
       <div className="pl-4 border-l-2 border-sage text-[13px] space-y-2">
-        <p className="text-ink"><b>여기까지 오셨으면 데이터 저장 준비 완료.</b></p>
+        <p className="text-ink"><b>먼저 [완료]를 눌러 이 기기를 편집 기기로 등록하세요.</b></p>
         <p className="text-[12px] text-soft leading-relaxed">
-          [완료] 누르면 지금 입력한 정보가 Supabase 에 저장돼요.
-          신부와 같이 편집하고, 어디서든 같은 데이터를 볼 수 있어요.
+          이후 Vercel 배포 링크를 열어 환경변수 두 개를 넣으면, 카톡에 보낼 수 있는 청첩장 주소가 생깁니다.
         </p>
       </div>
 
       <div className="py-4 border-y border-hair text-[13px] space-y-2">
-        <p className="font-serif text-[15px] text-ink">청첩장 링크로 카톡 공유까지 하려면?</p>
+        <p className="font-serif text-[15px] text-ink">청첩장 링크가 필요하면</p>
         <p className="text-soft text-[12px] leading-relaxed">
-          Vercel 에 무료 배포하면 카톡으로 보낼 수 있는 진짜 청첩장 링크가 생겨요.
-          지금 안 해도 [더보기]에서 언제든 가능.
+          Vercel 에 배포하세요. 배포된 주소의 <b className="text-ink">/i</b> 가 하객에게 보낼 공개 청첩장입니다.
+          공개 링크는 청첩장 정보만 읽고, 예산·하객 명단은 노출하지 않습니다.
         </p>
       </div>
 
@@ -449,7 +446,7 @@ function Step5({ onFinish, onBack }: { onFinish: () => void; onBack: () => void 
         rel="noopener noreferrer"
         className="text-[12px] underline underline-offset-4 text-ink hover:text-gold inline-block"
       >
-        Vercel 1-클릭 배포 (나중에 해도 됨) ↗
+        Vercel 1-클릭 배포 열기 ↗
       </a>
 
       <p className="text-[11px] text-soft">

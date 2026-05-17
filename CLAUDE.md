@@ -29,8 +29,8 @@ src/
   routes/
     Welcome.tsx              모드 선택 화면
     Dashboard.tsx            홈 (메뉴 허브)
-    Rings.tsx                반지 (★/♥)
-    Sdm.tsx                  스드메 · 스냅
+    Rings.tsx                반지 (이미지 중심 카드 + ★/♥)
+    Sdm.tsx                  스드메 / 본식 스냅 (라우트는 /sdm, /snap 으로 분리)
     Venues.tsx               예식장 (후보 비교 · 답사)
     Trip.tsx                 신혼여행 통합 (옛 Hotel/Flights/Honeymoon 흡수)
     Checklist.tsx            체크리스트
@@ -154,6 +154,8 @@ setData
 - 사용자는 본인 Supabase URL + anon key 를 `Setup.tsx` 위저드에서 입력
 - `supabase/schema.sql` 을 사용자가 본인 SQL Editor 에 붙여넣어 실행
 - 저장은 `wedding_data` 테이블의 `data` JSONB 컬럼에 전체 객체 통째로
+- 브라우저에서 직접 `select/update` 하지 말고 `load_wedding_data` / `save_wedding_data` RPC + 로컬 owner token 으로만 접근
+- `/i` 공개 청첩장은 `get_public_invitation` RPC 로 invitation JSON 만 읽는다. 예산·하객·체크리스트 전체 데이터가 내려가면 안 됨
 
 ---
 

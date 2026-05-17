@@ -18,9 +18,9 @@ export function freshnessLevel(iso?: string): FreshnessLevel {
 }
 
 export function formatVerifiedDate(iso?: string): string {
-  if (!iso) return "확인 안 됨";
+  if (!iso) return "직접 확인 필요";
   const d = new Date(iso);
-  if (isNaN(d.getTime())) return "확인 안 됨";
+  if (isNaN(d.getTime())) return "직접 확인 필요";
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")} 기준`;
 }
 

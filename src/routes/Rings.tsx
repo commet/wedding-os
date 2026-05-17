@@ -5,6 +5,7 @@ import FreshnessBadge from "../components/FreshnessBadge";
 import ChatbotBridgeModal from "../components/ChatbotBridgeModal";
 import Modal from "../components/Modal";
 import VendorActions from "../components/VendorActions";
+import SafeImg from "../components/SafeImg";
 import { ringPriceCheckPrompt, BridgePrompt } from "../lib/chatbotBridge";
 import { todayISO } from "../lib/freshness";
 
@@ -83,6 +84,13 @@ export default function Rings({ data, update }: Props) {
     update((prev: WeddingData) => ({ ...prev, rings: prev.rings.filter((r) => r.id !== id) }));
   };
 
+  const updateRing = (id: string, patch: Partial<Ring>) => {
+    update((prev: WeddingData) => ({
+      ...prev,
+      rings: prev.rings.map((r) => (r.id === id ? { ...r, ...patch } : r)),
+    }));
+  };
+
   const resetCatalog = () => {
     if (!confirm("카탈로그를 처음 상태로 되돌릴까요? 직접 추가한 반지와 ★/♥ 표시가 사라져요.")) return;
     update((prev: WeddingData) => ({ ...prev, rings: RING_CATALOG.map((r) => ({ ...r })) }));
@@ -149,10 +157,11 @@ export default function Rings({ data, update }: Props) {
           <h2 className="eyebrow-gold mb-4">우리의 Top {top5.length}</h2>
           <ul className="divide-y divide-hair border-y border-hair">
             {top5.map((ring, i) => (
-              <li key={ring.id} className="flex items-baseline gap-5 py-4">
+              <li key={ring.id} className="flex items-center gap-4 py-4">
                 <span className="font-serif text-soft text-base tabular-nums w-5 flex-shrink-0">
                   {String(i + 1).padStart(2, "0")}
                 </span>
+                <RingImage ring={ring} className="w-12 h-12" />
                 <div className="flex-1 min-w-0">
                   <div className="font-serif text-[15px] text-ink truncate">{ring.brand}<span className="text-soft"> · </span>{ring.model}</div>
                   <div className="eyebrow mt-1">
@@ -207,6 +216,7 @@ export default function Rings({ data, update }: Props) {
               onToggle={toggle}
               onCheck={() => openPriceCheck(ring)}
               onRemove={() => removeRing(ring.id)}
+              onUpdate={(patch) => updateRing(ring.id, patch)}
             />
           ))}
         </div>
@@ -225,13 +235,14 @@ export default function Rings({ data, update }: Props) {
 }
 
 function RingCard({
-  ring, who, onToggle, onCheck, onRemove,
+  ring, who, onToggle, onCheck, onRemove, onUpdate,
 }: {
   ring: Ring;
   who: Who;
   onToggle: (id: string, kind: "starred" | "liked") => void;
   onCheck: () => void;
   onRemove: () => void;
+  onUpdate: (patch: Partial<Ring>) => void;
 }) {
   const starredByMe = (ring.starredBy ?? []).includes(who);
   const likedByMe = (ring.likedBy ?? []).includes(who);
@@ -242,21 +253,26 @@ function RingCard({
 
   return (
     <div className="py-6 border-b border-hair">
-      <div className="flex items-start justify-between gap-2">
+      <div className="grid grid-cols-[104px_1fr] gap-4">
+        <RingImage ring={ring} className="w-[104px] h-[104px]" />
         <div className="flex-1 min-w-0">
-          <div className="eyebrow text-soft mb-1">{ring.brand}</div>
-          <div className="font-serif text-[17px] text-ink truncate">{ring.model}</div>
-          {ring.material && <div className="text-[11px] text-soft mt-1">{ring.material}</div>}
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="eyebrow text-soft mb-1">{ring.brand}</div>
+              <div className="font-serif text-[17px] text-ink truncate">{ring.model}</div>
+              {ring.material && <div className="text-[11px] text-soft mt-1">{ring.material}</div>}
+            </div>
+            <button onClick={onRemove} className="text-soft hover:text-ink text-sm px-1">×</button>
+          </div>
+
+          <div className="mt-3 font-serif text-xl text-ink tabular-nums">
+            {ring.priceKRW ? `${ring.priceKRW.toLocaleString()}원` : <span className="text-soft text-base">가격 미정</span>}
+          </div>
+
+          <div className="mt-2">
+            <FreshnessBadge lastVerified={ring.lastVerified} onClickCheck={onCheck} />
+          </div>
         </div>
-        <button onClick={onRemove} className="text-soft hover:text-ink text-sm px-1">×</button>
-      </div>
-
-      <div className="mt-3 font-serif text-xl text-ink tabular-nums">
-        {ring.priceKRW ? `${ring.priceKRW.toLocaleString()}원` : <span className="text-soft text-base">가격 미정</span>}
-      </div>
-
-      <div className="mt-2">
-        <FreshnessBadge lastVerified={ring.lastVerified} onClickCheck={onCheck} />
       </div>
 
       <div className="mt-4 flex gap-6 text-[12px] tracking-wide">
@@ -287,6 +303,31 @@ function RingCard({
           officialUrl={BRAND_SITES[ring.brand]}
         />
       </div>
+
+      <input
+        className="input text-[11.5px] mt-4"
+        placeholder="이미지 URL (공식 사이트·직접 업로드한 이미지 링크)"
+        value={ring.imageUrl ?? ""}
+        onChange={(e) => onUpdate({ imageUrl: e.target.value.trim() || undefined })}
+      />
+    </div>
+  );
+}
+
+function RingImage({ ring, className }: { ring: Ring; className: string }) {
+  return (
+    <div className={`${className} bg-white border border-hair overflow-hidden flex items-center justify-center flex-shrink-0`}>
+      <SafeImg
+        src={ring.imageUrl}
+        alt={`${ring.brand} ${ring.model}`}
+        className="w-full h-full object-cover"
+        fallback={
+          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-cream via-white to-gold/10 text-center px-2">
+            <span className="font-serif text-[20px] leading-none text-gold">{ring.brand.slice(0, 1)}</span>
+            <span className="mt-1 text-[9px] leading-tight text-soft line-clamp-2">{ring.model}</span>
+          </div>
+        }
+      />
     </div>
   );
 }
@@ -296,6 +337,7 @@ function AddRingModal({ open, onClose, update }: { open: boolean; onClose: () =>
   const [model, setModel] = useState("");
   const [material, setMaterial] = useState("");
   const [priceKRW, setPriceKRW] = useState("");
+  const [imageUrl, setImageUrl] = useState("");
 
   const submit = () => {
     if (!brand.trim() || !model.trim()) return;
@@ -308,12 +350,13 @@ function AddRingModal({ open, onClose, update }: { open: boolean; onClose: () =>
           model: model.trim(),
           material: material.trim() || undefined,
           priceKRW: priceKRW ? Number(priceKRW.replace(/,/g, "")) : undefined,
-          lastVerified: todayISO(),
+          imageUrl: imageUrl.trim() || undefined,
+          lastVerified: priceKRW ? todayISO() : undefined,
         },
         ...prev.rings,
       ],
     }));
-    setBrand(""); setModel(""); setMaterial(""); setPriceKRW("");
+    setBrand(""); setModel(""); setMaterial(""); setPriceKRW(""); setImageUrl("");
     onClose();
   };
 
@@ -335,6 +378,10 @@ function AddRingModal({ open, onClose, update }: { open: boolean; onClose: () =>
         <div>
           <label className="label">가격 (원, 선택)</label>
           <input className="input" type="number" value={priceKRW} onChange={(e) => setPriceKRW(e.target.value)} placeholder="1850000" />
+        </div>
+        <div>
+          <label className="label">이미지 URL (선택)</label>
+          <input className="input" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://...jpg" />
         </div>
         <button onClick={submit} className="btn-primary w-full">추가하기</button>
       </div>

@@ -68,7 +68,8 @@ export default function App() {
           <Route path="/setup" element={<Setup data={data!} update={update} />} />
           <Route path="/dashboard" element={<Dashboard data={data!} update={update} />} />
           <Route path="/rings" element={<Rings data={data!} update={update} />} />
-          <Route path="/sdm" element={<Sdm data={data!} update={update} />} />
+          <Route path="/sdm" element={<Sdm data={data!} update={update} initialCategory="studio" />} />
+          <Route path="/snap" element={<Sdm data={data!} update={update} initialCategory="snap" />} />
           <Route path="/trip" element={<Trip data={data!} update={update} />} />
           {/* 옛 경로 호환 — 신혼여행 페이지로 흡수 */}
           <Route path="/hotel" element={<Navigate to="/trip" replace />} />

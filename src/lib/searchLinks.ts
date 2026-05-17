@@ -1,13 +1,8 @@
 // 사용자 입력(여행지·날짜·인원)을 반영한 실제 검색 사이트 딥링크 생성.
 // 백엔드 없이도 "검색이 빠르게 되도록" — 입력값을 URL에 채워 바로 결과 페이지로 보낸다.
 
-export type SearchLink = { name: string; url: string; };
+export type SearchLink = { name: string; url: string; note?: string; };
 
-function yymmdd(date: string): string {
-  // "2026-10-17" → "261017"
-  const clean = date.replace(/-/g, "");
-  return clean.length >= 8 ? clean.slice(2) : "";
-}
 function yyyymmdd(date: string): string {
   return date.replace(/-/g, "");
 }
@@ -27,12 +22,14 @@ export function flightSearchLinks(
 
   if (f && t && date) {
     links.push({
-      name: "스카이스캐너",
-      url: `https://www.skyscanner.co.kr/transport/flights/${f}/${t}/${yymmdd(date)}/?adultsv2=${adults}`,
+      name: "스카이스캐너 검색",
+      url: `https://www.skyscanner.co.kr/transport/flights/`,
+      note: "스카이스캐너 딥링크는 자주 깨져서 검색 페이지로 엽니다. 출발·도착·날짜를 다시 확인하세요.",
     });
     links.push({
       name: "네이버항공권",
       url: `https://flight.naver.com/flights/international/${F}-${T}-${yyyymmdd(date)}?adult=${adults}`,
+      note: "네이버가 URL 형식을 바꾸면 조건이 일부 초기화될 수 있습니다.",
     });
   }
   if (F && T) {
@@ -41,6 +38,7 @@ export function flightSearchLinks(
       url: `https://www.google.com/travel/flights?q=${encodeURIComponent(
         `flights from ${F} to ${T}${date ? ` on ${date}` : ""}`
       )}`,
+      note: "구글 항공 검색어로 열고, 최종 날짜·인원은 사이트에서 다시 확인하세요.",
     });
   }
   return links;
@@ -74,9 +72,20 @@ export function honeymoonSearchLinks(dest: string): SearchLink[] {
   const d = encodeURIComponent(dest.trim());
   if (!dest.trim()) return [];
   return [
-    { name: "마이리얼트립", url: `https://www.myrealtrip.com/search?keyword=${d}` },
-    { name: "클룩", url: `https://www.klook.com/ko/search/?query=${d}` },
-    { name: "스카이스캐너", url: `https://www.skyscanner.co.kr/transport/flights-from/icn?destination=${d}` },
-    { name: "구글 검색", url: `https://www.google.com/search?q=${d}+%EC%8B%A0%ED%98%BC%EC%97%AC%ED%96%89` },
+    {
+      name: "마이리얼트립 상품",
+      url: `https://www.google.com/search?q=${encodeURIComponent(`site:myrealtrip.com ${dest.trim()} 신혼여행 투어 숙소`)}`,
+      note: "사이트 내부 검색 URL이 자주 바뀌어 구글 site 검색으로 엽니다.",
+    },
+    {
+      name: "클룩 액티비티",
+      url: `https://www.google.com/search?q=${encodeURIComponent(`site:klook.com/ko ${dest.trim()} 액티비티 교통패스`)}`,
+      note: "클룩 내부 검색이 목적지를 잘못 잡는 경우가 있어 site 검색으로 엽니다.",
+    },
+    {
+      name: "구글 여행 검색",
+      url: `https://www.google.com/search?q=${encodeURIComponent(`${dest.trim()} 신혼여행 일정 예산 호텔 항공`)}`,
+      note: "기간·예산은 자동 필터링되지 않습니다.",
+    },
   ];
 }

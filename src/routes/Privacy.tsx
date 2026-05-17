@@ -1,5 +1,5 @@
 // 개인정보처리방침 / 보안 안내.
-// 개인정보보호법 제30조 의무 + 사용자 신뢰 — 데이터가 어디에 머무는지 명확히.
+// 셀프 호스팅 구조에서 데이터가 어디에 머무는지 명확히 설명한다.
 
 export default function Privacy() {
   return (
@@ -9,15 +9,15 @@ export default function Privacy() {
         <h1 className="font-serif text-[2rem] leading-none">개인정보 · 보안 안내</h1>
       </div>
       <p className="eyebrow mt-3 mb-8">
-        최종 갱신 · 2026-05-15
+        최종 갱신 · 2026-05-17
       </p>
 
       <Section num="01" title="한눈에">
         <ul className="list-disc list-outside pl-5 space-y-1.5 marker:text-soft">
-          <li>본 도구는 <b>오픈소스 개인 프로젝트</b>입니다. 운영자가 운영하는 중앙 서버는 없습니다.</li>
+          <li>본 도구는 <b>오픈소스 셀프 호스팅 도구</b>입니다. 운영자가 운영하는 중앙 데이터 서버는 없습니다.</li>
           <li>입력하신 데이터는 <b>본인 기기(브라우저)</b> 또는 <b>본인이 직접 만든 Supabase 프로젝트</b>에만 저장됩니다.</li>
           <li>운영자(yclee913) 는 사용자 데이터에 <b>접근할 수 없습니다</b>.</li>
-          <li>AI 기능은 사용자가 직접 챗봇(ChatGPT/Claude/Gemini) 에 복붙하거나, 사용자 본인의 API 키로만 호출됩니다.</li>
+          <li>AI 기능은 사용자가 직접 챗봇(ChatGPT/Claude/Gemini) 에 복붙하는 방식으로 동작합니다.</li>
         </ul>
       </Section>
 
@@ -38,7 +38,7 @@ export default function Privacy() {
       <Section num="03" title="저장 위치">
         <ul className="list-disc list-outside pl-5 space-y-1.5 marker:text-soft">
           <li><b>모드 1 (휴대폰 저장)</b> · 입력값은 본인 브라우저의 localStorage 에만 저장됩니다. 외부 전송 없음.</li>
-          <li><b>모드 2 (내 사이트)</b> · 본인이 가입한 Supabase 프로젝트에 직접 저장됩니다. 운영자는 해당 프로젝트의 접근 권한이 없습니다.</li>
+          <li><b>모드 2 (내 사이트)</b> · 본인이 가입한 Supabase 프로젝트에 직접 저장됩니다. 공개 청첩장 링크는 청첩장 정보만 읽습니다.</li>
           <li><b>모드 3 (개발자 모드)</b> · 코드를 받아 본인 인프라에서 직접 운영합니다.</li>
         </ul>
       </Section>
@@ -46,9 +46,9 @@ export default function Privacy() {
       <Section num="04" title="제3자 처리위탁">
         <p className="mb-3">본 도구가 동작하기 위해 다음 외부 서비스에 사용자가 직접 연결할 수 있습니다.</p>
         <ul className="list-disc list-outside pl-5 space-y-1.5 marker:text-soft">
-          <li><b>Supabase</b> (미국·한국 등 사용자 선택 리전) — 데이터 저장</li>
-          <li><b>Vercel</b> (미국·한국 리전) — 정적 호스팅</li>
-          <li><b>Unsplash / jsdelivr CDN</b> — 사진·폰트 정적 자원 로드</li>
+          <li><b>Supabase</b> (사용자가 선택한 리전) — 데이터 저장</li>
+          <li><b>Vercel</b> — 정적 호스팅·배포</li>
+          <li><b>Unsplash / jsdelivr CDN</b> — 기본 사진·폰트 정적 자원 로드</li>
           <li>지도/검색 외부 링크 클릭 시 · 카카오맵·네이버지도·구글·인스타 등</li>
         </ul>
         <p className="text-[11.5px] text-soft mt-3">
@@ -56,11 +56,11 @@ export default function Privacy() {
         </p>
       </Section>
 
-      <Section num="05" title="보안 상의 한계 (꼭 읽어주세요)">
+      <Section num="05" title="공개 링크와 편집 링크">
         <ul className="list-disc list-outside pl-5 space-y-1.5 marker:text-soft">
-          <li>모드 2 의 청첩장 URL 은 받은 사람이라면 누구나 데이터 조회·수정 가능성이 있습니다. 인증 기반 보안이 들어가기 전까지는 <b>가까운 가족·친구에게만 공유</b>를 권장합니다.</li>
-          <li>본 도구는 "있는 그대로(AS-IS)" 제공되며, 호스팅·운영하면서 발생하는 결과는 호스팅한 본인의 책임입니다.</li>
-          <li>오류·보안 이슈 발견 시 즉시 문의 부탁드립니다 — 빠르게 수정합니다.</li>
+          <li><b>공개 청첩장 링크</b> · 하객에게 보내는 링크입니다. 이름, 일시, 장소, 연락처, 계좌, 사진 등 청첩장에 표시한 정보만 노출됩니다.</li>
+          <li><b>편집 초대 링크</b> · 부부가 함께 편집할 때만 쓰는 링크입니다. 이 링크에는 편집 권한 토큰이 포함되므로 하객·단톡방·SNS에 공유하지 마세요.</li>
+          <li>브라우저, Supabase, Vercel 계정 접근 권한은 사용자 본인이 관리합니다. 계정 비밀번호와 배포 환경변수는 다른 사람에게 공유하지 마세요.</li>
         </ul>
       </Section>
 
@@ -92,7 +92,7 @@ export default function Privacy() {
       </Section>
 
       <p className="text-[11px] text-soft pt-8 text-center">
-        본 안내는 한국 개인정보보호법 제30조에 따른 개인정보처리방침 의무 이행을 겸합니다.
+        본 안내는 셀프 호스팅 사용자를 위한 개인정보·보안 고지입니다. 법적 의무 판단은 운영 방식에 따라 달라질 수 있습니다.
       </p>
     </div>
   );

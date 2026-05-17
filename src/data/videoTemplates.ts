@@ -55,7 +55,7 @@ export const VIDEO_TEMPLATES: VideoTemplate[] = [
     themeColor: "#c4a373",
     totalDurationSec: 240,
     photoCountTotal: { ideal: 36, min: 24 },
-    bgmHint: "잔잔한 한국 발라드 (성시경 · 김동률 · 이적)",
+    bgmHint: "잔잔한 피아노·어쿠스틱 발라드 (공연·영상 사용 가능한 음원)",
     defaults: {
       filter: "warm",
       transition: "fade",
@@ -77,7 +77,7 @@ export const VIDEO_TEMPLATES: VideoTemplate[] = [
     themeColor: "#1a1510",
     totalDurationSec: 300,
     photoCountTotal: { ideal: 50, min: 36 },
-    bgmHint: "영화 OST · 인스트루멘탈 (About Time · La La Land · 이루마)",
+    bgmHint: "시네마틱 피아노·스트링 인스트루멘탈 (라이선스 확인 필수)",
     defaults: {
       filter: "none",
       transition: "fade",
@@ -102,7 +102,7 @@ export const VIDEO_TEMPLATES: VideoTemplate[] = [
     themeColor: "#222222",
     totalDurationSec: 210,
     photoCountTotal: { ideal: 32, min: 24 },
-    bgmHint: "시네마틱 인스트루멘탈 · 모던 클래식",
+    bgmHint: "시네마틱 인스트루멘탈 · 모던 클래식 (상업/공개 재생 가능 음원)",
     defaults: {
       filter: "bw",
       transition: "fade",
@@ -125,7 +125,7 @@ export const VIDEO_TEMPLATES: VideoTemplate[] = [
     themeColor: "#a88848",
     totalDurationSec: 240,
     photoCountTotal: { ideal: 36, min: 28 },
-    bgmHint: "재즈 · 어쿠스틱 발라드 · 옛 가요",
+    bgmHint: "재즈 · 어쿠스틱 발라드 · 레트로 무드 (저작권 사용 범위 확인)",
     defaults: {
       filter: "sepia",
       transition: "slide",
@@ -147,7 +147,7 @@ export const VIDEO_TEMPLATES: VideoTemplate[] = [
     themeColor: "#a8b89a",
     totalDurationSec: 150,
     photoCountTotal: { ideal: 25, min: 18 },
-    bgmHint: "잔잔한 어쿠스틱 · 피아노 솔로",
+    bgmHint: "잔잔한 어쿠스틱 · 피아노 솔로 (무료/유료 라이선스 확인)",
     defaults: {
       filter: "none",
       transition: "fade",
@@ -165,7 +165,7 @@ export const VIDEO_TEMPLATES: VideoTemplate[] = [
     totalDurationSec: 300,
     themeColor: "#d4a373",
     photoCountTotal: { ideal: 50, min: 40 },
-    bgmHint: "감동적인 발라드 · 부모님 곡 (사랑하는 사람들 · 어머나)",
+    bgmHint: "감동적인 발라드 · 부모님께 전하는 무드 (공연장 재생 가능 여부 확인)",
     defaults: {
       filter: "warm",
       transition: "fade",
@@ -189,7 +189,7 @@ export const VIDEO_TEMPLATES: VideoTemplate[] = [
     themeColor: "#c97c5d",
     totalDurationSec: 240,
     photoCountTotal: { ideal: 40, min: 28 },
-    bgmHint: "달콤한 발라드 · 영화 사랑 테마곡",
+    bgmHint: "달콤한 발라드 · 영화 같은 사랑 테마 (라이선스 확인)",
     defaults: {
       filter: "cool",
       transition: "fade",
@@ -212,7 +212,7 @@ export const VIDEO_TEMPLATES: VideoTemplate[] = [
     themeColor: "#e07a5f",
     totalDurationSec: 90,
     photoCountTotal: { ideal: 18, min: 12 },
-    bgmHint: "업비트 팝 · 미디엄 템포 발라드",
+    bgmHint: "업비트 팝 · 미디엄 템포 발라드 (SNS 공개 가능 음원)",
     defaults: {
       filter: "none",
       transition: "fade",

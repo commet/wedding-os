@@ -346,18 +346,41 @@ function CategoryView({
   onAdd: (sid: string, text: string) => void;
   onDelete: (sid: string, iid: string) => void;
 }) {
+  const [selectedId, setSelectedId] = useState(() => sections[0]?.id ?? "");
+  const selected = sections.find((s) => s.id === selectedId) ?? sections[0];
+
+  if (!selected) return null;
+
   return (
-    <div className="space-y-8">
-      {sections.map((section) => (
-        <SectionCard
-          key={section.id}
-          section={section}
-          onToggle={onToggle}
-          onSetDue={onSetDue}
-          onAdd={onAdd}
-          onDelete={onDelete}
-        />
-      ))}
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 gap-3">
+        {sections.map((section) => {
+          const done = section.items.filter((i) => i.done).length;
+          const pct = section.items.length ? Math.round((done / section.items.length) * 100) : 0;
+          const active = selected.id === section.id;
+          return (
+            <button
+              key={section.id}
+              onClick={() => setSelectedId(section.id)}
+              className={`text-left border p-3 transition ${active ? "border-ink bg-white" : "border-hair bg-transparent hover:border-mute"}`}
+            >
+              <div className="font-serif text-[14px] text-ink truncate">{section.title}</div>
+              <div className="eyebrow mt-2 tabular-nums">{done}/{section.items.length} · {pct}%</div>
+              <div className="h-px bg-line mt-2 relative">
+                <div className="absolute left-0 top-0 h-px bg-ink" style={{ width: `${pct}%` }} />
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <SectionCard
+        section={selected}
+        onToggle={onToggle}
+        onSetDue={onSetDue}
+        onAdd={onAdd}
+        onDelete={onDelete}
+      />
     </div>
   );
 }
@@ -371,21 +394,19 @@ function SectionCard({
   onAdd: (sid: string, text: string) => void;
   onDelete: (sid: string, iid: string) => void;
 }) {
-  const [open, setOpen] = useState(true);
   const [newText, setNewText] = useState("");
   const doneCount = section.items.filter((i) => i.done).length;
 
   return (
     <section>
-      <button className="w-full flex items-baseline justify-between border-b border-hair pb-2" onClick={() => setOpen((o) => !o)}>
+      <div className="w-full flex items-baseline justify-between border-b border-hair pb-2">
         <span className="font-serif text-[17px] text-ink">{section.title}</span>
         <span className="eyebrow tabular-nums">
-          {doneCount} / {section.items.length} <span className="ml-2 text-soft/70">{open ? "−" : "+"}</span>
+          {doneCount} / {section.items.length}
         </span>
-      </button>
+      </div>
 
-      {open && (
-        <>
+      <>
           <ul className="divide-y divide-hair">
             {section.items.map((item) => {
               const d = item.dueDate ? daysSince(item.dueDate) : null;
@@ -435,7 +456,6 @@ function SectionCard({
             <button className="text-[12px] text-ink underline underline-offset-4 pb-2 hover:text-gold" type="submit">추가 →</button>
           </form>
         </>
-      )}
     </section>
   );
 }
