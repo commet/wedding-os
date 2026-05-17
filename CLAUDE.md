@@ -28,17 +28,20 @@ src/
   main.tsx                   진입점
   routes/
     Welcome.tsx              모드 선택 화면
-    Dashboard.tsx            홈
+    Dashboard.tsx            홈 (메뉴 허브)
     Rings.tsx                반지 (★/♥)
-    Hotel.tsx                호텔 (OTA 비교)
-    Flights.tsx              항공권
-    Honeymoon.tsx            신혼여행
+    Sdm.tsx                  스드메 · 스냅
+    Venues.tsx               예식장 (후보 비교 · 답사)
+    Trip.tsx                 신혼여행 통합 (옛 Hotel/Flights/Honeymoon 흡수)
     Checklist.tsx            체크리스트
-    Invitation.tsx           모바일 청첩장 빌더
-    Video.tsx                식전영상 (stub)
+    Budget.tsx               예산 · 비용
+    Guests.tsx               하객 명단 · 축의금 · 식수
+    Invitation.tsx           모바일 청첩장 빌더 (/invitation, /i 둘 다)
+    Video.tsx                식전영상 (Remotion 기반, 라우트 lazy)
     Setup.tsx                모드 2 셋업 위저드 5단계
     Settings.tsx             설정 + 백업
     Contact.tsx              문의 폼
+    Privacy.tsx              개인정보 처리방침
   components/
     AppShell.tsx             헤더 + 하단 탭
     Modal.tsx
@@ -51,12 +54,20 @@ src/
     chatbotBridge.ts         자연어 → 프롬프트 생성 + JSON 추출
     freshness.ts             날짜 유틸
   data/
-    ringsTemplate.ts         반지 카탈로그 (25개)
-    hotelOtaTemplate.ts      OTA 목록
-    checklistTemplate.ts     체크리스트 7 카테고리
+    ringsTemplate.ts         반지 카탈로그
+    venueCatalog.ts          예식장 후보 카탈로그
+    budgetTemplate.ts        예산 항목 템플릿
+    giftCatalog.ts           답례품/선물 카탈로그
+    videoTemplates.ts        식전영상 템플릿
+api/
+  og.tsx                     Vercel Edge Function — 카톡 공유용 동적 OG 이미지
 supabase/
   schema.sql                 사용자가 자기 DB에 돌릴 SQL
 ```
+
+### 라우트 → 메뉴 매핑
+하단 탭 5개(`홈/청첩장/체크리스트/영상/더보기`) 외 나머지 라우트는 **Dashboard의 메뉴 그룹**에서 진입.
+새 라우트를 추가했는데 어디서도 들어갈 수 없는 상태가 가장 흔한 사고 — Dashboard 의 `MENU_GROUPS` 도 같이 손볼 것.
 
 ---
 

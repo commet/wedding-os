@@ -55,20 +55,32 @@ export function buildScenes(config: VideoConfig): { scenes: Scene[]; total: numb
   const titleFrames = Math.round((config.titleCardSec ?? 3) * fps);
   const endingFrames = Math.round((config.endingSec ?? 5) * fps);
   const scenes: Scene[] = [];
-  let lastActId: string | null = null;
+  const photoFrame = (p: VideoPhoto) => Math.max(15, Math.round((p.durationSec || 4) * fps));
 
-  for (const photo of config.photos) {
-    if (photo.actId && photo.actId !== lastActId) {
-      const act = config.acts.find((a) => a.id === photo.actId);
-      if (act) scenes.push({ kind: "title", act, frames: titleFrames });
-      lastActId = photo.actId;
+  if (config.acts.length > 0) {
+    // 챕터별로 묶어서 렌더. 사진의 flat 배열 순서가 어떻든 챕터 순서는 항상 정렬된 채 나간다.
+    const validActIds = new Set(config.acts.map((a) => a.id));
+    for (const act of config.acts) {
+      const actPhotos = config.photos.filter((p) => p.actId === act.id);
+      if (actPhotos.length === 0) continue;
+      scenes.push({ kind: "title", act, frames: titleFrames });
+      for (const photo of actPhotos) {
+        scenes.push({ kind: "photo", photo, frames: photoFrame(photo) });
+      }
     }
-    scenes.push({
-      kind: "photo",
-      photo,
-      frames: Math.max(15, Math.round((photo.durationSec || 4) * fps)),
-    });
+    // 챕터 미배정 사진은 마지막에 (타이틀 없이) 모아 보여준다
+    for (const photo of config.photos) {
+      if (!photo.actId || !validActIds.has(photo.actId)) {
+        scenes.push({ kind: "photo", photo, frames: photoFrame(photo) });
+      }
+    }
+  } else {
+    // 챕터가 없으면 그냥 사진 순서대로
+    for (const photo of config.photos) {
+      scenes.push({ kind: "photo", photo, frames: photoFrame(photo) });
+    }
   }
+
   if (config.ending && config.photos.length > 0) {
     scenes.push({ kind: "ending", frames: endingFrames });
   }
@@ -205,11 +217,13 @@ const TitleScene: React.FC<{ act: VideoAct }> = ({ act }) => {
   );
 };
 
-const EndingScene: React.FC<{ message: string; date?: string; names?: string }> = ({
-  message,
-  date,
-  names,
-}) => {
+const EndingScene: React.FC<{
+  message: string;
+  date?: string;
+  time?: string;
+  venue?: string;
+  names?: string;
+}> = ({ message, date, time, venue, names }) => {
   const frame = useCurrentFrame();
   const { durationInFrames } = useVideoConfig();
   const opacity = interpolate(
@@ -218,6 +232,8 @@ const EndingScene: React.FC<{ message: string; date?: string; names?: string }> 
     [0, 1, 1, 0.6],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );
+  // 날짜 + 시간 한 줄로
+  const when = [date, time].filter(Boolean).join(" · ");
   return (
     <AbsoluteFill
       style={{
@@ -241,20 +257,26 @@ const EndingScene: React.FC<{ message: string; date?: string; names?: string }> 
             {names}
           </div>
         )}
-        {date && (
-          <div style={{ fontSize: 34, color: "#a88848", marginBottom: 36 }}>{date}</div>
+        {when && (
+          <div style={{ fontSize: 34, color: "#a88848", marginBottom: 10 }}>{when}</div>
         )}
-        <div
-          style={{
-            fontSize: 40,
-            color: "#1a1510",
-            fontFamily: "'Noto Serif KR', serif",
-            lineHeight: 1.6,
-            whiteSpace: "pre-line",
-          }}
-        >
-          {message}
-        </div>
+        {venue && (
+          <div style={{ fontSize: 28, color: "#a88848", marginBottom: 36 }}>{venue}</div>
+        )}
+        {!venue && when && <div style={{ height: 26 }} />}
+        {message && (
+          <div
+            style={{
+              fontSize: 40,
+              color: "#1a1510",
+              fontFamily: "'Noto Serif KR', serif",
+              lineHeight: 1.6,
+              whiteSpace: "pre-line",
+            }}
+          >
+            {message}
+          </div>
+        )}
       </div>
     </AbsoluteFill>
   );
@@ -300,6 +322,8 @@ export const WeddingVideo: React.FC<{ config: VideoConfig; coupleNames?: string 
               <EndingScene
                 message={config.ending?.message ?? ""}
                 date={config.ending?.date}
+                time={config.ending?.time}
+                venue={config.ending?.venue}
                 names={coupleNames}
               />
             )}

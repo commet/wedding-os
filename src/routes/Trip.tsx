@@ -25,13 +25,16 @@ export default function Trip({ data, update }: Props) {
   const [tab, setTab] = useState<Tab>("destinations");
 
   return (
-    <div className="px-5 py-6 space-y-4">
-      <h1 className="font-serif text-2xl">신혼여행</h1>
+    <div className="page pt-8 pb-10 space-y-6">
+      <div>
+        <div className="eyebrow-gold mb-2">Honeymoon</div>
+        <h1 className="font-serif text-[2rem] leading-none">신혼여행</h1>
+      </div>
 
-      <div className="flex gap-2">
-        <TabBtn active={tab === "destinations"} onClick={() => setTab("destinations")}>🗺️ 여행지</TabBtn>
-        <TabBtn active={tab === "flights"} onClick={() => setTab("flights")}>✈️ 항공</TabBtn>
-        <TabBtn active={tab === "stays"} onClick={() => setTab("stays")}>🏨 숙소</TabBtn>
+      <div className="flex items-center gap-6 border-b border-hair pb-3">
+        <TabBtn active={tab === "destinations"} onClick={() => setTab("destinations")}>여행지</TabBtn>
+        <TabBtn active={tab === "flights"} onClick={() => setTab("flights")}>항공</TabBtn>
+        <TabBtn active={tab === "stays"} onClick={() => setTab("stays")}>숙소</TabBtn>
       </div>
 
       {tab === "destinations" && <Destinations data={data} update={update} />}
@@ -45,8 +48,8 @@ function TabBtn({ active, onClick, children }: any) {
   return (
     <button
       onClick={onClick}
-      className={`flex-1 text-sm px-3 py-2 rounded-full ${
-        active ? "bg-ink text-white" : "bg-white border border-line text-soft"
+      className={`text-[12px] tracking-wide transition pb-1 ${
+        active ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
       }`}
     >
       {children}
@@ -96,28 +99,28 @@ function Destinations({ data, update }: Props) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-10">
       {/* 내 후보 */}
       {regions.length > 0 && (
         <section>
-          <h2 className="font-medium mb-2">내 후보 ({regions.length})</h2>
-          <div className="space-y-3">
+          <h2 className="eyebrow-gold mb-4">내 후보 · <span className="tabular-nums">{regions.length}</span></h2>
+          <div className="divide-y divide-hair border-y border-hair">
             {regions.map((r) => (
-              <div key={r.id} className="card space-y-2">
-                <div className="flex items-start justify-between">
-                  <div className="font-medium">{r.name}</div>
-                  <button onClick={() => removeRegion(r.id)} className="text-soft text-xs">×</button>
+              <div key={r.id} className="py-5 space-y-3">
+                <div className="flex items-baseline justify-between">
+                  <div className="font-serif text-[17px] text-ink">{r.name}</div>
+                  <button onClick={() => removeRegion(r.id)} className="text-soft hover:text-ink text-sm">×</button>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="grid grid-cols-2 gap-x-6">
                   <input
-                    className="input text-xs"
+                    className="input text-[13px]"
                     type="number"
                     placeholder="기간 (일)"
                     value={r.durationDays ?? ""}
                     onChange={(e) => updateRegion(r.id, { durationDays: Number(e.target.value) || undefined })}
                   />
                   <input
-                    className="input text-xs"
+                    className="input text-[13px]"
                     type="number"
                     placeholder="예산 (원)"
                     value={r.budgetKRW ?? ""}
@@ -125,7 +128,7 @@ function Destinations({ data, update }: Props) {
                   />
                 </div>
                 <textarea
-                  className="input text-xs min-h-[80px]"
+                  className="input-boxed text-[13px] min-h-[80px]"
                   placeholder="메모 / 일정"
                   value={r.notes ?? ""}
                   onChange={(e) => updateRegion(r.id, { notes: e.target.value })}
@@ -142,43 +145,44 @@ function Destinations({ data, update }: Props) {
 
       {/* 추천 카탈로그 */}
       <section>
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="font-medium">✨ 인기 신혼여행지</h2>
-          <span className="text-xs text-soft">{HONEYMOON_CATALOG.length}곳</span>
+        <div className="flex items-baseline justify-between mb-2">
+          <h2 className="eyebrow-gold">인기 신혼여행지</h2>
+          <span className="eyebrow tabular-nums">{HONEYMOON_CATALOG.length}곳</span>
         </div>
-        <p className="text-xs text-soft mb-3">
-          가장 많이 가는 곳들을 미리 정리해뒀어요. 마음에 드는 곳을 [+ 후보로]로 담아두면 비교가 쉬워요.
+        <p className="text-[12.5px] text-soft mb-5 leading-relaxed">
+          가장 많이 가는 곳들을 미리 정리해뒀어요. 마음에 드는 곳을 후보로 담아두면 비교가 쉬워요.
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="divide-y divide-hair border-y border-hair">
           {HONEYMOON_CATALOG.map((p) => {
             const added = regions.some((r) => r.name === p.region);
             return (
               <button
                 key={p.id}
                 onClick={() => addFromCatalog(p)}
-                className="card text-left active:bg-cream transition relative"
+                className="w-full text-left py-4 active:opacity-60 transition disabled:opacity-50"
                 disabled={added}
               >
-                <div className="flex items-center gap-2 mb-1.5">
-                  <span className="text-xl">{p.emoji}</span>
-                  <span className="font-medium text-sm">{p.region}</span>
-                  <span className="ml-auto text-xs">{"💰".repeat(p.budgetLevel)}</span>
-                </div>
-                <p className="text-xs text-soft mb-2">{p.vibe}</p>
-                <div className="text-[11px] text-soft space-y-0.5">
-                  <div>📅 {p.bestSeason}</div>
-                  <div>✈️ {p.flightHours}</div>
-                  <div>💵 {p.budgetKRWPerPerson}</div>
-                </div>
-                <div className="mt-2 text-xs text-gold">
-                  {added ? "✓ 후보로 담음" : "+ 후보로"}
+                <div className="flex items-baseline gap-3">
+                  <span className="text-base flex-shrink-0">{p.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-serif text-[15px] text-ink">{p.region}</div>
+                    <div className="text-[12px] text-soft mt-0.5 leading-relaxed">{p.vibe}</div>
+                    <div className="eyebrow mt-2 space-x-3">
+                      <span>{p.bestSeason}</span>
+                      <span>{p.flightHours}</span>
+                      <span>{p.budgetKRWPerPerson}</span>
+                    </div>
+                  </div>
+                  <span className="text-[11px] tracking-wide text-gold flex-shrink-0 whitespace-nowrap">
+                    {added ? "✓ 담음" : "+ 후보로"}
+                  </span>
                 </div>
               </button>
             );
           })}
         </div>
-        <button onClick={() => setShowCatalog(true)} className="btn-ghost w-full text-xs mt-3">
-          여행지 상세 안내 (시기·하이라이트·팁) 보기
+        <button onClick={() => setShowCatalog(true)} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold mt-5">
+          여행지 상세 안내 (시기 · 하이라이트 · 팁) →
         </button>
       </section>
 
@@ -204,7 +208,7 @@ function Destinations({ data, update }: Props) {
                   ))}
                 </ul>
               </div>
-              <div className="text-xs mt-2 bg-cream p-2 rounded-md">💡 {p.tip}</div>
+              <div className="text-[11.5px] mt-3 pl-3 border-l-2 border-gold/50 text-soft leading-relaxed">{p.tip}</div>
             </div>
           ))}
         </div>
@@ -247,61 +251,65 @@ function Flights({ data, update }: Props) {
     update((prev: WeddingData) => ({ ...prev, flights: prev.flights.filter((f) => f.id !== id) }));
 
   return (
-    <div className="space-y-4">
-      <div className="card space-y-3">
-        <div className="text-sm font-medium">✈️ 항공편 검색</div>
-        <div className="grid grid-cols-2 gap-2">
+    <div className="space-y-10">
+      <section className="space-y-4">
+        <h2 className="eyebrow-gold">항공편 검색</h2>
+        <div className="grid grid-cols-2 gap-x-6 gap-y-4">
           <div>
-            <label className="label text-xs">출발</label>
-            <input className="input text-sm" placeholder="ICN" value={search.from} onChange={(e) => setSearch((s) => ({ ...s, from: e.target.value }))} />
+            <label className="label">출발</label>
+            <input className="input" placeholder="ICN" value={search.from} onChange={(e) => setSearch((s) => ({ ...s, from: e.target.value }))} />
           </div>
           <div>
-            <label className="label text-xs">도착</label>
-            <input className="input text-sm" placeholder="DPS (발리)" value={search.to} onChange={(e) => setSearch((s) => ({ ...s, to: e.target.value }))} />
+            <label className="label">도착</label>
+            <input className="input" placeholder="DPS (발리)" value={search.to} onChange={(e) => setSearch((s) => ({ ...s, to: e.target.value }))} />
           </div>
           <div>
-            <label className="label text-xs">출발 날짜</label>
-            <input type="date" className="input text-sm" value={search.date} onChange={(e) => setSearch((s) => ({ ...s, date: e.target.value }))} />
+            <label className="label">출발 날짜</label>
+            <input type="date" className="input" value={search.date} onChange={(e) => setSearch((s) => ({ ...s, date: e.target.value }))} />
           </div>
           <div>
-            <label className="label text-xs">인원</label>
-            <input type="number" min={1} className="input text-sm" value={search.adults} onChange={(e) => setSearch((s) => ({ ...s, adults: Math.max(1, Number(e.target.value) || 1) }))} />
+            <label className="label">인원</label>
+            <input type="number" min={1} className="input" value={search.adults} onChange={(e) => setSearch((s) => ({ ...s, adults: Math.max(1, Number(e.target.value) || 1) }))} />
           </div>
         </div>
         <SearchLinks
-          label="🔎 검색 사이트에서 바로 보기"
+          label="검색 사이트에서 바로 보기"
           links={flightSearchLinks(search.from, search.to, search.date, search.adults)}
         />
-        <button onClick={onAISearch} className="btn-secondary w-full text-sm" disabled={!search.date || !search.to}>
-          🤖 AI에게 추천 받아 목록에 담기
+        <button onClick={onAISearch} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold disabled:opacity-40" disabled={!search.date || !search.to}>
+          AI에게 추천 받아 목록에 담기 →
         </button>
-      </div>
+      </section>
 
       {data.flights.length === 0 ? (
-        <p className="text-center text-sm text-soft py-4">아직 담아둔 항공편이 없어요.</p>
+        <p className="text-center text-[12.5px] text-soft py-4">아직 담아둔 항공편이 없어요.</p>
       ) : (
-        <div className="space-y-2">
-          <h2 className="font-medium">담아둔 옵션 ({data.flights.length})</h2>
-          {data.flights.map((f) => (
-            <div key={f.id} className="card">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="font-medium text-sm">{f.airline} {f.flightNumber}</div>
-                  <div className="text-xs text-soft">{f.from} → {f.to}</div>
-                  {f.departAt && <div className="text-xs text-soft mt-0.5">{f.departAt} {f.arriveAt && `→ ${f.arriveAt}`}</div>}
+        <section>
+          <h2 className="eyebrow-gold mb-4">담아둔 옵션 · <span className="tabular-nums">{data.flights.length}</span></h2>
+          <div className="divide-y divide-hair border-y border-hair">
+            {data.flights.map((f) => (
+              <div key={f.id} className="py-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-serif text-[15px] text-ink">{f.airline} <span className="text-soft">{f.flightNumber}</span></div>
+                    <div className="eyebrow mt-1">{f.from} → {f.to}</div>
+                    {f.departAt && <div className="text-[11px] text-soft mt-1 tabular-nums">{f.departAt} {f.arriveAt && `→ ${f.arriveAt}`}</div>}
+                  </div>
+                  <button onClick={() => remove(f.id)} className="text-soft hover:text-ink text-sm">×</button>
                 </div>
-                <button onClick={() => remove(f.id)} className="text-soft text-xs">×</button>
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="font-serif text-lg text-ink tabular-nums">{f.priceKRW ? `${f.priceKRW.toLocaleString()}원` : <span className="text-soft text-sm">가격 미정</span>}</span>
+                  <FreshnessBadge lastVerified={f.lastVerified} />
+                </div>
               </div>
-              <div className="mt-2 flex items-center justify-between">
-                <span className="text-base font-medium">{f.priceKRW ? `${f.priceKRW.toLocaleString()}원` : "가격 미정"}</span>
-                <FreshnessBadge lastVerified={f.lastVerified} />
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </section>
       )}
 
-      <button onClick={() => setShowAdd(true)} className="btn-ghost text-sm w-full">+ 직접 추가</button>
+      <button onClick={() => setShowAdd(true)} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold w-full text-left">
+        + 직접 추가
+      </button>
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title="항공편 직접 추가">
         <FlightAddForm
           onAdd={(f) => {
@@ -404,78 +412,85 @@ function Stays({ data, update }: Props) {
     }));
 
   return (
-    <div className="space-y-4">
-      <div className="card space-y-3">
-        <div className="text-sm font-medium">🔎 숙소 검색</div>
+    <div className="space-y-10">
+      <section className="space-y-4">
+        <h2 className="eyebrow-gold">숙소 검색</h2>
         <input
-          className="input text-sm"
+          className="input"
           placeholder="지역·호텔명 (예: 발리 우붓, 강남)"
           value={search.dest}
           onChange={(e) => setSearch((s) => ({ ...s, dest: e.target.value }))}
         />
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-x-4 gap-y-4">
           <div>
-            <label className="label text-xs">체크인</label>
-            <input type="date" className="input text-sm" value={search.checkIn} onChange={(e) => setSearch((s) => ({ ...s, checkIn: e.target.value }))} />
+            <label className="label">체크인</label>
+            <input type="date" className="input" value={search.checkIn} onChange={(e) => setSearch((s) => ({ ...s, checkIn: e.target.value }))} />
           </div>
           <div>
-            <label className="label text-xs">체크아웃</label>
-            <input type="date" className="input text-sm" value={search.checkOut} onChange={(e) => setSearch((s) => ({ ...s, checkOut: e.target.value }))} />
+            <label className="label">체크아웃</label>
+            <input type="date" className="input" value={search.checkOut} onChange={(e) => setSearch((s) => ({ ...s, checkOut: e.target.value }))} />
           </div>
           <div>
-            <label className="label text-xs">인원</label>
-            <input type="number" min={1} className="input text-sm" value={search.adults} onChange={(e) => setSearch((s) => ({ ...s, adults: Math.max(1, Number(e.target.value) || 1) }))} />
+            <label className="label">인원</label>
+            <input type="number" min={1} className="input" value={search.adults} onChange={(e) => setSearch((s) => ({ ...s, adults: Math.max(1, Number(e.target.value) || 1) }))} />
           </div>
         </div>
         <SearchLinks
           label="입력한 조건으로 예약 사이트에서 바로 검색"
           links={hotelSearchLinks(search.dest, search.checkIn, search.checkOut, search.adults)}
         />
-      </div>
+      </section>
 
       {data.hotels.length === 0 ? (
-        <p className="text-center text-sm text-soft py-4">아직 담아둔 숙소가 없어요.</p>
+        <p className="text-center text-[12.5px] text-soft py-4">아직 담아둔 숙소가 없어요.</p>
       ) : (
-        <div className="space-y-3">
-          <h2 className="font-medium">담아둔 숙소 ({data.hotels.length})</h2>
-          {data.hotels.map((hotel) => (
-            <div key={hotel.id} className="card">
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="font-medium">{hotel.name}</div>
-                  {hotel.location && <div className="text-xs text-soft">{hotel.location}</div>}
+        <section>
+          <h2 className="eyebrow-gold mb-4">담아둔 숙소 · <span className="tabular-nums">{data.hotels.length}</span></h2>
+          <div className="divide-y divide-hair border-y border-hair">
+            {data.hotels.map((hotel) => (
+              <div key={hotel.id} className="py-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-serif text-[15px] text-ink">{hotel.name}</div>
+                    {hotel.location && <div className="eyebrow mt-1">{hotel.location}</div>}
+                  </div>
+                  <button onClick={() => remove(hotel.id)} className="text-soft hover:text-ink text-sm">×</button>
                 </div>
-                <button onClick={() => remove(hotel.id)} className="text-soft text-xs">×</button>
-              </div>
-              <div className="mt-2">
-                <FreshnessBadge lastVerified={hotel.lastVerified} onClickCheck={() => openPriceBridge(hotel)} />
-              </div>
-              <button onClick={() => setEditing(hotel)} className="text-sm text-gold underline mt-3">
-                OTA 가격 보기/편집 ({hotel.otaPrices?.length ?? 0})
-              </button>
-              {hotel.otaPrices && hotel.otaPrices.length > 0 && (
-                <div className="mt-2 space-y-1 text-xs">
-                  {[...hotel.otaPrices]
-                    .filter((o) => typeof o.price === "number")
-                    .sort((a, b) => (a.price ?? 0) - (b.price ?? 0))
-                    .slice(0, 3)
-                    .map((o, i) => (
-                      <div key={i} className="flex items-center justify-between">
-                        <span className="text-soft">{i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"} {o.ota}</span>
-                        <span>{o.price?.toLocaleString()}원/박</span>
-                      </div>
-                    ))}
+                <div className="mt-2">
+                  <FreshnessBadge lastVerified={hotel.lastVerified} onClickCheck={() => openPriceBridge(hotel)} />
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
+                <button onClick={() => setEditing(hotel)} className="text-[11.5px] text-ink underline underline-offset-4 hover:text-gold mt-3">
+                  OTA 가격 보기/편집 ({hotel.otaPrices?.length ?? 0}) →
+                </button>
+                {hotel.otaPrices && hotel.otaPrices.length > 0 && (
+                  <div className="mt-3 space-y-1.5 text-[11.5px]">
+                    {[...hotel.otaPrices]
+                      .filter((o) => typeof o.price === "number")
+                      .sort((a, b) => (a.price ?? 0) - (b.price ?? 0))
+                      .slice(0, 3)
+                      .map((o, i) => (
+                        <div key={i} className="flex items-baseline justify-between">
+                          <span className={i === 0 ? "text-gold" : "text-soft"}>
+                            <span className="font-serif text-soft tabular-nums mr-2">{String(i + 1).padStart(2, "0")}</span>
+                            {o.ota}
+                          </span>
+                          <span className="tabular-nums">{o.price?.toLocaleString()}원/박</span>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
-      <button onClick={() => setShowAdd(true)} className="btn-ghost text-sm w-full">+ 직접 추가</button>
+      <button onClick={() => setShowAdd(true)} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold text-left w-full">
+        + 직접 추가
+      </button>
 
-      <p className="text-xs text-soft text-center">
-        💡 본식 전후 부부 숙소, 하객 안내용 호텔도 여기에 함께 정리하면 좋아요.
+      <p className="text-[11.5px] text-soft text-center leading-relaxed">
+        본식 전후 부부 숙소, 하객 안내용 호텔도 여기에 함께 정리하면 좋아요.
       </p>
 
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title="숙소 추가">

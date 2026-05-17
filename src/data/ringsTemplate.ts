@@ -32,4 +32,21 @@ export const RING_CATALOG: Ring[] = [
   { id: id(), brand: "드 비어스", model: "Channel", material: "화이트골드", priceKRW: 1950000, lastVerified: today },
   { id: id(), brand: "드 비어스", model: "Infinity", material: "로즈골드", priceKRW: 2280000, hasDiamond: true, lastVerified: today },
   { id: id(), brand: "드 비어스", model: "Petal", material: "로즈골드", priceKRW: 2380000, lastVerified: today },
+
+  // ─── 국내 백화점 · 유통 브랜드 ─────────────────────────────────
+  // 백화점·아웃렛에서 쉽게 접할 수 있는 한국 브랜드. 명품 대비 합리적 가격대.
+  { id: id(), brand: "갤러리아 (Galleria)", model: "심플 커브드 밴드", material: "화이트골드", priceKRW: 850000, lastVerified: today, source: "백화점 추정" },
+  { id: id(), brand: "갤러리아 (Galleria)", model: "투톤 밴드", material: "옐로우골드", priceKRW: 980000, lastVerified: today },
+  { id: id(), brand: "로이드 (Lloyd)", model: "심플 라인 밴드", material: "화이트골드", priceKRW: 580000, lastVerified: today, source: "백화점 추정" },
+  { id: id(), brand: "로이드 (Lloyd)", model: "트위스트 밴드", material: "로즈골드", priceKRW: 720000, lastVerified: today },
+  { id: id(), brand: "스타일링 (Styling)", model: "베이직 솔리테어", material: "화이트골드", priceKRW: 1280000, hasDiamond: true, lastVerified: today },
+  { id: id(), brand: "스타일링 (Styling)", model: "심플 페어", material: "플래티넘", priceKRW: 980000, lastVerified: today },
+  { id: id(), brand: "디디에두보 (Didier Dubot)", model: "엘레강스 라인", material: "로즈골드", priceKRW: 1450000, hasDiamond: true, lastVerified: today },
+  { id: id(), brand: "디디에두보 (Didier Dubot)", model: "센터 다이아", material: "화이트골드", priceKRW: 1850000, hasDiamond: true, lastVerified: today },
+  { id: id(), brand: "제이에스티나 (J.Estina)", model: "Bridal Classic", material: "화이트골드", priceKRW: 620000, lastVerified: today },
+  { id: id(), brand: "제이에스티나 (J.Estina)", model: "Bridal Crown", material: "옐로우골드", priceKRW: 780000, hasDiamond: true, lastVerified: today },
+  { id: id(), brand: "트리플다이아 (Triple Diamond)", model: "센터 0.3ct 솔리테어", material: "플래티넘", priceKRW: 2200000, hasDiamond: true, lastVerified: today, source: "다이아 직판 추정" },
+  { id: id(), brand: "트리플다이아 (Triple Diamond)", model: "심플 페어 밴드", material: "화이트골드", priceKRW: 780000, lastVerified: today },
+  { id: id(), brand: "제랑드 (Gerang)", model: "심플 페어", material: "플래티넘", priceKRW: 690000, lastVerified: today, source: "종로 직판 추정" },
+  { id: id(), brand: "제랑드 (Gerang)", model: "센터 0.2ct", material: "화이트골드", priceKRW: 1480000, hasDiamond: true, lastVerified: today },
 ];

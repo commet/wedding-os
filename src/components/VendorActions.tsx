@@ -22,29 +22,27 @@ export default function VendorActions({ name, query, region, officialUrl, size =
   const kakaoMap = `https://map.kakao.com/link/search/${encodeURIComponent(mapQuery)}`;
   const officialSafe = safeHref(officialUrl);
 
-  const cls = size === "sm"
-    ? "text-xs px-2.5 py-1.5"
-    : "text-[11px] px-2 py-1";
+  const cls = size === "sm" ? "text-[12px]" : "text-[11px]";
 
   return (
-    <div className="flex gap-1.5 flex-wrap">
+    <div className="flex gap-4 flex-wrap">
       {officialSafe && (
         <a href={officialSafe} target="_blank" rel="noopener noreferrer"
-           className={`${cls} rounded-md bg-gold/10 border border-gold/30 text-gold`}>
-          🏠 공식
+           className={`${cls} tracking-wide text-gold underline underline-offset-4 hover:text-ink`}>
+          공식 ↗
         </a>
       )}
       <a href={google} target="_blank" rel="noopener noreferrer"
-         className={`${cls} rounded-md bg-white border border-line text-soft`}>
-        🌐 구글
+         className={`${cls} tracking-wide text-soft underline underline-offset-4 hover:text-ink`}>
+        구글
       </a>
       <a href={instagram} target="_blank" rel="noopener noreferrer"
-         className={`${cls} rounded-md bg-white border border-line text-soft`}>
-        📷 인스타
+         className={`${cls} tracking-wide text-soft underline underline-offset-4 hover:text-ink`}>
+        인스타
       </a>
       <a href={kakaoMap} target="_blank" rel="noopener noreferrer"
-         className={`${cls} rounded-md bg-white border border-line text-soft`}>
-        🗺️ 지도
+         className={`${cls} tracking-wide text-soft underline underline-offset-4 hover:text-ink`}>
+        지도
       </a>
     </div>
   );

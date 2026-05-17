@@ -3,60 +3,170 @@
 // 데이터는 사용자의 DB에 저장 — 본인은 절대 접근할 수 없다.
 
 import { createClient } from "@supabase/supabase-js";
-import type { StorageDriver } from "./storage";
+import type { StorageDriver, RealtimeStatus } from "./storage";
 import type { WeddingData } from "./schema";
+import { isSupabaseHost } from "./security";
 
 const DEFAULT_TABLE = "wedding_data";
 const DEFAULT_CONFIG_ID = "default";
+
+// 짧은 지수 백오프 — 일시 네트워크 끊김 회복용. 너무 길게 잡으면 사용자 다음 편집이 밀려서 UX 망함.
+// fn 은 thenable (supabase builder 가 PostgrestBuilder 라 정식 Promise 가 아님) 를 받기 위해 PromiseLike.
+async function withRetry<T>(fn: () => PromiseLike<T>, isOk: (r: T) => boolean, tries = 3): Promise<T> {
+  let last: T | undefined;
+  for (let i = 0; i < tries; i++) {
+    try {
+      last = await fn();
+      if (isOk(last)) return last;
+    } catch (e) {
+      if (i === tries - 1) throw e;
+    }
+    // 200ms → 600ms → 1800ms
+    await new Promise((resolve) => setTimeout(resolve, 200 * Math.pow(3, i)));
+  }
+  return last as T;
+}
+
+const noopDriver: StorageDriver = {
+  async load() { return null; },
+  async save() { return { ok: false }; },
+};
 
 export function createSupabaseStorage(
   url: string,
   anonKey: string,
   configId: string = DEFAULT_CONFIG_ID
 ): StorageDriver {
-  if (!url || !anonKey) {
-    // 셋업 안 끝났으면 noop 드라이버 — load는 null, save는 false
-    return {
-      async load() { return null; },
-      async save() { return false; },
-    };
+  if (!url || !anonKey) return noopDriver;
+  // 도메인 화이트리스트 — 변조된 localStorage 의 URL 이나 import 파일의 URL 에 의해
+  // anon key 가 공격자 호스트로 새지 않도록 마지막 방어선. (Setup 위저드도 이미 검사하지만 한 번 더.)
+  if (!isSupabaseHost(url)) {
+    if (typeof console !== "undefined") console.warn("[storage] non-supabase host blocked:", url);
+    return noopDriver;
   }
   const client = createClient(url, anonKey);
+
+  // 옛 스키마(version 컬럼 없음) 호환을 위해 첫 실패 시 자동 폴백.
+  // 사용자가 새 schema.sql 을 안 깐 상태에서도 앱이 동작하도록 — 충돌 검출은 비활성, 마지막 저장 wins.
+  let versionSupported: boolean = true;
+  const versionMissingError = (msg: string) =>
+    /column .*version.* does not exist/i.test(msg) || /could not find .*version.* column/i.test(msg);
 
   return {
     async load() {
       try {
-        const { data, error } = await client
-          .from(DEFAULT_TABLE)
-          .select("data")
-          .eq("id", configId)
-          .single();
-        if (error || !data?.data) return null;
-        return data.data as WeddingData;
+        // version 까지 함께 select
+        const r = await withRetry(
+          () => client.from(DEFAULT_TABLE).select("data, version").eq("id", configId).single(),
+          (res) => !res.error || versionMissingError(res.error?.message ?? ""),
+          2
+        );
+        if (r.error) {
+          if (versionMissingError(r.error.message)) {
+            versionSupported = false;
+            // version 컬럼 없음 — data 만 로드
+            const r2 = await client.from(DEFAULT_TABLE).select("data").eq("id", configId).single();
+            if (r2.error || !r2.data?.data) return null;
+            return { data: r2.data.data as WeddingData };
+          }
+          return null;
+        }
+        if (!r.data?.data) return null;
+        return { data: r.data.data as WeddingData, version: r.data.version as number | undefined };
       } catch {
         return null;
       }
     },
-    async save(payload) {
+    async save(payload, expectedVersion) {
       try {
-        const { error } = await client
-          .from(DEFAULT_TABLE)
-          .upsert({ id: configId, data: payload, updated_at: new Date().toISOString() });
-        return !error;
+        // 1) version 컬럼 없는 옛 스키마: 단순 upsert
+        if (!versionSupported) {
+          const r = await client.from(DEFAULT_TABLE).upsert({
+            id: configId,
+            data: payload,
+            updated_at: new Date().toISOString(),
+          });
+          return { ok: !r.error };
+        }
+
+        // 2) expectedVersion 모름(첫 save) — 무조건 upsert. version 은 default 1 또는 trigger 가 처리.
+        if (expectedVersion === undefined) {
+          const r = await withRetry(
+            () => client.from(DEFAULT_TABLE)
+              .upsert({ id: configId, data: payload, updated_at: new Date().toISOString() })
+              .select("version")
+              .single(),
+            (res) => !res.error,
+            3
+          );
+          if (r.error) {
+            if (versionMissingError(r.error.message)) {
+              versionSupported = false;
+              return this.save(payload); // 재귀: 옛 스키마 경로
+            }
+            return { ok: false };
+          }
+          return { ok: true, version: r.data?.version as number | undefined };
+        }
+
+        // 3) expectedVersion 있음 — 조건부 UPDATE 로 낙관적 동시성 검사
+        const r = await withRetry(
+          () => client.from(DEFAULT_TABLE)
+            .update({ data: payload, updated_at: new Date().toISOString() })
+            .eq("id", configId)
+            .eq("version", expectedVersion)
+            .select("version"),
+          (res) => !res.error,
+          3
+        );
+        if (r.error) {
+          if (versionMissingError(r.error.message)) {
+            versionSupported = false;
+            return this.save(payload);
+          }
+          return { ok: false };
+        }
+        // 0 rows updated → 누군가 먼저 저장함 (version mismatch) → conflict.
+        if (!r.data || r.data.length === 0) {
+          // row 자체가 없는 경우(첫 save)와 구분: INSERT 시도.
+          const ins = await client.from(DEFAULT_TABLE)
+            .insert({ id: configId, data: payload })
+            .select("version")
+            .single();
+          if (ins.error) {
+            // INSERT 실패 = 이미 row 있음 = 진짜 conflict
+            return { ok: false, conflict: true };
+          }
+          return { ok: true, version: ins.data?.version as number | undefined };
+        }
+        const newVersion = r.data[0]?.version as number | undefined;
+        return { ok: true, version: newVersion };
       } catch {
-        return false;
+        return { ok: false };
       }
     },
-    subscribe(cb) {
+    subscribe(cb, onStatus) {
       const channel = client.channel(`wedding-data-${configId}`)
         .on(
           "postgres_changes" as any,
-          { event: "UPDATE", schema: "public", table: DEFAULT_TABLE, filter: `id=eq.${configId}` },
+          { event: "*", schema: "public", table: DEFAULT_TABLE, filter: `id=eq.${configId}` },
           (payload: any) => {
-            if (payload.new?.data) cb(payload.new.data as WeddingData);
+            const next = payload.new?.data ?? payload.record?.data;
+            const ver = payload.new?.version ?? payload.record?.version;
+            if (next) cb(next as WeddingData, typeof ver === "number" ? ver : undefined);
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          if (!onStatus) return;
+          const map: Record<string, RealtimeStatus> = {
+            SUBSCRIBED: "subscribed",
+            CHANNEL_ERROR: "disconnected",
+            TIMED_OUT: "disconnected",
+            CLOSED: "disconnected",
+          };
+          onStatus(map[status] ?? "connecting");
+        });
+      onStatus?.("connecting");
       return () => { client.removeChannel(channel); };
     },
   };
@@ -72,6 +182,11 @@ export type RsvpInput = {
   message?: string;
 };
 
+// 한 기기·한 청첩장당 최소 60초 간격 — 봇/실수 도배 1차 방어.
+// (서버에서도 막아야 하지만 RLS 가 anon insert 만 허용하는 현재 구조에선 클라 가드가 1차 방어선.)
+const RSVP_RATE_LIMIT_MS = 60_000;
+function rsvpRateLimitKey(url: string) { return `wedding-os/rsvp-last/${url}`; }
+
 export async function insertRsvp(
   url: string,
   anonKey: string,
@@ -79,10 +194,40 @@ export async function insertRsvp(
 ): Promise<{ ok: boolean; reason?: string }> {
   try {
     if (!url || !anonKey) return { ok: false, reason: "연결 정보 없음" };
-    if (!rsvp.name.trim()) return { ok: false, reason: "이름을 입력해주세요" };
+    if (!isSupabaseHost(url)) return { ok: false, reason: "안전하지 않은 호스트" };
+    const name = rsvp.name.trim();
+    if (!name) return { ok: false, reason: "이름을 입력해주세요" };
+    // 필드 길이 가드 — 대량 텍스트 폭격 차단
+    if (name.length > 40) return { ok: false, reason: "이름이 너무 길어요 (40자 이내)" };
+    const meal = rsvp.meal?.trim();
+    if (meal && meal.length > 80) return { ok: false, reason: "식사 메모는 80자 이내로" };
+    const message = rsvp.message?.trim();
+    if (message && message.length > 500) return { ok: false, reason: "메시지는 500자 이내로" };
+    const guests = typeof rsvp.guests === "number" ? Math.max(0, Math.min(rsvp.guests, 20)) : 1;
+
+    // Rate limit 체크
+    try {
+      const last = localStorage.getItem(rsvpRateLimitKey(url));
+      if (last) {
+        const diff = Date.now() - Number(last);
+        if (diff < RSVP_RATE_LIMIT_MS) {
+          const sec = Math.ceil((RSVP_RATE_LIMIT_MS - diff) / 1000);
+          return { ok: false, reason: `${sec}초 후 다시 시도해주세요` };
+        }
+      }
+    } catch { /* localStorage 없으면 그냥 통과 */ }
+
     const client = createClient(url, anonKey);
-    const { error } = await client.from("rsvp").insert([rsvp]);
+    const { error } = await client.from("rsvp").insert([{
+      name,
+      attending: rsvp.attending,
+      side: rsvp.side,
+      guests,
+      meal: meal || null,
+      message: message || null,
+    }]);
     if (error) return { ok: false, reason: error.message };
+    try { localStorage.setItem(rsvpRateLimitKey(url), String(Date.now())); } catch { /* noop */ }
     return { ok: true };
   } catch (e: any) {
     return { ok: false, reason: e?.message ?? "알 수 없는 오류" };

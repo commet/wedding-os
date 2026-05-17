@@ -19,6 +19,30 @@ import { ImageResponse } from "@vercel/og";
 
 export const config = { runtime: "edge" };
 
+// Google Fonts 의 `text=` 파라미터를 이용해 *필요한 글리프만* 가져온다.
+// Noto Sans KR 전체 TTF 는 수 MB — Edge function 으로는 너무 큼.
+// 청첩장 이름·날짜·장소에 들어가는 문자만 가져오면 보통 < 30KB.
+async function loadKoreanFont(text: string): Promise<ArrayBuffer | null> {
+  if (!text.trim()) return null;
+  try {
+    const url = `https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700&text=${encodeURIComponent(text)}`;
+    const css = await fetch(url, {
+      headers: {
+        // User-Agent 가 있어야 Google 이 woff2 가 아닌 ttf URL 을 돌려줌 (@vercel/og 는 ttf 만 지원)
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      },
+    }).then((r) => r.text());
+    const match = css.match(/src:\s*url\(([^)]+)\)\s*format\(['"](?:opentype|truetype)['"]\)/);
+    if (!match) return null;
+    const fontRes = await fetch(match[1]);
+    if (!fontRes.ok) return null;
+    return await fontRes.arrayBuffer();
+  } catch {
+    return null;
+  }
+}
+
 type Invitation = {
   groomName?: string;
   brideName?: string;
@@ -73,6 +97,18 @@ export default async function handler(_req: Request) {
   const venue = inv?.venue ?? "";
   const heroImage = inv?.heroImageUrl;
   const isHttpImage = !!heroImage && /^https?:\/\//.test(heroImage);
+
+  // 카드에 들어가는 모든 글자를 모아 동적 subset 으로 받는다.
+  //   - 한글: 이름/날짜/장소 (요일 한 글자까지)
+  //   - 영문: "WEDDING INVITATION" 라벨
+  //   - 기호: ♥, 가운뎃점·콜론 등
+  // Google Fonts 의 text= 는 정확히 요청한 글리프만 돌려주므로 전부 모아 한 번에 요청.
+  const labelText = "WEDDING INVITATION";
+  const symbolText = "♥·:.()";
+  const koreanText = [groom, bride, dateStr, time, venue, labelText, symbolText]
+    .filter(Boolean)
+    .join("");
+  const koreanFont = await loadKoreanFont(koreanText);
 
   return new ImageResponse(
     (
@@ -158,6 +194,9 @@ export default async function handler(_req: Request) {
     {
       width: 1200,
       height: 630,
+      fonts: koreanFont
+        ? [{ name: "Noto Sans KR", data: koreanFont, weight: 700, style: "normal" }]
+        : undefined,
       headers: {
         // 1분 캐시 — 너무 길면 청첩장 갱신 반영이 늦고, 너무 짧으면 매번 합성 비용
         "Cache-Control": "public, s-maxage=60, stale-while-revalidate=86400",

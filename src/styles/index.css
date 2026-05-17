@@ -10,28 +10,29 @@
   }
   body {
     font-family: theme('fontFamily.sans');
-    background: theme('colors.cream');
+    background: theme('colors.paper');
     color: theme('colors.ink');
     overflow-x: hidden;
+    font-feature-settings: "ss01", "ss02";
   }
   button, a {
     -webkit-touch-callout: none;
   }
-  /* Mobile-first: every interactive element ≥44px */
   button {
     min-height: 36px;
   }
   input, textarea, select {
     font-size: 16px; /* avoid iOS zoom */
   }
+  ::selection {
+    background: theme('colors.gold');
+    color: white;
+  }
 }
 
-/* 인쇄·PDF 출력 — 청첩장 미리보기와 체크리스트만 깔끔히 인쇄되도록.
-   다른 페이지 헤더/네비/배경 그라데이션은 인쇄에서 제거. */
 @media print {
   header, nav, .no-print { display: none !important; }
   body { background: white !important; color: black !important; }
-  .card { box-shadow: none !important; break-inside: avoid; }
   .sticky { position: static !important; }
   main { padding-bottom: 0 !important; }
   a { color: inherit !important; text-decoration: none !important; }
@@ -39,23 +40,123 @@
 }
 
 @layer components {
-  /* inline-flex + center: <a> 태그로 써도 텍스트가 겹치지 않게 */
+  /* ───── 버튼 ─────
+     박스형 라운드 대신 더 sharp 한 모서리, 흐름이 부드럽게. */
   .btn-primary {
-    @apply inline-flex items-center justify-center bg-gold text-white px-5 py-3 rounded-xl font-medium leading-none active:opacity-80 transition;
+    @apply inline-flex items-center justify-center bg-ink text-paper px-6 py-3.5 font-medium tracking-wide leading-none active:opacity-80 transition rounded-none;
+    letter-spacing: 0.05em;
   }
   .btn-secondary {
-    @apply inline-flex items-center justify-center bg-white border border-line text-ink px-5 py-3 rounded-xl font-medium leading-none active:bg-cream transition;
+    @apply inline-flex items-center justify-center bg-transparent border-b border-ink text-ink px-1 py-2 font-medium leading-none active:opacity-60 transition;
+    letter-spacing: 0.05em;
   }
   .btn-ghost {
-    @apply inline-flex items-center justify-center text-soft px-3 py-2 rounded-lg active:bg-line transition;
+    @apply inline-flex items-center justify-center text-soft px-2 py-2 hover:text-ink transition;
   }
-  .card {
-    @apply bg-white border border-line rounded-2xl p-5 shadow-sm;
-  }
+
+  /* ───── 입력 — 박스 대신 underline ───── */
   .input {
-    @apply w-full border border-line rounded-xl px-4 py-3 bg-white outline-none focus:border-gold;
+    @apply w-full border-0 border-b border-line bg-transparent px-0 py-3 outline-none focus:border-ink transition;
+    border-radius: 0;
+  }
+  .input-boxed {
+    @apply w-full border border-line bg-white px-4 py-3 outline-none focus:border-ink transition rounded-none;
   }
   .label {
-    @apply block text-sm text-soft mb-1.5;
+    @apply block text-[11px] tracking-eyebrow uppercase text-soft mb-2;
   }
+
+  /* ───── 타이포그래피 ───── */
+  .eyebrow {
+    @apply text-[10px] tracking-eyebrow uppercase text-soft font-medium;
+  }
+  .eyebrow-gold {
+    @apply text-[10px] tracking-eyebrow uppercase text-gold font-medium;
+  }
+  .display {
+    @apply font-serif text-[2.625rem] leading-[1.1] tracking-tight text-ink;
+  }
+  .display-sm {
+    @apply font-serif text-[1.75rem] leading-[1.15] tracking-tight text-ink;
+  }
+  .h-section {
+    @apply font-serif text-2xl leading-tight text-ink;
+  }
+  .h-meta {
+    @apply text-[11px] tracking-eyebrow uppercase text-soft;
+  }
+
+  /* ───── 구조 ───── */
+  .page {
+    @apply px-6;
+  }
+  .hairline {
+    @apply h-px bg-hair w-full;
+  }
+  .row {
+    @apply flex items-center justify-between gap-3 py-4 border-b border-hair last:border-b-0;
+  }
+  .stack {
+    @apply divide-y divide-hair;
+  }
+  .stack > * {
+    @apply py-5;
+  }
+
+  /* ───── 기존 .card — 박스화 제거: 투명 블록으로 환원 ─────
+     레거시 호출자들이 깨지지 않도록 클래스 자체는 유지하지만
+     테두리/그림자/배경/라운드를 모두 제거하고 단순 컨테이너로. */
+  .card {
+    @apply block;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+  }
+
+  /* ───── 모달 등 진짜 필요한 경우 명시적 sheet ───── */
+  .sheet {
+    @apply bg-paper border border-hair;
+    border-radius: 0;
+  }
+
+  /* 청첩장처럼 의도된 종이감이 필요한 경우 */
+  .paper-card {
+    @apply bg-white border border-line;
+    border-radius: 0;
+  }
+
+  /* 그림자 — 거의 안 씀, 필요시만 */
+  .lift {
+    box-shadow: 0 1px 2px rgba(27, 26, 23, 0.04);
+  }
+
+  /* 칩 — 필요한 경우만 */
+  .chip {
+    @apply inline-flex items-center px-2.5 py-1 text-[11px] tracking-wide border border-hair text-soft;
+    border-radius: 0;
+  }
+  .chip-active {
+    @apply inline-flex items-center px-2.5 py-1 text-[11px] tracking-wide bg-ink text-paper;
+    border-radius: 0;
+  }
+}
+
+/* 페이지 진입 fade — 살짝 부드럽게 */
+@keyframes pageFade {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.page-enter {
+  animation: pageFade 0.32s ease-out both;
+}
+
+/* 가로 스크롤 탭에서 스크롤바 숨김 */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }

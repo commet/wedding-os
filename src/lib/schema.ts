@@ -64,6 +64,67 @@ export type HoneymoonPlan = {
   notes?: string;
 };
 
+// ── 예식장(웨딩홀) ──
+// hallType:
+//   hotel       — 호텔 웨딩 (그랜드인터컨티넨탈, 신라 등)
+//   house       — 하우스 웨딩 (라움, 더채플앳청담)
+//   convention  — 컨벤션·홀 (코엑스, 킨텍스)
+//   general     — 일반 결혼식장
+//   outdoor     — 야외·이색 (가든, 채플)
+export type VenueHallType = "hotel" | "house" | "convention" | "general" | "outdoor";
+// foodType:
+//   buffet      — 뷔페
+//   course      — 코스 (양식·한정식)
+//   plated      — 단품 한식·일품 정찬
+export type VenueFoodType = "buffet" | "course" | "plated";
+
+export type WeddingVenue = Verifiable & {
+  id: string;
+  name: string;
+  region?: string;          // "강남" / "서울 종로" / "분당" 등
+  hallType?: VenueHallType;
+  foodType?: VenueFoodType;
+  capacityMin?: number;     // 최소 보증인원
+  capacityMax?: number;     // 최대 수용 인원
+  mealPriceMin?: number;    // 식대 시작가 (원)
+  mealPriceMax?: number;    // 식대 상한가 (원)
+  link?: string;
+  notes?: string;
+  status?: "관심" | "투어" | "계약";
+  visitedAt?: string;       // 답사 날짜
+};
+
+// ── 예산 ──
+export type BudgetItem = {
+  id: string;
+  category: string;           // "예식장 식대", "스튜디오" 등
+  planned?: number;           // 예상 비용 (원)
+  actual?: number;            // 실제 지출 (원)
+  paid?: boolean;             // 결제 완료
+  notes?: string;
+  /** 한국 평균 비용 (참고값). 사용자가 못 바꾸는 read-only 힌트. */
+  avgKRW?: number;
+};
+
+// ── 하객 ──
+export type GuestSide = "groom" | "bride" | "shared";
+export type GuestStatus = "초대 예정" | "초대 완료" | "참석" | "불참" | "미정";
+
+export type Guest = {
+  id: string;
+  name: string;
+  relation?: string;        // "회사 동료", "고등학교 친구" 등 자유
+  side: GuestSide;
+  phone?: string;
+  email?: string;
+  status: GuestStatus;
+  partyCount?: number;      // 본인 포함 인원 수
+  giftKRW?: number;         // 축의금
+  meal?: boolean;           // 식권 사용 여부
+  notes?: string;
+  invitedAt?: string;       // 청첩장 발송 일자
+};
+
 // 스드메·스냅 — 스튜디오 / 드레스 / 메이크업 / 본식 스냅
 export type SdmCategory = "studio" | "dress" | "makeup" | "snap";
 
@@ -160,20 +221,24 @@ export type VideoAct = {
 
 export type VideoConfig = {
   title?: string;
+  /** 어떤 템플릿을 기반으로 만든 영상인지. 사용자가 직접 만들면 undefined. */
+  templateId?: string;
   acts: VideoAct[];
   photos: VideoPhoto[];
   bgmUrl?: string;
   ending?: {
     message: string;
     date?: string;
+    time?: string;       // "오후 3시"
+    venue?: string;      // "그랜드볼룸, 더 채플"
   };
   titleCardSec?: number;     // act 타이틀 카드 길이 (기본 3)
-  endingSec?: number;        // 엔딩 길이 (기본 5)
+  endingSec?: number;        // 엔딩 길이 (기본 6)
   fps?: number;              // 기본 30
 };
 
 export function defaultVideoConfig(): VideoConfig {
-  return { acts: [], photos: [], titleCardSec: 3, endingSec: 5, fps: 30 };
+  return { acts: [], photos: [], titleCardSec: 3, endingSec: 6, fps: 30 };
 }
 
 /** 옛 형태(또는 비어있는) video 데이터를 안전하게 정규화 */
@@ -213,6 +278,9 @@ export type WeddingData = {
   honeymoon: HoneymoonPlan;
   checklist: ChecklistSection[];
   video: VideoConfig;
+  venues?: WeddingVenue[];
+  budget?: BudgetItem[];
+  guests?: Guest[];
 };
 
 export function defaultData(): WeddingData {
@@ -237,5 +305,8 @@ export function defaultData(): WeddingData {
     honeymoon: { regions: [] },
     checklist: [],
     video: defaultVideoConfig(),
+    venues: [],
+    budget: [],
+    guests: [],
   };
 }

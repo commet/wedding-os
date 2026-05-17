@@ -11,8 +11,9 @@ export default function Settings({ data, update }: Props) {
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const handleExport = () => {
-    exportData(data);
+  const handleExport = async () => {
+    // exportData 는 idb 사진을 base64 로 인라인하느라 async — 큰 갤러리면 잠깐 걸림.
+    await exportData(data);
     update((prev: WeddingData) => ({
       ...prev,
       preferences: { ...prev.preferences, lastBackupAt: todayISO() },
@@ -23,7 +24,12 @@ export default function Settings({ data, update }: Props) {
     try {
       const imported = await importData(file, data);
       if (confirm("현재 데이터를 덮어쓸까요?\n(연결 정보는 안전하게 그대로 둡니다)")) {
-        update(() => imported);
+        // import 도 "백업 시점" 으로 인정 — 사용자가 파일을 손에 쥐고 있으니 같은 안전 수준.
+        // 안 그러면 30일 전 백업 import 시 곧장 "오래 백업 안 함" 알림이 뜸.
+        update(() => ({
+          ...imported,
+          preferences: { ...imported.preferences, lastBackupAt: todayISO() },
+        }));
       }
     } catch (e) {
       alert("파일을 읽을 수 없어요. JSON 백업 파일이 맞는지 확인해주세요.");
@@ -47,115 +53,123 @@ export default function Settings({ data, update }: Props) {
     navigate("/");
   };
 
+  const currentMode =
+    data.preferences.mode === "local" ? "내 휴대폰에 저장" :
+    data.preferences.mode === "supabase" ? "내 사이트로 배포" :
+    data.preferences.mode === "devOnly" ? "코드 직접 수정" : "선택 안 됨";
+
   return (
-    <div className="px-5 py-6 space-y-4">
-      <h1 className="font-serif text-2xl">더보기</h1>
+    <div className="page pt-8 pb-10 space-y-10">
+      <div>
+        <div className="eyebrow-gold mb-2">More</div>
+        <h1 className="font-serif text-[2rem] leading-none">더보기</h1>
+      </div>
 
-      <section className="card space-y-3">
-        <h3 className="font-medium">저장 방식</h3>
-        <p className="text-sm">
-          현재: <b>{
-            data.preferences.mode === "local" ? "내 휴대폰에 저장" :
-            data.preferences.mode === "supabase" ? "내 사이트로 배포" :
-            data.preferences.mode === "devOnly" ? "코드 직접 수정" : "선택 안 됨"
-          }</b>
+      <Section title="저장 방식">
+        <p className="text-[13px] text-soft">
+          현재 · <b className="text-ink">{currentMode}</b>
         </p>
-        <button onClick={switchMode} className="btn-secondary w-full">
-          저장 방식 다시 선택
+        <button onClick={switchMode} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold mt-3">
+          저장 방식 다시 선택 →
         </button>
-      </section>
+      </Section>
 
-      <section className="card space-y-3">
-        <h3 className="font-medium">📄 PDF로 저장 (인쇄)</h3>
-        <p className="text-sm text-soft leading-relaxed">
-          청첩장이나 체크리스트를 PDF로 저장하고 싶을 때 — 각 페이지에서{" "}
-          <b className="text-ink">Cmd/Ctrl + P</b>로 인쇄 → <b>"PDF로 저장"</b>을 선택하세요.
+      <Section title="PDF로 저장 (인쇄)">
+        <p className="text-[12.5px] text-soft leading-relaxed">
+          청첩장이나 체크리스트를 PDF로 저장하고 싶을 때 —
+          각 페이지에서 <b className="text-ink">Cmd/Ctrl + P</b> 로 인쇄 → <b className="text-ink">"PDF로 저장"</b> 을 선택하세요.
           인쇄 친화 스타일이 자동 적용됩니다.
         </p>
-        <p className="text-xs text-soft">
-          (모바일은 일반적으로 브라우저 메뉴 → "공유" → "프린트" 흐름)
+        <p className="text-[11px] text-soft mt-2">
+          모바일은 일반적으로 브라우저 메뉴 → 공유 → 프린트 흐름.
         </p>
-      </section>
+      </Section>
 
-      <section className="card space-y-3">
-        <h3 className="font-medium">데이터 백업</h3>
-        <p className="text-sm text-soft">
+      <Section title="데이터 백업">
+        <p className="text-[12.5px] text-soft mb-4 leading-relaxed">
           모든 데이터를 한 파일(JSON)로 내보내거나, 다시 불러올 수 있어요.
         </p>
-        <button onClick={handleExport} className="btn-primary w-full">
-          📥 내려받기 (백업)
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="application/json"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) handleImport(f);
-            e.target.value = "";
-          }}
-        />
-        <button onClick={() => fileRef.current?.click()} className="btn-secondary w-full">
-          📤 백업에서 불러오기
-        </button>
+        <div className="flex gap-6">
+          <button onClick={handleExport} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
+            내려받기 (백업) →
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/json"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) handleImport(f);
+              e.target.value = "";
+            }}
+          />
+          <button onClick={() => fileRef.current?.click()} className="text-[12px] underline underline-offset-4 text-soft hover:text-ink">
+            백업에서 불러오기
+          </button>
+        </div>
         {data.preferences.lastBackupAt && (
-          <p className="text-xs text-soft text-center">
-            마지막 백업: {data.preferences.lastBackupAt}
+          <p className="eyebrow mt-3">
+            마지막 백업 · <span className="tabular-nums">{data.preferences.lastBackupAt}</span>
           </p>
         )}
-      </section>
+      </Section>
 
-      <section className="card space-y-2 bg-cream/50">
-        <h3 className="font-medium text-sm">🤖 AI 편집 방식</h3>
-        <p className="text-xs text-soft leading-relaxed">
-          현재는 <b className="text-ink">챗봇 다리 방식</b>만 지원해요 — ChatGPT/Claude/Gemini 무료 버전에
-          프롬프트를 복붙하고, 답변을 다시 붙여넣으면 영상·정보가 갱신됩니다.
-          본인 API 키 직접 호출은 안전·비용 이슈로 일단 미지원.
+      <Section title="AI 편집 방식">
+        <p className="text-[12px] text-soft leading-relaxed">
+          현재는 <b className="text-ink">챗봇 다리 방식</b>만 지원해요 — ChatGPT / Claude / Gemini 무료 버전에
+          프롬프트를 복붙하고, 답변을 다시 붙여넣으면 영상 · 정보가 갱신됩니다.
+          본인 API 키 직접 호출은 안전 · 비용 이슈로 일단 미지원.
         </p>
-      </section>
+      </Section>
 
       {data.preferences.mode === "supabase" && (
-        <section className="card space-y-2">
-          <h3 className="font-medium">Supabase 연결 정보</h3>
-          <p className="text-xs text-soft break-all">
-            URL: {data.preferences.supabase?.url}
-          </p>
-          <p className="text-xs text-soft">
-            anon key: ••••••{data.preferences.supabase?.anonKey.slice(-6)}
-          </p>
-          <Link to="/setup" className="btn-secondary w-full inline-block text-center">
-            셋업 가이드 다시 보기
+        <Section title="Supabase 연결 정보">
+          <div className="space-y-1.5 text-[11.5px] text-soft">
+            <p className="break-all">URL · <span className="text-ink">{data.preferences.supabase?.url}</span></p>
+            <p>anon key · <span className="text-ink">••••••{data.preferences.supabase?.anonKey.slice(-6)}</span></p>
+          </div>
+          <Link to="/setup" className="text-[12px] underline underline-offset-4 text-ink hover:text-gold inline-block mt-3">
+            셋업 가이드 다시 보기 →
           </Link>
           <OwnerToggle />
-        </section>
+        </Section>
       )}
 
-      <section className="card space-y-3">
-        <h3 className="font-medium">문의 / 오류 신고</h3>
-        <p className="text-sm text-soft">
-          이상하거나 안 되는 게 있으면 부담 없이 알려주세요. 개인적으로 만든 도구라 오류가 있을 수밖에 없어요.
+      <Section title="문의 / 오류 신고">
+        <p className="text-[12.5px] text-soft mb-4 leading-relaxed">
+          이상하거나 안 되는 게 있으면 부담 없이 알려주세요.
+          개인적으로 만든 도구라 오류가 있을 수밖에 없어요.
         </p>
-        <Link to="/contact" className="btn-primary w-full inline-block text-center">
-          ✉️ 문의하기
+        <Link to="/contact" className="btn-primary px-6 py-3 text-[12px]">
+          문의하기 →
         </Link>
-      </section>
+      </Section>
 
-      <section className="card space-y-3 border-red-200">
-        <h3 className="font-medium text-red-500">위험한 작업</h3>
-        <button onClick={reset} className="btn-secondary w-full text-red-500 border-red-300">
-          모든 데이터 지우기
+      <Section title="위험한 작업">
+        <button onClick={reset} className="text-[12px] underline underline-offset-4 text-gold hover:text-ink">
+          모든 데이터 지우기 →
         </button>
-      </section>
+      </Section>
 
-      <p className="text-center text-xs text-soft pt-4 space-x-2">
+      <p className="text-center text-[11px] text-soft pt-4 border-t border-hair space-x-3">
         <span>Wedding OS · 개인 프로젝트</span>
         <span>·</span>
-        <Link to="/privacy" className="underline">개인정보 · 보안 안내</Link>
+        <Link to="/privacy" className="underline underline-offset-2">개인정보 · 보안 안내</Link>
         <span>·</span>
-        <a href="https://github.com/commet/wedding-os" target="_blank" rel="noopener noreferrer" className="underline">GitHub</a>
+        <a href="https://github.com/commet/wedding-os" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">GitHub</a>
       </p>
     </div>
+  );
+}
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="py-2">
+      <h3 className="eyebrow-gold mb-4">{title}</h3>
+      {children}
+      <div className="hairline mt-8" />
+    </section>
   );
 }
 
@@ -181,14 +195,14 @@ function OwnerToggle() {
   };
 
   return (
-    <div className="pt-2 border-t border-line space-y-2">
-      <p className="text-xs text-soft">
+    <div className="pt-4 mt-4 border-t border-hair space-y-2">
+      <p className="text-[11.5px] text-soft">
         이 기기는 현재{" "}
         <b className={owner ? "text-gold" : "text-soft"}>{owner ? "오너 (편집 가능)" : "게스트 (보기 전용)"}</b>
         예요.
       </p>
-      <button onClick={toggle} className="btn-secondary w-full text-xs">
-        {owner ? "이 기기를 게스트로 되돌리기" : "이 기기를 오너로 표시"}
+      <button onClick={toggle} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
+        {owner ? "이 기기를 게스트로 되돌리기" : "이 기기를 오너로 표시"} →
       </button>
     </div>
   );

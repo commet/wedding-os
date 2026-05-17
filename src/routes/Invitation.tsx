@@ -8,6 +8,8 @@ import VendorActions from "../components/VendorActions";
 import { safeMediaSrc, safeHref, safeTel, isOwner } from "../lib/security";
 import { insertRsvp, type RsvpInput } from "../lib/storage.supabase";
 import { compressImage, dataUrlSize, formatBytes } from "../lib/imageCompress";
+import { uploadImage } from "../lib/imageStore";
+import SafeImg from "../components/SafeImg";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type Tab = "edit" | "preview";
@@ -54,7 +56,27 @@ export default function Invitation({ data, update }: Props) {
     update((prev: WeddingData) => ({ ...prev, invitation: { ...prev.invitation, [key]: value } }));
   };
 
+  // 최소 정보 누락 검사 — 빈 청첩장을 실수로 공유하지 않도록.
+  const missingInvitationFields = (): string[] => {
+    const m: string[] = [];
+    if (!inv.groomName) m.push("신랑 이름");
+    if (!inv.brideName) m.push("신부 이름");
+    if (!inv.date) m.push("결혼식 날짜");
+    if (!inv.venue) m.push("식장");
+    return m;
+  };
+
+  const [shareText, setShareText] = useState<string | null>(null);
+
   const share = async () => {
+    const missing = missingInvitationFields();
+    if (missing.length > 0) {
+      const proceed = confirm(
+        `청첩장에 빠진 정보가 있어요:\n\n· ${missing.join("\n· ")}\n\n` +
+        `[편집] 탭에서 먼저 채우는 걸 권해요.\n\n그래도 지금 공유할까요?`
+      );
+      if (!proceed) return;
+    }
     // 모드 2: 실제 청첩장 링크 — 게스트 전용 라우트 /i 공유
     if (data.preferences.mode === "supabase") {
       const proceed = confirm(
@@ -75,37 +97,67 @@ export default function Invitation({ data, update }: Props) {
       }
       return;
     }
-    // 모드 1: 카톡 채팅에 그대로 붙여넣을 텍스트 (링크 없이도 즉시 공유 가능)
-    const text = buildKakaoShareText(inv);
+    // 모드 1: 카톡 채팅에 붙여넣을 텍스트 — 보내기 전 미리보기 모달로 확인 + 복사.
+    setShareText(buildKakaoShareText(inv));
+  };
+
+  const copyShareText = async () => {
+    if (!shareText) return;
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(shareText);
+      setShareText(null);
       alert("✓ 청첩장 내용이 복사되었어요.\n카톡 채팅에 그대로 붙여넣어 보내세요.");
     } catch {
-      prompt("아래 내용을 복사해 카톡에 붙여넣으세요:", text);
+      prompt("아래 내용을 복사해 카톡에 붙여넣으세요:", shareText);
+      setShareText(null);
     }
   };
 
+  // 게스트 라우트(/i) 에서 청첩장이 아직 비어 있으면 데모 커플(도현·지윤) 노출 금지.
+  // (mode 2 사용자의 supabase 가 빈 row 거나, 환경변수 없는 게스트가 들어왔을 때 demoData 가 새어나가는 걸 방지.)
+  if (isGuestRoute && !inv.groomName && !inv.brideName) {
+    return (
+      <div className="min-h-screen bg-paper flex items-center justify-center px-6">
+        <div className="text-center max-w-xs">
+          <div className="eyebrow-gold mb-4">Wedding · Invitation</div>
+          <h1 className="font-serif text-[1.75rem] text-ink leading-tight mb-3">
+            아직 준비 중이에요
+          </h1>
+          <p className="text-[13px] text-soft leading-relaxed">
+            청첩장이 곧 도착할 거예요.<br />
+            잠시 후 다시 열어봐 주세요.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={isGuestRoute ? "" : "pb-6"}>
-      {/* 헤더·탭 — 게스트 라우트에선 숨김 (받는 사람은 청첩장만 봄) */}
+      {/* 헤더·탭 — 박스 없이 hairline 만 */}
       {!isGuestRoute && (
-        <div className="sticky top-[57px] z-20 bg-cream border-b border-line">
-          <div className="px-5 py-3 flex items-center justify-between">
-            <h1 className="font-serif text-xl">모바일 청첩장</h1>
-            <button onClick={share} className="btn-ghost text-sm">공유</button>
+        <div className="sticky top-[57px] z-20 bg-paper/95 backdrop-blur border-b border-hair">
+          <div className="page py-4 flex items-baseline justify-between">
+            <div>
+              <div className="eyebrow-gold mb-1">Invitation</div>
+              <h1 className="font-serif text-xl text-ink">모바일 청첩장</h1>
+            </div>
+            <button onClick={share} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold transition">
+              공유 →
+            </button>
           </div>
-          <div className="px-5 pb-3 flex gap-2 items-center">
+          <div className="page pb-3 flex items-center gap-6">
             <TabBtn active={tab === "preview"} onClick={() => setTab("preview")}>미리보기</TabBtn>
             {!guest && (
               <TabBtn active={tab === "edit"} onClick={() => setTab("edit")}>편집</TabBtn>
             )}
             {tab === "preview" && (inv.enabledLocales?.length ?? 0) > 0 && (
-              <div className="ml-auto flex gap-1">
+              <div className="ml-auto flex gap-3">
                 {(["ko", ...(inv.enabledLocales ?? [])] as Locale[]).map((l) => (
                   <button
                     key={l}
                     onClick={() => setLocale(l)}
-                    className={`text-xs px-2.5 py-1 rounded-full ${locale === l ? "bg-gold text-white" : "bg-white border border-line text-soft"}`}
+                    className={`text-[11px] tracking-wide transition ${locale === l ? "text-ink underline underline-offset-4" : "text-soft"}`}
                   >
                     {l === "ko" ? "한" : l === "en" ? "EN" : "中"}
                   </button>
@@ -118,12 +170,12 @@ export default function Invitation({ data, update }: Props) {
 
       {/* 게스트 라우트 — 헤더 대신 부드러운 언어 전환만 (활성 언어 있을 때) */}
       {isGuestRoute && (inv.enabledLocales?.length ?? 0) > 0 && (
-        <div className="flex justify-center gap-1 pt-3 pb-2">
+        <div className="flex justify-center gap-4 pt-4 pb-2">
           {(["ko", ...(inv.enabledLocales ?? [])] as Locale[]).map((l) => (
             <button
               key={l}
               onClick={() => setLocale(l)}
-              className={`text-xs px-3 py-1 rounded-full ${locale === l ? "bg-gold text-white" : "bg-white border border-line text-soft"}`}
+              className={`text-[11px] tracking-wide ${locale === l ? "text-ink underline underline-offset-4" : "text-soft"}`}
             >
               {l === "ko" ? "한" : l === "en" ? "EN" : "中"}
             </button>
@@ -133,18 +185,15 @@ export default function Invitation({ data, update }: Props) {
 
       {/* 게스트가 오너 기기인 경우 — 작은 안내 */}
       {isGuestRoute && isOwner() && (
-        <div className="px-5 pt-2 pb-1">
-          <a
-            href="/invitation"
-            className="text-[11px] text-soft underline"
-          >
+        <div className="page pt-3 pb-1">
+          <a href="/invitation" className="eyebrow underline underline-offset-2">
             ← 편집 화면으로 (오너만 보임)
           </a>
         </div>
       )}
 
       {tab === "edit" && !guest ? (
-        <EditForm inv={inv} set={set} />
+        <EditForm inv={inv} set={set} mode={data.preferences.mode} />
       ) : (
         <Preview
           inv={inv}
@@ -152,6 +201,7 @@ export default function Invitation({ data, update }: Props) {
           rsvpEnabled={canRsvp}
           onRsvpClick={() => setShowRsvp(true)}
           hideShareBox={isGuestRoute}
+          onShare={share}
         />
       )}
 
@@ -162,6 +212,24 @@ export default function Invitation({ data, update }: Props) {
           onClose={() => setShowRsvp(false)}
         />
       )}
+
+      <Modal open={!!shareText} onClose={() => setShareText(null)} title="카톡으로 보낼 내용 미리보기">
+        <pre className="bg-cream p-4 text-[12.5px] whitespace-pre-wrap leading-relaxed max-h-[50vh] overflow-y-auto font-sans border border-hair">
+{shareText}
+        </pre>
+        <p className="text-[11.5px] text-soft mt-3 leading-relaxed">
+          위 내용을 그대로 복사해서 카톡 채팅창에 붙여넣어요.<br />
+          긴 글이지만 카톡 채팅엔 그대로 들어갑니다.
+        </p>
+        <div className="flex items-center justify-end gap-4 mt-4 pt-4 border-t border-hair">
+          <button onClick={() => setShareText(null)} className="text-[12px] text-soft underline underline-offset-4">
+            취소
+          </button>
+          <button onClick={copyShareText} className="btn-primary px-6 py-3 text-[12px]">
+            복사하기 →
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 }
@@ -297,7 +365,9 @@ function TabBtn({ active, onClick, children }: any) {
   return (
     <button
       onClick={onClick}
-      className={`px-4 py-1.5 text-sm rounded-full ${active ? "bg-ink text-white" : "bg-white border border-line text-soft"}`}
+      className={`text-[12px] tracking-wide pb-2 -mb-2 transition ${
+        active ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
+      }`}
     >
       {children}
     </button>
@@ -307,13 +377,14 @@ function TabBtn({ active, onClick, children }: any) {
 /* ════════════ 미리보기 — 실제 청첩장 ════════════ */
 
 function Preview({
-  inv, locale, rsvpEnabled, onRsvpClick, hideShareBox,
+  inv, locale, rsvpEnabled, onRsvpClick, hideShareBox, onShare,
 }: {
   inv: InvitationContent;
   locale: Locale;
   rsvpEnabled?: boolean;
   onRsvpClick?: () => void;
   hideShareBox?: boolean;
+  onShare?: () => void;
 }) {
   const theme = THEME[(inv.theme as Theme) ?? "cream"];
   const fontClass = FONT[(inv.fontStyle as FontStyle) ?? "serif"].class;
@@ -330,8 +401,8 @@ function Preview({
       <div className="bg-white rounded-3xl overflow-hidden border border-line shadow-sm">
         {/* 1. 히어로 */}
         <div className="relative">
-          {safeMediaSrc(inv.heroImageUrl) ? (
-            <img src={safeMediaSrc(inv.heroImageUrl)} alt="" className="w-full aspect-[3/4] object-cover" />
+          {inv.heroImageUrl ? (
+            <SafeImg src={inv.heroImageUrl} alt="" className="w-full aspect-[3/4] object-cover" />
           ) : (
             <div className={`w-full aspect-[3/4] bg-gradient-to-b ${theme.heroGrad} flex items-center justify-center text-soft text-sm`}>
               대표 사진을 추가해보세요
@@ -413,12 +484,9 @@ function Preview({
           <div className="px-4 py-7 border-b border-line">
             <h3 className={`text-sm ${theme.accent} mb-4 text-center tracking-wide`}>{t("갤러리", locale)}</h3>
             <div className="grid grid-cols-3 gap-1.5">
-              {inv.gallery.map((g, i) => {
-                const u = safeMediaSrc(g.url);
-                return u ? (
-                  <img key={i} src={u} alt={g.caption ?? ""} className="w-full aspect-square object-cover rounded-md" />
-                ) : null;
-              })}
+              {inv.gallery.map((g, i) => (
+                <SafeImg key={i} src={g.url} alt={g.caption ?? ""} className="w-full aspect-square object-cover rounded-md" />
+              ))}
             </div>
           </div>
         )}
@@ -521,18 +589,10 @@ function Preview({
         </div>
       </div>
 
-      {!hideShareBox && (
+      {!hideShareBox && onShare && (
         <>
           <button
-            onClick={async () => {
-              const text = buildKakaoShareText(inv);
-              try {
-                await navigator.clipboard.writeText(text);
-                alert("✓ 청첩장 내용이 복사되었어요.\n카톡 채팅에 그대로 붙여넣어 보내세요.");
-              } catch {
-                prompt("아래 내용을 복사해 카톡에 붙여넣으세요:", text);
-              }
-            }}
+            onClick={onShare}
             className="mt-4 btn-primary w-full py-3.5 shadow-md"
           >
             💬 카톡으로 보낼 텍스트 복사
@@ -609,17 +669,22 @@ function MiniCalendar({ date, chipClass, fontClass = "font-serif" }: { date: Dat
 
 /* ════════════ 편집 폼 ════════════ */
 
-function EditForm({ inv, set }: { inv: InvitationContent; set: (k: any, v: any) => void; }) {
+function EditForm({ inv, set, mode }: {
+  inv: InvitationContent;
+  set: (k: any, v: any) => void;
+  mode: "local" | "supabase" | "devOnly" | null;
+}) {
   const [picker, setPicker] = useState<null | "hero" | "gallery">(null);
   const theme = (inv.theme as Theme) ?? "cream";
 
   return (
-    <div className="px-5 py-4 space-y-4">
+    <div className="page pt-2 pb-6">
       <Section title="대표 사진 & 색감">
-        {safeMediaSrc(inv.heroImageUrl) && (
-          <img src={safeMediaSrc(inv.heroImageUrl)} alt="" className="w-full aspect-[3/4] object-cover rounded-xl" />
+        {inv.heroImageUrl && (
+          <SafeImg src={inv.heroImageUrl} alt="" className="w-full aspect-[3/4] object-cover rounded-xl" />
         )}
         <HeroUploadButton
+          mode={mode}
           onUploaded={(dataUrl) => set("heroImageUrl", dataUrl)}
         />
         <button onClick={() => setPicker("hero")} className="btn-secondary w-full text-sm">
@@ -639,25 +704,26 @@ function EditForm({ inv, set }: { inv: InvitationContent; set: (k: any, v: any) 
           placeholder="https://...jpg (또는 위 [내 사진 업로드])"
         />
 
-        <label className="label mt-2">청첩장 색감</label>
-        <div className="grid grid-cols-4 gap-2">
+        <label className="label mt-3">청첩장 색감</label>
+        <div className="grid grid-cols-4 gap-3">
           {(Object.keys(THEME) as Theme[]).map((id) => {
             const t = THEME[id];
+            const isOn = theme === id;
             return (
               <button
                 key={id}
                 onClick={() => set("theme", id)}
-                className={`flex flex-col items-center gap-1.5 py-2.5 rounded-lg border-2 ${theme === id ? "border-gold bg-gold/5" : "border-line bg-white"}`}
+                className={`flex flex-col items-center gap-2 py-2 transition ${isOn ? "" : "opacity-60 hover:opacity-100"}`}
               >
-                <span className={`w-5 h-5 rounded-full ${t.swatch}`} />
-                <span className="text-[11px]">{t.label}</span>
+                <span className={`w-6 h-6 rounded-full ${t.swatch} ${isOn ? "ring-2 ring-ink ring-offset-2 ring-offset-paper" : ""}`} />
+                <span className={`text-[10.5px] tracking-wide ${isOn ? "text-ink" : "text-soft"}`}>{t.label}</span>
               </button>
             );
           })}
         </div>
 
-        <label className="label mt-3">폰트 톤</label>
-        <div className="grid grid-cols-3 gap-2">
+        <label className="label mt-4">폰트 톤</label>
+        <div className="grid grid-cols-3 gap-3">
           {(Object.keys(FONT) as FontStyle[]).map((id) => {
             const f = FONT[id];
             const isOn = ((inv.fontStyle as FontStyle) ?? "serif") === id;
@@ -665,10 +731,10 @@ function EditForm({ inv, set }: { inv: InvitationContent; set: (k: any, v: any) 
               <button
                 key={id}
                 onClick={() => set("fontStyle", id)}
-                className={`flex flex-col items-center gap-1 py-3 rounded-lg border-2 ${isOn ? "border-gold bg-gold/5" : "border-line bg-white"}`}
+                className={`flex flex-col items-center gap-1 py-3 border-b-2 transition ${isOn ? "border-ink" : "border-hair hover:border-mute"}`}
               >
-                <span className={`${f.class} text-base`}>{f.sample}</span>
-                <span className="text-[10px] text-soft">{f.label}</span>
+                <span className={`${f.class} text-base ${isOn ? "text-ink" : "text-soft"}`}>{f.sample}</span>
+                <span className="eyebrow mt-1">{f.label}</span>
               </button>
             );
           })}
@@ -760,6 +826,7 @@ function EditForm({ inv, set }: { inv: InvitationContent; set: (k: any, v: any) 
 
       <Section title="갤러리">
         <GalleryUploadButton
+          mode={mode}
           onUploaded={(urls) =>
             set("gallery", [...(inv.gallery ?? []), ...urls.map((u) => ({ url: u }))])
           }
@@ -779,41 +846,39 @@ function EditForm({ inv, set }: { inv: InvitationContent; set: (k: any, v: any) 
         <Field label="신부 계좌"><input className="input" value={inv.brideAccount ?? ""} onChange={(e) => set("brideAccount", e.target.value)} placeholder="OO은행 000-000" /></Field>
       </Section>
 
-      <p className="text-xs text-soft text-center leading-relaxed">
+      <p className="text-[11px] text-soft text-center leading-relaxed pt-6">
         모드 1(휴대폰 저장)에서는 미리보기만 가능해요.<br />
-        실제로 카톡으로 보내려면 [더보기 → 저장 방식]에서 [내 사이트 만들기]로 전환하세요.
+        실제로 카톡으로 보내려면 [더보기 → 저장 방식]에서 [내 사이트 만들기]로 전환.
       </p>
 
-      {/* 다른 청첩장 서비스도 알아보기 */}
-      <section className="card bg-cream/50 space-y-3">
-        <h3 className="font-medium text-sm">📑 다른 청첩장 서비스도 알아보기</h3>
-        <p className="text-xs text-soft leading-relaxed">
+      <Section title="다른 청첩장 서비스도 알아보기">
+        <p className="text-[12.5px] text-soft leading-relaxed">
           여기서 직접 만드는 게 부담이면, 익숙한 청첩장 업체에서 비슷한 결과를 얻을 수 있어요.
           객관적으로 알아보세요.
         </p>
-        <div>
-          <div className="text-xs text-soft mb-2">🖨️ 종이 청첩장</div>
-          <div className="space-y-2">
+        <div className="pt-2">
+          <div className="eyebrow mb-3">종이 청첩장</div>
+          <div className="divide-y divide-hair border-t border-b border-hair">
             {PAPER_INVITATIONS.map((p) => (
               <PlatformRow key={p.name} entry={p} />
             ))}
           </div>
         </div>
-        <div>
-          <div className="text-xs text-soft mb-2">📱 모바일 청첩장</div>
-          <div className="space-y-2">
+        <div className="pt-4">
+          <div className="eyebrow mb-3">모바일 청첩장</div>
+          <div className="divide-y divide-hair border-t border-b border-hair">
             {MOBILE_INVITATIONS.map((p) => (
               <PlatformRow key={p.name} entry={p} />
             ))}
           </div>
         </div>
-        <p className="text-[11px] text-soft pt-1 leading-relaxed">
-          ⚠️ 가격·정책은 변동 잦음. 직접 확인 필요. 어느 업체와도 제휴·후원 관계 없습니다.
+        <p className="text-[10.5px] text-soft pt-3 leading-relaxed">
+          가격·정책은 변동 잦음. 직접 확인 필요. 어느 업체와도 제휴·후원 관계 없습니다.
           표시 삭제·정정 요청은{" "}
           <a href="mailto:yclee913@gmail.com" rel="noopener noreferrer" className="underline">yclee913@gmail.com</a>
           {" "}으로 — 24시간 내 처리.
         </p>
-      </section>
+      </Section>
 
       {picker && (
         <PhotoPickerModal
@@ -886,21 +951,30 @@ function PhotoPickerModal({
   );
 }
 
-function HeroUploadButton({ onUploaded }: { onUploaded: (dataUrl: string) => void }) {
+function HeroUploadButton({ onUploaded, mode }: {
+  onUploaded: (url: string) => void;
+  mode: "local" | "supabase" | "devOnly" | null;
+}) {
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLInputElement>(null);
 
   const handle = async (file: File) => {
     setBusy(true);
     try {
-      const compressed = await compressImage(file, { maxWidth: 1400, maxHeight: 1800, quality: 0.85 });
-      const size = dataUrlSize(compressed);
-      if (size > 1.5 * 1024 * 1024) {
-        // 1.5MB 넘으면 한 번 더 줄임
-        const smaller = await compressImage(file, { maxWidth: 1000, maxHeight: 1400, quality: 0.78 });
-        onUploaded(smaller);
+      // 모드 1: IndexedDB(idb:<id>) — localStorage 5MB 한도 회피.
+      // 모드 2: base64 data URL — Supabase JSONB 로 두 기기 동기화.
+      // 모드 2 일 때만 dataUrlSize 검사(2단 압축) — 모드 1 은 IDB 라 큰 한도 없음.
+      if (mode === "supabase") {
+        const compressed = await compressImage(file, { maxWidth: 1400, maxHeight: 1800, quality: 0.85 });
+        if (dataUrlSize(compressed) > 1.5 * 1024 * 1024) {
+          const smaller = await compressImage(file, { maxWidth: 1000, maxHeight: 1400, quality: 0.78 });
+          onUploaded(smaller);
+        } else {
+          onUploaded(compressed);
+        }
       } else {
-        onUploaded(compressed);
+        const url = await uploadImage(file, { mode, maxWidth: 1400, maxHeight: 1800, quality: 0.85 });
+        onUploaded(url);
       }
     } catch (e: any) {
       alert("사진을 불러올 수 없어요: " + (e?.message ?? "알 수 없는 오류"));
@@ -933,7 +1007,10 @@ function HeroUploadButton({ onUploaded }: { onUploaded: (dataUrl: string) => voi
   );
 }
 
-function GalleryUploadButton({ onUploaded }: { onUploaded: (urls: string[]) => void }) {
+function GalleryUploadButton({ onUploaded, mode }: {
+  onUploaded: (urls: string[]) => void;
+  mode: "local" | "supabase" | "devOnly" | null;
+}) {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const ref = useRef<HTMLInputElement>(null);
@@ -942,21 +1019,21 @@ function GalleryUploadButton({ onUploaded }: { onUploaded: (urls: string[]) => v
     setBusy(true);
     setProgress(0);
     const out: string[] = [];
-    let totalSize = 0;
+    let totalDataSize = 0;
     try {
       for (let i = 0; i < files.length; i++) {
         const f = files[i];
-        const compressed = await compressImage(f, { maxWidth: 900, maxHeight: 1200, quality: 0.8 });
-        out.push(compressed);
-        totalSize += dataUrlSize(compressed);
+        const url = await uploadImage(f, { mode, maxWidth: 900, maxHeight: 1200, quality: 0.8 });
+        out.push(url);
+        // base64 (data:) 만 localStorage 한도 영향. idb: 는 IndexedDB 라 별개 한도.
+        if (url.startsWith("data:")) totalDataSize += dataUrlSize(url);
         setProgress(Math.round(((i + 1) / files.length) * 100));
       }
       onUploaded(out);
-      if (totalSize > 3 * 1024 * 1024) {
+      if (mode === "supabase" && totalDataSize > 3 * 1024 * 1024) {
         alert(
-          `사진 ${files.length}장을 추가했어요 (${formatBytes(totalSize)}).\n` +
-          `브라우저 저장 한도(약 5MB) 가까워요. 더 추가하지 마세요.\n` +
-          `더 많은 사진을 쓰려면 [내 사이트 만들기] 모드 추천.`
+          `사진 ${files.length}장을 추가했어요 (${formatBytes(totalDataSize)}).\n` +
+          `Supabase row 크기가 커지면 동기화가 느려져요. 사진은 10장 이내 권장.`
         );
       }
     } catch (e: any) {
@@ -1035,18 +1112,18 @@ function GalleryEditor({ gallery, onChange }: { gallery: { url: string; caption?
 
 function PlatformRow({ entry }: { entry: { name: string; desc: string; url?: string } }) {
   return (
-    <div className="bg-white rounded-lg p-2.5 border border-line">
-      <div className="flex items-start justify-between gap-2">
+    <div className="py-3.5">
+      <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <div className="font-medium text-sm">{entry.name}</div>
-          <div className="text-[11px] text-soft mt-0.5">{entry.desc}</div>
+          <div className="font-serif text-[14px] text-ink">{entry.name}</div>
+          <div className="text-[11.5px] text-soft mt-0.5 leading-relaxed">{entry.desc}</div>
         </div>
         {safeHref(entry.url) && (
           <a
             href={safeHref(entry.url)}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[11px] text-gold border border-gold/30 rounded px-2 py-1 flex-shrink-0"
+            className="text-[11px] text-gold underline underline-offset-4 flex-shrink-0"
           >
             홈피 ↗
           </a>
@@ -1061,9 +1138,9 @@ function PlatformRow({ entry }: { entry: { name: string; desc: string; url?: str
 
 function Section({ title, children }: { title: string; children: React.ReactNode; }) {
   return (
-    <section className="card space-y-3">
-      <h3 className="font-medium">{title}</h3>
-      {children}
+    <section className="py-8 border-b border-hair last:border-b-0 space-y-4">
+      <h3 className="eyebrow-gold">{title}</h3>
+      <div className="space-y-3">{children}</div>
     </section>
   );
 }

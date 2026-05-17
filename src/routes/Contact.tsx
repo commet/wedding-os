@@ -49,20 +49,21 @@ export default function Contact({ data }: Props) {
   };
 
   return (
-    <div className="px-5 py-6 space-y-4">
-      <h1 className="font-serif text-2xl">문의 / 오류 신고</h1>
-
-      <div className="card bg-cream/50">
-        <p className="text-sm text-soft leading-relaxed">
-          개인적으로 만든 도구라 오류가 있을 수 있어요. 편하게 알려주시면 가능한 한 빨리 살펴볼게요.
-          하루 24시간 답변은 못 드릴 수 있지만, 며칠 안에는 꼭 답장드립니다.
-        </p>
+    <div className="page pt-8 pb-10 space-y-8">
+      <div>
+        <div className="eyebrow-gold mb-2">Contact</div>
+        <h1 className="font-serif text-[2rem] leading-none">문의 · 오류 신고</h1>
       </div>
 
-      <div className="card space-y-3">
+      <p className="text-[13px] text-soft leading-relaxed border-b border-hair pb-6">
+        개인적으로 만든 도구라 오류가 있을 수 있어요. 편하게 알려주시면 가능한 한 빨리 살펴볼게요.
+        하루 24시간 답변은 못 드릴 수 있지만, 며칠 안에는 꼭 답장드립니다.
+      </p>
+
+      <div className="space-y-5">
         <div>
           <label className="label">분류</label>
-          <select className="input" value={category} onChange={(e) => setCategory(e.target.value as any)}>
+          <select className="input-boxed text-[13px]" value={category} onChange={(e) => setCategory(e.target.value as any)}>
             {CATEGORIES.map(c => <option key={c}>{c}</option>)}
           </select>
         </div>
@@ -73,38 +74,41 @@ export default function Contact({ data }: Props) {
         <div>
           <label className="label">내용</label>
           <textarea
-            className="input min-h-[160px]"
+            className="input-boxed min-h-[160px] text-[13px]"
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder="어떤 화면에서 무슨 일이 있었는지 짧게라도 적어주세요. 캡처 사진은 메일에 첨부 가능해요."
           />
         </div>
 
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-[12.5px] text-soft">
           <input
             type="checkbox"
             checked={includeContext}
             onChange={(e) => setIncludeContext(e.target.checked)}
+            className="accent-ink"
           />
-          현재 모드/페이지 정보 자동 첨부 (디버깅에 도움)
+          현재 모드 / 페이지 정보 자동 첨부 (디버깅에 도움)
         </label>
 
-        <button onClick={send} className="btn-primary w-full" disabled={!body.trim()}>
-          ✉️ 메일 앱으로 보내기
-        </button>
-        <button onClick={copyAll} className="btn-secondary w-full" disabled={!body.trim()}>
-          📋 내용 복사 (메일 앱이 안 열릴 때)
-        </button>
+        <div className="pt-2 space-y-3">
+          <button onClick={send} className="btn-primary w-full py-3.5 text-[12.5px]" disabled={!body.trim()}>
+            메일 앱으로 보내기 →
+          </button>
+          <button onClick={copyAll} className="block w-full text-center text-[12px] underline underline-offset-4 text-soft hover:text-ink disabled:opacity-40" disabled={!body.trim()}>
+            내용 복사 (메일 앱이 안 열릴 때)
+          </button>
+        </div>
         {sent && (
-          <p className="text-xs text-soft text-center">
+          <p className="text-[11.5px] text-soft text-center leading-relaxed">
             메일 앱이 안 열렸나요? 위 [내용 복사] 버튼으로 복사해서{" "}
-            <a className="underline" href="mailto:yclee913@gmail.com">yclee913@gmail.com</a> 으로 보내주세요.
+            <a className="underline underline-offset-2 text-ink" href="mailto:yclee913@gmail.com">yclee913@gmail.com</a> 으로 보내주세요.
           </p>
         )}
       </div>
 
-      <p className="text-center text-xs text-soft">
-        직접 메일: <a className="underline" href="mailto:yclee913@gmail.com">yclee913@gmail.com</a>
+      <p className="text-center text-[11px] text-soft pt-6 border-t border-hair">
+        직접 메일 · <a className="underline underline-offset-2 text-ink" href="mailto:yclee913@gmail.com">yclee913@gmail.com</a>
       </p>
     </div>
   );

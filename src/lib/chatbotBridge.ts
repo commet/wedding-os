@@ -76,20 +76,69 @@ export function flightSearchPrompt(from: string, to: string, date: string): Brid
   };
 }
 
-export function videoEditPrompt(currentConfig: any, request: string): BridgePrompt {
+export function videoEditPrompt(
+  currentConfig: any,
+  request: string,
+  templateName?: string,
+): BridgePrompt {
+  // 1) 페이로드 다이어트 — 사용자가 직접 업로드한 사진은 base64 data URL 로 들어 있어
+  //    한 장에 200~400KB, 30장이면 9~12MB 짜리 JSON 이 된다. ChatGPT 가 한 번에 받지 못함.
+  //    토큰으로 치환해서 보내고, 답변에서 다시 복원한다 (restoreDataUrls).
+  // 2) AI 가 실수로 URL 을 마사지하는 사고도 막아준다.
+  const slim = {
+    ...currentConfig,
+    photos: Array.isArray(currentConfig?.photos)
+      ? currentConfig.photos.map((p: any) => ({
+          ...p,
+          url:
+            typeof p?.url === "string" && p.url.startsWith("data:")
+              ? `__DATA_URL_${p.id}__`
+              : p?.url,
+        }))
+      : currentConfig?.photos,
+  };
+  const ctx = templateName
+    ? `이 영상은 '${templateName}' 템플릿을 기반으로 만들어졌어요. 템플릿의 분위기와 챕터 구조는 가능한 한 유지해주세요.\n\n`
+    : "";
   return {
     title: "식전영상 수정",
-    prompt: `다음은 식전영상의 현재 설정(JSON)입니다. 요청에 맞게 수정해서 같은 형식의 JSON으로 답변해주세요.
+    prompt: `${ctx}다음은 식전영상의 현재 설정(JSON)입니다. 요청에 맞게 수정해서 같은 형식의 JSON으로 답변해주세요.
 
 요청: ${request}
 
 현재 설정:
 \`\`\`json
-${JSON.stringify(currentConfig, null, 2)}
+${JSON.stringify(slim, null, 2)}
 \`\`\`
 
-수정된 전체 JSON만 답변해주세요. 변경 이유는 한 줄로 짧게.`,
+규칙 (꼭 지켜주세요):
+1. photos 배열의 url 은 절대 새로 만들거나 바꾸지 마세요. \`__DATA_URL_xxx__\` 같은 토큰은 그대로 두면 앱이 알아서 복원해요.
+2. photos 배열의 id 도 그대로 유지하세요.
+3. acts(챕터) 와 templateId 는 사용자가 명시적으로 바꿔달라고 하지 않는 한 그대로.
+4. 효과(effect) / 필터(filter) / 전환(transition) / 길이(durationSec) / 자막(caption) / 순서 변경은 자유롭게.
+5. 사용자가 삭제하라고 한 게 아니라면 photos 항목 개수는 유지하세요.
+
+수정된 전체 JSON 만 답변해주세요. 변경 이유는 한 줄로 짧게.`,
     expectedShape: "json",
+  };
+}
+
+/** 답변 JSON 에서 `__DATA_URL_id__` 토큰을 원본 data URL 로 복원한다. */
+export function restoreDataUrls(parsed: any, originalConfig: any): any {
+  if (!parsed || !Array.isArray(parsed.photos) || !Array.isArray(originalConfig?.photos)) {
+    return parsed;
+  }
+  return {
+    ...parsed,
+    photos: parsed.photos.map((p: any) => {
+      const url = typeof p?.url === "string" ? p.url : "";
+      const m = url.match(/^__DATA_URL_(.+)__$/);
+      if (m) {
+        const original = originalConfig.photos.find((op: any) => op?.id === m[1]);
+        if (original?.url) return { ...p, url: original.url };
+      }
+      return p;
+    }),
   };
 }
 

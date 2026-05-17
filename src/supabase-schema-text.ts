@@ -4,7 +4,7 @@ const SchemaText = `-- Wedding OS — Supabase 셋업 SQL
 -- 사용 방법:
 --   1) Supabase 프로젝트 만들기 → SQL Editor 열기
 --   2) 아래 SQL 전체를 복사해서 붙여넣고 "Run" 클릭
---   3) 끝.
+--   3) 끝. (옛 스키마를 이미 깐 경우에도 재실행 안전 — idempotent.)
 --
 -- 안전성 메모:
 --   - RLS 를 켭니다.
@@ -17,9 +17,13 @@ const SchemaText = `-- Wedding OS — Supabase 셋업 SQL
 create table if not exists public.wedding_data (
   id text primary key default 'default',
   data jsonb not null default '{}'::jsonb,
+  version int not null default 1,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- 옛 스키마 호환 — version 컬럼이 없으면 추가
+alter table public.wedding_data add column if not exists version int not null default 1;
 
 create table if not exists public.rsvp (
   id uuid primary key default gen_random_uuid(),
@@ -62,10 +66,14 @@ drop policy if exists "collab_all"          on public.collab_comments;
 drop policy if exists "collab_insert_only"  on public.collab_comments;
 create policy "collab_insert_only"  on public.collab_comments for insert with check (true);
 
+-- updated_at 자동 갱신 + version 자동 증가 (낙관적 동시성)
 create or replace function public.touch_updated_at()
 returns trigger as $$
 begin
   new.updated_at = now();
+  if new.version = old.version then
+    new.version = old.version + 1;
+  end if;
   return new;
 end;
 $$ language plpgsql;
@@ -74,6 +82,26 @@ drop trigger if exists wedding_data_touch on public.wedding_data;
 create trigger wedding_data_touch
 before update on public.wedding_data
 for each row execute function public.touch_updated_at();
+
+-- wedding_data row 크기 가드 — JSONB 가 5MB 넘으면 reject (사진 base64 폭주 방지)
+create or replace function public.wedding_data_size_guard()
+returns trigger as $$
+declare
+  size_bytes int;
+begin
+  size_bytes := pg_column_size(new.data);
+  if size_bytes > 5 * 1024 * 1024 then
+    raise exception 'wedding_data 가 너무 큽니다 (% bytes). 사진을 줄이거나 일부를 삭제하세요.', size_bytes
+      using errcode = 'P0001';
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists wedding_data_size_check on public.wedding_data;
+create trigger wedding_data_size_check
+before insert or update on public.wedding_data
+for each row execute function public.wedding_data_size_guard();
 
 insert into public.wedding_data (id, data) values ('default', '{}'::jsonb)
 on conflict (id) do nothing;

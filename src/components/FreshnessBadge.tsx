@@ -9,15 +9,15 @@ export default function FreshnessBadge({ lastVerified, onClickCheck }: Props) {
   const level = freshnessLevel(lastVerified);
   const colorMap = {
     fresh: "text-soft",
-    stale: "text-yellow-600",
-    rotten: "text-red-500",
+    stale: "text-gold",
+    rotten: "text-gold font-medium",
     unknown: "text-soft",
   } as const;
   return (
-    <div className="flex items-center gap-2 text-xs">
-      <span className={colorMap[level]}>📅 {formatVerifiedDate(lastVerified)}</span>
+    <div className="flex items-center gap-3 text-[11px] tracking-wide">
+      <span className={colorMap[level]}>{formatVerifiedDate(lastVerified)} 기준</span>
       {onClickCheck && (
-        <button onClick={onClickCheck} className="text-gold underline">
+        <button onClick={onClickCheck} className="text-ink underline underline-offset-4 hover:text-gold">
           지금 확인
         </button>
       )}

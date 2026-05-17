@@ -8,15 +8,33 @@ import { useCallback, useEffect, useState } from "react";
 import { defaultData, WeddingData, SCHEMA_VERSION } from "./schema";
 import { createSupabaseStorage } from "./storage.supabase";
 import { demoData } from "../data/demoData";
-import { setSecrets } from "./security";
+import { setSecrets, isSupabaseHost } from "./security";
+import { inlineIdbForExport } from "./imageStore";
 
 const LS_KEY = "wedding-os/v1";
 
+export type RealtimeStatus = "idle" | "connecting" | "subscribed" | "disconnected";
+
+export type LoadResult = { data: WeddingData; version?: number } | null;
+export type SaveResult = {
+  ok: boolean;
+  /** 새 서버 version (성공 시) — 클라이언트가 다음 save 에 이걸 보내 conflict 검출 */
+  version?: number;
+  /** 다른 기기/탭이 먼저 저장 → 우리 변경은 거절됨. 사용자에게 "새로고침" 안내 필요 */
+  conflict?: boolean;
+};
+
 export type StorageDriver = {
-  load: () => Promise<WeddingData | null>;
-  save: (data: WeddingData) => Promise<boolean>;
-  /** 외부에서 변경됐을 때 알림 (Supabase realtime 등) — 모드 1에선 no-op */
-  subscribe?: (cb: (data: WeddingData) => void) => () => void;
+  load: () => Promise<LoadResult>;
+  /** expectedVersion 을 주면 낙관적 동시성 검사를 수행. 없으면 무조건 덮어씀 (모드 1 / 첫 save). */
+  save: (data: WeddingData, expectedVersion?: number) => Promise<SaveResult>;
+  /** 외부에서 변경됐을 때 알림 (Supabase realtime 등) — 모드 1에선 no-op.
+   *  onStatus 가 주어지면 채널 상태(SUBSCRIBED / CHANNEL_ERROR / TIMED_OUT / CLOSED) 도 전달.
+   *  payload 의 새 version 도 함께 전달해서 클라이언트 ref 갱신. */
+  subscribe?: (
+    cb: (data: WeddingData, version?: number) => void,
+    onStatus?: (status: RealtimeStatus) => void,
+  ) => () => void;
 };
 
 // 저장 실패 (특히 QuotaExceeded) 시 한 번만 사용자에게 알림.
@@ -46,7 +64,7 @@ export const localStorageDriver: StorageDriver = {
       const raw = localStorage.getItem(LS_KEY);
       if (!raw) return null;
       const parsed = JSON.parse(raw) as WeddingData;
-      return migrate(parsed);
+      return { data: migrate(parsed) };
     } catch {
       return null;
     }
@@ -54,47 +72,123 @@ export const localStorageDriver: StorageDriver = {
   async save(data) {
     try {
       localStorage.setItem(LS_KEY, JSON.stringify(data));
-      return true;
+      return { ok: true };
     } catch (e: any) {
       // QuotaExceededError 또는 비슷한 — 사용자에게 알림
       const name = e?.name ?? "";
       if (name === "QuotaExceededError" || name === "NS_ERROR_DOM_QUOTA_REACHED") {
         notifyQuotaError();
       }
-      return false;
+      return { ok: false };
     }
   },
 };
 
+// 객체 여부 — null/array 는 제외
+function isPlainObject(x: unknown): x is Record<string, unknown> {
+  return typeof x === "object" && x !== null && !Array.isArray(x);
+}
+
+// ──────────────────────────────────────────────────────────────
+// 스키마 마이그레이션 체인
+// SCHEMA_VERSION 을 올릴 때, 이전 버전에서 새 버전으로 가는 함수를 등록한다.
+// 예: 사진 필드 이름을 url → src 로 바꾸면 migrations[2] 에 변환 함수 추가.
+// 빠진 버전(=등록 안 됨) 은 identity → shape sanitize 가 마무리하므로 안전.
+// ──────────────────────────────────────────────────────────────
+type RawData = Record<string, unknown>;
+const migrations: Record<number, (prev: RawData) => RawData> = {
+  // 2: (v1) => ({ ...v1, newField: ... }),
+};
+
+function applyMigrations(raw: RawData, fromVersion: number, toVersion: number): RawData {
+  let cur = raw;
+  for (let v = fromVersion + 1; v <= toVersion; v++) {
+    const fn = migrations[v];
+    if (fn) {
+      try { cur = fn(cur); }
+      catch (e) {
+        if (typeof console !== "undefined") console.warn(`[storage] migration v${v} failed:`, e);
+      }
+    }
+  }
+  return cur;
+}
+
+function detectSchemaVersion(raw: RawData): number {
+  const v = raw.schemaVersion;
+  return typeof v === "number" && v > 0 ? v : 1;
+}
+
+// preferences.supabase 가 안전한 호스트인지 검증.
+// localStorage 가 변조됐을 때 anon key 가 공격자 호스트로 새는 사고 방지.
+function sanitizeSupabaseConfig(s: unknown): WeddingData["preferences"]["supabase"] | undefined {
+  if (!isPlainObject(s)) return undefined;
+  const url = typeof s.url === "string" ? s.url : "";
+  const anonKey = typeof s.anonKey === "string" ? s.anonKey : "";
+  const configId = typeof s.configId === "string" ? s.configId : undefined;
+  if (!url || !anonKey) return undefined;
+  if (!isSupabaseHost(url)) {
+    // 변조 의심 — 통째로 무시 (UI 에선 mode=null + supabase=undefined 로 보임)
+    return undefined;
+  }
+  return { url, anonKey, ...(configId ? { configId } : {}) };
+}
+
 function migrate(raw: unknown): WeddingData {
-  // 누락된 필드를 defaultData로 안전하게 보충.
-  // 옛 버전에서 저장된 데이터에 새 필드(예: sdm)가 없어도 깨지지 않도록.
+  // 누락된 필드를 defaultData로 안전하게 보충 + 손상된 입력 검증.
+  // raw 는 localStorage 또는 import 파일에서 옴 → 절대 신뢰하지 않는다.
   const base = defaultData();
-  const data = (raw ?? {}) as Partial<WeddingData>;
+  const rawObj: RawData = isPlainObject(raw) ? raw : {};
+  // 1) 버전 마이그레이션 — 이전 버전 데이터를 SCHEMA_VERSION 까지 끌어올림.
+  const fromVersion = detectSchemaVersion(rawObj);
+  const data: RawData = applyMigrations(rawObj, fromVersion, SCHEMA_VERSION);
+  // 2) 모양 검증 — 마이그레이션 후에도 손상된 필드는 defaultData 로 보충.
 
   // 이전 버전 호환: preferences.aiKey 가 남아 있다면 별도 secrets 저장소로 이전 후 제거.
   // (공개될 수 있는 WeddingData 트리에 sk-ant-... 같은 결제 키가 들어가는 걸 막기 위함.)
-  const prefsRaw = (data.preferences ?? {}) as Partial<{ aiKey: string } & WeddingData["preferences"]>;
+  const prefsRaw: Record<string, unknown> = isPlainObject(data.preferences) ? data.preferences : {};
   if (typeof prefsRaw.aiKey === "string" && prefsRaw.aiKey) {
     try { setSecrets({ aiKey: prefsRaw.aiKey }); } catch { /* noop */ }
   }
-  const { aiKey: _drop, ...prefsSafe } = prefsRaw;
-  void _drop;
+
+  const validMode = (m: unknown): WeddingData["preferences"]["mode"] =>
+    m === "local" || m === "supabase" || m === "devOnly" ? m : null;
+  const validLocale = (l: unknown): WeddingData["preferences"]["locale"] =>
+    l === "ko" || l === "en" || l === "zh" ? l : "ko";
 
   return {
     schemaVersion: SCHEMA_VERSION,
-    preferences: { ...base.preferences, ...prefsSafe },
-    invitation:  { ...base.invitation,  ...(data.invitation  ?? {}) },
+    preferences: {
+      ...base.preferences,
+      mode: validMode(prefsRaw.mode),
+      locale: validLocale(prefsRaw.locale),
+      isDemo: prefsRaw.isDemo === true,
+      supabase: sanitizeSupabaseConfig(prefsRaw.supabase),
+      lastBackupAt: typeof prefsRaw.lastBackupAt === "string" ? prefsRaw.lastBackupAt : undefined,
+    },
+    invitation:  { ...base.invitation,  ...(isPlainObject(data.invitation) ? data.invitation : {}) },
     rings:       Array.isArray(data.rings)    ? data.rings    : [],
     sdm:         Array.isArray(data.sdm)      ? data.sdm      : [],
     hotels:      Array.isArray(data.hotels)   ? data.hotels   : [],
     flights:     Array.isArray(data.flights)  ? data.flights  : [],
-    honeymoon:   { ...base.honeymoon, ...(data.honeymoon ?? {}),
-                   regions: Array.isArray(data.honeymoon?.regions) ? data.honeymoon!.regions : [] },
+    honeymoon: (() => {
+      const h = isPlainObject(data.honeymoon) ? data.honeymoon : {};
+      return {
+        ...base.honeymoon,
+        ...h,
+        regions: Array.isArray(h.regions) ? h.regions : [],
+      };
+    })(),
     checklist:   Array.isArray(data.checklist) ? data.checklist : [],
-    video:       { ...base.video, ...(data.video ?? {}),
-                   acts: Array.isArray(data.video?.acts) ? data.video!.acts : [],
-                   photos: Array.isArray(data.video?.photos) ? data.video!.photos : [] },
+    video: (() => {
+      const v = isPlainObject(data.video) ? data.video : {};
+      return {
+        ...base.video,
+        ...v,
+        acts: Array.isArray(v.acts) ? v.acts : [],
+        photos: Array.isArray(v.photos) ? v.photos : [],
+      };
+    })(),
   };
 }
 
@@ -108,6 +202,34 @@ function selectDriver(data: WeddingData | null): StorageDriver {
   return localStorageDriver;
 }
 
+// ──────────────────────────────────────────────────────────────
+// 낙관적 동시성 — 모듈 레벨로 현재 알고 있는 server version 유지.
+// useWeddingData 가 init/realtime 에서 갱신, enqueueSave 가 save 직전에 읽음.
+// (configId 가 단일 'default' 이고 hook 도 App.tsx 단일 인스턴스라 module state OK)
+// ──────────────────────────────────────────────────────────────
+let _localVersion: number | undefined = undefined;
+export type ConflictStatus = "none" | "detected";
+let _conflictStatus: ConflictStatus = "none";
+const _conflictListeners = new Set<(s: ConflictStatus) => void>();
+function _emitConflict(s: ConflictStatus) {
+  if (_conflictStatus === s) return;
+  _conflictStatus = s;
+  _conflictListeners.forEach((l) => l(s));
+}
+
+export function useConflictStatus(): ConflictStatus {
+  const [s, setS] = useState<ConflictStatus>(_conflictStatus);
+  useEffect(() => {
+    setS(_conflictStatus);
+    const listener = (next: ConflictStatus) => setS(next);
+    _conflictListeners.add(listener);
+    return () => { _conflictListeners.delete(listener); };
+  }, []);
+  return s;
+}
+
+export function clearConflict() { _emitConflict("none"); }
+
 /**
  * 최상위 훅. 페이지에선 이것만 쓴다.
  *
@@ -118,17 +240,18 @@ export function useWeddingData() {
   const [data, setData] = useState<WeddingData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // 초기 로드:
-  //   1) localStorage 가 있으면 — 모드 1 또는 모드 2 사용자(오너)
-  //   2) localStorage 비어 있고 환경변수가 있으면 — 모드 2 게스트 (사용자가 Vercel 배포한 사이트)
-  //   3) 둘 다 없으면 — 첫 방문자, 데모 데이터로 시작
+  // 초기 로드 — cancelled 로 StrictMode race 차단 (상세 설명은 아래)
   useEffect(() => {
+    let cancelled = false;
     (async () => {
       const fromLocal = await localStorageDriver.load();
+      if (cancelled) return;
       if (fromLocal) {
-        const driver = selectDriver(fromLocal);
+        const driver = selectDriver(fromLocal.data);
         const fromActual = (await driver.load()) ?? fromLocal;
-        setData(fromActual);
+        if (cancelled) return;
+        setData(fromActual.data);
+        _localVersion = fromActual.version;
         setLoading(false);
         return;
       }
@@ -140,25 +263,29 @@ export function useWeddingData() {
         try {
           const envDriver = createSupabaseStorage(envUrl, envKey, "default");
           const fromEnv = await envDriver.load();
+          if (cancelled) return;
           if (fromEnv) {
             setData({
-              ...fromEnv,
+              ...fromEnv.data,
               preferences: {
-                ...fromEnv.preferences,
+                ...fromEnv.data.preferences,
                 mode: "supabase",
                 supabase: { url: envUrl, anonKey: envKey, configId: "default" },
                 isDemo: false,
               },
             });
+            _localVersion = fromEnv.version;
             setLoading(false);
             return;
           }
         } catch { /* fall through to demo */ }
       }
 
+      if (cancelled) return;
       setData(demoData());
       setLoading(false);
     })();
+    return () => { cancelled = true; };
   }, []);
 
   const update = useCallback(
@@ -181,19 +308,28 @@ export function useWeddingData() {
   const supabaseKey = data?.preferences.supabase?.anonKey;
   const isSupabaseMode = data?.preferences.mode === "supabase";
   useEffect(() => {
-    if (!isSupabaseMode || !supabaseUrl || !supabaseKey) return;
+    if (!isSupabaseMode || !supabaseUrl || !supabaseKey) {
+      _emitRealtimeStatus("idle");
+      return;
+    }
     const driver = createSupabaseStorage(supabaseUrl, supabaseKey, data?.preferences.supabase?.configId);
     if (!driver.subscribe) return;
-    const unsubscribe = driver.subscribe((next) => {
-      setData((prev) => {
-        if (!prev) return next;
-        // 큰 객체 변경 비교 — JSON.stringify는 비용 있지만 사용 빈도가 낮아 OK.
-        if (JSON.stringify(prev) === JSON.stringify(next)) return prev;
-        return next;
-      });
-      localStorageDriver.save(next).catch(() => {});
-    });
-    return () => { try { unsubscribe(); } catch {} };
+    const unsubscribe = driver.subscribe(
+      (next, version) => {
+        if (typeof version === "number") _localVersion = version;
+        setData((prev) => {
+          if (!prev) return next;
+          if (JSON.stringify(prev) === JSON.stringify(next)) return prev;
+          return next;
+        });
+        localStorageDriver.save(next).catch(() => {});
+      },
+      (status) => _emitRealtimeStatus(status),
+    );
+    return () => {
+      try { unsubscribe(); } catch {}
+      _emitRealtimeStatus("idle");
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabaseUrl, supabaseKey, isSupabaseMode]);
 
@@ -203,17 +339,84 @@ export function useWeddingData() {
 // 직렬 저장 큐. 모든 save 호출이 이 chain 위에서 순차 실행된다.
 // 실패는 조용히 — 다음 save 가 올바른 최신 상태를 다시 쓰면 정상화됨.
 let saveChain: Promise<unknown> = Promise.resolve();
+
+// 저장 상태 — 모드 2(원격)에선 사용자가 "내 데이터가 잘 갔나" 알 수 있도록 헤더에 작게 노출.
+export type SaveStatus = "idle" | "saving" | "saved" | "error";
+let _saveStatus: SaveStatus = "idle";
+let _pending = 0;
+let _lastError = false;
+let _savedClearTimer: ReturnType<typeof setTimeout> | null = null;
+const _saveListeners = new Set<(s: SaveStatus) => void>();
+function _emitSaveStatus(s: SaveStatus) {
+  _saveStatus = s;
+  _saveListeners.forEach((l) => l(s));
+}
+
+export function useSaveStatus(): SaveStatus {
+  const [s, setS] = useState<SaveStatus>(_saveStatus);
+  useEffect(() => {
+    setS(_saveStatus);
+    const listener = (next: SaveStatus) => setS(next);
+    _saveListeners.add(listener);
+    return () => { _saveListeners.delete(listener); };
+  }, []);
+  return s;
+}
+
+// 실시간 채널 상태 — 끊겼을 때 헤더에 작게 알림(부부 동시 편집이 깨졌다는 신호).
+let _realtimeStatus: RealtimeStatus = "idle";
+const _realtimeListeners = new Set<(s: RealtimeStatus) => void>();
+function _emitRealtimeStatus(s: RealtimeStatus) {
+  if (_realtimeStatus === s) return;
+  _realtimeStatus = s;
+  _realtimeListeners.forEach((l) => l(s));
+}
+
+export function useRealtimeStatus(): RealtimeStatus {
+  const [s, setS] = useState<RealtimeStatus>(_realtimeStatus);
+  useEffect(() => {
+    setS(_realtimeStatus);
+    const listener = (next: RealtimeStatus) => setS(next);
+    _realtimeListeners.add(listener);
+    return () => { _realtimeListeners.delete(listener); };
+  }, []);
+  return s;
+}
+
 function enqueueSave(next: WeddingData) {
   const driver = selectDriver(next);
+  _pending++;
+  if (_savedClearTimer) { clearTimeout(_savedClearTimer); _savedClearTimer = null; }
+  _emitSaveStatus("saving");
   saveChain = saveChain
-    .then(() => driver.save(next))
+    .then(async () => {
+      try {
+        const r = await driver.save(next, _localVersion);
+        if (r.ok) {
+          if (typeof r.version === "number") _localVersion = r.version;
+        } else {
+          _lastError = true;
+          if (r.conflict) _emitConflict("detected");
+        }
+      } catch { _lastError = true; }
+      if (driver !== localStorageDriver) {
+        // 모드 2여도 localStorage에 항상 미러 — 오프라인 fallback / 새 기기 import 시 출발점.
+        try { await localStorageDriver.save(next); } catch { /* localStorage 실패는 별도 notifyQuotaError 가 처리 */ }
+      }
+      _pending--;
+      if (_pending === 0) {
+        const finalStatus: SaveStatus = _lastError ? "error" : "saved";
+        _lastError = false;
+        _emitSaveStatus(finalStatus);
+        if (finalStatus === "saved") {
+          _savedClearTimer = setTimeout(() => {
+            if (_saveStatus === "saved") _emitSaveStatus("idle");
+            _savedClearTimer = null;
+          }, 2500);
+        }
+      }
+    })
     .catch(() => undefined);
-  if (driver !== localStorageDriver) {
-    // 모드 2여도 localStorage에 항상 미러 — 오프라인 fallback / 새 기기 import 시 출발점.
-    saveChain = saveChain
-      .then(() => localStorageDriver.save(next))
-      .catch(() => undefined);
-  }
 }
 
 // 데이터 export / import — 모드 전환 또는 백업용.
@@ -221,11 +424,15 @@ function enqueueSave(next: WeddingData) {
 // 보안: 백업 파일은 사용자가 친구에게 보내 의견을 묻거나, 클라우드에 올리는 경우가 잦다.
 // 따라서 export 시 시크릿(supabase anonKey 등) 은 제거한다.
 // 모드 2 설정은 사용자가 새 기기에서 Setup 위저드로 다시 입력하도록 안내.
-export function exportData(data: WeddingData): void {
+//
+// 사진: idb:<id> 참조는 다른 기기에서 못 푸므로 export 시 base64 로 인라인.
+//       (백업 파일이 다른 기기/세션에서도 그대로 열리도록 portable 보장.)
+export async function exportData(data: WeddingData): Promise<void> {
+  const inlined: WeddingData = await inlineIdbForExport(data);
   const sanitized: WeddingData = {
-    ...data,
+    ...inlined,
     preferences: {
-      ...data.preferences,
+      ...inlined.preferences,
       // supabase 연결 정보는 백업에 포함하지 않음 — 친구에게 백업 공유 시 키 노출 방지.
       supabase: undefined,
     },

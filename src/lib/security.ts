@@ -21,13 +21,15 @@ export function safeHref(url: unknown): string | undefined {
   }
 }
 
-/** 이미지/오디오 src 용 — http(s) 와 data:image|audio 만 허용. */
+/** 이미지/오디오 src 용 — http(s), data:image|audio, blob: (same-origin ObjectURL) 허용.
+ *  idb:<id> 는 가짜 스킴(IndexedDB 참조) 이라 그대로는 못 그림 → useImageSrc 로 먼저 blob: 으로 해석한 뒤 호출. */
 export function safeMediaSrc(url: unknown): string | undefined {
   if (typeof url !== "string") return undefined;
   const trimmed = url.trim();
   if (!trimmed) return undefined;
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
   if (/^data:(image|audio)\//i.test(trimmed)) return trimmed;
+  if (/^blob:/i.test(trimmed)) return trimmed;
   return undefined;
 }
 

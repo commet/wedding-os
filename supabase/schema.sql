@@ -18,9 +18,13 @@
 create table if not exists public.wedding_data (
   id text primary key default 'default',
   data jsonb not null default '{}'::jsonb,
+  version int not null default 1,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- 옛 스키마 호환 — version 컬럼이 없으면 추가.
+alter table public.wedding_data add column if not exists version int not null default 1;
 
 -- 2. RSVP 테이블 (하객 응답)
 create table if not exists public.rsvp (
@@ -71,11 +75,16 @@ drop policy if exists "collab_all"         on public.collab_comments;
 drop policy if exists "collab_insert_only" on public.collab_comments;
 create policy "collab_insert_only" on public.collab_comments for insert with check (true);
 
--- 6. updated_at 자동 갱신
+-- 6. updated_at 자동 갱신 + version 자동 증가 (낙관적 동시성)
 create or replace function public.touch_updated_at()
 returns trigger as $$
 begin
   new.updated_at = now();
+  -- 클라이언트가 version 을 명시했고 그대로 두면 server-side 에서 +1.
+  -- 클라이언트가 OLD.version 을 보내고 우리가 검증할 때, 통과 시 자동 증가.
+  if new.version = old.version then
+    new.version = old.version + 1;
+  end if;
   return new;
 end;
 $$ language plpgsql;
@@ -85,7 +94,28 @@ create trigger wedding_data_touch
 before update on public.wedding_data
 for each row execute function public.touch_updated_at();
 
--- 7. 기본 row 하나 (있으면 그대로 둠)
+-- 7. wedding_data row 크기 가드 — JSONB 가 폭주하면 동기화 느려지고 비용 ↑.
+--   사진을 base64 로 박으면 금방 커지므로 5MB 한도 (대형 갤러리 + 안전 마진).
+create or replace function public.wedding_data_size_guard()
+returns trigger as $$
+declare
+  size_bytes int;
+begin
+  size_bytes := pg_column_size(new.data);
+  if size_bytes > 5 * 1024 * 1024 then
+    raise exception 'wedding_data 가 너무 큽니다 (% bytes). 사진을 줄이거나 일부를 삭제하세요.', size_bytes
+      using errcode = 'P0001';
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists wedding_data_size_check on public.wedding_data;
+create trigger wedding_data_size_check
+before insert or update on public.wedding_data
+for each row execute function public.wedding_data_size_guard();
+
+-- 8. 기본 row 하나 (있으면 그대로 둠)
 insert into public.wedding_data (id, data) values ('default', '{}'::jsonb)
 on conflict (id) do nothing;
 

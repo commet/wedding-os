@@ -113,46 +113,53 @@ export default function Rings({ data, update }: Props) {
   };
 
   return (
-    <div className="px-5 py-6 space-y-5">
-      <div className="flex items-center justify-between">
-        <h1 className="font-serif text-2xl">결혼반지</h1>
-        <button onClick={() => setShowAdd(true)} className="btn-ghost text-sm">+ 직접 추가</button>
-      </div>
-
-      {/* 신랑/신부 토글 */}
-      <div className="card flex items-center gap-2">
-        <span className="text-sm text-soft flex-shrink-0">지금 고르는 사람</span>
-        <div className="flex gap-1 ml-auto">
-          <button
-            onClick={() => setWho("bride")}
-            className={`text-sm px-3 py-1.5 rounded-full ${who === "bride" ? "bg-gold text-white" : "bg-white border border-line text-soft"}`}
-          >
-            👰 신부
-          </button>
-          <button
-            onClick={() => setWho("groom")}
-            className={`text-sm px-3 py-1.5 rounded-full ${who === "groom" ? "bg-gold text-white" : "bg-white border border-line text-soft"}`}
-          >
-            🤵 신랑
+    <div className="page pt-8 pb-10 space-y-8">
+      <div>
+        <div className="eyebrow-gold mb-2">Rings</div>
+        <div className="flex items-baseline justify-between">
+          <h1 className="font-serif text-[2rem] leading-none">결혼반지</h1>
+          <button onClick={() => setShowAdd(true)} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
+            + 직접 추가
           </button>
         </div>
       </div>
 
-      {/* Top 5 */}
+      {/* 신랑/신부 — underline 탭 */}
+      <div className="flex items-baseline justify-between border-b border-hair pb-3">
+        <span className="eyebrow">지금 고르는 사람</span>
+        <div className="flex gap-5">
+          <button
+            onClick={() => setWho("bride")}
+            className={`text-[12px] transition pb-1 ${who === "bride" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+          >
+            신부
+          </button>
+          <button
+            onClick={() => setWho("groom")}
+            className={`text-[12px] transition pb-1 ${who === "groom" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+          >
+            신랑
+          </button>
+        </div>
+      </div>
+
+      {/* Top — 번호 매겨진 hairline 리스트 */}
       {top5.length > 0 && (
         <section>
-          <h2 className="font-medium mb-2">⭐ 우리의 Top {top5.length}</h2>
-          <div className="space-y-2">
+          <h2 className="eyebrow-gold mb-4">우리의 Top {top5.length}</h2>
+          <ul className="divide-y divide-hair border-y border-hair">
             {top5.map((ring, i) => (
-              <div key={ring.id} className="card flex items-center gap-3 border-gold/30">
-                <span className="font-serif text-xl text-gold w-6 text-center">{i + 1}</span>
+              <li key={ring.id} className="flex items-baseline gap-5 py-4">
+                <span className="font-serif text-soft text-base tabular-nums w-5 flex-shrink-0">
+                  {String(i + 1).padStart(2, "0")}
+                </span>
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-sm truncate">{ring.brand} {ring.model}</div>
-                  <div className="text-xs text-soft">
+                  <div className="font-serif text-[15px] text-ink truncate">{ring.brand}<span className="text-soft"> · </span>{ring.model}</div>
+                  <div className="eyebrow mt-1">
                     {ring.priceKRW ? `${ring.priceKRW.toLocaleString()}원` : "가격 미정"}
                   </div>
                 </div>
-                <div className="text-xs text-soft flex flex-col items-end gap-0.5">
+                <div className="text-[10px] tracking-wide text-soft flex flex-col items-end gap-0.5 flex-shrink-0">
                   {(ring.starredBy?.length ?? 0) > 0 && (
                     <span>★ {ring.starredBy!.map((w) => (w === "bride" ? "신부" : "신랑")).join("·")}</span>
                   )}
@@ -160,20 +167,22 @@ export default function Rings({ data, update }: Props) {
                     <span>♥ {ring.likedBy!.map((w) => (w === "bride" ? "신부" : "신랑")).join("·")}</span>
                   )}
                 </div>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         </section>
       )}
 
-      {/* 브랜드 필터 */}
+      {/* 브랜드 필터 — 가로 스크롤 underline chips */}
       {brands.length > 2 && (
-        <div className="flex gap-2 overflow-x-auto pb-1">
+        <div className="flex gap-5 overflow-x-auto pb-2 -mx-6 px-6 scrollbar-hide">
           {brands.map((b) => (
             <button
               key={b}
               onClick={() => setBrandFilter(b)}
-              className={`text-xs px-3 py-1.5 rounded-full flex-shrink-0 ${brandFilter === b ? "bg-ink text-white" : "bg-white border border-line text-soft"}`}
+              className={`text-[12px] tracking-wide whitespace-nowrap pb-1 transition ${
+                brandFilter === b ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
+              }`}
             >
               {b}
             </button>
@@ -183,11 +192,13 @@ export default function Rings({ data, update }: Props) {
 
       {/* 전체 카탈로그 */}
       <section>
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="font-medium">반지 카탈로그 ({visible.length})</h2>
-          <button onClick={resetCatalog} className="text-xs text-soft underline">처음 상태로</button>
+        <div className="flex items-baseline justify-between mb-4">
+          <h2 className="eyebrow-gold">반지 카탈로그 · <span className="tabular-nums">{visible.length}</span></h2>
+          <button onClick={resetCatalog} className="text-[11px] text-soft underline underline-offset-4 hover:text-ink">
+            처음 상태로
+          </button>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
           {visible.map((ring) => (
             <RingCard
               key={ring.id}
@@ -230,46 +241,46 @@ function RingCard({
   const likedByOther = (ring.likedBy ?? []).includes(other);
 
   return (
-    <div className="card">
+    <div className="py-6 border-b border-hair">
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
-          <div className="font-medium">{ring.brand}</div>
-          <div className="text-sm text-soft truncate">{ring.model}</div>
-          {ring.material && <div className="text-xs text-soft mt-0.5">{ring.material}</div>}
+          <div className="eyebrow text-soft mb-1">{ring.brand}</div>
+          <div className="font-serif text-[17px] text-ink truncate">{ring.model}</div>
+          {ring.material && <div className="text-[11px] text-soft mt-1">{ring.material}</div>}
         </div>
-        <button onClick={onRemove} className="text-soft text-xs px-1">×</button>
+        <button onClick={onRemove} className="text-soft hover:text-ink text-sm px-1">×</button>
       </div>
 
-      <div className="mt-2 text-base font-medium">
-        {ring.priceKRW ? `${ring.priceKRW.toLocaleString()}원` : "가격 미정"}
+      <div className="mt-3 font-serif text-xl text-ink tabular-nums">
+        {ring.priceKRW ? `${ring.priceKRW.toLocaleString()}원` : <span className="text-soft text-base">가격 미정</span>}
       </div>
 
-      <div className="mt-1">
+      <div className="mt-2">
         <FreshnessBadge lastVerified={ring.lastVerified} onClickCheck={onCheck} />
       </div>
 
-      <div className="mt-3 flex gap-2">
+      <div className="mt-4 flex gap-6 text-[12px] tracking-wide">
         <button
           onClick={() => onToggle(ring.id, "starred")}
-          className={`flex-1 text-sm py-2 rounded-lg border ${starredByMe ? "bg-gold text-white border-gold" : "bg-white border-line text-soft"}`}
+          className={`pb-1 transition ${starredByMe ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
         >
           {starredByMe ? "★" : "☆"} 즐겨찾기
         </button>
         <button
           onClick={() => onToggle(ring.id, "liked")}
-          className={`flex-1 text-sm py-2 rounded-lg border ${likedByMe ? "bg-gold text-white border-gold" : "bg-white border-line text-soft"}`}
+          className={`pb-1 transition ${likedByMe ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
         >
           {likedByMe ? "♥" : "♡"} 좋아요
         </button>
       </div>
 
       {(starredByOther || likedByOther) && (
-        <div className="mt-2 text-xs text-soft">
+        <div className="mt-2 text-[10.5px] tracking-wide text-soft">
           {otherLabel}: {starredByOther && "★"} {likedByOther && "♥"}
         </div>
       )}
 
-      <div className="mt-3 pt-3 border-t border-line">
+      <div className="mt-4">
         <VendorActions
           name={ring.brand}
           query={ring.model}

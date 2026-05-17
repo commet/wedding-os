@@ -20,21 +20,25 @@ export async function compressImage(
   file: File,
   opts: CompressOptions = {}
 ): Promise<string> {
+  const canvas = await compressToCanvas(file, opts);
+  const { quality = 0.85, mime = "image/jpeg" } = opts;
+  return canvas.toDataURL(mime, quality);
+}
+
+/** Canvas 까지만 압축 — 이후 toBlob / toDataURL 선택 가능 */
+async function compressToCanvas(file: File, opts: CompressOptions = {}): Promise<HTMLCanvasElement> {
   const {
     maxWidth = 1200,
     maxHeight = 1600,
-    quality = 0.85,
-    mime = "image/jpeg",
   } = opts;
 
   const dataUrl = await fileToDataUrl(file);
   const img = await loadImage(dataUrl);
 
-  // 비율 유지하면서 maxWidth/maxHeight 안으로
   let { width, height } = img;
   const wRatio = maxWidth / width;
   const hRatio = maxHeight / height;
-  const ratio = Math.min(wRatio, hRatio, 1); // 원본보다 키우지는 않음
+  const ratio = Math.min(wRatio, hRatio, 1);
   width = Math.round(width * ratio);
   height = Math.round(height * ratio);
 
@@ -43,12 +47,19 @@ export async function compressImage(
   canvas.height = height;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas context 못 만듦");
-  // 안티앨리어스 품질
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
   ctx.drawImage(img, 0, 0, width, height);
+  return canvas;
+}
 
-  return canvas.toDataURL(mime, quality);
+/** File → Blob (압축된 jpeg/webp). IndexedDB 저장용. */
+export async function compressToBlob(file: File, opts: CompressOptions = {}): Promise<Blob> {
+  const canvas = await compressToCanvas(file, opts);
+  const { quality = 0.85, mime = "image/jpeg" } = opts;
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((b) => b ? resolve(b) : reject(new Error("Blob 변환 실패")), mime, quality);
+  });
 }
 
 function fileToDataUrl(file: File): Promise<string> {
