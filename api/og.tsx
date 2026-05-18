@@ -17,6 +17,10 @@
 
 import { ImageResponse } from "@vercel/og";
 
+// Edge runtime 에 실제로 노출되는 환경변수만 declare — @types/node 를 끌고 오면
+// fs / Buffer 같은 edge 에서 못 쓰는 API 가 타입에 잡혀 오히려 사고 위험.
+declare const process: { env: Record<string, string | undefined> };
+
 export const config = { runtime: "edge" };
 
 // Google Fonts 의 `text=` 파라미터를 이용해 *필요한 글리프만* 가져온다.
