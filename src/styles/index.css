@@ -68,10 +68,10 @@
 
   /* ───── 타이포그래피 ───── */
   .eyebrow {
-    @apply text-[10px] tracking-eyebrow uppercase text-soft font-medium;
+    @apply text-[11px] tracking-eyebrow uppercase text-soft font-medium;
   }
   .eyebrow-gold {
-    @apply text-[10px] tracking-eyebrow uppercase text-gold font-medium;
+    @apply text-[11px] tracking-eyebrow uppercase text-gold font-medium;
   }
   .display {
     @apply font-serif text-[2.625rem] leading-[1.1] tracking-tight text-ink;

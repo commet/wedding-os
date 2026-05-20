@@ -26,6 +26,9 @@ const BRAND_SITES: Record<string, string> = {
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type Who = "groom" | "bride";
 
+// 카탈로그 자동 시드를 기기당 한 번만 — 사용자가 목록을 비운 뒤 재진입해도 되살아나지 않게.
+const RINGS_SEEDED_KEY = "wedding-os/rings-seeded";
+
 function ringScore(r: Ring): number {
   return (r.starredBy?.length ?? 0) + (r.likedBy?.length ?? 0);
 }
@@ -37,15 +40,20 @@ export default function Rings({ data, update }: Props) {
   const [showAdd, setShowAdd] = useState(false);
   const [brandFilter, setBrandFilter] = useState<string>("전체");
 
-  // 처음 진입 시 카탈로그 25개 자동 노출
+  // 처음 진입 시 카탈로그 25개 자동 노출 — 단 '한 번만'.
+  // 사용자가 반지를 모두 지운 뒤 다시 들어와도 카탈로그가 되살아나지 않도록
+  // 기기 단위 시드 플래그로 막는다. (의도적으로 카탈로그를 다시 보려면 '처음 상태로' 버튼)
   useEffect(() => {
-    if (data.rings.length === 0) {
-      update((prev: WeddingData) =>
-        prev.rings.length === 0
-          ? { ...prev, rings: RING_CATALOG.map((r) => ({ ...r })) }
-          : prev
-      );
-    }
+    if (data.rings.length > 0) return;
+    try {
+      if (localStorage.getItem(RINGS_SEEDED_KEY)) return;
+    } catch { /* localStorage 접근 불가 — 그냥 시드 */ }
+    update((prev: WeddingData) =>
+      prev.rings.length === 0
+        ? { ...prev, rings: RING_CATALOG.map((r) => ({ ...r })) }
+        : prev
+    );
+    try { localStorage.setItem(RINGS_SEEDED_KEY, "1"); } catch { /* noop */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -309,6 +317,13 @@ function RingCard({
         placeholder="이미지 URL (공식 사이트·직접 업로드한 이미지 링크)"
         value={ring.imageUrl ?? ""}
         onChange={(e) => onUpdate({ imageUrl: e.target.value.trim() || undefined })}
+      />
+
+      <textarea
+        className="input-boxed text-[11.5px] mt-3 min-h-[44px]"
+        placeholder="메모 (반지 호수·각인 문구·매장·견적 비교)"
+        value={ring.notes ?? ""}
+        onChange={(e) => onUpdate({ notes: e.target.value })}
       />
     </div>
   );

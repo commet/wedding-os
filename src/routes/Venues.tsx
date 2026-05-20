@@ -81,6 +81,14 @@ export default function Venues({ data, update }: Props) {
   };
 
   const addCustom = (v: Omit<WeddingVenue, "id">) => {
+    // 직접 추가도 중복 검사 — 같은 식장이 두 줄로 갈라지는 걸 막는다.
+    const dup = myVenues.some(
+      (x) => x.name.trim().toLowerCase() === v.name.trim().toLowerCase(),
+    );
+    if (dup) {
+      alert(`'${v.name}' 은(는) 이미 내 후보에 있어요.`);
+      return;
+    }
     update((prev: WeddingData) => ({
       ...prev,
       venues: [...(prev.venues ?? []), { ...v, id: `v-${Date.now()}` }],

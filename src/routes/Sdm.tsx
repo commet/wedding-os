@@ -74,6 +74,14 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
   };
 
   const addCustom = (v: Omit<SdmVendor, "id">) => {
+    // 직접 추가도 중복 검사 — 같은 이름이 두 줄로 갈라져 메모가 쪼개지는 걸 막는다.
+    const dup = data.sdm.some(
+      (x) => x.category === v.category && x.name.trim().toLowerCase() === v.name.trim().toLowerCase(),
+    );
+    if (dup) {
+      alert(`'${v.name}' 은(는) 이미 ${CAT_LABEL[v.category]} 후보에 있어요.`);
+      return;
+    }
     update((prev: WeddingData) => ({ ...prev, sdm: [...prev.sdm, { ...v, id: `sdm-${Date.now()}` }] }));
     setShowAdd(false);
   };

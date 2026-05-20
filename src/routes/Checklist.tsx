@@ -56,7 +56,14 @@ export default function Checklist({ data, update }: Props) {
 
   const setDue = (sid: string, iid: string, dueDate: string) =>
     mutate((secs) => secs.map((s) => s.id !== sid ? s : {
-      ...s, items: s.items.map((i) => i.id !== iid ? i : { ...i, dueDate: dueDate || undefined }),
+      ...s, items: s.items.map((i) => {
+        if (i.id !== iid) return i;
+        // 사용자가 날짜를 직접 정하면 ddayOffset 을 떼어 낸다 — 그래야 이후
+        // '날짜 기준 재계산'이 이 항목의 수동 날짜를 다시 덮어쓰지 않는다.
+        if (dueDate) return { ...i, dueDate, ddayOffset: undefined };
+        // 날짜를 비우면 dueDate 만 지운다 — ddayOffset 이 있으면 재계산으로 복구 가능.
+        return { ...i, dueDate: undefined };
+      }),
     }));
 
   const addItem = (sid: string, text: string) => {

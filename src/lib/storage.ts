@@ -337,6 +337,10 @@ export function useWeddingData() {
   const supabaseKey = data?.preferences.supabase?.anonKey;
   const isSupabaseMode = data?.preferences.mode === "supabase";
   useEffect(() => {
+    // supabase 연결(프로젝트·모드)이 바뀌면 이전 프로젝트의 server version 은 무효다.
+    // 초기화하지 않으면 다음 save 가 엉뚱한 expectedVersion 을 보내 거짓 충돌이나
+    // 조용한 덮어쓰기를 일으킬 수 있다. (마운트 시엔 초기 load 가 곧 올바른 값으로 덮어씀.)
+    _localVersion = undefined;
     if (!isSupabaseMode || !supabaseUrl || !supabaseKey) {
       _emitRealtimeStatus("idle");
       return;

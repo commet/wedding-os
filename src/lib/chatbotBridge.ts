@@ -144,16 +144,45 @@ export function restoreDataUrls(parsed: any, originalConfig: any): any {
 
 /** 답변 텍스트에서 첫 JSON 블록을 뽑는다. ```json ...``` 또는 그냥 {...} 둘 다 처리. */
 export function extractJSON(text: string): unknown | null {
-  // 코드블럭 우선
+  // 1) 코드블럭 우선 — ```json ... ``` 또는 ``` ... ```
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fenced) {
     try { return JSON.parse(fenced[1]); } catch { /* fall through */ }
   }
-  // 가장 바깥 중괄호
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start !== -1 && end !== -1 && end > start) {
-    try { return JSON.parse(text.slice(start, end + 1)); } catch { /* fall */ }
+  // 2) 중괄호 균형 스캔 — 각 '{' 후보마다 균형 잡힌 끝까지 잘라 파싱을 시도하고,
+  //    처음으로 성공하는 객체를 돌려준다. 답변에 산문 속 중괄호나 여러 JSON
+  //    블록이 섞여 있어도 (예전 first-{ ~ last-} 방식과 달리) 깨지지 않는다.
+  let from = text.indexOf("{");
+  while (from !== -1) {
+    const candidate = scanBalancedObject(text, from);
+    if (candidate) {
+      try { return JSON.parse(candidate); } catch { /* 다음 후보로 */ }
+    }
+    from = text.indexOf("{", from + 1);
+  }
+  return null;
+}
+
+// start 위치의 '{' 부터 균형이 맞는 '}' 까지의 부분 문자열.
+// 문자열 리터럴 내부의 중괄호와 이스케이프된 따옴표는 깊이 계산에서 제외한다.
+function scanBalancedObject(text: string, start: number): string | null {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
   }
   return null;
 }

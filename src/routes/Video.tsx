@@ -743,7 +743,7 @@ export default function Video({ data, update }: Props) {
               </li>
               <li><code className="bg-cream px-1.5 py-0.5">npm install</code></li>
               <li>위에서 받은 <code className="bg-cream px-1.5 py-0.5">wedding-video-props.json</code> 을 프로젝트 폴더에 둬요</li>
-              <li><code className="bg-cream px-1.5 py-0.5">npm run video:render -- --props=./wedding-video-props.json</code></li>
+              <li><code className="bg-cream px-1.5 py-0.5">npm run video:render</code> 를 실행해요 (props 파일은 명령어에 이미 연결돼 있어요)</li>
               <li><code className="bg-cream px-1.5 py-0.5">out/wedding-video.mp4</code> 가 생겨요</li>
             </ol>
             <p className="mt-3 text-soft">
@@ -881,7 +881,7 @@ function TemplateCard({
             <span className="font-serif text-[15px] text-ink leading-tight">{template.name}</span>
             <span className="eyebrow-gold">{template.mood}</span>
             {template.chapters.length === 0 && (
-              <span className="text-[10px] tracking-wider uppercase text-sage border border-sage/40 px-1.5 py-0.5 rounded">
+              <span className="text-[11px] tracking-wider uppercase text-sage border border-sage/40 px-1.5 py-0.5 rounded">
                 막 없이
               </span>
             )}

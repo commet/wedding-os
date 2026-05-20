@@ -23,7 +23,7 @@ export default function Guests({ data, update }: Props) {
   const guests = data.guests ?? [];
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
-  const [newGuestName, setNewGuestName] = useState("");
+  const [addSide, setAddSide] = useState<GuestSide>("groom");
   const [rsvpStatus, setRsvpStatus] = useState<"idle" | "loading" | "ok" | "fail">("idle");
   const [rsvpMsg, setRsvpMsg] = useState("");
 
@@ -52,23 +52,22 @@ export default function Guests({ data, update }: Props) {
     return { total, attending: attending.length, declined: declined.length, pending, partySum, giftSum, mealCount, groom, bride };
   }, [guests]);
 
-  const addGuest = (name: string) => {
+  const addGuest = (name: string, side: GuestSide) => {
     const cleanName = name.trim();
     if (!cleanName) return;
     update((prev: WeddingData) => ({
       ...prev,
-      guests: [
-        ...(prev.guests ?? []),
-        {
-          id: `g-${Date.now()}-${Math.random().toString(36).slice(2, 5)}`,
-          name: cleanName,
-          side: filter === "groom" ? "groom" : filter === "bride" ? "bride" : "groom",
-          status: "초대 예정",
-          partyCount: 1,
-        },
-      ],
+      guests: [...(prev.guests ?? []), makeGuest(cleanName, side)],
     }));
-    setNewGuestName("");
+  };
+
+  const bulkAddGuests = (names: string[], side: GuestSide) => {
+    const clean = names.map((n) => n.trim()).filter(Boolean);
+    if (clean.length === 0) return;
+    update((prev: WeddingData) => ({
+      ...prev,
+      guests: [...(prev.guests ?? []), ...clean.map((n) => makeGuest(n, side))],
+    }));
   };
 
   const updateGuest = (id: string, patch: Partial<Guest>) => {
@@ -145,10 +144,11 @@ export default function Guests({ data, update }: Props) {
             한 번에 관리되고 자동으로 집계됩니다.
           </p>
         </div>
-        <AddGuestForm
-          value={newGuestName}
-          onChange={setNewGuestName}
-          onSubmit={() => addGuest(newGuestName)}
+        <GuestAddBlock
+          side={addSide}
+          onSideChange={setAddSide}
+          onAddOne={addGuest}
+          onAddBulk={bulkAddGuests}
           primary
         />
         {data.preferences.mode === "supabase" && (
@@ -229,10 +229,11 @@ export default function Guests({ data, update }: Props) {
             ))}
           </div>
         </div>
-        <AddGuestForm
-          value={newGuestName}
-          onChange={setNewGuestName}
-          onSubmit={() => addGuest(newGuestName)}
+        <GuestAddBlock
+          side={addSide}
+          onSideChange={setAddSide}
+          onAddOne={addGuest}
+          onAddBulk={bulkAddGuests}
         />
       </div>
 
@@ -254,36 +255,129 @@ export default function Guests({ data, update }: Props) {
   );
 }
 
-function AddGuestForm({
-  value, onChange, onSubmit, primary,
+function makeGuest(name: string, side: GuestSide): Guest {
+  return {
+    id: `g-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+    name: name.trim(),
+    side,
+    status: "초대 예정",
+    partyCount: 1,
+  };
+}
+
+// 금액 입력 파싱 — 빈 칸은 undefined, "0"은 0으로 유지, 음수·비정상값은 거부.
+function parseAmount(raw: string): number | undefined {
+  const t = raw.trim();
+  if (t === "") return undefined;
+  const n = Number(t);
+  if (!Number.isFinite(n) || n < 0) return undefined;
+  return n;
+}
+
+function GuestAddBlock({
+  side, onSideChange, onAddOne, onAddBulk, primary,
 }: {
-  value: string;
-  onChange: (value: string) => void;
-  onSubmit: () => void;
+  side: GuestSide;
+  onSideChange: (s: GuestSide) => void;
+  onAddOne: (name: string, side: GuestSide) => void;
+  onAddBulk: (names: string[], side: GuestSide) => void;
   primary?: boolean;
 }) {
+  const [name, setName] = useState("");
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkText, setBulkText] = useState("");
+
+  const bulkNames = bulkText.split(/[\n,]+/).map((s) => s.trim()).filter(Boolean);
+
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSubmit();
-      }}
-      className={primary ? "space-y-3" : "flex items-end gap-3 border-b border-hair pb-2"}
-    >
-      <input
-        className={`input ${primary ? "text-center" : "flex-1"} text-[14px]`}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="하객 이름 또는 호칭"
-      />
-      <button
-        type="submit"
-        disabled={!value.trim()}
-        className={primary ? "btn-primary px-8 py-3.5 text-[12.5px] disabled:opacity-40" : "text-[12px] text-ink underline underline-offset-4 pb-3 hover:text-gold disabled:opacity-40 whitespace-nowrap"}
-      >
-        {primary ? "첫 하객 추가하기 →" : "추가 →"}
-      </button>
-    </form>
+    <div className="space-y-3">
+      <div className={`flex items-center gap-4 ${primary ? "justify-center" : ""}`}>
+        <span className="eyebrow">추가할 분</span>
+        <div className="flex gap-4">
+          {(["groom", "bride", "shared"] as GuestSide[]).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => onSideChange(s)}
+              className={`text-[12px] tracking-wide pb-1 transition ${
+                side === s ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
+              }`}
+            >
+              {SIDE_LABEL[s]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {!bulkOpen ? (
+        <>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!name.trim()) return;
+              onAddOne(name, side);
+              setName("");
+            }}
+            className={primary ? "space-y-3" : "flex items-end gap-3 border-b border-hair pb-2"}
+          >
+            <input
+              className={`input ${primary ? "text-center" : "flex-1"} text-[14px]`}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="하객 이름 또는 호칭"
+            />
+            <button
+              type="submit"
+              disabled={!name.trim()}
+              className={
+                primary
+                  ? "btn-primary px-8 py-3.5 text-[12.5px] disabled:opacity-40"
+                  : "text-[12px] text-ink underline underline-offset-4 pb-3 hover:text-gold disabled:opacity-40 whitespace-nowrap"
+              }
+            >
+              {primary ? "첫 하객 추가하기 →" : "추가 →"}
+            </button>
+          </form>
+          <button
+            type="button"
+            onClick={() => setBulkOpen(true)}
+            className={`text-[12px] text-soft underline underline-offset-4 hover:text-ink ${primary ? "block mx-auto" : ""}`}
+          >
+            여러 명 한 번에 붙여넣기 →
+          </button>
+        </>
+      ) : (
+        <div className="space-y-3">
+          <textarea
+            className="input-boxed text-[13px] min-h-[120px]"
+            value={bulkText}
+            onChange={(e) => setBulkText(e.target.value)}
+            placeholder={"이름을 줄바꿈 또는 쉼표로 구분해 붙여넣으세요.\n예시:\n김민준\n이서연, 박도윤\n최지우"}
+          />
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => { setBulkOpen(false); setBulkText(""); }}
+              className="text-[12px] text-soft underline underline-offset-4 hover:text-ink"
+            >
+              한 명씩 추가로
+            </button>
+            <button
+              type="button"
+              disabled={bulkNames.length === 0}
+              onClick={() => {
+                onAddBulk(bulkNames, side);
+                setBulkText("");
+                setBulkOpen(false);
+              }}
+              className="btn-primary px-6 py-2.5 text-[12px] disabled:opacity-40 whitespace-nowrap"
+            >
+              {bulkNames.length > 0 ? `${bulkNames.length}명 추가 →` : "이름을 입력하세요"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -324,7 +418,7 @@ function Stat({ label, value, accent, muted, unit, hint }: { label: string; valu
       <div className="eyebrow mb-1">{label}</div>
       <div className={`font-serif tabular-nums ${accent ? "text-2xl text-ink" : muted ? "text-lg text-soft" : "text-xl text-ink"}`}>
         {display}
-        {unit && <span className="text-[10px] text-soft ml-1">{unit === "원" ? "만원" : unit}</span>}
+        {unit && <span className="text-[11px] text-soft ml-1">{unit === "원" ? "만원" : unit}</span>}
       </div>
       {hint && <div className="text-[10.5px] text-soft mt-0.5">{hint}</div>}
     </div>
@@ -403,18 +497,20 @@ function GuestRow({ g, onChange, onRemove }: { g: Guest; onChange: (p: Partial<G
               <input
                 type="number"
                 min={1}
+                max={99}
                 className="input text-[13px] tabular-nums"
                 value={g.partyCount ?? 1}
-                onChange={(e) => onChange({ partyCount: Math.max(1, Number(e.target.value) || 1) })}
+                onChange={(e) => onChange({ partyCount: Math.min(99, Math.max(1, Number(e.target.value) || 1)) })}
               />
             </div>
             <div>
               <label className="label">축의금 (원)</label>
               <input
                 type="number"
+                min={0}
                 className="input text-[13px] tabular-nums"
                 value={g.giftKRW ?? ""}
-                onChange={(e) => onChange({ giftKRW: Number(e.target.value) || undefined })}
+                onChange={(e) => onChange({ giftKRW: parseAmount(e.target.value) })}
                 placeholder="0"
               />
             </div>

@@ -16,21 +16,22 @@ const STEPS = [
   { n: 5, label: "배포" },
 ];
 
-// 셋업은 10분 이상 걸리는 흐름 — 새로고침/뒤로가기로 입력이 사라지면 사용자 멘붕.
-// sessionStorage 에 미러링해서 같은 탭 안에선 복원되도록.
+// 셋업은 10분 이상 걸리는 흐름 — 새로고침/뒤로가기/탭 닫기로 입력이 사라지면 사용자 멘붕.
+// localStorage 에 미러링해서 탭을 닫았다 다시 열어도 이어서 진행할 수 있도록.
+// (완료 시 clearDraft 로 정리되므로 키가 영구히 남지는 않는다.)
 const DRAFT_KEY = "wedding-os/setup-draft/v1";
 type Draft = { step: number; url: string; anonKey: string };
 function loadDraft(): Partial<Draft> {
   try {
-    const raw = sessionStorage.getItem(DRAFT_KEY);
+    const raw = localStorage.getItem(DRAFT_KEY);
     return raw ? (JSON.parse(raw) as Partial<Draft>) : {};
   } catch { return {}; }
 }
 function saveDraft(d: Draft) {
-  try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(d)); } catch { /* noop */ }
+  try { localStorage.setItem(DRAFT_KEY, JSON.stringify(d)); } catch { /* noop */ }
 }
 function clearDraft() {
-  try { sessionStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
+  try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
 }
 
 export default function Setup({ data, update }: Props) {
@@ -376,7 +377,7 @@ function Step4({
           onChange={(e) => setAnonKey(e.target.value)}
           placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
         />
-        <p className="text-[10px] text-soft mt-1">긴 문자열이에요 (eyJ 로 시작).</p>
+        <p className="text-[11px] text-soft mt-1">긴 문자열이에요 (eyJ 로 시작).</p>
       </div>
 
       <div className="pl-4 border-l-2 border-gold text-[12px] space-y-1 leading-relaxed">

@@ -294,17 +294,21 @@ function Flights({ data, update }: Props) {
   const applyResults = (parsed: any) => {
     const options = parsed?.options;
     if (!Array.isArray(options)) return;
-    const newFlights = options.map((o: any, i: number): Flight => ({
-      id: `flight-${Date.now()}-${i}`,
-      airline: o.airline,
-      flightNumber: o.flightNumber,
-      from: search.from,
-      to: search.to,
-      departAt: o.departAt,
-      arriveAt: o.arriveAt,
-      priceKRW: typeof o.priceKRW === "number" ? o.priceKRW : undefined,
-      lastVerified: todayISO(),
-    }));
+    // 항공사명이 없는 옵션은 건너뛴다 — 복붙 응답이 불완전하면 'undefined' 빈 카드가 생기므로.
+    const newFlights = options
+      .filter((o: any) => o && typeof o.airline === "string" && o.airline.trim())
+      .map((o: any, i: number): Flight => ({
+        id: `flight-${Date.now()}-${i}`,
+        airline: o.airline.trim(),
+        flightNumber: o.flightNumber,
+        from: search.from,
+        to: search.to,
+        departAt: o.departAt,
+        arriveAt: o.arriveAt,
+        priceKRW: typeof o.priceKRW === "number" ? o.priceKRW : undefined,
+        lastVerified: todayISO(),
+      }));
+    if (newFlights.length === 0) return;
     update((prev: WeddingData) => ({ ...prev, flights: [...prev.flights, ...newFlights] }));
     setBridge(null);
   };
@@ -401,7 +405,7 @@ function FlightAddForm({ onAdd }: { onAdd: (f: Flight) => void }) {
         <input className="input text-sm" placeholder="출발 (ICN)" value={form.from} onChange={(e) => setForm({ ...form, from: e.target.value })} />
         <input className="input text-sm" placeholder="도착 (DPS)" value={form.to} onChange={(e) => setForm({ ...form, to: e.target.value })} />
       </div>
-      <input className="input text-sm" placeholder="출발 일시" value={form.departAt} onChange={(e) => setForm({ ...form, departAt: e.target.value })} />
+      <input className="input text-sm" type="date" aria-label="출발 날짜" value={form.departAt} onChange={(e) => setForm({ ...form, departAt: e.target.value })} />
       <input className="input text-sm" type="number" placeholder="가격 (원)" value={form.priceKRW} onChange={(e) => setForm({ ...form, priceKRW: e.target.value })} />
       <button
         className="btn-primary w-full"

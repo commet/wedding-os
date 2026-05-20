@@ -14,7 +14,9 @@ export default function Budget({ data, update }: Props) {
     const planned = items.reduce((s, b) => s + (b.planned ?? 0), 0);
     const actual = items.reduce((s, b) => s + (b.actual ?? 0), 0);
     const avg = items.reduce((s, b) => s + (b.avgKRW ?? 0), 0);
-    const paid = items.filter((b) => b.paid).reduce((s, b) => s + (b.actual ?? b.planned ?? 0), 0);
+    // 결제 완료 합계는 '실제 지출'만 더한다 — 금액 미입력 상태로 체크만 한 항목의
+    // 예상치(planned)를 지출로 둔갑시키지 않도록. (실제 지출 합계와 항상 일치)
+    const paid = items.filter((b) => b.paid).reduce((s, b) => s + (b.actual ?? 0), 0);
     const unpaidCount = items.filter((b) => ((b.planned ?? 0) > 0 || (b.actual ?? 0) > 0) && !b.paid).length;
     const overCount = items.filter((b) => (b.planned ?? 0) > 0 && (b.actual ?? 0) > (b.planned ?? 0)).length;
     return { planned, actual, avg, paid, unpaidCount, overCount };
@@ -242,7 +244,7 @@ function SummaryRow({ label, value, accent, muted, small }: { label: string; val
     <div className="flex items-baseline justify-between">
       <span className={`${small ? "text-[11px]" : "text-[12.5px]"} ${muted ? "text-soft" : "text-ink"} tracking-wide`}>{label}</span>
       <span className={`font-serif tabular-nums ${accent ? "text-2xl text-ink" : small ? "text-base text-soft" : "text-xl text-soft"}`}>
-        {fmtMan(value)}<span className={`${small ? "text-[10px]" : "text-xs"} text-soft ml-1`}>만원</span>
+        {fmtMan(value)}<span className={`${small ? "text-[11px]" : "text-xs"} text-soft ml-1`}>만원</span>
       </span>
     </div>
   );
@@ -266,7 +268,7 @@ function BudgetRow({ b, onChange, onRemove }: { b: BudgetItem; onChange: (p: Par
         </div>
         <div className="flex flex-col items-end flex-shrink-0">
           <span className={`font-serif text-base tabular-nums ${actual > 0 ? (overBudget ? "text-gold" : "text-ink") : "text-soft"}`}>
-            {fmtMan(actual || planned)}<span className="text-[10px] text-soft ml-0.5">만</span>
+            {fmtMan(actual || planned)}<span className="text-[11px] text-soft ml-0.5">만</span>
           </span>
           {b.paid && <span className="eyebrow-gold mt-0.5">완료</span>}
         </div>
@@ -279,9 +281,10 @@ function BudgetRow({ b, onChange, onRemove }: { b: BudgetItem; onChange: (p: Par
               <label className="label">우리 예상 (원)</label>
               <input
                 type="number"
+                min={0}
                 className="input text-[13px] tabular-nums"
                 value={b.planned ?? ""}
-                onChange={(e) => onChange({ planned: Number(e.target.value) || undefined })}
+                onChange={(e) => onChange({ planned: parseAmount(e.target.value) })}
                 placeholder={b.avgKRW ? String(b.avgKRW) : "0"}
               />
             </div>
@@ -289,9 +292,10 @@ function BudgetRow({ b, onChange, onRemove }: { b: BudgetItem; onChange: (p: Par
               <label className="label">실제 지출 (원)</label>
               <input
                 type="number"
+                min={0}
                 className="input text-[13px] tabular-nums"
                 value={b.actual ?? ""}
-                onChange={(e) => onChange({ actual: Number(e.target.value) || undefined })}
+                onChange={(e) => onChange({ actual: parseAmount(e.target.value) })}
                 placeholder="0"
               />
             </div>
@@ -332,4 +336,13 @@ function BudgetRow({ b, onChange, onRemove }: { b: BudgetItem; onChange: (p: Par
 
 function fmtMan(krw: number): string {
   return Math.round(krw / 10000).toLocaleString();
+}
+
+// 금액 입력 파싱 — 빈 칸은 undefined, "0"은 0으로 유지, 음수·비정상값은 거부.
+function parseAmount(raw: string): number | undefined {
+  const t = raw.trim();
+  if (t === "") return undefined;
+  const n = Number(t);
+  if (!Number.isFinite(n) || n < 0) return undefined;
+  return n;
 }

@@ -62,16 +62,9 @@ export default function Dashboard({ data, update }: Props) {
     });
   };
 
+  // 메뉴 순서는 실제 결혼 준비 흐름을 따른다 — 먼저 큰 예약을 잡고(결정·예약),
+  // 청첩장·영상을 만들고(함께 만들기), 그 뒤 꾸준히 관리. 공유·AI는 도구로 분리.
   const MENU_GROUPS: { title: string; items: { to: string; label: string; sub: string }[] }[] = [
-    {
-      title: "오늘 관리",
-      items: [
-        { to: "/checklist", label: "체크리스트", sub: checklistTotal > 0 ? `${checklistDone}/${checklistTotal} 완료 · ${progress}%` : "일정 · 할 일" },
-        { to: "/budget", label: "비용 관리", sub: budgetCount > 0 ? `${budgetCount}개 항목` : "예산 · 결제 · 초과 비용" },
-        { to: "/guests", label: "하객 명단", sub: guestCount > 0 ? `${guestCount}명 · 참석 ${guestAttending}` : "이름 · 축의금 · 식수" },
-        { to: "/share", label: "공유 센터", sub: "Excel · PDF · 카톡 · 백업" },
-      ],
-    },
     {
       title: "결정 · 예약",
       items: [
@@ -83,10 +76,24 @@ export default function Dashboard({ data, update }: Props) {
       ],
     },
     {
-      title: "본식 준비",
+      title: "함께 만들기",
       items: [
         { to: "/invitation", label: "모바일 청첩장", sub: "정보 입력 · 카톡 공유" },
         { to: "/video", label: "식전영상", sub: "사진 · BGM · 자연어 편집" },
+      ],
+    },
+    {
+      title: "꾸준히 관리",
+      items: [
+        { to: "/checklist", label: "체크리스트", sub: checklistTotal > 0 ? `${checklistDone}/${checklistTotal} 완료 · ${progress}%` : "일정 · 할 일" },
+        { to: "/budget", label: "비용 관리", sub: budgetCount > 0 ? `${budgetCount}개 항목` : "예산 · 결제 · 초과 비용" },
+        { to: "/guests", label: "하객 명단", sub: guestCount > 0 ? `${guestCount}명 · 참석 ${guestAttending}` : "이름 · 축의금 · 식수" },
+      ],
+    },
+    {
+      title: "도구",
+      items: [
+        { to: "/share", label: "공유 센터", sub: "Excel · PDF · 카톡 · 백업" },
         { to: "/ai", label: "AI 연결", sub: "복붙 모드 · API 키 · 로컬 LLM" },
       ],
     },

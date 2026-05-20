@@ -77,10 +77,19 @@ export default function Invitation({ data, update }: Props) {
   };
 
   const share = async () => {
-    const missing = missingInvitationFields();
-    if (missing.length > 0) {
+    // 신랑·신부 이름이 비어 있으면 공유 자체를 막는다 — 이름 없는 청첩장은
+    // 의미가 없고, '신랑 ♥ 신부' 같은 자리표시자가 그대로 하객에게 나간다.
+    if (!inv.groomName || !inv.brideName) {
+      alert("청첩장에 신랑·신부 이름이 아직 없어요.\n\n[편집] 탭에서 두 분 이름을 먼저 입력해주세요.");
+      return;
+    }
+    // 날짜·식장은 빠져도 '곧 청첩장 보낼게' 식으로 미리 공유할 수 있어 경고만 한다.
+    const softMissing = missingInvitationFields().filter(
+      (m) => m !== "신랑 이름" && m !== "신부 이름",
+    );
+    if (softMissing.length > 0) {
       const proceed = confirm(
-        `청첩장에 빠진 정보가 있어요:\n\n· ${missing.join("\n· ")}\n\n` +
+        `청첩장에 빠진 정보가 있어요:\n\n· ${softMissing.join("\n· ")}\n\n` +
         `[편집] 탭에서 먼저 채우는 걸 권해요.\n\n그래도 지금 공유할까요?`
       );
       if (!proceed) return;
@@ -1117,7 +1126,7 @@ function GalleryEditor({ gallery, onChange }: { gallery: { url: string; caption?
                 {u ? (
                   <img src={u} alt="" className="w-full aspect-square object-cover rounded-md" />
                 ) : (
-                  <div className="w-full aspect-square rounded-md bg-cream border border-red-200 flex items-center justify-center text-[10px] text-red-500 text-center px-1">
+                  <div className="w-full aspect-square rounded-md bg-cream border border-red-200 flex items-center justify-center text-[11px] text-red-500 text-center px-1">
                     잘못된<br />사진 주소
                   </div>
                 )}
