@@ -20,7 +20,7 @@
 
 import { useEffect, useState } from "react";
 import { compressImage, compressToBlob, type CompressOptions } from "./imageCompress";
-import type { Mode } from "./schema";
+import type { Mode, WeddingData } from "./schema";
 
 const DB_NAME = "wedding-os-images";
 const DB_VERSION = 1;
@@ -231,4 +231,33 @@ export async function migrateImagesIdbToDataUrl(data: any): Promise<any> {
 /** export 시 호출. idb:<id> → data:base64 (백업 파일 portable) */
 export async function inlineIdbForExport(data: any): Promise<any> {
   return migrateImagesIdbToDataUrl(data);
+}
+
+/** export 직후 호출 — base64 인라인에 실패해 남아 있는 idb: 참조를 찾아낸다.
+ *  죽은 참조(블롭 유실 등으로 다른 기기에선 못 푸는 사진)를 들어내고
+ *  몇 장을 제거했는지 보고한다. 백업 파일에 깨진 사진 참조가 들어가는 걸 막는다. */
+export function stripUnresolvedIdb(data: WeddingData): { data: WeddingData; removed: number } {
+  const next = structuredClone(data);
+  let removed = 0;
+  const isIdb = (u: unknown): u is string => typeof u === "string" && u.startsWith(IDB_PREFIX);
+
+  if (next.invitation) {
+    if (isIdb(next.invitation.heroImageUrl)) { next.invitation.heroImageUrl = undefined; removed++; }
+    if (Array.isArray(next.invitation.gallery)) {
+      const before = next.invitation.gallery.length;
+      next.invitation.gallery = next.invitation.gallery.filter((g) => !isIdb(g?.url));
+      removed += before - next.invitation.gallery.length;
+    }
+  }
+  if (next.video && Array.isArray(next.video.photos)) {
+    const before = next.video.photos.length;
+    next.video.photos = next.video.photos.filter((p) => !isIdb(p?.url));
+    removed += before - next.video.photos.length;
+  }
+  if (Array.isArray(next.rings)) {
+    for (const r of next.rings) {
+      if (isIdb(r?.imageUrl)) { r.imageUrl = undefined; removed++; }
+    }
+  }
+  return { data: next, removed };
 }

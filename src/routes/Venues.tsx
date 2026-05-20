@@ -26,6 +26,7 @@ const REGION_GROUPS: { key: string; label: string; match: (r?: string) => boolea
 
 export default function Venues({ data, update }: Props) {
   const [tab, setTab] = useState<Tab>("mine");
+  const [mineView, setMineView] = useState<"list" | "compare">("list");
   const [region, setRegion] = useState<string>("all");
   const [hallFilter, setHallFilter] = useState<VenueHallType | "all">("all");
   const [showAdd, setShowAdd] = useState(false);
@@ -144,17 +145,39 @@ export default function Venues({ data, update }: Props) {
               </button>
             </div>
           ) : (
-            <ul className="divide-y divide-hair border-y border-hair">
-              {myVenues.map((v) => (
-                <MyVenueRow
-                  key={v.id}
-                  v={v}
-                  onUpdate={(patch) => updateVenue(v.id, patch)}
-                  onRemove={() => removeVenue(v.id)}
-                  onApply={() => applyToInvitation(v)}
-                />
-              ))}
-            </ul>
+            <>
+              {myVenues.length >= 2 && (
+                <div className="flex items-center gap-6 border-b border-hair pb-3">
+                  <button
+                    onClick={() => setMineView("list")}
+                    className={`text-[12px] tracking-wide pb-1 transition ${mineView === "list" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                  >
+                    목록
+                  </button>
+                  <button
+                    onClick={() => setMineView("compare")}
+                    className={`text-[12px] tracking-wide pb-1 transition ${mineView === "compare" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                  >
+                    나란히 비교
+                  </button>
+                </div>
+              )}
+              {mineView === "compare" && myVenues.length >= 2 ? (
+                <VenueCompare venues={myVenues} />
+              ) : (
+                <ul className="divide-y divide-hair border-y border-hair">
+                  {myVenues.map((v) => (
+                    <MyVenueRow
+                      key={v.id}
+                      v={v}
+                      onUpdate={(patch) => updateVenue(v.id, patch)}
+                      onRemove={() => removeVenue(v.id)}
+                      onApply={() => applyToInvitation(v)}
+                    />
+                  ))}
+                </ul>
+              )}
+            </>
           )}
         </>
       )}
@@ -370,6 +393,63 @@ function MyVenueRow({
         </div>
       )}
     </li>
+  );
+}
+
+// 담아둔 식장 후보를 한눈에 — 식대·인원·상태를 나란히 놓고 비교한다.
+// 모바일 폭(480px)에선 식장 수가 늘면 가로 스크롤, 항목 라벨 열은 고정.
+function VenueCompare({ venues }: { venues: WeddingVenue[] }) {
+  const rows: { label: string; get: (v: WeddingVenue) => string }[] = [
+    { label: "지역", get: (v) => v.region || "—" },
+    { label: "홀 형식", get: (v) => (v.hallType ? HALL_TYPE_LABEL[v.hallType] : "—") },
+    { label: "음식", get: (v) => (v.foodType ? FOOD_TYPE_LABEL[v.foodType] : "—") },
+    {
+      label: "수용 인원",
+      get: (v) =>
+        v.capacityMin || v.capacityMax ? `${v.capacityMin ?? "?"}~${v.capacityMax ?? "?"}명` : "—",
+    },
+    {
+      label: "식대",
+      get: (v) =>
+        v.mealPriceMin || v.mealPriceMax ? `${fmtMan(v.mealPriceMin)}~${fmtMan(v.mealPriceMax)}만` : "—",
+    },
+    { label: "상태", get: (v) => v.status || "—" },
+    { label: "답사일", get: (v) => v.visitedAt || "—" },
+  ];
+  return (
+    <div className="overflow-x-auto -mx-6 px-6 scrollbar-hide">
+      <table className="border-collapse">
+        <thead>
+          <tr>
+            <th className="sticky left-0 bg-paper z-10 w-[64px]" />
+            {venues.map((v) => (
+              <th key={v.id} className="text-left align-bottom px-3 pb-3 min-w-[116px]">
+                <span className="font-serif text-[14px] text-ink leading-tight">{v.name}</span>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-hair border-t border-hair">
+          {rows.map((row) => (
+            <tr key={row.label}>
+              <td className="sticky left-0 bg-paper z-10 eyebrow py-3 pr-3 align-top whitespace-nowrap">
+                {row.label}
+              </td>
+              {venues.map((v) => (
+                <td
+                  key={v.id}
+                  className={`py-3 px-3 text-[12.5px] align-top whitespace-nowrap ${
+                    row.label === "상태" && v.status === "계약" ? "text-gold" : "text-ink/90"
+                  }`}
+                >
+                  {row.get(v)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

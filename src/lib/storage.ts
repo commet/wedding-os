@@ -9,7 +9,7 @@ import { defaultData, WeddingData, SCHEMA_VERSION } from "./schema";
 import { createSupabaseStorage, loadPublicInvitation } from "./storage.supabase";
 import { demoData } from "../data/demoData";
 import { getOwnerToken, setOwnerToken, setSecrets, isSupabaseHost } from "./security";
-import { inlineIdbForExport } from "./imageStore";
+import { inlineIdbForExport, stripUnresolvedIdb } from "./imageStore";
 
 const LS_KEY = "wedding-os/v1";
 
@@ -349,6 +349,11 @@ export function useWeddingData() {
     if (!driver.subscribe) return;
     const unsubscribe = driver.subscribe(
       (next, version) => {
+        // 로컬 저장이 진행 중이면 원격 스냅샷을 적용하지 않는다 — 그대로 덮어쓰면
+        // 내 미저장 편집이 사라지고, _localVersion 이 갱신돼 내 save 가 거짓 성공하며
+        // 상대 변경까지 날린다. 건너뛰면 내 save 가 옛 버전으로 충돌 감지되어
+        // '새로고침' 안내로 안전하게 수렴한다. (저장 큐가 비면 다음 이벤트가 정상 적용.)
+        if (_pending > 0) return;
         if (typeof version === "number") _localVersion = version;
         setData((prev) => {
           if (!prev) return next;
@@ -472,10 +477,20 @@ function enqueueSave(next: WeddingData) {
 //       (백업 파일이 다른 기기/세션에서도 그대로 열리도록 portable 보장.)
 export async function exportData(data: WeddingData): Promise<void> {
   const inlined: WeddingData = await inlineIdbForExport(data);
+  // base64 인라인에 실패해 남은 idb: 참조는 다른 기기에서 못 푸므로 깨진 사진이 된다.
+  // 백업에 죽은 참조를 담는 대신 들어내고, 몇 장이 빠졌는지 사용자에게 정직하게 알린다.
+  const { data: cleaned, removed } = stripUnresolvedIdb(inlined);
+  if (removed > 0 && typeof window !== "undefined") {
+    alert(
+      `⚠️ 사진 ${removed}장은 백업 파일에 담지 못했어요.\n\n` +
+      "이 사진들의 원본을 이 기기에서 찾지 못했어요.\n" +
+      "나머지 모든 정보는 백업에 정상 포함됩니다."
+    );
+  }
   const sanitized: WeddingData = {
-    ...inlined,
+    ...cleaned,
     preferences: {
-      ...inlined.preferences,
+      ...cleaned.preferences,
       // supabase 연결 정보는 백업에 포함하지 않음 — 친구에게 백업 공유 시 키 노출 방지.
       supabase: undefined,
     },
