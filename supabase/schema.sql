@@ -69,7 +69,8 @@ drop policy if exists "wedding_data_write"  on public.wedding_data;
 
 --    rsvp: 게스트는 자기 응답을 INSERT 만 가능. SELECT/UPDATE/DELETE 는 차단.
 --          → 한 명의 악의적 게스트가 다른 게스트의 응답을 보거나 지우는 걸 방지.
---          → 부부는 본인 Supabase 대시보드의 Table Editor 에서 직접 응답을 조회.
+--          → 부부는 owner token 으로 list_rsvp RPC 를 통해 앱에서 응답을 조회
+--            (Supabase 대시보드의 Table Editor 에서도 직접 볼 수 있음).
 drop policy if exists "rsvp_all"        on public.rsvp;
 drop policy if exists "rsvp_insert_only" on public.rsvp;
 create policy "rsvp_insert_only" on public.rsvp for insert with check (true);
