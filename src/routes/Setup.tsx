@@ -105,7 +105,7 @@ export default function Setup({ data, update }: Props) {
       <div className="flex items-baseline justify-between">
         <div>
           <div className="eyebrow-gold mb-2">Setup Guide</div>
-          <h1 className="font-serif text-[2rem] leading-none">셋업 가이드</h1>
+          <h1 className="font-serif text-[2rem] leading-none">동기화 셋업</h1>
         </div>
         <a
           href={`mailto:yclee913@gmail.com?subject=${encodeURIComponent(`[Wedding OS] 셋업 ${step}단계 도움 요청`)}&body=${encodeURIComponent(`안녕하세요,\n\n셋업 ${step}단계에서 막혔어요. 다음 부분이 헷갈려요:\n\n[여기에 상황 적기]\n\n---\n현재 단계: ${step} / 5\n`)}`}
@@ -118,8 +118,8 @@ export default function Setup({ data, update }: Props) {
       <ProgressDots current={step} />
 
       <p className="text-[12.5px] text-soft leading-relaxed text-center">
-        Supabase와 Vercel의 무료 플랜으로 시작하되,<br />
-        사용량·휴면·상업 이용 조건은 배포 전 직접 확인하세요.
+        둘이 같이 편집하거나 청첩장 링크·RSVP를 쓰려면<br />
+        내 Supabase/Vercel에 배포해 데이터가 오갈 공간을 만듭니다.
       </p>
 
       {step === 1 && <Step1 onNext={() => setStep(2)} />}
@@ -216,7 +216,7 @@ function Step1({ onNext }: { onNext: () => void }) {
   return (
     <StepCard icon="01" title="Supabase 가입하기">
       <p className="text-sm text-soft leading-relaxed">
-        결혼식 정보·청첩장·하객 RSVP를 저장할 데이터베이스예요.
+        결혼식 정보·청첩장·하객 RSVP를 저장하고 동기화할 데이터베이스예요.
         작은 개인 사이트는 보통 무료 플랜 범위에서 시작할 수 있지만,
         한도와 휴면 정책은 서비스 정책에 따라 바뀔 수 있습니다.
       </p>

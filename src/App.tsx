@@ -15,6 +15,8 @@ const Checklist = lazy(() => import("./routes/Checklist"));
 const Venues = lazy(() => import("./routes/Venues"));
 const Budget = lazy(() => import("./routes/Budget"));
 const Guests = lazy(() => import("./routes/Guests"));
+const Share = lazy(() => import("./routes/Share"));
+const AiSettings = lazy(() => import("./routes/AiSettings"));
 const Setup = lazy(() => import("./routes/Setup"));
 const Settings = lazy(() => import("./routes/Settings"));
 const Contact = lazy(() => import("./routes/Contact"));
@@ -81,6 +83,8 @@ export default function App() {
           <Route path="/venues" element={<Venues data={data!} update={update} />} />
           <Route path="/budget" element={<Budget data={data!} update={update} />} />
           <Route path="/guests" element={<Guests data={data!} update={update} />} />
+          <Route path="/share" element={<Share data={data!} update={update} />} />
+          <Route path="/ai" element={<AiSettings data={data!} />} />
           <Route path="/video" element={<Video data={data!} update={update} />} />
           <Route path="/settings" element={<Settings data={data!} update={update} />} />
           <Route path="/contact" element={<Contact data={data!} />} />

@@ -22,16 +22,23 @@ const FEATURES = [
 const MODES = [
   {
     id: "local",
-    title: "내 휴대폰에 저장",
-    oneLiner: "혼자 정리하고 카톡에 텍스트로 공유",
+    title: "내 기기에 저장",
+    oneLiner: "가입 없이 결혼 준비 데이터를 안전하게 모으기",
     difficulty: "가입 없음",
     highlight: true,
   },
   {
+    id: "share",
+    title: "파일로 공유하며 쓰기",
+    oneLiner: "Excel · CSV · 카톡 문안 · 인쇄용 파일로 전달",
+    difficulty: "로컬 + 공유",
+    highlight: false,
+  },
+  {
     id: "supabase",
-    title: "청첩장 링크 만들기",
-    oneLiner: "링크 공유 · 함께 편집 · 하객 RSVP",
-    difficulty: "배포용",
+    title: "커플 동기화 / 청첩장 사이트",
+    oneLiner: "같이 편집 · 링크 공유 · 하객 RSVP",
+    difficulty: "배포 필요",
     highlight: false,
   },
   {
@@ -68,7 +75,10 @@ export default function Welcome({ data, update }: Props) {
         data.invitation.brideName ||
         data.rings.length ||
         data.sdm.length ||
-        data.checklist.length
+        data.checklist.length ||
+        (data.venues ?? []).length ||
+        (data.budget ?? []).length ||
+        (data.guests ?? []).length
       );
       if (!hasContent) update(() => demoData());
     }
@@ -88,6 +98,7 @@ export default function Welcome({ data, update }: Props) {
       window.open("https://github.com/commet/wedding-os", "_blank", "noopener,noreferrer");
       return;
     }
+    const localMode = id === "local" || id === "share";
     update((prev: WeddingData) => {
       if (prev.preferences.isDemo) {
         const base = defaultData();
@@ -96,7 +107,7 @@ export default function Welcome({ data, update }: Props) {
           checklist: defaultChecklist(),
           preferences: {
             ...base.preferences,
-            mode: id === "local" ? "local" : null,
+            mode: localMode ? "local" : null,
             isDemo: false,
           },
         };
@@ -106,14 +117,14 @@ export default function Welcome({ data, update }: Props) {
         checklist: prev.checklist.length ? prev.checklist : defaultChecklist(prev.invitation.date),
         preferences: {
           ...prev.preferences,
-          mode: id === "local" ? "local" : null,
+          mode: localMode ? "local" : null,
           isDemo: false,
         },
       };
     });
 
-    if (id === "local") markOwner();
-    navigate(id === "local" ? "/dashboard" : "/setup");
+    if (localMode) markOwner();
+    navigate(id === "share" ? "/share" : id === "local" ? "/dashboard" : "/setup");
   };
 
   /* ──────── 모드 선택 단계 ──────── */
@@ -130,7 +141,7 @@ export default function Welcome({ data, update }: Props) {
             어떻게 시작할까요?
           </h1>
           <p className="text-soft text-[13px] leading-relaxed">
-            링크로 청첩장을 보낼 예정이면 두 번째를 고르세요.
+            배포 없이 시작할 수도 있고, 필요하면 나중에 링크 공유 모드로 올릴 수 있어요.
           </p>
         </div>
 
@@ -172,16 +183,17 @@ export default function Welcome({ data, update }: Props) {
                   <tr className="text-soft">
                     <th className="text-left py-2 font-normal eyebrow"></th>
                     <th className="text-center py-2 font-normal eyebrow">휴대폰</th>
+                    <th className="text-center py-2 font-normal eyebrow">파일</th>
                     <th className="text-center py-2 font-normal eyebrow">사이트</th>
                     <th className="text-center py-2 font-normal eyebrow">코드</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-hair">
-                  <tr><td className="py-3 text-soft">가입 필요</td><td className="text-center">없음</td><td className="text-center">2곳</td><td className="text-center">GitHub</td></tr>
-                  <tr><td className="py-3 text-soft">청첩장 공유</td><td className="text-center">텍스트</td><td className="text-center">링크</td><td className="text-center">자유</td></tr>
-                  <tr><td className="py-3 text-soft">함께 편집</td><td className="text-center">한 기기</td><td className="text-center">가능</td><td className="text-center">가능</td></tr>
-                  <tr><td className="py-3 text-soft">하객 RSVP</td><td className="text-center">불가</td><td className="text-center">가능</td><td className="text-center">가능</td></tr>
-                  <tr><td className="py-3 text-soft">비용</td><td className="text-center">무료</td><td className="text-center">무료</td><td className="text-center">무료</td></tr>
+                  <tr><td className="py-3 text-soft">가입 필요</td><td className="text-center">없음</td><td className="text-center">없음</td><td className="text-center">2곳</td><td className="text-center">GitHub</td></tr>
+                  <tr><td className="py-3 text-soft">청첩장 공유</td><td className="text-center">텍스트</td><td className="text-center">이미지/문안</td><td className="text-center">링크</td><td className="text-center">자유</td></tr>
+                  <tr><td className="py-3 text-soft">함께 편집</td><td className="text-center">한 기기</td><td className="text-center">파일 전달</td><td className="text-center">가능</td><td className="text-center">가능</td></tr>
+                  <tr><td className="py-3 text-soft">하객 RSVP</td><td className="text-center">불가</td><td className="text-center">불가</td><td className="text-center">가능</td><td className="text-center">가능</td></tr>
+                  <tr><td className="py-3 text-soft">배포 필요</td><td className="text-center">없음</td><td className="text-center">없음</td><td className="text-center">필요</td><td className="text-center">직접</td></tr>
                 </tbody>
               </table>
             </div>

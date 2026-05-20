@@ -135,6 +135,17 @@ export type RsvpInput = {
   message?: string;
 };
 
+export type RsvpRow = {
+  id: string;
+  name: string;
+  side?: "groom" | "bride";
+  attending: boolean;
+  guests?: number;
+  meal?: string;
+  message?: string;
+  created_at?: string;
+};
+
 // 한 기기·한 청첩장당 최소 60초 간격 — 봇/실수 도배 1차 방어.
 // (서버에서도 막아야 하지만 RLS 가 anon insert 만 허용하는 현재 구조에선 클라 가드가 1차 방어선.)
 const RSVP_RATE_LIMIT_MS = 60_000;
@@ -143,7 +154,8 @@ function rsvpRateLimitKey(url: string) { return `wedding-os/rsvp-last/${url}`; }
 export async function insertRsvp(
   url: string,
   anonKey: string,
-  rsvp: RsvpInput
+  rsvp: RsvpInput,
+  configId: string = DEFAULT_CONFIG_ID,
 ): Promise<{ ok: boolean; reason?: string }> {
   try {
     if (!url || !anonKey) return { ok: false, reason: "연결 정보 없음" };
@@ -172,6 +184,7 @@ export async function insertRsvp(
 
     const client = createClient(url, anonKey);
     const { error } = await client.from("rsvp").insert([{
+      config_id: configId,
       name,
       attending: rsvp.attending,
       side: rsvp.side,
@@ -184,6 +197,25 @@ export async function insertRsvp(
     return { ok: true };
   } catch (e: any) {
     return { ok: false, reason: e?.message ?? "알 수 없는 오류" };
+  }
+}
+
+/** 오너 기기에서 RSVP 목록 읽기 — SECURITY DEFINER RPC + owner token */
+export async function listRsvps(
+  url: string,
+  anonKey: string,
+  configId: string = DEFAULT_CONFIG_ID,
+): Promise<{ ok: boolean; rows?: RsvpRow[]; reason?: string }> {
+  try {
+    if (!url || !anonKey) return { ok: false, reason: "연결 정보 없음" };
+    if (!isSupabaseHost(url)) return { ok: false, reason: "안전하지 않은 호스트" };
+    const client = createClient(url, anonKey);
+    const ownerToken = getOrCreateOwnerToken();
+    const { data, error } = await client.rpc("list_rsvp", { p_id: configId, p_token: ownerToken });
+    if (error) return { ok: false, reason: error.message };
+    return { ok: true, rows: (data ?? []) as RsvpRow[] };
+  } catch (e: any) {
+    return { ok: false, reason: e?.message ?? "RSVP를 불러오지 못했어요" };
   }
 }
 

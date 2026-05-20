@@ -128,12 +128,24 @@ export default function Settings({ data, update }: Props) {
         )}
       </Section>
 
+      <Section title="공유 센터">
+        <p className="text-[12.5px] text-soft mb-4 leading-relaxed">
+          하객 명단, 예산, 체크리스트, 청첩장 문안을 Excel/CSV/이미지/인쇄용 파일로 꺼낼 수 있어요.
+        </p>
+        <Link to="/share" className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
+          공유 센터 열기 →
+        </Link>
+      </Section>
+
       <Section title="AI 편집 방식">
         <p className="text-[12px] text-soft leading-relaxed">
           앱이 AI 비용을 대신 청구하거나 서버로 내용을 보내지 않도록,
           현재는 <b className="text-ink">챗봇 다리 방식</b>으로 동작합니다.
           프롬프트를 ChatGPT / Claude / Gemini에 붙여넣고, 답변을 다시 붙여넣으면 영상 · 정보가 갱신됩니다.
         </p>
+        <Link to="/ai" className="text-[12px] underline underline-offset-4 text-ink hover:text-gold inline-block mt-3">
+          AI 연결 설정 →
+        </Link>
       </Section>
 
       {data.preferences.mode === "supabase" && (

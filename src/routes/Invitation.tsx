@@ -250,7 +250,7 @@ function RsvpModal({
   locale, supabase, onClose,
 }: {
   locale: Locale;
-  supabase?: { url: string; anonKey: string };
+  supabase?: { url: string; anonKey: string; configId?: string };
   onClose: () => void;
 }) {
   const [name, setName] = useState("");
@@ -275,7 +275,7 @@ function RsvpModal({
       guests: attending ? guests : 0,
       meal: meal.trim() || undefined,
       message: message.trim() || undefined,
-    } as RsvpInput);
+    } as RsvpInput, supabase.configId);
     if (r.ok) setStatus("ok");
     else {
       setStatus("fail");

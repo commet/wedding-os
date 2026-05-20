@@ -60,7 +60,17 @@ const SECRETS_KEY = "wedding-os/secrets/v1";
 
 type Secrets = {
   aiKey?: string;
+  ai?: AiConfig;
   ownerToken?: string;
+};
+
+export type AiProvider = "bridge" | "gemini" | "openai" | "anthropic" | "ollama";
+
+export type AiConfig = {
+  provider: AiProvider;
+  apiKey?: string;
+  model?: string;
+  baseUrl?: string;
 };
 
 export function getSecrets(): Secrets {
@@ -80,6 +90,27 @@ export function setSecrets(patch: Secrets): void {
     if (next.aiKey === "" || next.aiKey === undefined) delete next.aiKey;
     localStorage.setItem(SECRETS_KEY, JSON.stringify(next));
   } catch { /* 저장 실패는 조용히 — 사용자가 다시 입력하면 됨 */ }
+}
+
+export function getAiConfig(): AiConfig {
+  const ai = getSecrets().ai;
+  if (!ai || ai.provider === "bridge") return { provider: "bridge" };
+  return {
+    provider: ai.provider,
+    apiKey: ai.apiKey,
+    model: ai.model,
+    baseUrl: ai.baseUrl,
+  };
+}
+
+export function setAiConfig(ai: AiConfig): void {
+  const clean: AiConfig = {
+    provider: ai.provider,
+    apiKey: ai.apiKey?.trim() || undefined,
+    model: ai.model?.trim() || undefined,
+    baseUrl: ai.baseUrl?.trim() || undefined,
+  };
+  setSecrets({ ai: clean.provider === "bridge" ? { provider: "bridge" } : clean });
 }
 
 export function clearSecrets(): void {

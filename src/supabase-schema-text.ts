@@ -31,6 +31,7 @@ alter table public.wedding_data add column if not exists owner_token_hash text;
 
 create table if not exists public.rsvp (
   id uuid primary key default gen_random_uuid(),
+  config_id text not null default 'default',
   name text not null,
   side text check (side in ('groom', 'bride')),
   attending boolean not null,
@@ -39,6 +40,9 @@ create table if not exists public.rsvp (
   message text,
   created_at timestamptz not null default now()
 );
+
+alter table public.rsvp add column if not exists config_id text not null default 'default';
+create index if not exists rsvp_config_created_idx on public.rsvp (config_id, created_at desc);
 
 create table if not exists public.collab_comments (
   id uuid primary key default gen_random_uuid(),
@@ -167,9 +171,36 @@ as $$
   where id = p_id
 $$;
 
+create or replace function public.list_rsvp(p_id text default 'default', p_token text default null)
+returns table(
+  id uuid,
+  name text,
+  side text,
+  attending boolean,
+  guests int,
+  meal text,
+  message text,
+  created_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform public.ensure_wedding_owner(p_id, p_token);
+
+  return query
+  select r.id, r.name, r.side, r.attending, r.guests, r.meal, r.message, r.created_at
+  from public.rsvp r
+  where r.config_id = p_id
+  order by r.created_at desc;
+end;
+$$;
+
 grant execute on function public.load_wedding_data(text, text) to anon, authenticated;
 grant execute on function public.save_wedding_data(text, text, jsonb, int) to anon, authenticated;
 grant execute on function public.get_public_invitation(text) to anon, authenticated;
+grant execute on function public.list_rsvp(text, text) to anon, authenticated;
 
 -- updated_at 자동 갱신 + version 자동 증가 (낙관적 동시성)
 create or replace function public.touch_updated_at()

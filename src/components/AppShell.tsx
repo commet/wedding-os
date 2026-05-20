@@ -39,7 +39,11 @@ export default function AppShell({ data, children }: Props) {
     data.invitation.groomName ||
     data.invitation.brideName ||
     data.rings.length ||
-    data.sdm.length
+    data.sdm.length ||
+    data.checklist.length ||
+    (data.venues ?? []).length ||
+    (data.budget ?? []).length ||
+    (data.guests ?? []).length
   );
   const backupStale =
     data.preferences.mode === "local" &&

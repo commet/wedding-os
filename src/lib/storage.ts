@@ -180,6 +180,9 @@ function migrate(raw: unknown): WeddingData {
       };
     })(),
     checklist:   Array.isArray(data.checklist) ? data.checklist : [],
+    venues:      Array.isArray(data.venues)    ? data.venues    : [],
+    budget:      Array.isArray(data.budget)    ? data.budget    : [],
+    guests:      Array.isArray(data.guests)    ? data.guests    : [],
     video: (() => {
       const v = isPlainObject(data.video) ? data.video : {};
       return {

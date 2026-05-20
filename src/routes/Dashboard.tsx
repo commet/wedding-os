@@ -69,6 +69,7 @@ export default function Dashboard({ data, update }: Props) {
         { to: "/checklist", label: "체크리스트", sub: checklistTotal > 0 ? `${checklistDone}/${checklistTotal} 완료 · ${progress}%` : "일정 · 할 일" },
         { to: "/budget", label: "비용 관리", sub: budgetCount > 0 ? `${budgetCount}개 항목` : "예산 · 결제 · 초과 비용" },
         { to: "/guests", label: "하객 명단", sub: guestCount > 0 ? `${guestCount}명 · 참석 ${guestAttending}` : "이름 · 축의금 · 식수" },
+        { to: "/share", label: "공유 센터", sub: "Excel · PDF · 카톡 · 백업" },
       ],
     },
     {
@@ -86,6 +87,7 @@ export default function Dashboard({ data, update }: Props) {
       items: [
         { to: "/invitation", label: "모바일 청첩장", sub: "정보 입력 · 카톡 공유" },
         { to: "/video", label: "식전영상", sub: "사진 · BGM · 자연어 편집" },
+        { to: "/ai", label: "AI 연결", sub: "복붙 모드 · API 키 · 로컬 LLM" },
       ],
     },
   ];

@@ -75,7 +75,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("이미지 디코드 실패"));
+    img.onerror = () => reject(new Error("이미지 디코딩 실패"));
     img.src = src;
   });
 }

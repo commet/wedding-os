@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import type { WeddingData, Guest, GuestSide, GuestStatus } from "../lib/schema";
+import { listRsvps, type RsvpRow } from "../lib/storage.supabase";
 
 type Props = { data: WeddingData; update: (patch: any) => void };
 type Filter = "all" | "groom" | "bride" | "attending" | "pending";
@@ -23,6 +24,8 @@ export default function Guests({ data, update }: Props) {
   const [filter, setFilter] = useState<Filter>("all");
   const [search, setSearch] = useState("");
   const [newGuestName, setNewGuestName] = useState("");
+  const [rsvpStatus, setRsvpStatus] = useState<"idle" | "loading" | "ok" | "fail">("idle");
+  const [rsvpMsg, setRsvpMsg] = useState("");
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -82,6 +85,51 @@ export default function Guests({ data, update }: Props) {
     }));
   };
 
+  const importRsvps = async () => {
+    const sb = data.preferences.supabase;
+    if (data.preferences.mode !== "supabase" || !sb) {
+      setRsvpStatus("fail");
+      setRsvpMsg("RSVP 가져오기는 내 사이트 모드에서만 가능해요.");
+      return;
+    }
+    setRsvpStatus("loading");
+    setRsvpMsg("RSVP 응답을 불러오는 중…");
+    const r = await listRsvps(sb.url, sb.anonKey, sb.configId);
+    if (!r.ok) {
+      setRsvpStatus("fail");
+      setRsvpMsg(r.reason ?? "RSVP를 불러오지 못했어요.");
+      return;
+    }
+    const rows = r.rows ?? [];
+    let added = 0;
+    let updated = 0;
+    const nextGuests = [...guests];
+    for (const row of rows) {
+      const key = guestMatchKey(row.name, row.side ?? "shared");
+      const idx = nextGuests.findIndex((g) => guestMatchKey(g.name, g.side) === key);
+      const patch = rsvpToGuestPatch(row);
+      if (idx >= 0) {
+        nextGuests[idx] = { ...nextGuests[idx], ...patch, notes: mergeNotes(nextGuests[idx].notes, patch.notes) };
+        updated++;
+      } else {
+        nextGuests.push({
+          id: `rsvp-${row.id}`,
+          name: row.name,
+          side: row.side ?? "shared",
+          status: row.attending ? "참석" : "불참",
+          partyCount: row.attending ? Math.max(1, row.guests ?? 1) : 1,
+          meal: row.attending ? row.meal !== "식사 안 함" : false,
+          invitedAt: row.created_at?.split("T")[0],
+          notes: rsvpNote(row),
+        });
+        added++;
+      }
+    }
+    update((prev: WeddingData) => ({ ...prev, guests: nextGuests }));
+    setRsvpStatus("ok");
+    setRsvpMsg(`RSVP ${rows.length}건 확인 · ${added}명 추가 · ${updated}명 업데이트`);
+  };
+
   // 빈 상태
   if (guests.length === 0) {
     return (
@@ -103,6 +151,21 @@ export default function Guests({ data, update }: Props) {
           onSubmit={() => addGuest(newGuestName)}
           primary
         />
+        {data.preferences.mode === "supabase" && (
+          <div className="border-y border-hair py-4">
+            <div className="eyebrow-gold mb-2">RSVP</div>
+            <p className={`text-[11.5px] leading-relaxed mb-3 ${rsvpStatus === "fail" ? "text-gold" : "text-soft"}`}>
+              {rsvpMsg || "청첩장으로 받은 응답이 있다면 하객 명단으로 가져올 수 있어요."}
+            </p>
+            <button
+              onClick={importRsvps}
+              disabled={rsvpStatus === "loading"}
+              className="text-[12px] underline underline-offset-4 text-ink hover:text-gold disabled:opacity-40"
+            >
+              {rsvpStatus === "loading" ? "불러오는 중" : "RSVP 응답 가져오기 →"}
+            </button>
+          </div>
+        )}
       </div>
     );
   }
@@ -128,6 +191,23 @@ export default function Guests({ data, update }: Props) {
 
       {/* 검색 + 추가 */}
       <div className="space-y-4">
+        {data.preferences.mode === "supabase" && (
+          <div className="border-y border-hair py-4 flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="eyebrow-gold mb-1">RSVP</div>
+              <p className={`text-[11.5px] leading-relaxed ${rsvpStatus === "fail" ? "text-gold" : "text-soft"}`}>
+                {rsvpMsg || "청첩장 응답을 하객 명단으로 가져옵니다."}
+              </p>
+            </div>
+            <button
+              onClick={importRsvps}
+              disabled={rsvpStatus === "loading"}
+              className="text-[12px] underline underline-offset-4 text-ink hover:text-gold disabled:opacity-40 whitespace-nowrap"
+            >
+              {rsvpStatus === "loading" ? "불러오는 중" : "응답 가져오기 →"}
+            </button>
+          </div>
+        )}
         <input
           className="input text-[13px]"
           placeholder="이름·관계로 검색"
@@ -205,6 +285,36 @@ function AddGuestForm({
       </button>
     </form>
   );
+}
+
+function guestMatchKey(name: string, side: GuestSide) {
+  return `${name.trim().toLowerCase()}|${side}`;
+}
+
+function rsvpToGuestPatch(row: RsvpRow): Partial<Guest> {
+  return {
+    status: row.attending ? "참석" : "불참",
+    partyCount: row.attending ? Math.max(1, row.guests ?? 1) : 1,
+    meal: row.attending ? row.meal !== "식사 안 함" : false,
+    invitedAt: row.created_at?.split("T")[0],
+    notes: rsvpNote(row),
+  };
+}
+
+function rsvpNote(row: RsvpRow): string | undefined {
+  const parts = [
+    row.meal ? `식사: ${row.meal}` : "",
+    row.message ? `메시지: ${row.message}` : "",
+    row.created_at ? `RSVP: ${row.created_at.split("T")[0]}` : "",
+  ].filter(Boolean);
+  return parts.length ? parts.join(" / ") : undefined;
+}
+
+function mergeNotes(current?: string, incoming?: string) {
+  if (!incoming) return current;
+  if (!current) return incoming;
+  if (current.includes(incoming)) return current;
+  return `${current}\n${incoming}`;
 }
 
 function Stat({ label, value, accent, muted, unit, hint }: { label: string; value: number; accent?: boolean; muted?: boolean; unit?: string; hint?: string }) {
