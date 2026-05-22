@@ -9,15 +9,16 @@ export default function Privacy() {
         <h1 className="font-serif text-[2rem] leading-none">개인정보 · 보안 안내</h1>
       </div>
       <p className="eyebrow mt-3 mb-8">
-        최종 갱신 · 2026-05-17
+        최종 갱신 · 2026-05-22
       </p>
 
       <Section num="01" title="한눈에">
         <ul className="list-disc list-outside pl-5 space-y-1.5 marker:text-soft">
-          <li>본 도구는 <b>오픈소스 셀프 호스팅 도구</b>입니다. 운영자가 운영하는 중앙 데이터 서버는 없습니다.</li>
-          <li>입력하신 데이터는 <b>본인 기기(브라우저)</b> 또는 <b>본인이 직접 만든 Supabase 프로젝트</b>에만 저장됩니다.</li>
-          <li>운영자(yclee913) 는 사용자 데이터에 <b>접근할 수 없습니다</b>.</li>
-          <li>AI 기능은 사용자가 직접 챗봇(ChatGPT/Claude/Gemini) 에 복붙하는 방식으로 동작합니다.</li>
+          <li>본 도구는 <b>오픈소스 도구</b>입니다. 기본 저장은 <b>본인 기기 또는 본인 인프라</b>이며, 중앙 데이터 서버는 없습니다.</li>
+          <li>입력하신 데이터는 <b>본인 기기(브라우저)</b> 또는 <b>본인이 직접 만든 Supabase 프로젝트</b>에 저장됩니다.</li>
+          <li>선택 기능인 <b>'간편 발행'</b>만 운영자 서버에 데이터를 올리며, 이때도 내용은 <b>종단간 암호화</b>되어 운영자가 읽을 수 없습니다 (08 항목 참고).</li>
+          <li>운영자(yclee913)는 사용자 데이터의 <b>내용을 읽을 수 없습니다</b>.</li>
+          <li>AI 기능은 사용자가 직접 챗봇(ChatGPT/Claude/Gemini)에 복붙하거나, 본인 API 키로 실행합니다.</li>
         </ul>
       </Section>
 
@@ -40,6 +41,7 @@ export default function Privacy() {
           <li><b>모드 1 (휴대폰 저장)</b> · 입력값은 본인 브라우저의 localStorage 에만 저장됩니다. 외부 전송 없음.</li>
           <li><b>모드 2 (내 사이트)</b> · 본인이 가입한 Supabase 프로젝트에 직접 저장됩니다. 공개 청첩장 링크는 청첩장 정보만 읽습니다.</li>
           <li><b>모드 3 (개발자 모드)</b> · 코드를 받아 본인 인프라에서 직접 운영합니다.</li>
+          <li><b>간편 발행 (선택)</b> · 청첩장을 운영자 서버에 <b>암호화</b>해 올려 공유 링크를 만듭니다. 08 항목 참고.</li>
         </ul>
       </Section>
 
@@ -81,7 +83,36 @@ export default function Privacy() {
         </p>
       </Section>
 
-      <Section num="08" title="문의" last>
+      <Section num="08" title="간편 발행 청첩장 (운영자 호스팅)">
+        <p className="mb-3 text-soft">
+          '간편 발행'은 청첩장을 운영자 서버에 올려 진짜 공유 링크를 만드는 <b className="text-ink">선택 기능</b>입니다.
+        </p>
+        <ul className="list-disc list-outside pl-5 space-y-1.5 marker:text-soft">
+          <li>
+            <b>종단간 암호화</b> · 청첩장 본문(이름·인사말·식장·연락처·계좌·사진)과 하객 RSVP는
+            사용자 브라우저에서 암호화된 뒤 업로드됩니다. 복호화 키는 공유 링크의{" "}
+            <code className="bg-cream px-1">#</code> 뒤에만 있고 서버로 전송되지 않으므로,
+            <b className="text-ink"> 운영자는 청첩장 내용도 RSVP도 읽을 수 없습니다.</b>
+          </li>
+          <li>
+            <b>평문 보관 항목</b> · 카카오톡 링크 미리보기를 위해 <b className="text-ink">신랑·신부 이름과 예식 날짜</b>만
+            암호화하지 않고 보관합니다. 그 외 정보는 모두 암호문입니다.
+          </li>
+          <li>
+            <b>링크를 가진 사람</b> · 발행된 청첩장은 링크(키 포함)를 가진 누구나 열 수 있습니다.
+            하객에게 보내는 용도이므로 의도된 동작이며, 링크에 진짜 비밀은 담지 마세요.
+          </li>
+          <li><b>보관 기간</b> · 발행된 청첩장은 예식일 +6개월 뒤 자동으로 만료·삭제됩니다.</li>
+        </ul>
+        <p className="text-[11.5px] text-soft mt-4 leading-relaxed">
+          <b className="text-ink">이용 조건</b> · 간편 발행은 무료 편의 기능으로 제공되며 가용성·보존을
+          보장하지 않습니다. 중요한 데이터는 [더보기 → 백업]으로 따로 보관하세요. 불법이거나 타인의 권리를
+          침해하는 콘텐츠의 발행은 금지되며, 신고가 접수되면 운영자가 삭제할 수 있습니다 (운영자는 암호문을
+          못 읽으므로 신고에 의존합니다). 더 강한 통제가 필요하면 모드 2(본인 Supabase) 또는 모드 3을 사용하세요.
+        </p>
+      </Section>
+
+      <Section num="09" title="문의" last>
         <p>
           오류 · 보안 · 삭제 요청 등은{" "}
           <a className="underline underline-offset-2 text-ink" href="mailto:yclee913@gmail.com" rel="noopener noreferrer">yclee913@gmail.com</a>
