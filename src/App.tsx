@@ -23,10 +23,21 @@ const Contact = lazy(() => import("./routes/Contact"));
 const Privacy = lazy(() => import("./routes/Privacy"));
 // 식전영상 에디터는 Remotion(무거움)을 쓰므로 별도 청크.
 const Video = lazy(() => import("./routes/Video"));
+// 호스팅 발행 청첩장 — 게스트가 /i/<code> 로 여는 단독 화면.
+const HostedInvitation = lazy(() => import("./routes/HostedInvitation"));
 
 export default function App() {
   const { data, loading, update } = useWeddingData();
   const location = useLocation();
+
+  // 호스팅 발행 청첩장(/i/<code>) — 게스트 전용. 앱 셸·데이터 없이 단독 렌더.
+  if (location.pathname.startsWith("/i/")) {
+    return (
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-soft">청첩장을 여는 중…</div>}>
+        <HostedInvitation />
+      </Suspense>
+    );
+  }
 
   if (loading) {
     return (

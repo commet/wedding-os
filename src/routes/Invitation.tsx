@@ -12,6 +12,7 @@ import { uploadImage } from "../lib/imageStore";
 import SafeImg from "../components/SafeImg";
 import { useSaveStatus } from "../lib/storage";
 import { daysUntilISODate, parseISODateLocal } from "../lib/date";
+import { publishInvitation } from "../lib/inviteHosting";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type Tab = "edit" | "preview";
@@ -213,7 +214,7 @@ export default function Invitation({ data, update }: Props) {
       )}
 
       {tab === "edit" && !guest ? (
-        <EditForm inv={inv} set={set} mode={data.preferences.mode} />
+        <EditForm inv={inv} set={set} mode={data.preferences.mode} data={data} />
       ) : (
         <Preview
           inv={inv}
@@ -409,7 +410,7 @@ function TabBtn({ active, onClick, children }: any) {
 
 /* ════════════ 미리보기 — 실제 청첩장 ════════════ */
 
-function Preview({
+export function Preview({
   inv, locale, rsvpEnabled, onRsvpClick, hideShareBox, onShare, shareCopied,
 }: {
   inv: InvitationContent;
@@ -700,12 +701,152 @@ function MiniCalendar({ date, chipClass, fontClass = "font-serif" }: { date: Dat
   );
 }
 
+/* ════════════ 청첩장 발행 ════════════ */
+
+const PUBLISHED_KEY = "wedding-os/published-invite";
+type PublishedInvite = { code: string; keyRaw: string; publishedAt: string };
+
+function loadPublished(): PublishedInvite | null {
+  try {
+    const raw = localStorage.getItem(PUBLISHED_KEY);
+    return raw ? (JSON.parse(raw) as PublishedInvite) : null;
+  } catch {
+    return null;
+  }
+}
+function storePublished(p: PublishedInvite | null) {
+  try {
+    if (p) localStorage.setItem(PUBLISHED_KEY, JSON.stringify(p));
+    else localStorage.removeItem(PUBLISHED_KEY);
+  } catch {
+    /* noop */
+  }
+}
+
+// 청첩장 '간편 발행' — 운영자 호스팅으로 진짜 링크를 만든다.
+// 본문은 암호화돼 올라가고 키는 링크 '#' 에만 — 운영자는 내용을 못 읽는다.
+function PublishSection({ data }: { data: WeddingData }) {
+  const [published, setPublished] = useState<PublishedInvite | null>(() => loadPublished());
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [isError, setIsError] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const inv = data.invitation;
+  const link = published
+    ? `${window.location.origin}/i/${published.code}#k=${published.keyRaw}`
+    : "";
+
+  const doPublish = async () => {
+    if (!inv.groomName || !inv.brideName) {
+      setIsError(true);
+      setMessage("신랑·신부 이름을 먼저 입력해주세요.");
+      return;
+    }
+    setBusy(true);
+    setMessage("");
+    setIsError(false);
+    const r = await publishInvitation(
+      data,
+      published ? { code: published.code, keyRaw: published.keyRaw } : undefined,
+    );
+    setBusy(false);
+    if (r.ok) {
+      const next: PublishedInvite = {
+        code: r.code,
+        keyRaw: r.keyRaw,
+        publishedAt: new Date().toISOString(),
+      };
+      storePublished(next);
+      setPublished(next);
+      setIsError(false);
+      setMessage(
+        r.droppedPhotos > 0
+          ? `발행 완료 — 사진 ${r.droppedPhotos}장은 원본을 못 찾아 빠졌어요.`
+          : "발행 완료! 아래 링크를 하객에게 보내세요.",
+      );
+    } else {
+      setIsError(true);
+      setMessage(r.reason);
+    }
+  };
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2400);
+    } catch {
+      window.prompt("아래 링크를 복사해 하객에게 보내세요:", link);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <p className="text-[12.5px] text-soft leading-relaxed">
+        청첩장을 <b className="text-ink">진짜 링크</b>로 발행합니다. 하객은 링크만 열면
+        청첩장을 볼 수 있어요. 내용은 <b className="text-ink">암호화</b>되어 올라가며,
+        운영자도 청첩장 내용을 읽을 수 없습니다 (이름·날짜만 카톡 미리보기용으로 보관).
+      </p>
+
+      {published ? (
+        <div className="space-y-3">
+          <div className="border-y border-hair py-3">
+            <div className="eyebrow-gold mb-1.5">발행된 링크</div>
+            <div className="text-[12px] text-ink break-all leading-relaxed">{link}</div>
+          </div>
+          <div className="flex gap-3">
+            <button onClick={copyLink} className="btn-primary flex-1 py-3 text-[12px]">
+              {copied ? "복사됨" : "링크 복사"}
+            </button>
+            <a
+              href={`/i/${published.code}#k=${published.keyRaw}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 text-center border border-hair py-3 text-[12px] text-ink hover:border-ink transition"
+            >
+              미리보기 ↗
+            </a>
+          </div>
+          <button
+            onClick={doPublish}
+            disabled={busy}
+            className="block w-full text-[12px] text-soft underline underline-offset-4 hover:text-ink disabled:opacity-40"
+          >
+            {busy ? "갱신 중…" : "수정 내용 다시 반영 (재발행)"}
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={doPublish}
+          disabled={busy}
+          className="btn-primary w-full py-3.5 text-[12.5px] disabled:opacity-50"
+        >
+          {busy ? "발행 중…" : "청첩장 발행하기 →"}
+        </button>
+      )}
+
+      {message && (
+        <p className={`text-[11.5px] leading-relaxed ${isError ? "text-gold" : "text-soft"}`}>
+          {message}
+        </p>
+      )}
+
+      <p className="text-[11px] text-soft leading-relaxed border-t border-hair pt-3">
+        링크는 이 기기에 저장됩니다. 재발행·수정은 발행한 기기에서만 가능해요.
+        발행된 청첩장은 결혼식 6개월 뒤 자동으로 만료됩니다.
+      </p>
+    </div>
+  );
+}
+
 /* ════════════ 편집 폼 ════════════ */
 
-function EditForm({ inv, set, mode }: {
+function EditForm({ inv, set, mode, data }: {
   inv: InvitationContent;
   set: (k: any, v: any) => void;
   mode: "local" | "supabase" | "devOnly" | null;
+  data: WeddingData;
 }) {
   const [picker, setPicker] = useState<null | "hero" | "gallery">(null);
   const theme = (inv.theme as Theme) ?? "cream";
@@ -723,6 +864,10 @@ function EditForm({ inv, set, mode }: {
           {saveLabel} · 입력하면 바로 반영됩니다
         </div>
       </div>
+
+      <Section title="청첩장 발행 — 진짜 링크 만들기" defaultOpen={false}>
+        <PublishSection data={data} />
+      </Section>
 
       <Section title="대표 사진 & 색감" defaultOpen>
         {inv.heroImageUrl && (
