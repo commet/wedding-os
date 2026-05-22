@@ -6,10 +6,11 @@
 //           code 없음 → 새 발행(코드 생성).  code 있음 → 재발행(ownerToken 해시 검증).
 // 응답   : { code } 또는 { error }
 //
-// 운영자 평문 보관 범위: ogMeta(이름·날짜)뿐 — 카톡 미리보기용, 가장 덜 민감한 조각.
-// 그 외 청첩장 내용·전화·계좌·사진은 전부 암호문 안에 있어 운영자가 못 읽는다.
+// Blob 은 모두 access:'private' — 추측 가능한 공개 URL 이 없고, 읽기는 이 프로젝트의
+// 함수(토큰 보유)만 가능. 운영자가 평문으로 보는 건 ogMeta(이름·날짜)뿐이며,
+// 그 외 청첩장 내용·전화·계좌·사진은 전부 암호문 안에 있어 운영자도 못 읽는다.
 
-import { put, list } from "@vercel/blob";
+import { put, get } from "@vercel/blob";
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -56,13 +57,10 @@ function computeExpiry(weddingDate: string): string {
 }
 
 async function readStoredMeta(code: string, token: string): Promise<StoredMeta | null> {
-  const { blobs } = await list({ prefix: `invite/${code}/`, token });
-  const metaBlob = blobs.find((b) => b.pathname === `invite/${code}/meta.json`);
-  if (!metaBlob) return null;
   try {
-    const res = await fetch(metaBlob.url, { cache: "no-store" });
-    if (!res.ok) return null;
-    return (await res.json()) as StoredMeta;
+    const res = await get(`invite/${code}/meta.json`, { access: "private", token });
+    if (!res || res.statusCode !== 200) return null;
+    return (await new Response(res.stream).json()) as StoredMeta;
   } catch {
     return null;
   }
@@ -118,14 +116,14 @@ export default async function handler(req: Request): Promise<Response> {
 
   try {
     await put(`invite/${code}/payload.enc`, ciphertext, {
-      access: "public",
+      access: "private",
       addRandomSuffix: false,
       allowOverwrite: true,
       contentType: "application/octet-stream",
       token,
     });
     await put(`invite/${code}/meta.json`, JSON.stringify(stored), {
-      access: "public",
+      access: "private",
       addRandomSuffix: false,
       allowOverwrite: true,
       contentType: "application/json",
