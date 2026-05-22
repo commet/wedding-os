@@ -5,6 +5,7 @@
 
 import type { WeddingData, InvitationContent } from "./schema";
 import { sealInvitation, openInvitation } from "./invitePublish";
+import { importInviteKey, encryptJSON, decryptJSON } from "./inviteCrypto";
 import { getOrCreateOwnerToken } from "./security";
 
 const PUBLISH_ENDPOINT = "/api/invite-publish";
@@ -67,5 +68,81 @@ export async function openHostedInvitation(code: string, keyRaw: string): Promis
     return { ok: true, invitation };
   } catch {
     return { ok: false, reason: "청첩장을 여는 데 실패했어요. 링크가 올바른지 확인해주세요." };
+  }
+}
+
+/* ──────────── RSVP (종단간 암호화) ──────────── */
+
+const RSVP_ENDPOINT = "/api/invite-rsvp";
+
+export type HostedRsvpInput = {
+  name: string;
+  attending: boolean;
+  side?: "groom" | "bride";
+  guests?: number;
+  meal?: string;
+  message?: string;
+};
+export type HostedRsvp = HostedRsvpInput & { submittedAt: string };
+
+function base64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+/** 게스트 측 — RSVP 를 청첩장과 같은 키로 암호화해 제출. 운영자는 못 읽는다. */
+export async function submitHostedRsvp(
+  code: string,
+  keyRaw: string,
+  input: HostedRsvpInput,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  try {
+    const key = await importInviteKey(keyRaw);
+    const rsvp: HostedRsvp = { ...input, submittedAt: new Date().toISOString() };
+    const ciphertext = await encryptJSON(rsvp, key);
+    const res = await fetch(`${RSVP_ENDPOINT}?code=${encodeURIComponent(code)}`, {
+      method: "POST",
+      headers: { "content-type": "application/octet-stream" },
+      body: ciphertext,
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      return { ok: false, reason: body?.error ?? "응답 전송에 실패했어요." };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, reason: "응답을 보내는 중 오류가 났어요." };
+  }
+}
+
+/** 오너 측 — 받은 RSVP 를 가져와 키로 복호화. ownerToken 으로 권한 검증된다. */
+export async function fetchHostedRsvps(
+  code: string,
+  keyRaw: string,
+): Promise<{ ok: true; rsvps: HostedRsvp[] } | { ok: false; reason: string }> {
+  try {
+    const owner = toBase64Url(getOrCreateOwnerToken());
+    const res = await fetch(
+      `${RSVP_ENDPOINT}?code=${encodeURIComponent(code)}&owner=${owner}`,
+    );
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !Array.isArray(body?.rsvps)) {
+      return { ok: false, reason: body?.error ?? "RSVP 를 불러오지 못했어요." };
+    }
+    const key = await importInviteKey(keyRaw);
+    const rsvps: HostedRsvp[] = [];
+    for (const b64 of body.rsvps as string[]) {
+      try {
+        rsvps.push(await decryptJSON<HostedRsvp>(base64ToBytes(b64), key));
+      } catch {
+        /* 손상된 항목은 건너뜀 */
+      }
+    }
+    rsvps.sort((a, b) => (b.submittedAt ?? "").localeCompare(a.submittedAt ?? ""));
+    return { ok: true, rsvps };
+  } catch {
+    return { ok: false, reason: "RSVP 를 불러오는 중 오류가 났어요." };
   }
 }

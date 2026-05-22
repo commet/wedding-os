@@ -4,8 +4,8 @@
 
 import { useEffect, useState } from "react";
 import type { InvitationContent } from "../lib/schema";
-import { openHostedInvitation } from "../lib/inviteHosting";
-import { Preview } from "./Invitation";
+import { openHostedInvitation, submitHostedRsvp } from "../lib/inviteHosting";
+import { Preview, RsvpModal } from "./Invitation";
 
 type State =
   | { phase: "loading" }
@@ -13,21 +13,23 @@ type State =
   | { phase: "ready"; invitation: InvitationContent };
 
 export default function HostedInvitation() {
+  const code = window.location.pathname.split("/")[2] ?? "";
+  const keyRaw = (() => {
+    const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : "";
+    return new URLSearchParams(hash).get("k") ?? "";
+  })();
+
   const [state, setState] = useState<State>({ phase: "loading" });
+  const [showRsvp, setShowRsvp] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const code = window.location.pathname.split("/")[2] ?? "";
-      const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : "";
-      const keyRaw = new URLSearchParams(hash).get("k") ?? "";
       if (!code || !keyRaw) {
-        if (!cancelled) {
-          setState({
-            phase: "error",
-            reason: "청첩장 링크가 올바르지 않아요. 받은 링크 전체를 다시 열어주세요.",
-          });
-        }
+        setState({
+          phase: "error",
+          reason: "청첩장 링크가 올바르지 않아요. 받은 링크 전체를 다시 열어주세요.",
+        });
         return;
       }
       const r = await openHostedInvitation(code, keyRaw);
@@ -41,7 +43,7 @@ export default function HostedInvitation() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [code, keyRaw]);
 
   if (state.phase === "loading") {
     return (
@@ -67,7 +69,20 @@ export default function HostedInvitation() {
 
   return (
     <div className="max-w-app mx-auto bg-paper min-h-screen">
-      <Preview inv={state.invitation} locale="ko" rsvpEnabled={false} hideShareBox />
+      <Preview
+        inv={state.invitation}
+        locale="ko"
+        rsvpEnabled
+        onRsvpClick={() => setShowRsvp(true)}
+        hideShareBox
+      />
+      {showRsvp && (
+        <RsvpModal
+          locale="ko"
+          onClose={() => setShowRsvp(false)}
+          onSubmit={(input) => submitHostedRsvp(code, keyRaw, input)}
+        />
+      )}
     </div>
   );
 }

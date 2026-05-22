@@ -12,7 +12,7 @@ import { uploadImage } from "../lib/imageStore";
 import SafeImg from "../components/SafeImg";
 import { useSaveStatus } from "../lib/storage";
 import { daysUntilISODate, parseISODateLocal } from "../lib/date";
-import { publishInvitation } from "../lib/inviteHosting";
+import { publishInvitation, fetchHostedRsvps, type HostedRsvp } from "../lib/inviteHosting";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type Tab = "edit" | "preview";
@@ -230,8 +230,12 @@ export default function Invitation({ data, update }: Props) {
       {showRsvp && (
         <RsvpModal
           locale={locale}
-          supabase={data.preferences.supabase}
           onClose={() => setShowRsvp(false)}
+          onSubmit={async (input) => {
+            const sb = data.preferences.supabase;
+            if (!sb) return { ok: false, reason: "아직 청첩장 셋업이 안 끝났어요" };
+            return insertRsvp(sb.url, sb.anonKey, input, sb.configId);
+          }}
         />
       )}
 
@@ -256,12 +260,12 @@ export default function Invitation({ data, update }: Props) {
   );
 }
 
-function RsvpModal({
-  locale, supabase, onClose,
+export function RsvpModal({
+  locale, onClose, onSubmit,
 }: {
   locale: Locale;
-  supabase?: { url: string; anonKey: string; configId?: string };
   onClose: () => void;
+  onSubmit: (input: RsvpInput) => Promise<{ ok: boolean; reason?: string }>;
 }) {
   const [name, setName] = useState("");
   const [attending, setAttending] = useState<boolean | null>(null);
@@ -275,17 +279,16 @@ function RsvpModal({
   const submit = async () => {
     if (!name.trim()) return setErrMsg("이름을 적어주세요");
     if (attending === null) return setErrMsg("참석 여부를 선택해주세요");
-    if (!supabase) return setErrMsg("아직 청첩장 셋업이 안 끝났어요");
     setStatus("sending");
     setErrMsg("");
-    const r = await insertRsvp(supabase.url, supabase.anonKey, {
+    const r = await onSubmit({
       name: name.trim(),
       attending,
       side,
       guests: attending ? guests : 0,
       meal: meal.trim() || undefined,
       message: message.trim() || undefined,
-    } as RsvpInput, supabase.configId);
+    });
     if (r.ok) setStatus("ok");
     else {
       setStatus("fail");
@@ -731,6 +734,9 @@ function PublishSection({ data }: { data: WeddingData }) {
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [rsvps, setRsvps] = useState<HostedRsvp[] | null>(null);
+  const [rsvpBusy, setRsvpBusy] = useState(false);
+  const [rsvpMsg, setRsvpMsg] = useState("");
 
   const inv = data.invitation;
   const link = published
@@ -781,6 +787,20 @@ function PublishSection({ data }: { data: WeddingData }) {
     }
   };
 
+  const loadRsvps = async () => {
+    if (!published) return;
+    setRsvpBusy(true);
+    setRsvpMsg("");
+    const r = await fetchHostedRsvps(published.code, published.keyRaw);
+    setRsvpBusy(false);
+    if (r.ok) {
+      setRsvps(r.rsvps);
+      setRsvpMsg(r.rsvps.length === 0 ? "아직 받은 응답이 없어요." : "");
+    } else {
+      setRsvpMsg(r.reason);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <p className="text-[12.5px] text-soft leading-relaxed">
@@ -815,6 +835,40 @@ function PublishSection({ data }: { data: WeddingData }) {
           >
             {busy ? "갱신 중…" : "수정 내용 다시 반영 (재발행)"}
           </button>
+
+          <div className="border-t border-hair pt-3 space-y-2">
+            <div className="flex items-center justify-between gap-3">
+              <div className="eyebrow-gold">받은 RSVP{rsvps ? ` · ${rsvps.length}` : ""}</div>
+              <button
+                onClick={loadRsvps}
+                disabled={rsvpBusy}
+                className="text-[12px] underline underline-offset-4 text-ink hover:text-gold disabled:opacity-40"
+              >
+                {rsvpBusy ? "불러오는 중…" : rsvps ? "새로고침" : "응답 보기"}
+              </button>
+            </div>
+            {rsvpMsg && <p className="text-[11.5px] text-soft">{rsvpMsg}</p>}
+            {rsvps && rsvps.length > 0 && (
+              <ul className="divide-y divide-hair border-y border-hair">
+                {rsvps.map((r, i) => (
+                  <li key={i} className="py-2.5 text-[12px]">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-ink font-medium">{r.name}</span>
+                      <span className={r.attending ? "text-gold" : "text-soft"}>
+                        {r.attending ? `참석 · ${r.guests ?? 1}명` : "불참"}
+                      </span>
+                    </div>
+                    {(r.meal || r.message) && (
+                      <div className="text-[11px] text-soft mt-1 leading-relaxed">
+                        {r.meal && <div>식사: {r.meal}</div>}
+                        {r.message && <div>{r.message}</div>}
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       ) : (
         <button
