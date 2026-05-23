@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
+    { "source": "/i/:code", "destination": "/api/serve-invite?code=:code" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [

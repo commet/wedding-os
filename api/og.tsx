@@ -16,6 +16,7 @@
 //   - Supabase 환경변수 없음 → wedding-os 기본 카드
 
 import { ImageResponse } from "@vercel/og";
+import { get as blobGet } from "@vercel/blob";
 
 // Edge runtime 에 실제로 노출되는 환경변수만 declare — @types/node 를 끌고 오면
 // fs / Buffer 같은 edge 에서 못 쓰는 API 가 타입에 잡혀 오히려 사고 위험.
@@ -58,6 +59,32 @@ type Invitation = {
   heroImageUrl?: string;
 };
 
+// '간편 발행' 청첩장 — Vercel Blob 의 meta.json 에서 ogMeta 만 읽는다 (이름·날짜).
+// 본문은 암호문이라 어차피 읽을 수 없고, 카드에는 어차피 안 들어간다.
+async function loadFromBlob(code: string): Promise<Invitation | null> {
+  const token =
+    (typeof process !== "undefined" && process.env.BLOB_READ_WRITE_TOKEN) || "";
+  if (!token) return null;
+  try {
+    const res = await blobGet(`invite/${code}/meta.json`, { access: "private", token });
+    if (!res || res.statusCode !== 200) return null;
+    const stored = (await new Response(res.stream).json()) as {
+      ogMeta?: { groomName?: string; brideName?: string; date?: string };
+      expiresAt?: string;
+    };
+    if (stored.expiresAt && new Date(stored.expiresAt).getTime() < Date.now()) return null;
+    const og = stored.ogMeta;
+    if (!og) return null;
+    return {
+      groomName: og.groomName,
+      brideName: og.brideName,
+      date: og.date,
+    };
+  } catch {
+    return null;
+  }
+}
+
 async function loadInvitation(): Promise<Invitation | null> {
   const url =
     (typeof process !== "undefined" && (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL)) || "";
@@ -91,8 +118,15 @@ function formatDate(iso?: string): string {
   return `${d.getFullYear()}. ${d.getMonth() + 1}. ${d.getDate()}. (${days[d.getDay()]})`;
 }
 
-export default async function handler(_req: Request) {
-  const inv = await loadInvitation();
+export default async function handler(req: Request) {
+  // '간편 발행' 청첩장은 ?code=<code> 로 호출 → 해당 코드의 ogMeta 로 카드 합성.
+  // 코드 없거나 못 찾으면 기존 동작(Supabase env 기반 또는 기본 카드).
+  const code = new URL(req.url).searchParams.get("code") ?? "";
+  let inv: Invitation | null = null;
+  if (/^[a-z0-9]{6,16}$/.test(code)) {
+    inv = await loadFromBlob(code);
+  }
+  if (!inv) inv = await loadInvitation();
 
   const groom = inv?.groomName || "Wedding";
   const bride = inv?.brideName || "OS";
