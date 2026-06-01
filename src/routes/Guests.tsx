@@ -78,6 +78,14 @@ export default function Guests({ data, update }: Props) {
   };
 
   const removeGuest = (id: string) => {
+    const g = guests.find((x) => x.id === id);
+    const name = g?.name?.trim();
+    const hasGift = typeof g?.giftKRW === "number" && g.giftKRW > 0;
+    // 축의금이 적힌 하객은 실수 삭제 시 손실이 크므로 더 또렷이 경고.
+    const msg = hasGift
+      ? `'${name || "이 하객"}' 님을 삭제할까요?\n축의금 기록도 함께 사라지고 되돌릴 수 없어요.`
+      : `'${name || "이 하객"}' 님을 삭제할까요?\n되돌릴 수 없어요.`;
+    if (!confirm(msg)) return;
     update((prev: WeddingData) => ({
       ...prev,
       guests: (prev.guests ?? []).filter((g) => g.id !== id),

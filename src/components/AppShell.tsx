@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { NavLink, useLocation, Link, useNavigate } from "react-router-dom";
-import type { WeddingData } from "../lib/schema";
+import type { WeddingData, Mode } from "../lib/schema";
 import { daysSince } from "../lib/freshness";
 import { useSaveStatus, useRealtimeStatus, useConflictStatus, clearConflict } from "../lib/storage";
 
@@ -203,8 +203,11 @@ export default function AppShell({ data, children }: Props) {
   );
 }
 
-function ModeBadge({ mode }: { mode: "local" | "supabase" | "devOnly" }) {
-  const label = mode === "local" ? "내 휴대폰" : mode === "supabase" ? "내 사이트" : "개발자";
+function ModeBadge({ mode }: { mode: Mode }) {
+  const label =
+    mode === "local" ? "내 휴대폰" :
+    mode === "hosted" ? "간편" :
+    mode === "supabase" ? "내 사이트" : "개발자";
   return (
     <Link to="/settings" className="eyebrow hover:text-ink transition">
       {label}
@@ -212,9 +215,9 @@ function ModeBadge({ mode }: { mode: "local" | "supabase" | "devOnly" }) {
   );
 }
 
-// supabase 모드에서 네트워크 저장 상태를 작게 노출. local 모드는 즉시 저장이라 표시 안 함.
-function SaveBadge({ status, mode }: { status: "idle" | "saving" | "saved" | "error"; mode: "local" | "supabase" | "devOnly" | null }) {
-  if (mode !== "supabase") return null;
+// 네트워크 저장 모드(supabase/hosted)에서 저장 상태를 작게 노출. local 은 즉시 저장이라 표시 안 함.
+function SaveBadge({ status, mode }: { status: "idle" | "saving" | "saved" | "error"; mode: Mode | null }) {
+  if (mode !== "supabase" && mode !== "hosted") return null;
   if (status === "idle") return null;
   const map = {
     saving: { text: "저장 중", cls: "text-soft" },

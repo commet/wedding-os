@@ -3,7 +3,11 @@
 
 export const SCHEMA_VERSION = 1;
 
-export type Mode = "local" | "supabase" | "devOnly";
+// local      — 이 기기에만 (오프라인)
+// hosted     — 운영자 호스팅 + 종단간 암호화 (간편). 운영자 서버엔 암호문만.
+// supabase   — 내 Supabase 직접 (독립)
+// devOnly    — 개발자 모드 (코드 직접)
+export type Mode = "local" | "hosted" | "supabase" | "devOnly";
 
 export type Verifiable = {
   /** ISO date — 이 값을 마지막으로 확인/입력한 날짜 */
@@ -268,6 +272,16 @@ export type Preferences = {
   // 이전 버전 호환은 storage.ts 의 migrate() 가 발견 시 secrets 로 옮긴 뒤 제거.
 };
 
+// 발행(간편 호스팅) 자격증명. 백업·기기교체 복구를 위해 WeddingData 안에 보관한다.
+// 주의: 반드시 top-level — invitation 밑에 두면 get_public_invitation RPC 로 게스트에게
+// code·keyRaw 가 새어나간다. keyRaw 는 청첩장 복호화 키이므로 invitation 트리 밖에 둔다.
+// (ownerToken 은 여기 두지 않는다 — 마스터 자격증명이라 secrets 저장소에만 보관, 백업 제외.)
+export type PublishedInvite = {
+  code: string;
+  keyRaw: string;
+  publishedAt: string;
+};
+
 export type WeddingData = {
   schemaVersion: number;
   preferences: Preferences;
@@ -282,6 +296,8 @@ export type WeddingData = {
   venues?: WeddingVenue[];
   budget?: BudgetItem[];
   guests?: Guest[];
+  /** 발행한 청첩장의 code·keyRaw. 미발행이면 undefined. */
+  publish?: PublishedInvite;
 };
 
 export function defaultData(): WeddingData {

@@ -18,14 +18,6 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-function decodeBase64Url(s: string): string {
-  const b64 = s.replace(/-/g, "+").replace(/_/g, "/");
-  const bin = atob(b64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return new TextDecoder().decode(bytes);
-}
-
 function bytesToBase64(bytes: Uint8Array): string {
   let bin = "";
   for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
@@ -86,16 +78,12 @@ export default async function handler(req: Request): Promise<Response> {
 
   // ── 오너가 받은 RSVP 조회 ──
   if (req.method === "GET") {
-    const ownerB64 = url.searchParams.get("owner") ?? "";
-    if (!ownerB64) return json({ error: "권한 정보가 없습니다." }, 400);
+    // 토큰은 헤더로 받는다 — 쿼리스트링은 서버 액세스 로그에 평문으로 남기 때문.
+    const ownerToken = req.headers.get("x-owner-token") ?? "";
+    if (!ownerToken) return json({ error: "권한 정보가 없습니다." }, 400);
     const meta = await readMeta(code, token);
     if (!meta) return json({ error: "청첩장을 찾을 수 없어요." }, 404);
-    let providedHash: string;
-    try {
-      providedHash = await sha256Hex(decodeBase64Url(ownerB64));
-    } catch {
-      return json({ error: "권한 정보가 손상됐습니다." }, 400);
-    }
+    const providedHash = await sha256Hex(ownerToken);
     if (providedHash !== meta.ownerTokenHash) {
       return json({ error: "RSVP 를 볼 권한이 없습니다." }, 403);
     }

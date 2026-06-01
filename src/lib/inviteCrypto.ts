@@ -12,13 +12,13 @@ const IV_BYTES = 12;
  *  (최신 TS 는 Uint8Array 를 제네릭으로 보므로 명시적으로 좁혀 둔다.) */
 export type Bytes = Uint8Array<ArrayBuffer>;
 
-function bytesToBase64Url(bytes: Bytes): string {
+export function bytesToBase64Url(bytes: Bytes): string {
   let bin = "";
   for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-function base64UrlToBytes(s: string): Bytes {
+export function base64UrlToBytes(s: string): Bytes {
   const b64 = s.replace(/-/g, "+").replace(/_/g, "/");
   const bin = atob(b64);
   const out = new Uint8Array(bin.length);

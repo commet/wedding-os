@@ -62,7 +62,15 @@ type Secrets = {
   aiKey?: string;
   ai?: AiConfig;
   ownerToken?: string;
+  // 간편(hosted) 모드 — 운영자 호스팅 E2E. WeddingData/백업과 분리해 시크릿에만 둔다.
+  // weddingId: 운영자 Supabase 의 내 행 id. weddingKey: 복호화 키(base64url, inviteCrypto).
+  // 운영자는 weddingKey 를 절대 못 받으므로 암호문을 못 푼다.
+  weddingId?: string;
+  weddingKey?: string;
 };
+
+/** 간편(hosted) 모드 자격증명 — weddingId + weddingKey. */
+export type HostedConfig = { weddingId: string; weddingKey: string };
 
 export type AiProvider = "bridge" | "gemini" | "openai" | "anthropic" | "ollama";
 
@@ -149,6 +157,32 @@ function createToken(): string {
     return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
   }
   return `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+}
+
+// ── 간편(hosted) 모드 자격증명 ──────────────────────
+// weddingId + weddingKey 는 시크릿 저장소에만 — 백업/동기화에 절대 안 섞인다.
+// (ownerToken 은 위 getOrCreateOwnerToken 재사용.)
+
+export function getHostedConfig(): HostedConfig | undefined {
+  const { weddingId, weddingKey } = getSecrets();
+  if (!weddingId || !weddingKey) return undefined;
+  return { weddingId, weddingKey };
+}
+
+export function setHostedConfig(cfg: HostedConfig): void {
+  const weddingId = cfg.weddingId.trim();
+  const weddingKey = cfg.weddingKey.trim();
+  if (!weddingId || !weddingKey) return;
+  setSecrets({ weddingId, weddingKey });
+}
+
+export function clearHostedConfig(): void {
+  try {
+    const cur = getSecrets();
+    delete cur.weddingId;
+    delete cur.weddingKey;
+    localStorage.setItem(SECRETS_KEY, JSON.stringify(cur));
+  } catch { /* noop */ }
 }
 
 // ── 오너 마커 ────────────────────────────────────────

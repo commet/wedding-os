@@ -1,5 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    { "path": "/api/invite-cleanup", "schedule": "0 4 * * *" }
+  ],
   "rewrites": [
     { "source": "/i/:code", "destination": "/api/serve-invite?code=:code" },
     { "source": "/(.*)", "destination": "/index.html" }

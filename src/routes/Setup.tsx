@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import type { WeddingData } from "../lib/schema";
-import { pingSupabase } from "../lib/storage.supabase";
+import { pingSupabase, createSupabaseStorage } from "../lib/storage.supabase";
 import { isSupabaseHost, markOwner } from "../lib/security";
 import { migrateImagesIdbToDataUrl } from "../lib/imageStore";
 import SchemaText from "../supabase-schema-text";
@@ -32,6 +32,18 @@ function saveDraft(d: Draft) {
 }
 function clearDraft() {
   try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
+}
+
+// 의미 있는 결혼식 데이터가 들어있는지 — 덮어쓰기 가드 판단용.
+// 청첩장 기본 정보나 누적 리스트(하객·예산·예식장 등) 중 하나라도 채워져 있으면 true.
+function hasContent(d: WeddingData): boolean {
+  const inv = d.invitation;
+  if (inv.groomName?.trim() || inv.brideName?.trim() || inv.venue?.trim() || inv.heroImageUrl) return true;
+  const lists = [d.guests, d.budget, d.venues, d.rings, d.sdm, d.hotels, d.flights, d.checklist];
+  if (lists.some((l) => Array.isArray(l) && l.length > 0)) return true;
+  if (Array.isArray(inv.gallery) && inv.gallery.length > 0) return true;
+  if (Array.isArray(d.video?.photos) && d.video.photos.length > 0) return true;
+  return false;
 }
 
 export default function Setup({ data, update }: Props) {
@@ -79,26 +91,67 @@ export default function Setup({ data, update }: Props) {
 
   const saveAndFinish = async () => {
     const cleanUrl = url.trim();
+    const cleanKey = anonKey.trim();
     if (!isSupabaseHost(cleanUrl)) {
       alert("Supabase URL 형식이 잘못됐어요. xxxx.supabase.co 형태여야 합니다.");
       return;
     }
+    const supabaseConf = { url: cleanUrl, anonKey: cleanKey, configId: "default" };
+
+    const finishWith = (next: WeddingData) => {
+      update(() => next);
+      // 이 기기를 "오너" 로 표시 — 청첩장 페이지의 편집 탭은 오너에게만 노출됨.
+      // (게스트가 청첩장 URL 받고 들어와도 편집 폼이 안 뜨도록.)
+      markOwner();
+      clearDraft();
+      navigate("/dashboard");
+    };
+
+    // ── 블라인드 덮어쓰기 가드 ──
+    // 같은 owner token 을 공유한 배우자가 먼저 원격을 채워뒀을 수 있다. 확인 없이 전환하면
+    // 첫 save 가 원격을 이 기기의 (거의 빈) 데이터로 통째로 덮어쓴다. 전환 전에 원격을 들여다본다.
+    // (load 는 owner token 불일치 시 null 을 주므로, 데이터가 잡히면 '같은 token = 내 것' 인 경우다.)
+    let remote: WeddingData | null = null;
+    try {
+      const probe = createSupabaseStorage(cleanUrl, cleanKey, "default");
+      remote = (await probe.load())?.data ?? null;
+    } catch { remote = null; }
+
+    const localHasContent = hasContent(data);
+    if (remote && hasContent(remote)) {
+      const adoptRemote = () =>
+        finishWith({
+          ...remote!,
+          preferences: { ...remote!.preferences, mode: "supabase", supabase: supabaseConf, isDemo: false },
+        });
+      if (!localHasContent) {
+        // 이 기기는 비어 있고 원격엔 데이터가 있음 — 원격을 가져온다 (덮어쓰면 손실).
+        adoptRemote();
+        return;
+      }
+      const overwrite = confirm(
+        "원격(내 사이트)에 이미 저장된 결혼식 데이터가 있어요.\n\n" +
+        "확인 = 이 기기 데이터로 원격을 덮어씁니다 (원격 내용이 사라져요).\n" +
+        "취소 = 원격 데이터를 이 기기로 가져옵니다 (이 기기 내용이 사라져요).",
+      );
+      if (!overwrite) {
+        adoptRemote();
+        return;
+      }
+      // 확인 → 아래로 떨어져 이 기기 데이터로 덮어쓴다.
+    }
+
     // 모드 1 에서 IndexedDB 에 박힌 사진들은 다른 기기에서 못 푸므로,
     // supabase 로 전환할 때 base64 로 인라인해서 JSONB 동기화 가능한 형태로 변환.
     const migrated: WeddingData = await migrateImagesIdbToDataUrl(data);
-    update(() => ({
+    finishWith({
       ...migrated,
       preferences: {
         ...migrated.preferences,
         mode: "supabase",
-        supabase: { url: cleanUrl, anonKey: anonKey.trim(), configId: "default" },
+        supabase: supabaseConf,
       },
-    }));
-    // 이 기기를 "오너" 로 표시 — 청첩장 페이지의 편집 탭은 오너에게만 노출됨.
-    // (게스트가 청첩장 URL 받고 들어와도 편집 폼이 안 뜨도록.)
-    markOwner();
-    clearDraft();
-    navigate("/dashboard");
+    });
   };
 
   return (

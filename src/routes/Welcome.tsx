@@ -1,4 +1,4 @@
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import type { WeddingData } from "../lib/schema";
 import { defaultData } from "../lib/schema";
@@ -136,6 +136,9 @@ export default function Welcome({ data, update }: Props) {
           <p className="text-soft text-[13px] leading-relaxed">
             배포 없이 시작할 수도 있고, 필요하면 나중에 링크 공유 모드로 올릴 수 있어요.
           </p>
+          <Link to="/trust" className="inline-block mt-4 text-[12px] text-ink underline underline-offset-4 hover:text-gold transition">
+            🔒 어디에 저장하든 운영자는 내용을 못 읽어요 — 직접 확인 →
+          </Link>
         </div>
 
         <ul className="stack border-t border-hair border-b">
@@ -225,6 +228,12 @@ export default function Welcome({ data, update }: Props) {
             아니면 바로 내 결혼식 시작
           </button>
         </div>
+        <p className="mt-6 text-center text-[12px] text-soft leading-relaxed">
+          🔒 무엇을 적든 운영자는 내용을 못 봅니다.{" "}
+          <Link to="/trust" className="underline underline-offset-4 text-ink hover:text-gold transition">
+            어떻게요?
+          </Link>
+        </p>
       </section>
 
       <div className="hairline" />

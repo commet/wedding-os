@@ -21,6 +21,7 @@ const Setup = lazy(() => import("./routes/Setup"));
 const Settings = lazy(() => import("./routes/Settings"));
 const Contact = lazy(() => import("./routes/Contact"));
 const Privacy = lazy(() => import("./routes/Privacy"));
+const Trust = lazy(() => import("./routes/Trust"));
 // 식전영상 에디터는 Remotion(무거움)을 쓰므로 별도 청크.
 const Video = lazy(() => import("./routes/Video"));
 // 호스팅 발행 청첩장 — 게스트가 /i/<code> 로 여는 단독 화면.
@@ -52,6 +53,8 @@ export default function App() {
   const isWelcome = location.pathname === "/";
   const isSetup = location.pathname === "/setup";
   const isGuestInvitation = location.pathname === "/i";
+  // 투명성 페이지는 모드를 고르기 *전에* 봐야 하므로 빈 상태에서도 진입 허용.
+  const isTrust = location.pathname === "/trust";
   // 사용자가 입력한 내용이 하나라도 있는지 — Settings.switchMode 직후처럼 mode/isDemo 둘 다 없어도
   // 데이터는 그대로 유지되는 케이스를 위해.
   const hasContent = !!(
@@ -69,7 +72,7 @@ export default function App() {
   }
   // 모드·데모·데이터 셋 다 없으면 (= 내 결혼식 시작 직후 진짜 빈 상태) 랜딩으로.
   // 단, /i (게스트 청첩장) 는 받는 사람이 비어 있어도 들어올 수 있으므로 예외.
-  if (!mode && !isDemo && !hasContent && !isWelcome && !isSetup && !isGuestInvitation) {
+  if (!mode && !isDemo && !hasContent && !isWelcome && !isSetup && !isGuestInvitation && !isTrust) {
     return <Navigate to="/" replace />;
   }
 
@@ -100,6 +103,7 @@ export default function App() {
           <Route path="/settings" element={<Settings data={data!} update={update} />} />
           <Route path="/contact" element={<Contact data={data!} />} />
           <Route path="/privacy" element={<Privacy />} />
+          <Route path="/trust" element={<Trust />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </Suspense>

@@ -38,6 +38,15 @@ export default function Settings({ data, update }: Props) {
   };
 
   const copyEditorInvite = async () => {
+    // 이 링크는 마스터 권한(모든 데이터 읽기·수정, 청첩장 변조, RSVP 열람)을 담고 있다.
+    // 카톡 단톡방·캡처로 새면 계정 탈취와 같으므로, 복사 전에 한 번 더 경고한다.
+    if (!confirm(
+      "⚠️ 편집 초대 링크는 '내 계정 열쇠'예요.\n\n" +
+      "이 링크를 가진 사람은 하객·축의금·예산 등 모든 데이터를 보고 고칠 수 있어요.\n" +
+      "배우자처럼 함께 편집할 사람에게 1:1로만 보내고,\n" +
+      "단톡방·SNS·캡처로 공유하지 마세요.\n\n" +
+      "복사할까요?",
+    )) return;
     const token = getOrCreateOwnerToken();
     const url = `${window.location.origin}/dashboard#ownerToken=${encodeURIComponent(token)}`;
     try {
@@ -159,7 +168,10 @@ export default function Settings({ data, update }: Props) {
           </Link>
           <div className="pt-4 mt-4 border-t border-hair space-y-2">
             <p className="text-[11.5px] text-soft leading-relaxed">
-              다른 기기에서 함께 편집하려면 편집 초대 링크를 보내세요. 이 링크는 청첩장 링크가 아니라 오너 권한 링크입니다.
+              다른 기기에서 함께 편집하려면 편집 초대 링크를 보내세요. 이 링크는 하객에게 보내는 청첩장
+              링크가 <b className="text-ink">아니라</b>, 모든 데이터를 보고 고칠 수 있는{" "}
+              <b className="text-gold">오너 권한 링크</b>예요. 배우자에게 1:1로만 보내고,
+              단톡방·SNS·캡처로 공유하지 마세요.
             </p>
             <button onClick={copyEditorInvite} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
               {inviteCopied ? "복사됨" : "편집 초대 링크 복사 →"}
@@ -187,6 +199,8 @@ export default function Settings({ data, update }: Props) {
 
       <p className="text-center text-[11px] text-soft pt-4 border-t border-hair space-x-3">
         <span>Wedding OS</span>
+        <span>·</span>
+        <Link to="/trust" className="underline underline-offset-2">운영자도 못 봐요</Link>
         <span>·</span>
         <Link to="/privacy" className="underline underline-offset-2">개인정보 · 보안 안내</Link>
         <span>·</span>

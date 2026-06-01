@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import type { WeddingData, InvitationContent } from "../lib/schema";
+import type { WeddingData, InvitationContent, Mode } from "../lib/schema";
 import Modal from "../components/Modal";
 import { STOCK_HERO, STOCK_GALLERY } from "../data/stockPhotos";
 import { PAPER_INVITATIONS, MOBILE_INVITATIONS } from "../data/invitationPlatforms";
@@ -12,7 +12,7 @@ import { uploadImage } from "../lib/imageStore";
 import SafeImg from "../components/SafeImg";
 import { useSaveStatus } from "../lib/storage";
 import { daysUntilISODate, parseISODateLocal } from "../lib/date";
-import { publishInvitation, fetchHostedRsvps, type HostedRsvp } from "../lib/inviteHosting";
+import { publishInvitation, unpublishInvitation, fetchHostedRsvps, type HostedRsvp } from "../lib/inviteHosting";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type Tab = "edit" | "preview";
@@ -214,7 +214,7 @@ export default function Invitation({ data, update }: Props) {
       )}
 
       {tab === "edit" && !guest ? (
-        <EditForm inv={inv} set={set} mode={data.preferences.mode} data={data} />
+        <EditForm inv={inv} set={set} mode={data.preferences.mode} data={data} update={update} />
       ) : (
         <Preview
           inv={inv}
@@ -728,9 +728,14 @@ function storePublished(p: PublishedInvite | null) {
 
 // 청첩장 '간편 발행' — 운영자 호스팅으로 진짜 링크를 만든다.
 // 본문은 암호화돼 올라가고 키는 링크 '#' 에만 — 운영자는 내용을 못 읽는다.
-function PublishSection({ data }: { data: WeddingData }) {
-  const [published, setPublished] = useState<PublishedInvite | null>(() => loadPublished());
+function PublishSection({ data, update }: { data: WeddingData; update: (patch: any) => void }) {
+  // 발행 자격증명의 진실은 WeddingData.publish (백업에 포함). 옛 사용자는 localStorage 에만
+  // 있을 수 있으므로 그걸 폴백으로 읽고, 마운트 시 WeddingData 로 한 번 옮긴다.
+  const [published, setPublished] = useState<PublishedInvite | null>(
+    () => data.publish ?? loadPublished(),
+  );
   const [busy, setBusy] = useState(false);
+  const [unpubBusy, setUnpubBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -738,10 +743,26 @@ function PublishSection({ data }: { data: WeddingData }) {
   const [rsvpBusy, setRsvpBusy] = useState(false);
   const [rsvpMsg, setRsvpMsg] = useState("");
 
+  // 옛 localStorage 발행 정보를 WeddingData(백업 대상)로 1회 이전.
+  useEffect(() => {
+    if (!data.publish) {
+      const legacy = loadPublished();
+      if (legacy) update((prev: WeddingData) => ({ ...prev, publish: legacy }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const inv = data.invitation;
   const link = published
     ? `${window.location.origin}/i/${published.code}#k=${published.keyRaw}`
     : "";
+
+  // 발행 정보를 세 곳 모두에 일관되게 반영: 컴포넌트 상태 · localStorage 미러 · WeddingData(백업).
+  const persistPublished = (next: PublishedInvite | null) => {
+    storePublished(next);
+    setPublished(next);
+    update((prev: WeddingData) => ({ ...prev, publish: next ?? undefined }));
+  };
 
   const doPublish = async () => {
     if (!inv.groomName || !inv.brideName) {
@@ -758,19 +779,41 @@ function PublishSection({ data }: { data: WeddingData }) {
     );
     setBusy(false);
     if (r.ok) {
-      const next: PublishedInvite = {
+      persistPublished({
         code: r.code,
         keyRaw: r.keyRaw,
         publishedAt: new Date().toISOString(),
-      };
-      storePublished(next);
-      setPublished(next);
+      });
       setIsError(false);
       setMessage(
         r.droppedPhotos > 0
           ? `발행 완료 — 사진 ${r.droppedPhotos}장은 원본을 못 찾아 빠졌어요.`
           : "발행 완료! 아래 링크를 하객에게 보내세요.",
       );
+    } else {
+      setIsError(true);
+      setMessage(r.reason);
+    }
+  };
+
+  const doUnpublish = async () => {
+    if (!published) return;
+    if (!confirm(
+      "발행을 취소할까요?\n\n" +
+      "하객이 받은 링크가 더 이상 열리지 않고,\n" +
+      "올라간 청첩장·받은 RSVP가 서버에서 삭제돼요.\n" +
+      "되돌릴 수 없어요.",
+    )) return;
+    setUnpubBusy(true);
+    setMessage("");
+    setIsError(false);
+    const r = await unpublishInvitation(published.code);
+    setUnpubBusy(false);
+    if (r.ok) {
+      persistPublished(null);
+      setRsvps(null);
+      setRsvpMsg("");
+      setMessage("발행이 취소됐어요. 링크가 더 이상 열리지 않아요.");
     } else {
       setIsError(true);
       setMessage(r.reason);
@@ -828,13 +871,22 @@ function PublishSection({ data }: { data: WeddingData }) {
               미리보기 ↗
             </a>
           </div>
-          <button
-            onClick={doPublish}
-            disabled={busy}
-            className="block w-full text-[12px] text-soft underline underline-offset-4 hover:text-ink disabled:opacity-40"
-          >
-            {busy ? "갱신 중…" : "수정 내용 다시 반영 (재발행)"}
-          </button>
+          <div className="flex items-center justify-between gap-3">
+            <button
+              onClick={doPublish}
+              disabled={busy || unpubBusy}
+              className="text-[12px] text-soft underline underline-offset-4 hover:text-ink disabled:opacity-40"
+            >
+              {busy ? "갱신 중…" : "수정 내용 다시 반영 (재발행)"}
+            </button>
+            <button
+              onClick={doUnpublish}
+              disabled={busy || unpubBusy}
+              className="text-[12px] text-soft underline underline-offset-4 hover:text-gold disabled:opacity-40"
+            >
+              {unpubBusy ? "취소 중…" : "발행 취소"}
+            </button>
+          </div>
 
           <div className="border-t border-hair pt-3 space-y-2">
             <div className="flex items-center justify-between gap-3">
@@ -887,8 +939,9 @@ function PublishSection({ data }: { data: WeddingData }) {
       )}
 
       <p className="text-[11px] text-soft leading-relaxed border-t border-hair pt-3">
-        링크는 이 기기에 저장됩니다. 재발행·수정은 발행한 기기에서만 가능해요.
-        발행된 청첩장은 결혼식 6개월 뒤 자동으로 만료됩니다.
+        발행 링크는 <b className="text-ink">데이터 백업 파일에 함께 저장</b>돼요 — 기기를 바꿔도
+        [더보기 → 데이터 백업]으로 복구할 수 있어요. 단, 다른 기기에서 재발행·취소·RSVP 확인까지
+        하려면 [더보기 → 편집 초대 링크]도 같이 보관하세요. 발행된 청첩장은 결혼식 6개월 뒤 자동 삭제됩니다.
       </p>
     </div>
   );
@@ -896,11 +949,12 @@ function PublishSection({ data }: { data: WeddingData }) {
 
 /* ════════════ 편집 폼 ════════════ */
 
-function EditForm({ inv, set, mode, data }: {
+function EditForm({ inv, set, mode, data, update }: {
   inv: InvitationContent;
   set: (k: any, v: any) => void;
-  mode: "local" | "supabase" | "devOnly" | null;
+  mode: Mode | null;
   data: WeddingData;
+  update: (patch: any) => void;
 }) {
   const [picker, setPicker] = useState<null | "hero" | "gallery">(null);
   const theme = (inv.theme as Theme) ?? "cream";
@@ -920,7 +974,7 @@ function EditForm({ inv, set, mode, data }: {
       </div>
 
       <Section title="청첩장 발행 — 진짜 링크 만들기" defaultOpen={false}>
-        <PublishSection data={data} />
+        <PublishSection data={data} update={update} />
       </Section>
 
       <Section title="대표 사진 & 색감" defaultOpen>
@@ -1197,7 +1251,7 @@ function PhotoPickerModal({
 
 function HeroUploadButton({ onUploaded, mode }: {
   onUploaded: (url: string) => void;
-  mode: "local" | "supabase" | "devOnly" | null;
+  mode: Mode | null;
 }) {
   const [busy, setBusy] = useState(false);
   const ref = useRef<HTMLInputElement>(null);
@@ -1253,7 +1307,7 @@ function HeroUploadButton({ onUploaded, mode }: {
 
 function GalleryUploadButton({ onUploaded, mode }: {
   onUploaded: (urls: string[]) => void;
-  mode: "local" | "supabase" | "devOnly" | null;
+  mode: Mode | null;
 }) {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);

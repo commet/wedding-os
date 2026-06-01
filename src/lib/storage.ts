@@ -8,7 +8,8 @@ import { useCallback, useEffect, useState } from "react";
 import { defaultData, WeddingData, SCHEMA_VERSION } from "./schema";
 import { createSupabaseStorage, loadPublicInvitation } from "./storage.supabase";
 import { demoData } from "../data/demoData";
-import { getOwnerToken, setOwnerToken, setSecrets, isSupabaseHost } from "./security";
+import { getOwnerToken, setOwnerToken, setSecrets, isSupabaseHost, getHostedConfig, getOrCreateOwnerToken } from "./security";
+import { createHostedStorage } from "./storage.hosted";
 import { inlineIdbForExport, stripUnresolvedIdb } from "./imageStore";
 
 const LS_KEY = "wedding-os/v1";
@@ -152,7 +153,7 @@ function migrate(raw: unknown): WeddingData {
   }
 
   const validMode = (m: unknown): WeddingData["preferences"]["mode"] =>
-    m === "local" || m === "supabase" || m === "devOnly" ? m : null;
+    m === "local" || m === "hosted" || m === "supabase" || m === "devOnly" ? m : null;
   const validLocale = (l: unknown): WeddingData["preferences"]["locale"] =>
     l === "ko" || l === "en" || l === "zh" ? l : "ko";
 
@@ -192,12 +193,37 @@ function migrate(raw: unknown): WeddingData {
         photos: Array.isArray(v.photos) ? v.photos : [],
       };
     })(),
+    publish: sanitizePublish(data.publish),
+  };
+}
+
+// 발행 자격증명 검증 — code·keyRaw 가 문자열일 때만 통과. 손상 시 undefined(미발행 취급).
+function sanitizePublish(p: unknown): WeddingData["publish"] {
+  if (!isPlainObject(p)) return undefined;
+  const code = typeof p.code === "string" ? p.code : "";
+  const keyRaw = typeof p.keyRaw === "string" ? p.keyRaw : "";
+  if (!/^[a-z0-9]{6,16}$/.test(code) || !keyRaw) return undefined;
+  return {
+    code,
+    keyRaw,
+    publishedAt: typeof p.publishedAt === "string" ? p.publishedAt : "",
   };
 }
 
 /** 현재 저장된 모드만 보고 드라이버 선택. preferences.mode 없으면 local. */
 function selectDriver(data: WeddingData | null): StorageDriver {
   const mode = data?.preferences.mode;
+  if (mode === "hosted") {
+    // 간편 모드 — 운영자 Supabase(env) + 시크릿(weddingId·weddingKey) + ownerToken.
+    const cfg = getHostedConfig();
+    const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+    const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+    if (cfg && url && key) {
+      return createHostedStorage(url, key, cfg.weddingId, cfg.weddingKey, getOrCreateOwnerToken());
+    }
+    // env/시크릿 누락 → 로컬에만 안전 보관 (연결되면 다음 save 부터 동기화).
+    return localStorageDriver;
+  }
   if (mode === "supabase" && data?.preferences.supabase) {
     const sb = data.preferences.supabase;
     return createSupabaseStorage(sb.url, sb.anonKey, sb.configId);

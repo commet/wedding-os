@@ -55,6 +55,28 @@ export async function publishInvitation(
   }
 }
 
+const UNPUBLISH_ENDPOINT = "/api/invite-unpublish";
+
+/** 발행 취소 — 운영자 서버에서 청첩장 암호문·메타·RSVP 를 모두 삭제한다.
+ *  ownerToken 으로 권한 검증(헤더로 전송 — 로그에 안 남도록). 발행한 본인만 내릴 수 있다. */
+export async function unpublishInvitation(
+  code: string,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  try {
+    const res = await fetch(`${UNPUBLISH_ENDPOINT}?code=${encodeURIComponent(code)}`, {
+      method: "POST",
+      headers: { "x-owner-token": getOrCreateOwnerToken() },
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      return { ok: false, reason: body?.error ?? `발행 취소에 실패했어요 (${res.status}).` };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, reason: "발행 취소 중 오류가 났어요." };
+  }
+}
+
 /** 게스트 측 — 코드 + 링크 '#' 의 키로 호스팅된 청첩장 열기. */
 export async function openHostedInvitation(code: string, keyRaw: string): Promise<OpenResult> {
   try {
@@ -117,16 +139,16 @@ export async function submitHostedRsvp(
   }
 }
 
-/** 오너 측 — 받은 RSVP 를 가져와 키로 복호화. ownerToken 으로 권한 검증된다. */
+/** 오너 측 — 받은 RSVP 를 가져와 키로 복호화. ownerToken 으로 권한 검증된다.
+ *  토큰은 쿼리스트링이 아니라 헤더로 보낸다 — 쿼리는 서버 액세스 로그에 평문으로 남기 때문. */
 export async function fetchHostedRsvps(
   code: string,
   keyRaw: string,
 ): Promise<{ ok: true; rsvps: HostedRsvp[] } | { ok: false; reason: string }> {
   try {
-    const owner = toBase64Url(getOrCreateOwnerToken());
-    const res = await fetch(
-      `${RSVP_ENDPOINT}?code=${encodeURIComponent(code)}&owner=${owner}`,
-    );
+    const res = await fetch(`${RSVP_ENDPOINT}?code=${encodeURIComponent(code)}`, {
+      headers: { "x-owner-token": getOrCreateOwnerToken() },
+    });
     const body = await res.json().catch(() => ({}));
     if (!res.ok || !Array.isArray(body?.rsvps)) {
       return { ok: false, reason: body?.error ?? "RSVP 를 불러오지 못했어요." };
