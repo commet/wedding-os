@@ -6,9 +6,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { defaultData, WeddingData, SCHEMA_VERSION } from "./schema";
-import { createSupabaseStorage, loadPublicInvitation } from "./storage.supabase";
+import { createSupabaseStorage } from "./storage.supabase";
 import { demoData } from "../data/demoData";
-import { getOwnerToken, setOwnerToken, setSecrets, isSupabaseHost, getHostedConfig, getOrCreateOwnerToken } from "./security";
+import { setOwnerToken, setSecrets, isSupabaseHost, getHostedConfig, getOrCreateOwnerToken } from "./security";
 import { createHostedStorage } from "./storage.hosted";
 import { inlineIdbForExport, stripUnresolvedIdb } from "./imageStore";
 
@@ -286,56 +286,10 @@ export function useWeddingData() {
         return;
       }
 
-      // 환경변수 기반 supabase 로드 시도 (배포된 공개 청첩장에 게스트로 진입한 경우).
-      // 공개 라우트에서는 전체 wedding_data 를 절대 내려받지 않고 invitation JSON 만 로드한다.
-      const envUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-      const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-      if (envUrl && envKey) {
-        try {
-          if (getOwnerToken()) {
-            const envDriver = createSupabaseStorage(envUrl, envKey, "default");
-            const fromFullEnv = await envDriver.load();
-            if (cancelled) return;
-            if (fromFullEnv) {
-              setData({
-                ...fromFullEnv.data,
-                preferences: {
-                  ...fromFullEnv.data.preferences,
-                  mode: "supabase",
-                  supabase: { url: envUrl, anonKey: envKey, configId: "default" },
-                  isDemo: false,
-                },
-              });
-              _localVersion = fromFullEnv.version;
-              setLoading(false);
-              return;
-            }
-          }
-
-          const fromEnv = await loadPublicInvitation(envUrl, envKey, "default");
-          if (cancelled) return;
-          if (fromEnv.ok && fromEnv.invitation) {
-            const base = defaultData();
-            setData({
-              ...base,
-              invitation: {
-                ...base.invitation,
-                ...fromEnv.invitation,
-              },
-              preferences: {
-                ...base.preferences,
-                mode: "supabase",
-                supabase: { url: envUrl, anonKey: envKey, configId: "default" },
-                isDemo: false,
-              },
-            });
-            _localVersion = undefined;
-            setLoading(false);
-            return;
-          }
-        } catch { /* fall through to demo */ }
-      }
-
+      // 로컬에 아무것도 없으면 예시(데모)로 시작 — 모드 선택 전 둘러보기 단계.
+      // 간편(hosted) 모드 복구는 /recover 가 시크릿(weddingId·key)+mode 를 심어 위 fromLocal
+      // 경로로 들어온다. 공개 청첩장은 /i/<code> 가 별도(Blob) 처리하므로, 여기서 운영자
+      // env supabase 를 직접 읽지 않는다 (옛 단일테넌트 경로 제거).
       if (cancelled) return;
       setData(demoData());
       setLoading(false);

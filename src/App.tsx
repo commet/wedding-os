@@ -22,6 +22,9 @@ const Settings = lazy(() => import("./routes/Settings"));
 const Contact = lazy(() => import("./routes/Contact"));
 const Privacy = lazy(() => import("./routes/Privacy"));
 const Trust = lazy(() => import("./routes/Trust"));
+const HostedStart = lazy(() => import("./routes/HostedStart"));
+const Recover = lazy(() => import("./routes/Recover"));
+const Login = lazy(() => import("./routes/Login"));
 // 식전영상 에디터는 Remotion(무거움)을 쓰므로 별도 청크.
 const Video = lazy(() => import("./routes/Video"));
 // 호스팅 발행 청첩장 — 게스트가 /i/<code> 로 여는 단독 화면.
@@ -36,6 +39,24 @@ export default function App() {
     return (
       <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-soft">청첩장을 여는 중…</div>}>
         <HostedInvitation />
+      </Suspense>
+    );
+  }
+
+  // 복구 링크 진입 — 셸·가드 없이 단독 렌더 (자체적으로 시크릿 심고 /dashboard 로 새로고침).
+  if (location.pathname === "/recover") {
+    return (
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-soft">복구 중…</div>}>
+        <Recover />
+      </Suspense>
+    );
+  }
+
+  // 로그인 — 매직링크 리다이렉트 착지점. 데이터·가드 전에 단독 렌더.
+  if (location.pathname === "/login") {
+    return (
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-soft">확인 중…</div>}>
+        <Login />
       </Suspense>
     );
   }
@@ -55,6 +76,8 @@ export default function App() {
   const isGuestInvitation = location.pathname === "/i";
   // 투명성 페이지는 모드를 고르기 *전에* 봐야 하므로 빈 상태에서도 진입 허용.
   const isTrust = location.pathname === "/trust";
+  // 간편 모드 시작 화면도 모드 확정 전이라 빈 상태에서 진입 허용.
+  const isHostedStart = location.pathname === "/start-hosted";
   // 사용자가 입력한 내용이 하나라도 있는지 — Settings.switchMode 직후처럼 mode/isDemo 둘 다 없어도
   // 데이터는 그대로 유지되는 케이스를 위해.
   const hasContent = !!(
@@ -72,7 +95,7 @@ export default function App() {
   }
   // 모드·데모·데이터 셋 다 없으면 (= 내 결혼식 시작 직후 진짜 빈 상태) 랜딩으로.
   // 단, /i (게스트 청첩장) 는 받는 사람이 비어 있어도 들어올 수 있으므로 예외.
-  if (!mode && !isDemo && !hasContent && !isWelcome && !isSetup && !isGuestInvitation && !isTrust) {
+  if (!mode && !isDemo && !hasContent && !isWelcome && !isSetup && !isGuestInvitation && !isTrust && !isHostedStart) {
     return <Navigate to="/" replace />;
   }
 
@@ -104,6 +127,7 @@ export default function App() {
           <Route path="/contact" element={<Contact data={data!} />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/trust" element={<Trust />} />
+          <Route path="/start-hosted" element={<HostedStart data={data!} update={update} />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </Suspense>

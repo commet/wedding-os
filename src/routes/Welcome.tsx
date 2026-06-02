@@ -19,24 +19,32 @@ const FEATURES = [
   { num: "05", title: "식전영상", desc: "5막 구조 + AI로 자연어 편집" },
 ];
 
+// 프라이버시 ↔ 편의 스펙트럼. 간편(hosted)이 기본 추천.
 const MODES = [
   {
-    id: "local",
-    title: "내 기기에 저장",
-    oneLiner: "가입 없이 결혼 준비 데이터를 안전하게 모으기",
-    difficulty: "가입 없음",
+    id: "hosted",
+    title: "간편 — 쉽게, 함께",
+    oneLiner: "부부가 링크로 함께 편집 · 하객 RSVP · 운영자도 내용 못 봄(암호화)",
+    difficulty: "가입 없음 · 추천",
     highlight: true,
   },
   {
+    id: "local",
+    title: "이 기기만",
+    oneLiner: "아무 데도 안 올라가요 — 이 휴대폰에만",
+    difficulty: "오프라인",
+    highlight: false,
+  },
+  {
     id: "supabase",
-    title: "커플 동기화 / 청첩장 사이트",
-    oneLiner: "같이 편집 · 링크 공유 · 하객 RSVP",
-    difficulty: "배포 필요",
+    title: "독립 — 내 서버",
+    oneLiner: "운영자를 아예 안 거침 · 내 Supabase 에 직접",
+    difficulty: "기술 필요",
     highlight: false,
   },
   {
     id: "devOnly",
-    title: "개발자용으로 직접 고치기",
+    title: "개발자 모드",
     oneLiner: "코드 받아 디자인·기능까지 수정",
     difficulty: "GitHub",
     highlight: false,
@@ -89,6 +97,11 @@ export default function Welcome({ data, update }: Props) {
   const selectMode = (id: typeof MODES[number]["id"]) => {
     if (id === "devOnly") {
       window.open("https://github.com/commet/wedding-os", "_blank", "noopener,noreferrer");
+      return;
+    }
+    // 간편(hosted)은 전용 시작 화면이 자격증명 생성·복구링크까지 처리한다.
+    if (id === "hosted") {
+      navigate("/start-hosted");
       return;
     }
     const localMode = id === "local";
@@ -154,7 +167,7 @@ export default function Welcome({ data, update }: Props) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline gap-2 mb-1.5">
                     <h2 className="font-serif text-lg text-ink">{m.title}</h2>
-                    {m.highlight && <span className="eyebrow-gold">빠름</span>}
+                    {m.highlight && <span className="eyebrow-gold">추천</span>}
                   </div>
                   <p className="text-[13px] text-soft leading-relaxed mb-2">{m.oneLiner}</p>
                   <span className="eyebrow">{m.difficulty}</span>

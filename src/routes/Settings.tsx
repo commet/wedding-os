@@ -3,7 +3,8 @@ import { useNavigate, Link } from "react-router-dom";
 import type { WeddingData } from "../lib/schema";
 import { exportData, importData } from "../lib/storage";
 import { todayISO } from "../lib/freshness";
-import { clearSecrets, clearOwner, getOrCreateOwnerToken, isOwner } from "../lib/security";
+import { clearSecrets, clearOwner, getOrCreateOwnerToken, getHostedConfig, isOwner } from "../lib/security";
+import { buildRecoveryLink } from "../lib/recovery";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 
@@ -77,8 +78,30 @@ export default function Settings({ data, update }: Props) {
 
   const currentMode =
     data.preferences.mode === "local" ? "내 휴대폰에 저장" :
+    data.preferences.mode === "hosted" ? "간편 (운영자 호스팅)" :
     data.preferences.mode === "supabase" ? "내 사이트로 배포" :
     data.preferences.mode === "devOnly" ? "코드 직접 수정" : "선택 안 됨";
+
+  const copyRecoveryLink = async () => {
+    const cfg = getHostedConfig();
+    if (!cfg) { alert("복구 정보를 찾을 수 없어요."); return; }
+    // 복구 링크 = 데이터 전체의 마스터 열쇠. 복사 전 한 번 더 경고.
+    if (!confirm(
+      "⚠️ 복구 링크는 '내 데이터 전체의 열쇠'예요.\n\n" +
+      "기기를 바꾸면 이 링크로 복구하고, 배우자에게 보내면 함께 편집해요.\n" +
+      "단, 이 링크를 가진 사람은 모든 내용을 보고 고칠 수 있어요.\n" +
+      "배우자에게만 1:1로 보내고, 단톡방·SNS엔 올리지 마세요.\n\n" +
+      "복사할까요?",
+    )) return;
+    const url = buildRecoveryLink({ weddingId: cfg.weddingId, ownerToken: getOrCreateOwnerToken(), weddingKey: cfg.weddingKey });
+    try {
+      await navigator.clipboard.writeText(url);
+      setInviteCopied(true);
+      window.setTimeout(() => setInviteCopied(false), 2400);
+    } catch {
+      prompt("아래 복구 링크를 안전한 곳에 저장하세요:", url);
+    }
+  };
 
   return (
     <div className="page pt-8 pb-10 space-y-10">
@@ -178,6 +201,29 @@ export default function Settings({ data, update }: Props) {
             </button>
           </div>
           <OwnerToggle />
+        </Section>
+      )}
+
+      {data.preferences.mode === "hosted" && (
+        <Section title="복구 링크 · 배우자 초대">
+          <p className="text-[12.5px] text-soft leading-relaxed mb-3">
+            기기를 바꿔도 이 링크로 복구하고, 배우자에게 보내면 함께 편집해요.
+            내용은 암호화돼 운영자도 못 보지만, <b className="text-ink">이 링크를 가진 사람은 전부 보고 고칠 수 있어요.</b>
+          </p>
+          <button onClick={copyRecoveryLink} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
+            {inviteCopied ? "복사됨" : "복구 링크 복사 →"}
+          </button>
+          <p className="text-[11px] text-soft mt-3 leading-relaxed">
+            배우자에게만 1:1로. 단톡방·SNS·공개된 곳엔 올리지 마세요.
+          </p>
+          <div className="pt-4 mt-4 border-t border-hair">
+            <p className="text-[11.5px] text-soft leading-relaxed mb-2">
+              링크를 따로 안 챙겨도, 이메일 로그인으로 연결해두면 기기를 바꿔도 복구돼요.
+            </p>
+            <Link to="/login" className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
+              이메일로 로그인 연결 →
+            </Link>
+          </div>
         </Section>
       )}
 

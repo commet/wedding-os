@@ -43,7 +43,10 @@ export function createHostedStorage(
     if (typeof console !== "undefined") console.warn("[hosted] non-supabase host blocked:", url);
     return noopDriver;
   }
-  const client = createClient(url, anonKey);
+  // RPC 전용 클라이언트 — Auth 세션을 건드리지 않게(auth.ts 싱글톤과 충돌 방지).
+  const client = createClient(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
   // weddingKey 는 1회만 import 해서 재사용.
   let keyPromise: Promise<CryptoKey> | null = null;
   const getKey = () => (keyPromise ??= importInviteKey(weddingKeyRaw));
