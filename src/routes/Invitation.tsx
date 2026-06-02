@@ -449,6 +449,8 @@ export function Preview({
   const validDate = parseISODateLocal(inv.date);
   const dday = daysUntilISODate(inv.date);
   const [lightbox, setLightbox] = useState<number | null>(null); // 갤러리 확대 보기 인덱스
+  // 길찾기 검색어 — 주소가 있으면 주소(정확), 없으면 식장 이름.
+  const mapQuery = (inv.venueAddress?.trim() || inv.venue || "").trim();
 
   const names = locale === "en"
     ? `${inv.groomEnglishName || inv.groomName || "Groom"} & ${inv.brideEnglishName || inv.brideName || "Bride"}`
@@ -570,19 +572,28 @@ export function Preview({
             <h3 className={`text-sm ${theme.accent} mb-3 tracking-wide`}>{t("오시는 길", locale)}</h3>
             <div className="font-medium">{inv.venue}</div>
             {inv.venueHall && <div className="text-sm text-soft">{inv.venueHall}</div>}
-            {inv.venueAddress && <div className="text-xs text-soft mt-1">{inv.venueAddress}</div>}
-            <div className="flex gap-2 justify-center mt-4">
+            {inv.venueAddress && (
+              <div className="mt-1.5 flex items-center justify-center gap-2 flex-wrap">
+                <span className="text-xs text-soft">{inv.venueAddress}</span>
+                <CopyChip
+                  text={inv.venueAddress}
+                  label={t("주소 복사", locale)}
+                  className="text-[10.5px] border border-line bg-white px-1.5 py-0.5 hover:border-ink active:opacity-70 transition whitespace-nowrap"
+                />
+              </div>
+            )}
+            <div className="flex gap-2 justify-center mt-4 flex-wrap">
               <a
-                href={`https://map.kakao.com/link/search/${encodeURIComponent(inv.venue)}`}
+                href={`https://map.kakao.com/link/search/${encodeURIComponent(mapQuery)}`}
                 target="_blank" rel="noopener noreferrer"
-                className="text-xs px-3 py-2 bg-cream border border-line"
+                className="text-xs px-3 py-2 bg-cream border border-line hover:border-ink transition"
               >
                 카카오맵
               </a>
               <a
-                href={`https://map.naver.com/v5/search/${encodeURIComponent(inv.venue)}`}
+                href={`https://map.naver.com/v5/search/${encodeURIComponent(mapQuery)}`}
                 target="_blank" rel="noopener noreferrer"
-                className="text-xs px-3 py-2 bg-cream border border-line"
+                className="text-xs px-3 py-2 bg-cream border border-line hover:border-ink transition"
               >
                 네이버지도
               </a>
@@ -698,6 +709,22 @@ function AccountSection({ inv, locale, accent }: { inv: InvitationContent; local
         </div>
       )}
     </div>
+  );
+}
+
+// 작은 복사 칩 — 주소 등 한 값 클립보드 복사 + 피드백.
+function CopyChip({ text, label, className }: { text: string; label: string; className?: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      onClick={async () => {
+        try { await navigator.clipboard.writeText(text); setCopied(true); window.setTimeout(() => setCopied(false), 1800); }
+        catch { window.prompt("복사하세요:", text); }
+      }}
+      className={className}
+    >
+      {copied ? "✓" : label}
+    </button>
   );
 }
 
@@ -1589,6 +1616,7 @@ function t(ko: string, locale: Locale): string {
     "복사": { en: "Copy", zh: "複製" },
     "복사됨": { en: "Copied", zh: "已複製" },
     "계좌번호를 복사하세요": { en: "Copy this account", zh: "請複製帳號" },
+    "주소 복사": { en: "Copy address", zh: "複製地址" },
     "참석 의사 전달": { en: "RSVP", zh: "出席回覆" },
     "참석 여부 전하기": { en: "Send RSVP", zh: "回覆出席" },
     "축하의 마음으로 참석해 주시는 분들을 위해": { en: "Please let us know if you can join us", zh: "請告知是否能出席" },
