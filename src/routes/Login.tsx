@@ -85,25 +85,17 @@ export default function Login() {
     window.location.assign("/dashboard");
   };
 
-  const Frame = ({ children }: { children: React.ReactNode }) => (
-    <div className="page max-w-app mx-auto pt-14 pb-16">
-      <div className="eyebrow-gold mb-3">로그인</div>
-      {children}
-      {msg && <p className="text-[12px] text-gold mt-4 leading-relaxed">{msg}</p>}
-    </div>
-  );
-
   if (phase === "init") return <div className="min-h-screen flex items-center justify-center text-soft">확인 중…</div>;
 
   if (phase === "error") return (
-    <Frame>
+    <Frame msg={msg}>
       <h1 className="font-serif text-[1.8rem] mb-3">로그인 준비 중</h1>
       <p className="text-[13px] text-soft leading-relaxed">아직 로그인이 설정되지 않았어요. <Link to="/" className="underline underline-offset-4 text-ink">처음으로 →</Link></p>
     </Frame>
   );
 
   if (phase === "email") return (
-    <Frame>
+    <Frame msg={msg}>
       <h1 className="font-serif text-[1.9rem] leading-tight mb-3">로그인</h1>
       <p className="text-[13px] text-soft leading-relaxed mb-6">
         비밀번호 없이 — 카카오·구글 또는 이메일 링크로. 기기를 바꿔도 로그인으로 이어받아요.
@@ -135,7 +127,7 @@ export default function Login() {
   );
 
   if (phase === "sent") return (
-    <Frame>
+    <Frame msg={msg}>
       <h1 className="font-serif text-[1.9rem] leading-tight mb-3">메일을 확인하세요</h1>
       <p className="text-[13px] text-soft leading-relaxed">
         <b className="text-ink">{email}</b> 으로 로그인 링크를 보냈어요. 메일의 링크를 누르면 이 화면으로 돌아와 이어집니다.
@@ -145,7 +137,7 @@ export default function Login() {
   );
 
   if (phase === "link") return (
-    <Frame>
+    <Frame msg={msg}>
       <h1 className="font-serif text-[1.9rem] leading-tight mb-3">암호문구 정하기</h1>
       <p className="text-[13px] text-soft leading-relaxed mb-5">
         <b className="text-ink">{email}</b> 에 이 청첩장을 연결해요. 새 기기에서 <b className="text-ink">로그인 + 암호문구</b>면 복구돼요.
@@ -163,7 +155,7 @@ export default function Login() {
   );
 
   if (phase === "recover") return (
-    <Frame>
+    <Frame msg={msg}>
       <h1 className="font-serif text-[1.9rem] leading-tight mb-3">암호문구 입력</h1>
       <p className="text-[13px] text-soft leading-relaxed mb-5">
         <b className="text-ink">{email}</b> 계정에 연결된 청첩장을 찾았어요. 연결할 때 정한 <b className="text-ink">암호문구</b>를 입력하면 그대로 이어받아요.
@@ -180,7 +172,7 @@ export default function Login() {
   );
 
   if (phase === "none") return (
-    <Frame>
+    <Frame msg={msg}>
       <h1 className="font-serif text-[1.9rem] leading-tight mb-3">연결된 청첩장이 없어요</h1>
       <p className="text-[13px] text-soft leading-relaxed">
         <b className="text-ink">{email}</b> 에 연결된 청첩장이 아직 없어요. 기존 기기에서 [더보기 → 로그인 연결]을 먼저 해주세요.
@@ -191,12 +183,23 @@ export default function Login() {
 
   // linked
   return (
-    <Frame>
+    <Frame msg={msg}>
       <h1 className="font-serif text-[1.9rem] leading-tight mb-3">연결됐어요 ✓</h1>
       <p className="text-[13px] text-soft leading-relaxed mb-6">
         이제 기기를 바꿔도 <b className="text-ink">{email}</b> 로 로그인하고 암호문구를 넣으면 그대로 복구돼요.
       </p>
       <Link to="/dashboard" className="btn-primary inline-flex px-8 py-3.5 text-[13px]">대시보드로 →</Link>
     </Frame>
+  );
+}
+
+// 모듈 레벨 — 컴포넌트 내부에 두면 매 렌더마다 새로 생성돼 입력 포커스가 풀린다.
+function Frame({ children, msg }: { children: React.ReactNode; msg?: string }) {
+  return (
+    <div className="page max-w-app mx-auto pt-14 pb-16">
+      <div className="eyebrow-gold mb-3">로그인</div>
+      {children}
+      {msg && <p className="text-[12px] text-gold mt-4 leading-relaxed">{msg}</p>}
+    </div>
   );
 }

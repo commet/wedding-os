@@ -1,10 +1,11 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import type { WeddingData } from "../lib/schema";
 import { exportData, importData } from "../lib/storage";
 import { todayISO } from "../lib/freshness";
 import { clearSecrets, clearOwner, getOrCreateOwnerToken, getHostedConfig, isOwner } from "../lib/security";
 import { buildRecoveryLink } from "../lib/recovery";
+import { authAvailable, currentEmail, hasLinkedAccount, signOut, deleteLinkedAccount } from "../lib/auth";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 
@@ -216,14 +217,7 @@ export default function Settings({ data, update }: Props) {
           <p className="text-[11px] text-soft mt-3 leading-relaxed">
             배우자에게만 1:1로. 단톡방·SNS·공개된 곳엔 올리지 마세요.
           </p>
-          <div className="pt-4 mt-4 border-t border-hair">
-            <p className="text-[11.5px] text-soft leading-relaxed mb-2">
-              링크를 따로 안 챙겨도, 이메일 로그인으로 연결해두면 기기를 바꿔도 복구돼요.
-            </p>
-            <Link to="/login" className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
-              이메일로 로그인 연결 →
-            </Link>
-          </div>
+          <LoginStatus />
         </Section>
       )}
 
@@ -252,6 +246,65 @@ export default function Settings({ data, update }: Props) {
         <span>·</span>
         <a href="https://github.com/commet/wedding-os" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">GitHub</a>
       </p>
+    </div>
+  );
+}
+
+// 간편 모드 로그인 상태 — 이메일 표시 + 로그아웃 / 연결 해제, 또는 로그인 연결 링크.
+function LoginStatus() {
+  const [email, setEmail] = useState<string | null | undefined>(undefined);
+  const [linked, setLinked] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      if (!authAvailable()) { if (alive) setEmail(null); return; }
+      const em = await currentEmail();
+      if (!alive) return;
+      setEmail(em);
+      if (em) setLinked(await hasLinkedAccount());
+    })();
+    return () => { alive = false; };
+  }, []);
+
+  const doSignOut = async () => { await signOut(); window.location.reload(); };
+  const doUnlink = async () => {
+    if (!confirm("이 계정의 복구 정보를 삭제할까요?\n로그인으로는 더 이상 복구할 수 없게 돼요 (복구 링크는 그대로 사용 가능).")) return;
+    await deleteLinkedAccount();
+    await signOut();
+    window.location.reload();
+  };
+
+  if (email === undefined) return null; // 로딩 중
+
+  return (
+    <div className="pt-4 mt-4 border-t border-hair">
+      {email ? (
+        <div className="space-y-2">
+          <p className="text-[11.5px] text-soft">
+            로그인됨 · <b className="text-ink">{email}</b>{linked ? " · 복구 연결됨" : ""}
+          </p>
+          <div className="flex gap-5">
+            <button onClick={doSignOut} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
+              로그아웃
+            </button>
+            {linked && (
+              <button onClick={doUnlink} className="text-[12px] underline underline-offset-4 text-soft hover:text-gold">
+                연결 해제
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div>
+          <p className="text-[11.5px] text-soft leading-relaxed mb-2">
+            링크를 따로 안 챙겨도, 로그인으로 연결해두면 기기를 바꿔도 복구돼요.
+          </p>
+          <Link to="/login" className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
+            이메일·카카오로 로그인 연결 →
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

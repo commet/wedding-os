@@ -118,8 +118,28 @@ export default function Invitation({ data, update }: Props) {
       }
       return;
     }
-    // 모드 1: 카톡 채팅에 붙여넣을 텍스트 — 보내기 전 미리보기 모달로 확인 + 복사.
-    setShareText(buildKakaoShareText(inv));
+    // 모드 1(로컬)·간편(hosted): 발행된 진짜 링크가 있으면 그걸 공유.
+    if (data.publish) {
+      const url = `${window.location.origin}/i/${data.publish.code}#k=${data.publish.keyRaw}`;
+      const title = `${inv.groomName || "신랑"} · ${inv.brideName || "신부"} 결혼합니다`;
+      const text = inv.date || inv.venue
+        ? [formatShareDate(inv), inv.venue].filter(Boolean).join(" · ")
+        : "청첩장을 확인해주세요.";
+      if (navigator.share) {
+        try { await navigator.share({ title, text, url }); return; }
+        catch (e: any) { if (e?.name === "AbortError") return; }
+      }
+      try { await navigator.clipboard.writeText(url); markShareCopied(); }
+      catch { prompt("아래 링크를 복사해주세요:", url); }
+      return;
+    }
+    // 아직 발행 전 — 진짜 링크를 만들도록 편집 탭의 발행 섹션으로 안내.
+    alert(
+      "아직 청첩장을 '발행'하지 않았어요.\n\n" +
+      "[편집] 탭 맨 위 '청첩장 발행'에서 진짜 링크를 만들면\n" +
+      "그 링크를 하객에게 보낼 수 있어요. (내용은 암호화돼 운영자도 못 봐요)",
+    );
+    setTab("edit");
   };
 
   const copyShareText = async () => {
@@ -973,7 +993,7 @@ function EditForm({ inv, set, mode, data, update }: {
         </div>
       </div>
 
-      <Section title="청첩장 발행 — 진짜 링크 만들기" defaultOpen={false}>
+      <Section title="청첩장 발행 — 진짜 링크 만들기" defaultOpen>
         <PublishSection data={data} update={update} />
       </Section>
 

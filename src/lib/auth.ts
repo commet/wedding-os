@@ -97,6 +97,16 @@ export async function recoverAccount(
   }
 }
 
+/** 계정의 복구 정보(blob)를 삭제 — 연결 해제. (복구 링크는 영향 없음) */
+export async function deleteLinkedAccount(): Promise<{ ok: boolean; error?: string }> {
+  const c = getAuthClient();
+  if (!c) return { ok: false, error: "로그인을 사용할 수 없어요." };
+  const uid = await currentUid(c);
+  if (!uid) return { ok: false, error: "먼저 로그인해주세요." };
+  const { error } = await c.from("wos_accounts").delete().eq("user_id", uid);
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
 /** 현재 로그인 계정에 연결된 청첩장(blob)이 있는지. */
 export async function hasLinkedAccount(): Promise<boolean> {
   const c = getAuthClient();
