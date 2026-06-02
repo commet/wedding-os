@@ -306,7 +306,7 @@ function Flights({ data, update }: Props) {
         departAt: o.departAt,
         arriveAt: o.arriveAt,
         priceKRW: typeof o.priceKRW === "number" ? o.priceKRW : undefined,
-        lastVerified: todayISO(),
+        // AI 추정값 — 실시간 검증이 아니므로 '오늘 확인됨' 신선도를 붙이지 않는다(정직성).
       }));
     if (newFlights.length === 0) return;
     update((prev: WeddingData) => ({ ...prev, flights: [...prev.flights, ...newFlights] }));
@@ -457,7 +457,8 @@ function Stays({ data, update }: Props) {
           if (idx >= 0) merged[idx] = entry;
           else merged.push(entry);
         }
-        return { ...h, otaPrices: merged, lastVerified: todayISO() };
+        // AI 가격 비교는 추정이라 '오늘 확인됨' 신선도를 갱신하지 않는다(정직성). 사용자가 직접 확인하면 갱신됨.
+        return { ...h, otaPrices: merged };
       }),
     }));
     setBridge(null);

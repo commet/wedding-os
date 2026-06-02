@@ -121,7 +121,8 @@ export default function Rings({ data, update }: Props) {
               ...r,
               priceKRW: typeof priceKRW === "number" ? priceKRW : r.priceKRW,
               source: source ?? r.source,
-              lastVerified: todayISO(),
+              // AI 추정 가격 — '오늘 확인됨'을 거짓으로 붙이지 않는다. source 로 직접 확인.
+              lastVerified: undefined,
             }
       ),
     }));
