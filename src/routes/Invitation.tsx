@@ -506,10 +506,12 @@ export function Preview({
         )}
 
         {/* 3. 모시는 글 */}
-        <div className="px-7 py-8 text-center border-b border-line">
-          <h3 className={`text-sm ${theme.accent} mb-4 tracking-wide`}>{t("모시는 글", locale)}</h3>
-          <p className="text-sm leading-loose whitespace-pre-line text-ink/90">{inv.greeting}</p>
-        </div>
+        <Reveal>
+          <div className="px-7 py-8 text-center border-b border-line">
+            <h3 className={`text-sm ${theme.accent} mb-4 tracking-wide`}>{t("모시는 글", locale)}</h3>
+            <p className="text-sm leading-loose whitespace-pre-line text-ink/90">{inv.greeting}</p>
+          </div>
+        </Reveal>
 
         {/* 4. 혼주 */}
         {(inv.groomParents?.father || inv.groomParents?.mother || inv.brideParents?.father || inv.brideParents?.mother) && (
@@ -533,35 +535,39 @@ export function Preview({
 
         {/* 5. 캘린더 */}
         {validDate && (
-          <div className="px-7 py-7 border-b border-line">
-            <h3 className={`text-sm ${theme.accent} mb-4 text-center tracking-wide`}>{t("예식일", locale)}</h3>
-            <MiniCalendar date={validDate} chipClass={theme.chip} fontClass={fontClass} />
-            <button
-              onClick={() => downloadIcs(inv, validDate)}
-              className="mt-5 mx-auto block text-[11.5px] border border-line bg-white px-3 py-1.5 hover:border-ink active:opacity-70 transition"
-            >
-              📅 {t("내 캘린더에 추가", locale)}
-            </button>
-          </div>
+          <Reveal>
+            <div className="px-7 py-7 border-b border-line">
+              <h3 className={`text-sm ${theme.accent} mb-4 text-center tracking-wide`}>{t("예식일", locale)}</h3>
+              <MiniCalendar date={validDate} chipClass={theme.chip} fontClass={fontClass} />
+              <button
+                onClick={() => downloadIcs(inv, validDate)}
+                className="mt-5 mx-auto block text-[11.5px] border border-line bg-white px-3 py-1.5 hover:border-ink active:opacity-70 transition"
+              >
+                📅 {t("내 캘린더에 추가", locale)}
+              </button>
+            </div>
+          </Reveal>
         )}
 
         {/* 6. 갤러리 — 탭하면 확대(라이트박스) */}
         {inv.gallery && inv.gallery.length > 0 && (
-          <div className="px-4 py-7 border-b border-line">
-            <h3 className={`text-sm ${theme.accent} mb-4 text-center tracking-wide`}>{t("갤러리", locale)}</h3>
-            <div className="grid grid-cols-3 gap-1.5">
-              {inv.gallery.map((g, i) => (
-                <button
-                  key={i}
-                  onClick={() => setLightbox(i)}
-                  className="block w-full aspect-square overflow-hidden rounded-md active:opacity-80 transition"
-                  aria-label={g.caption || `사진 ${i + 1} 크게 보기`}
-                >
-                  <SafeImg src={g.url} alt={g.caption ?? ""} className="w-full h-full object-cover" />
-                </button>
-              ))}
+          <Reveal>
+            <div className="px-4 py-7 border-b border-line">
+              <h3 className={`text-sm ${theme.accent} mb-4 text-center tracking-wide`}>{t("갤러리", locale)}</h3>
+              <div className="grid grid-cols-3 gap-1.5">
+                {inv.gallery.map((g, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setLightbox(i)}
+                    className="block w-full aspect-square overflow-hidden rounded-md active:opacity-80 transition"
+                    aria-label={g.caption || `사진 ${i + 1} 크게 보기`}
+                  >
+                    <SafeImg src={g.url} alt={g.caption ?? ""} className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          </Reveal>
         )}
         {inv.gallery && lightbox !== null && (
           <GalleryLightbox
@@ -574,37 +580,39 @@ export function Preview({
 
         {/* 7. 오시는 길 */}
         {inv.venue && (
-          <div className="px-7 py-7 border-b border-line text-center">
-            <h3 className={`text-sm ${theme.accent} mb-3 tracking-wide`}>{t("오시는 길", locale)}</h3>
-            <div className="font-medium">{inv.venue}</div>
-            {inv.venueHall && <div className="text-sm text-soft">{inv.venueHall}</div>}
-            {inv.venueAddress && (
-              <div className="mt-1.5 flex items-center justify-center gap-2 flex-wrap">
-                <span className="text-xs text-soft">{inv.venueAddress}</span>
-                <CopyChip
-                  text={inv.venueAddress}
-                  label={t("주소 복사", locale)}
-                  className="text-[10.5px] border border-line bg-white px-1.5 py-0.5 hover:border-ink active:opacity-70 transition whitespace-nowrap"
-                />
+          <Reveal>
+            <div className="px-7 py-7 border-b border-line text-center">
+              <h3 className={`text-sm ${theme.accent} mb-3 tracking-wide`}>{t("오시는 길", locale)}</h3>
+              <div className="font-medium">{inv.venue}</div>
+              {inv.venueHall && <div className="text-sm text-soft">{inv.venueHall}</div>}
+              {inv.venueAddress && (
+                <div className="mt-1.5 flex items-center justify-center gap-2 flex-wrap">
+                  <span className="text-xs text-soft">{inv.venueAddress}</span>
+                  <CopyChip
+                    text={inv.venueAddress}
+                    label={t("주소 복사", locale)}
+                    className="text-[10.5px] border border-line bg-white px-1.5 py-0.5 hover:border-ink active:opacity-70 transition whitespace-nowrap"
+                  />
+                </div>
+              )}
+              <div className="flex gap-2 justify-center mt-4 flex-wrap">
+                <a
+                  href={`https://map.kakao.com/link/search/${encodeURIComponent(mapQuery)}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="text-xs px-3 py-2 bg-cream border border-line hover:border-ink transition"
+                >
+                  카카오맵
+                </a>
+                <a
+                  href={`https://map.naver.com/v5/search/${encodeURIComponent(mapQuery)}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="text-xs px-3 py-2 bg-cream border border-line hover:border-ink transition"
+                >
+                  네이버지도
+                </a>
               </div>
-            )}
-            <div className="flex gap-2 justify-center mt-4 flex-wrap">
-              <a
-                href={`https://map.kakao.com/link/search/${encodeURIComponent(mapQuery)}`}
-                target="_blank" rel="noopener noreferrer"
-                className="text-xs px-3 py-2 bg-cream border border-line hover:border-ink transition"
-              >
-                카카오맵
-              </a>
-              <a
-                href={`https://map.naver.com/v5/search/${encodeURIComponent(mapQuery)}`}
-                target="_blank" rel="noopener noreferrer"
-                className="text-xs px-3 py-2 bg-cream border border-line hover:border-ink transition"
-              >
-                네이버지도
-              </a>
             </div>
-          </div>
+          </Reveal>
         )}
 
         {/* 8. 연락처 */}
@@ -628,7 +636,9 @@ export function Preview({
 
         {/* 9. 마음 전하실 곳 */}
         {(inv.groomAccount || inv.brideAccount) && (
-          <AccountSection inv={inv} locale={locale} accent={theme.accent} />
+          <Reveal>
+            <AccountSection inv={inv} locale={locale} accent={theme.accent} />
+          </Reveal>
         )}
 
         {/* 10. RSVP (본식 전) 또는 감사 인사 (본식 후) */}
@@ -714,6 +724,35 @@ function AccountSection({ inv, locale, accent }: { inv: InvitationContent; local
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// 스크롤 등장 — 뷰포트에 들어오면 부드럽게 페이드+업. 모션 줄이기 설정·미지원 시 즉시 표시.
+function Reveal({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === "undefined" ||
+        window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) {
+      setShown(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) { setShown(true); io.disconnect(); } },
+      { threshold: 0.12, rootMargin: "0px 0px -6% 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  return (
+    <div
+      ref={ref}
+      className={`transition-all duration-[800ms] ease-out ${shown ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"} ${className}`}
+    >
+      {children}
     </div>
   );
 }
