@@ -536,6 +536,12 @@ export function Preview({
           <div className="px-7 py-7 border-b border-line">
             <h3 className={`text-sm ${theme.accent} mb-4 text-center tracking-wide`}>{t("예식일", locale)}</h3>
             <MiniCalendar date={validDate} chipClass={theme.chip} fontClass={fontClass} />
+            <button
+              onClick={() => downloadIcs(inv, validDate)}
+              className="mt-5 mx-auto block text-[11.5px] border border-line bg-white px-3 py-1.5 hover:border-ink active:opacity-70 transition"
+            >
+              📅 {t("내 캘린더에 추가", locale)}
+            </button>
           </div>
         )}
 
@@ -811,6 +817,38 @@ function AccountRow({ label, account, locale }: { label: string; account: string
       </button>
     </div>
   );
+}
+
+// 결혼식을 하객 캘린더에 추가 — .ics 다운로드 (모바일은 탭 시 '캘린더에 추가' 안내).
+// 시간(inv.time)이 자유형식 텍스트라 종일 이벤트로 만들고, 시간·식장은 설명에 담는다.
+function downloadIcs(inv: InvitationContent, date: Date) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const ymd = (d: Date) => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+  const esc = (s: string) => s.replace(/([,;\\])/g, "\\$1").replace(/\n/g, "\\n");
+  const next = new Date(date.getTime() + 86400000);
+  const summary = `${inv.groomName || "신랑"} ♥ ${inv.brideName || "신부"} 결혼식`;
+  const loc = [inv.venue, inv.venueHall, inv.venueAddress].filter(Boolean).join(", ");
+  const ics = [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Wedding OS//KR//", "BEGIN:VEVENT",
+    `UID:weddingos-${ymd(date)}@wedding-os`,
+    `DTSTART;VALUE=DATE:${ymd(date)}`,
+    `DTEND;VALUE=DATE:${ymd(next)}`,
+    `SUMMARY:${esc(summary)}`,
+    loc ? `LOCATION:${esc(loc)}` : "",
+    inv.time ? `DESCRIPTION:${esc(inv.time)}` : "",
+    "END:VEVENT", "END:VCALENDAR",
+  ].filter(Boolean).join("\r\n");
+  try {
+    const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "wedding.ics";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch { /* noop */ }
 }
 
 function MiniCalendar({ date, chipClass, fontClass = "font-serif" }: { date: Date; chipClass: string; fontClass?: string; }) {
@@ -1617,6 +1655,7 @@ function t(ko: string, locale: Locale): string {
     "복사됨": { en: "Copied", zh: "已複製" },
     "계좌번호를 복사하세요": { en: "Copy this account", zh: "請複製帳號" },
     "주소 복사": { en: "Copy address", zh: "複製地址" },
+    "내 캘린더에 추가": { en: "Add to calendar", zh: "加入行事曆" },
     "참석 의사 전달": { en: "RSVP", zh: "出席回覆" },
     "참석 여부 전하기": { en: "Send RSVP", zh: "回覆出席" },
     "축하의 마음으로 참석해 주시는 분들을 위해": { en: "Please let us know if you can join us", zh: "請告知是否能出席" },
