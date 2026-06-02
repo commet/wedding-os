@@ -18,7 +18,7 @@ import {
   getHostedConfig, getOrCreateOwnerToken, setHostedConfig, setOwnerToken, markOwner,
 } from "../lib/security";
 import {
-  authAvailable, currentEmail, sendMagicLink, linkAccount, recoverAccount, hasLinkedAccount,
+  authAvailable, currentEmail, sendMagicLink, signInWithProvider, linkAccount, recoverAccount, hasLinkedAccount,
 } from "../lib/auth";
 
 type Phase = "init" | "email" | "sent" | "link" | "recover" | "none" | "linked" | "error";
@@ -50,6 +50,12 @@ export default function Login() {
     const r = await sendMagicLink(email);
     setBusy(false);
     r.ok ? setPhase("sent") : setMsg(r.error ?? "전송에 실패했어요.");
+  };
+
+  const oauth = async (provider: "kakao" | "google") => {
+    setBusy(true); setMsg("");
+    const r = await signInWithProvider(provider); // 성공 시 페이지가 리다이렉트됨
+    if (!r.ok) { setBusy(false); setMsg(r.error ?? "로그인에 실패했어요."); }
   };
 
   const doLink = async () => {
@@ -98,17 +104,32 @@ export default function Login() {
 
   if (phase === "email") return (
     <Frame>
-      <h1 className="font-serif text-[1.9rem] leading-tight mb-3">이메일로 로그인</h1>
+      <h1 className="font-serif text-[1.9rem] leading-tight mb-3">로그인</h1>
       <p className="text-[13px] text-soft leading-relaxed mb-6">
-        비밀번호 없이, 이메일로 받은 링크만 누르면 돼요. 기기를 바꿔도 로그인으로 이어받을 수 있어요.
+        비밀번호 없이 — 카카오·구글 또는 이메일 링크로. 기기를 바꿔도 로그인으로 이어받아요.
       </p>
+      <button onClick={() => oauth("kakao")} disabled={busy}
+        className="w-full py-3.5 text-[13px] font-medium bg-[#FEE500] text-[#191600] active:opacity-80 transition disabled:opacity-50">
+        카카오로 계속
+      </button>
+      <button onClick={() => oauth("google")} disabled={busy}
+        className="w-full mt-3 py-3.5 text-[13px] border border-line text-ink hover:border-ink transition disabled:opacity-50">
+        구글로 계속
+      </button>
+
+      <div className="flex items-center gap-3 my-6">
+        <div className="h-px bg-hair flex-1" />
+        <span className="eyebrow">또는 이메일</span>
+        <div className="h-px bg-hair flex-1" />
+      </div>
+
       <input
         type="email" value={email} onChange={(e) => setEmail(e.target.value)}
         placeholder="you@example.com" autoComplete="email"
         className="input-boxed mb-4"
       />
       <button onClick={send} disabled={busy} className="btn-primary w-full py-3.5 text-[13px] disabled:opacity-50">
-        {busy ? "보내는 중…" : "로그인 링크 받기 →"}
+        {busy ? "보내는 중…" : "이메일 링크 받기 →"}
       </button>
     </Frame>
   );

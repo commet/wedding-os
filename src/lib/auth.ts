@@ -35,6 +35,19 @@ export async function sendMagicLink(email: string): Promise<{ ok: boolean; error
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
+/** 소셜 로그인 — 카카오/구글. 호출 시 해당 제공자로 페이지가 리다이렉트되고, 끝나면 /login 으로 복귀. */
+export async function signInWithProvider(
+  provider: "kakao" | "google",
+): Promise<{ ok: boolean; error?: string }> {
+  const c = getAuthClient();
+  if (!c) return { ok: false, error: "로그인을 사용할 수 없어요." };
+  const { error } = await c.auth.signInWithOAuth({
+    provider,
+    options: { redirectTo: `${window.location.origin}/login` },
+  });
+  return error ? { ok: false, error: error.message } : { ok: true };
+}
+
 export async function currentEmail(): Promise<string | null> {
   const c = getAuthClient();
   if (!c) return null;
