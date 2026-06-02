@@ -18,11 +18,12 @@
 import { ImageResponse } from "@vercel/og";
 import { get as blobGet } from "@vercel/blob";
 
-// Edge runtime 에 실제로 노출되는 환경변수만 declare — @types/node 를 끌고 오면
-// fs / Buffer 같은 edge 에서 못 쓰는 API 가 타입에 잡혀 오히려 사고 위험.
 declare const process: { env: Record<string, string | undefined> };
 
-export const config = { runtime: "edge" };
+// Node 런타임 — @vercel/blob(private get)을 쓰므로 edge 가 아니라 Node 로 돌린다.
+// (edge 에선 @vercel/blob 의 private get 이 비호환/번들 초과로 함수 배포가 실패한다.)
+// @vercel/og 는 Node 런타임에서도 동작한다.
+export const config = { runtime: "nodejs" };
 
 // Google Fonts 의 `text=` 파라미터를 이용해 *필요한 글리프만* 가져온다.
 // Noto Sans KR 전체 TTF 는 수 MB — Edge function 으로는 너무 큼.
