@@ -57,14 +57,15 @@ export default function Welcome({ data, update }: Props) {
   const [step, setStep] = useState<"landing" | "modeSelect">("landing");
   const [showCompare, setShowCompare] = useState(false);
 
-  // goModeSelect 는 1회용 — 한 번 적용한 뒤 history state 에서 제거.
-  // 안 그러면 뒤로가기로 이 entry 에 다시 돌아왔을 때 또 modeSelect 로 튐(랜딩 화면이 사라져 보이는 원인).
+  // 데모 배너 '내 결혼식 시작' 등에서 goModeSelect 로 들어오면 — 선택지 없이 바로 로컬 시작.
+  // (모드 선택은 '고급' 으로만 접근. 대부분은 그냥 시작하면 됨.)
   useEffect(() => {
     if ((location.state as any)?.goModeSelect) {
-      setStep("modeSelect");
       navigate(location.pathname, { replace: true, state: null });
+      selectMode("local");
     }
-  }, [location.state, location.pathname, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state, location.pathname]);
 
   const browseDemo = () => {
     // 모드 미선택 + 데모 아님 + 데이터 거의 없음 = 진짜 빈 상태
@@ -86,7 +87,8 @@ export default function Welcome({ data, update }: Props) {
     navigate("/dashboard");
   };
 
-  const startMine = () => setStep("modeSelect");
+  // 기본 시작 = 로컬, 즉시. 시트 열듯 바로 쓰기 시작. (함께 편집·발행 등은 앱 안에서 그때 등장.)
+  const startLocal = () => selectMode("local");
 
   const backToLanding = () => {
     setStep("landing");
@@ -142,12 +144,12 @@ export default function Welcome({ data, update }: Props) {
         </button>
 
         <div className="mb-12">
-          <div className="eyebrow-gold mb-4">01 · 시작 방식</div>
+          <div className="eyebrow-gold mb-4">고급 · 저장·공유 방식</div>
           <h1 className="display-sm mb-3">
-            어떻게 시작할까요?
+            어디에 저장할까요?
           </h1>
           <p className="text-soft text-[13px] leading-relaxed">
-            배포 없이 시작할 수도 있고, 필요하면 나중에 링크 공유 모드로 올릴 수 있어요.
+            대부분은 그냥 <b className="text-ink">바로 시작하기</b>면 충분해요. 여기선 저장 위치를 직접 고를 수 있어요.
           </p>
           <Link to="/trust" className="inline-block mt-4 text-[12px] text-ink underline underline-offset-4 hover:text-gold transition">
             🔒 어디에 저장하든 운영자는 내용을 못 읽어요 — 직접 확인 →
@@ -228,24 +230,21 @@ export default function Welcome({ data, update }: Props) {
         </p>
       </section>
 
-      {/* 2. 메인 CTA — 박스 없이 sharp 한 두 버튼 */}
+      {/* 2. 메인 CTA — 바로 시작이 1순위, 데모는 보조 */}
       <section className="page pb-8">
         <button
-          onClick={browseDemo}
+          onClick={startLocal}
           className="btn-primary w-full py-4 text-[13px]"
         >
-          먼저 예시로 둘러보기 →
+          바로 시작하기 →
         </button>
         <div className="mt-4 text-center">
-          <button onClick={startMine} className="text-[13px] text-soft underline underline-offset-4 hover:text-ink transition">
-            아니면 바로 내 결혼식 시작
+          <button onClick={browseDemo} className="text-[13px] text-soft underline underline-offset-4 hover:text-ink transition">
+            예시 먼저 보기
           </button>
         </div>
-        <p className="mt-6 text-center text-[12px] text-soft leading-relaxed">
-          🔒 무엇을 적든 운영자는 내용을 못 봅니다.{" "}
-          <Link to="/trust" className="underline underline-offset-4 text-ink hover:text-gold transition">
-            어떻게요?
-          </Link>
+        <p className="mt-5 text-center text-[11.5px] text-soft leading-relaxed">
+          가입·설치 없이 바로. 입력한 내용은 이 기기에 저장돼요.
         </p>
       </section>
 
@@ -276,9 +275,14 @@ export default function Welcome({ data, update }: Props) {
         <p className="font-serif text-xl text-ink leading-snug mb-6">
           시작은 30초면 충분합니다.
         </p>
-        <button onClick={browseDemo} className="btn-primary px-10 py-4 text-[13px]">
-          예시로 둘러보기 →
+        <button onClick={startLocal} className="btn-primary px-10 py-4 text-[13px]">
+          바로 시작하기 →
         </button>
+        <div className="mt-5">
+          <button onClick={() => setStep("modeSelect")} className="text-[12px] text-soft underline underline-offset-4 hover:text-ink transition">
+            저장·공유 방식 직접 고르기 (고급)
+          </button>
+        </div>
       </section>
 
       {/* 5. 푸터 — 미니멀하게 */}
@@ -292,7 +296,9 @@ export default function Welcome({ data, update }: Props) {
             yclee913@gmail.com
           </a>
         </p>
-        <p className="text-[11px] text-soft mt-4">
+        <p className="text-[11px] text-soft mt-4 space-x-3">
+          <Link to="/trust" className="underline underline-offset-2">운영자도 못 봐요</Link>
+          <span>·</span>
           <a href="/privacy" className="underline underline-offset-2">개인정보 · 보안 안내</a>
         </p>
       </footer>

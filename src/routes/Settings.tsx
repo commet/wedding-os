@@ -129,8 +129,13 @@ export default function Settings({ data, update }: Props) {
         <p className="text-[13px] text-soft">
           현재 · <b className="text-ink">{currentMode}</b>
         </p>
-        <button onClick={switchMode} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold mt-3">
-          저장 방식 다시 선택 →
+        {data.preferences.mode === "local" && authAvailable() && (
+          <Link to="/start-hosted" className="block mt-3 text-[12.5px] text-ink underline underline-offset-4 hover:text-gold">
+            👫 배우자와 함께 편집 · 다른 기기에서 이어서 →
+          </Link>
+        )}
+        <button onClick={switchMode} className="block text-[12px] underline underline-offset-4 text-soft hover:text-ink mt-3">
+          저장 방식 직접 고르기 (고급) →
         </button>
       </Section>
 
