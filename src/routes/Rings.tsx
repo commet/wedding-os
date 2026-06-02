@@ -342,12 +342,17 @@ function RingCard({
 }
 
 function RingImage({ ring, className }: { ring: Ring; className: string }) {
+  // 카탈로그 이미지가 카드형(반지+텍스트)이라 imgFit 으로 정사각에서 반지 부분만 보이게.
+  const fit =
+    ring.imgFit === "contain" ? "object-contain" :
+    ring.imgFit === "top" ? "object-cover object-top" :
+    "object-cover object-center";
   return (
     <div className={`${className} bg-white border border-hair overflow-hidden flex items-center justify-center flex-shrink-0`}>
       <SafeImg
         src={ring.imageUrl}
         alt={`${ring.brand} ${ring.model}`}
-        className="w-full h-full object-cover"
+        className={`w-full h-full ${fit}`}
         fallback={
           <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-cream via-white to-gold/10 text-center px-2">
             <span className="font-serif text-[20px] leading-none text-gold">{ring.brand.slice(0, 1)}</span>

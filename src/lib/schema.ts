@@ -28,6 +28,9 @@ export type Ring = Verifiable & {
   starredBy?: ("groom" | "bride")[];   // ★ 즐겨찾기
   likedBy?: ("groom" | "bride")[];     // ♥ 좋아요
   link?: string;
+  // 카탈로그 이미지가 카드형(반지+텍스트)일 때 정사각 크롭 위치 힌트.
+  // top = 반지가 위쪽 → 위 기준 크롭 / center = 가운데 / contain = 전체 보기
+  imgFit?: "top" | "center" | "contain";
 };
 
 export type Hotel = Verifiable & {
