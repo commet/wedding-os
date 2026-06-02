@@ -1486,21 +1486,26 @@ function GalleryEditor({ gallery, onChange }: { gallery: { url: string; caption?
   return (
     <div className="space-y-2">
       {gallery.length > 0 && (
-        <div className="grid grid-cols-3 gap-1.5">
+        <div className="space-y-2">
           {gallery.map((g, i) => {
             const u = safeMediaSrc(g.url);
             return (
-              <div key={i} className="relative">
+              <div key={i} className="flex items-center gap-2.5">
                 {u ? (
-                  <img src={u} alt="" className="w-full aspect-square object-cover rounded-md" />
+                  <img src={u} alt="" className="w-14 h-14 object-cover rounded-md flex-shrink-0" />
                 ) : (
-                  <div className="w-full aspect-square rounded-md bg-cream border border-red-200 flex items-center justify-center text-[11px] text-red-500 text-center px-1">
-                    잘못된<br />사진 주소
-                  </div>
+                  <div className="w-14 h-14 rounded-md bg-cream border border-red-200 flex items-center justify-center text-[10px] text-red-500 text-center flex-shrink-0 leading-tight">잘못된<br />주소</div>
                 )}
+                <input
+                  className="input flex-1 text-sm"
+                  value={g.caption ?? ""}
+                  onChange={(e) => onChange(gallery.map((x, j) => (j === i ? { ...x, caption: e.target.value } : x)))}
+                  placeholder="사진 설명 (선택)"
+                />
                 <button
                   onClick={() => onChange(gallery.filter((_, j) => j !== i))}
-                  className="absolute top-1 right-1 bg-black/50 text-white rounded-full w-5 h-5 text-xs"
+                  className="flex-shrink-0 text-soft hover:text-gold text-lg px-1"
+                  aria-label="삭제"
                 >×</button>
               </div>
             );
