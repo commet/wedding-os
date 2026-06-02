@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import type { WeddingData } from "../lib/schema";
-import { exportData, importData } from "../lib/storage";
+import { exportData, importData, purgeServerData } from "../lib/storage";
 import { todayISO } from "../lib/freshness";
 import { clearSecrets, clearOwner, getOrCreateOwnerToken, getHostedConfig, isOwner } from "../lib/security";
 import { buildRecoveryLink } from "../lib/recovery";
@@ -60,9 +60,23 @@ export default function Settings({ data, update }: Props) {
     }
   };
 
-  const reset = () => {
-    if (!confirm("정말 모든 데이터를 지울까요? 되돌릴 수 없어요.")) return;
+  const [wiping, setWiping] = useState(false);
+  const reset = async () => {
+    if (!confirm(
+      "정말 모든 데이터를 지울까요?\n\n" +
+      "발행한 청첩장·받은 RSVP, 간편 모드 서버 데이터, 로그인 연결까지 함께 삭제되며 되돌릴 수 없어요.",
+    )) return;
+    setWiping(true);
+    // 1. 운영자 서버에 남는 내 데이터 정리 (발행 청첩장 + 간편 호스팅 행)
+    try { await purgeServerData(data); } catch { /* best-effort */ }
+    // 2. 로그인 계정 복구 blob 삭제 + 로그아웃 (로그인 상태일 때)
+    if (authAvailable()) {
+      try { await deleteLinkedAccount(); } catch { /* best-effort */ }
+      try { await signOut(); } catch { /* best-effort */ }
+    }
+    // 3. 로컬 정리
     localStorage.removeItem("wedding-os/v1");
+    localStorage.removeItem("wedding-os/published-invite");
     clearSecrets();
     clearOwner();
     window.location.href = "/";
@@ -232,9 +246,12 @@ export default function Settings({ data, update }: Props) {
       </Section>
 
       <Section title="위험한 작업">
-        <button onClick={reset} className="text-[12px] underline underline-offset-4 text-gold hover:text-ink">
-          모든 데이터 지우기 →
+        <button onClick={reset} disabled={wiping} className="text-[12px] underline underline-offset-4 text-gold hover:text-ink disabled:opacity-50">
+          {wiping ? "지우는 중…" : "모든 데이터 지우기 →"}
         </button>
+        <p className="text-[11px] text-soft mt-2 leading-relaxed">
+          발행한 청첩장·간편 모드 서버 데이터·로그인 연결까지 함께 삭제됩니다.
+        </p>
       </Section>
 
       <p className="text-center text-[11px] text-soft pt-4 border-t border-hair space-x-3">

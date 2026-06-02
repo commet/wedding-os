@@ -9,7 +9,8 @@ import { defaultData, WeddingData, SCHEMA_VERSION } from "./schema";
 import { createSupabaseStorage } from "./storage.supabase";
 import { demoData } from "../data/demoData";
 import { setOwnerToken, setSecrets, isSupabaseHost, getHostedConfig, getOrCreateOwnerToken } from "./security";
-import { createHostedStorage } from "./storage.hosted";
+import { createHostedStorage, deleteHostedWedding } from "./storage.hosted";
+import { unpublishInvitation } from "./inviteHosting";
 import { inlineIdbForExport, stripUnresolvedIdb } from "./imageStore";
 
 const LS_KEY = "wedding-os/v1";
@@ -455,6 +456,24 @@ function enqueueSave(next: WeddingData) {
 //
 // 사진: idb:<id> 참조는 다른 기기에서 못 푸므로 export 시 base64 로 인라인.
 //       (백업 파일이 다른 기기/세션에서도 그대로 열리도록 portable 보장.)
+// 운영자 서버에 남는 내 데이터를 정리 — 계정/데이터 완전 삭제 시 호출.
+// best-effort: 일부 실패해도 나머지는 진행(네트워크 등). 로컬 삭제는 호출부가 별도로 처리.
+export async function purgeServerData(data: WeddingData): Promise<void> {
+  // 1. 발행 청첩장(Blob): 암호문·메타·RSVP 삭제 (ownerToken 검증)
+  if (data.publish?.code) {
+    try { await unpublishInvitation(data.publish.code); } catch { /* best-effort */ }
+  }
+  // 2. 간편(hosted) 데이터 행 삭제
+  if (data.preferences.mode === "hosted") {
+    const cfg = getHostedConfig();
+    const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+    const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+    if (cfg && url && key) {
+      try { await deleteHostedWedding(url, key, cfg.weddingId, getOrCreateOwnerToken()); } catch { /* best-effort */ }
+    }
+  }
+}
+
 export async function exportData(data: WeddingData): Promise<void> {
   const inlined: WeddingData = await inlineIdbForExport(data);
   // base64 인라인에 실패해 남은 idb: 참조는 다른 기기에서 못 푸므로 깨진 사진이 된다.

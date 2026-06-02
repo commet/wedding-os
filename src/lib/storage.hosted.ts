@@ -30,6 +30,23 @@ const noopDriver: StorageDriver = {
   async save() { return { ok: false }; },
 };
 
+/** 호스팅 결혼 데이터 행 삭제 (계정/데이터 완전 삭제용). ownerToken 검증은 RPC 내부. */
+export async function deleteHostedWedding(
+  url: string,
+  anonKey: string,
+  weddingId: string,
+  ownerToken: string,
+): Promise<boolean> {
+  if (!url || !anonKey || !weddingId || !ownerToken || !isSupabaseHost(url)) return false;
+  try {
+    const client = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { error } = await client.rpc("wos_delete", { p_id: weddingId, p_token: ownerToken });
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
 export function createHostedStorage(
   url: string,
   anonKey: string,
