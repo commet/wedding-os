@@ -14,9 +14,32 @@
 
 1. **운영자(yclee913)는 사용자 데이터의 내용을 읽을 수 없다.** 모드 1·2·3 데이터는 본인 기기/인프라에만 저장. '간편 발행'은 운영자 서버(Vercel Blob)에 올리되 **종단간 암호화** — 복호화 키는 공유 링크의 `#` 프래그먼트에만 있어 운영자는 복호화 불가. 평문 보관은 카톡 미리보기용 이름·날짜뿐. Supabase URL/key 는 사용자 본인 것만, 본인의 키를 코드에 박지 말 것.
 2. **AI 비용은 사용자가 부담한다.** 기본은 챗봇 다리(ChatGPT/Claude 복붙). 본인 API 키는 사용자가 Settings에서 입력.
-3. **세 가지 모드 (local / supabase / devOnly)** 가 같은 데이터 모델을 공유. 페이지는 `useWeddingData()` 훅으로만 접근.
+3. **네 가지 모드 (local / hosted / supabase / devOnly)** 가 같은 데이터 모델을 공유. 페이지는 `useWeddingData()` 훅으로만 접근. (아래 "3단 스펙트럼" 참고)
 4. **모바일 우선.** 모든 UI는 max-width 480px 기준.
 5. **데이터 신선도.** 시세성 정보(반지/호텔/항공)는 `lastVerified` 필드 + FreshnessBadge 노출.
+
+---
+
+## 3단 저장 스펙트럼 + 간편 E2E 호스팅 (2026-06 신규)
+
+사용자는 프라이버시↔편의 스펙트럼에서 저장 방식을 고른다 (`Welcome.tsx`):
+
+| 모드 | 뜻 | 데이터 위치 | 운영자가 읽나 |
+|---|---|---|---|
+| `local` | 이 기기만 | 브라우저 localStorage/IDB | 안 올라감 |
+| `hosted` ⭐ | 간편 (운영자 호스팅·E2E) | 운영자 Supabase, **암호문만** | ❌ 키 없음 |
+| `supabase` | 독립 (내 Supabase) | 본인 인프라 | ❌ 안 거침 |
+| `devOnly` | 개발자 | — | — |
+
+**간편(hosted) 핵심:**
+- 백엔드 = 휴면 프로젝트 **sayu-db** 재활용 (Supabase 무료 2개 한도). `weddingos` 스키마 + `public.wos_*` RPC(ownerToken bcrypt). 결혼 데이터 전체를 `inviteCrypto`로 암호화해 `data` 컬럼에 암호문(`{ct,v}`)으로만 저장.
+- 키 모델: `weddingId`+`ownerToken`+`weddingKey`는 secrets(localStorage)+복구링크(`/recover#w=&t=&k=`)에만. 운영자 복호화 불가.
+- **로그인**(`/login`, `lib/auth.ts`): 이메일 매직링크 + 카카오·구글. *식별·복구·안심*용 — 내용 비밀과 무관. 복구번들을 passphrase로 감싸(`lib/account.ts`, PBKDF2→AES-GCM) `public.wos_accounts`(RLS 본인행)에 blob 저장. 운영자는 이메일만 알고 내용·키는 못 봄.
+- 공개 청첩장·RSVP는 기존 Blob 발행(`api/invite-*`) 재사용. 실시간 동기화는 없음(RPC-only RLS).
+
+**관련 파일:** `lib/storage.hosted.ts`(암복호화 드라이버) · `lib/recovery.ts` · `lib/account.ts` · `lib/auth.ts` · `routes/HostedStart.tsx` · `routes/Recover.tsx` · `routes/Login.tsx` · `routes/Trust.tsx`(투명성) · `components/CipherPeek.tsx`.
+
+**운영자 설정은 `DEPLOY.md` 참고** (Vercel env, Supabase Auth Redirect URLs). DB 마이그레이션은 sayu-db에 적용됨(이름 `weddingos_*`).
 
 ---
 
@@ -38,8 +61,12 @@ src/
     Guests.tsx               하객 명단 · 축의금 · 식수
     Invitation.tsx           모바일 청첩장 빌더 (/invitation, /i 둘 다)
     Video.tsx                식전영상 (Remotion 기반, 라우트 lazy)
-    Setup.tsx                모드 2 셋업 위저드 5단계
-    Settings.tsx             설정 + 백업
+    Setup.tsx                독립(supabase) 셋업 위저드 5단계
+    Settings.tsx             설정 + 백업 + 간편 로그인 상태
+    HostedStart.tsx          간편 모드 시작 (자격증명 생성 + 복구 링크)
+    Recover.tsx              /recover — 복구 링크로 기기교체·부부공유
+    Login.tsx                /login — 이메일·카카오·구글 로그인 + 복구
+    Trust.tsx                /trust — 투명성(라이브 암호화 데모)
     Contact.tsx              문의 폼
     Privacy.tsx              개인정보 처리방침
   components/
