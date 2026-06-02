@@ -312,7 +312,7 @@ function RingCard({
         <VendorActions
           name={ring.brand}
           query={ring.model}
-          officialUrl={BRAND_SITES[ring.brand]}
+          officialUrl={ring.link || BRAND_SITES[ring.brand]}
         />
       </div>
 

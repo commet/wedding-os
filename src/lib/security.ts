@@ -30,6 +30,8 @@ export function safeMediaSrc(url: unknown): string | undefined {
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
   if (/^data:(image|audio)\//i.test(trimmed)) return trimmed;
   if (/^blob:/i.test(trimmed)) return trimmed;
+  // 같은 출처 정적 경로 (예: /rings/r1.png — 번들된 카탈로그 이미지). '//'(프로토콜 상대)는 제외.
+  if (/^\/(?!\/)/.test(trimmed)) return trimmed;
   return undefined;
 }
 
