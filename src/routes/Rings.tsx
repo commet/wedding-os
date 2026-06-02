@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
-import type { WeddingData, Ring } from "../lib/schema";
+import type { WeddingData, Ring, Mode } from "../lib/schema";
 import { RING_CATALOG } from "../data/ringsTemplate";
 import FreshnessBadge from "../components/FreshnessBadge";
 import ChatbotBridgeModal from "../components/ChatbotBridgeModal";
 import Modal from "../components/Modal";
 import VendorActions from "../components/VendorActions";
 import SafeImg from "../components/SafeImg";
+import ImageUploadButton from "../components/ImageUploadButton";
 import { ringPriceCheckPrompt, BridgePrompt } from "../lib/chatbotBridge";
 import { todayISO } from "../lib/freshness";
 
@@ -222,6 +223,7 @@ export default function Rings({ data, update }: Props) {
               key={ring.id}
               ring={ring}
               who={who}
+              mode={data.preferences.mode}
               onToggle={toggle}
               onCheck={() => openPriceCheck(ring)}
               onRemove={() => removeRing(ring.id)}
@@ -231,7 +233,7 @@ export default function Rings({ data, update }: Props) {
         </div>
       </section>
 
-      <AddRingModal open={showAdd} onClose={() => setShowAdd(false)} update={update} />
+      <AddRingModal open={showAdd} onClose={() => setShowAdd(false)} update={update} mode={data.preferences.mode} />
 
       <ChatbotBridgeModal
         open={!!bridgePrompt}
@@ -244,10 +246,11 @@ export default function Rings({ data, update }: Props) {
 }
 
 function RingCard({
-  ring, who, onToggle, onCheck, onRemove, onUpdate,
+  ring, who, mode, onToggle, onCheck, onRemove, onUpdate,
 }: {
   ring: Ring;
   who: Who;
+  mode: Mode | null;
   onToggle: (id: string, kind: "starred" | "liked") => void;
   onCheck: () => void;
   onRemove: () => void;
@@ -313,12 +316,20 @@ function RingCard({
         />
       </div>
 
-      <input
-        className="input text-[11.5px] mt-4"
-        placeholder="이미지 URL (공식 사이트·직접 업로드한 이미지 링크)"
-        value={ring.imageUrl ?? ""}
-        onChange={(e) => onUpdate({ imageUrl: e.target.value.trim() || undefined })}
-      />
+      <div className="flex items-center gap-2 mt-4">
+        <input
+          className="input text-[11.5px] flex-1"
+          placeholder="이미지 URL 붙여넣기"
+          value={ring.imageUrl?.startsWith("idb:") || ring.imageUrl?.startsWith("data:") ? "" : (ring.imageUrl ?? "")}
+          onChange={(e) => onUpdate({ imageUrl: e.target.value.trim() || undefined })}
+        />
+        <ImageUploadButton
+          mode={mode}
+          label={ring.imageUrl ? "사진 변경" : "사진 업로드"}
+          className="flex-shrink-0 text-[11.5px] border border-line px-2.5 py-1.5 hover:border-ink transition whitespace-nowrap"
+          onUploaded={(url) => onUpdate({ imageUrl: url })}
+        />
+      </div>
 
       <textarea
         className="input-boxed text-[11.5px] mt-3 min-h-[44px]"
@@ -348,7 +359,7 @@ function RingImage({ ring, className }: { ring: Ring; className: string }) {
   );
 }
 
-function AddRingModal({ open, onClose, update }: { open: boolean; onClose: () => void; update: (patch: any) => void; }) {
+function AddRingModal({ open, onClose, update, mode }: { open: boolean; onClose: () => void; update: (patch: any) => void; mode: Mode | null; }) {
   const [brand, setBrand] = useState("");
   const [model, setModel] = useState("");
   const [material, setMaterial] = useState("");
@@ -396,8 +407,22 @@ function AddRingModal({ open, onClose, update }: { open: boolean; onClose: () =>
           <input className="input" type="number" value={priceKRW} onChange={(e) => setPriceKRW(e.target.value)} placeholder="1850000" />
         </div>
         <div>
-          <label className="label">이미지 URL (선택)</label>
-          <input className="input" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://...jpg" />
+          <label className="label">반지 사진 (선택)</label>
+          <div className="flex items-center gap-2">
+            <input
+              className="input flex-1"
+              value={imageUrl.startsWith("idb:") || imageUrl.startsWith("data:") ? "" : imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              placeholder="URL 붙여넣기"
+            />
+            <ImageUploadButton
+              mode={mode}
+              label={imageUrl ? "변경" : "업로드"}
+              className="flex-shrink-0 text-sm border border-line px-3 py-2 hover:border-ink transition whitespace-nowrap"
+              onUploaded={(url) => setImageUrl(url)}
+            />
+          </div>
+          {imageUrl && <SafeImg src={imageUrl} alt="" className="mt-2 w-20 h-20 object-cover rounded-md border border-hair" />}
         </div>
         <button onClick={submit} className="btn-primary w-full">추가하기</button>
       </div>
