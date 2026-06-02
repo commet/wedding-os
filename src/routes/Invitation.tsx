@@ -448,6 +448,7 @@ export function Preview({
   const fontClass = FONT[(inv.fontStyle as FontStyle) ?? "serif"].class;
   const validDate = parseISODateLocal(inv.date);
   const dday = daysUntilISODate(inv.date);
+  const [lightbox, setLightbox] = useState<number | null>(null); // 갤러리 확대 보기 인덱스
 
   const names = locale === "en"
     ? `${inv.groomEnglishName || inv.groomName || "Groom"} & ${inv.brideEnglishName || inv.brideName || "Bride"}`
@@ -536,16 +537,31 @@ export function Preview({
           </div>
         )}
 
-        {/* 6. 갤러리 */}
+        {/* 6. 갤러리 — 탭하면 확대(라이트박스) */}
         {inv.gallery && inv.gallery.length > 0 && (
           <div className="px-4 py-7 border-b border-line">
             <h3 className={`text-sm ${theme.accent} mb-4 text-center tracking-wide`}>{t("갤러리", locale)}</h3>
             <div className="grid grid-cols-3 gap-1.5">
               {inv.gallery.map((g, i) => (
-                <SafeImg key={i} src={g.url} alt={g.caption ?? ""} className="w-full aspect-square object-cover rounded-md" />
+                <button
+                  key={i}
+                  onClick={() => setLightbox(i)}
+                  className="block w-full aspect-square overflow-hidden rounded-md active:opacity-80 transition"
+                  aria-label={g.caption || `사진 ${i + 1} 크게 보기`}
+                >
+                  <SafeImg src={g.url} alt={g.caption ?? ""} className="w-full h-full object-cover" />
+                </button>
               ))}
             </div>
           </div>
+        )}
+        {inv.gallery && lightbox !== null && (
+          <GalleryLightbox
+            images={inv.gallery}
+            index={lightbox}
+            onClose={() => setLightbox(null)}
+            onIndex={setLightbox}
+          />
         )}
 
         {/* 7. 오시는 길 */}
@@ -668,25 +684,104 @@ function AccountSection({ inv, locale, accent }: { inv: InvitationContent; local
   const [open, setOpen] = useState(false);
   return (
     <div className="px-7 py-6 border-b border-line text-center">
-      <button onClick={() => setOpen((o) => !o)} className={`text-sm ${accent} tracking-wide`}>
+      <button onClick={() => setOpen((o) => !o)} className={`text-sm ${accent} tracking-wide`} aria-expanded={open}>
         {t("마음 전하실 곳", locale)} {open ? "▲" : "▼"}
       </button>
       {open && (
         <div className="mt-3 space-y-2 text-sm">
           {inv.groomAccount && (
-            <div className="bg-cream py-2 px-3">
-              <span className="text-soft text-xs">{t("신랑", locale)} · {inv.groomName}</span>
-              <div>{inv.groomAccount}</div>
-            </div>
+            <AccountRow label={`${t("신랑", locale)} · ${inv.groomName}`} account={inv.groomAccount} locale={locale} />
           )}
           {inv.brideAccount && (
-            <div className="bg-cream py-2 px-3">
-              <span className="text-soft text-xs">{t("신부", locale)} · {inv.brideName}</span>
-              <div>{inv.brideAccount}</div>
-            </div>
+            <AccountRow label={`${t("신부", locale)} · ${inv.brideName}`} account={inv.brideAccount} locale={locale} />
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// 갤러리 확대 보기 — 풀스크린 + 좌우 이동(화살표·스와이프·키보드) + 캡션.
+function GalleryLightbox({ images, index, onClose, onIndex }: {
+  images: { url: string; caption?: string }[];
+  index: number;
+  onClose: () => void;
+  onIndex: (i: number) => void;
+}) {
+  const touchX = useRef<number | null>(null);
+  const go = (delta: number) => onIndex((index + delta + images.length) % images.length);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowLeft") go(-1);
+      else if (e.key === "ArrowRight") go(1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, images.length]);
+
+  const img = images[index];
+  const many = images.length > 1;
+  return (
+    <div className="fixed inset-0 z-50 bg-black/92 flex flex-col" onClick={onClose}>
+      <div className="flex justify-between items-center px-4 py-3 text-white/75 text-[12px]">
+        <span className="tabular-nums">{index + 1} / {images.length}</span>
+        <button onClick={onClose} className="text-white/75 hover:text-white text-xl leading-none px-2" aria-label="닫기">✕</button>
+      </div>
+      <div
+        className="flex-1 flex items-center justify-center px-2 relative min-h-0"
+        onClick={(e) => e.stopPropagation()}
+        onTouchStart={(e) => { touchX.current = e.touches[0].clientX; }}
+        onTouchEnd={(e) => {
+          if (touchX.current === null) return;
+          const dx = e.changedTouches[0].clientX - touchX.current;
+          if (many && Math.abs(dx) > 40) go(dx < 0 ? 1 : -1);
+          touchX.current = null;
+        }}
+      >
+        {many && (
+          <button onClick={() => go(-1)} className="absolute left-1 top-1/2 -translate-y-1/2 text-white/60 hover:text-white text-4xl px-2 leading-none" aria-label="이전">‹</button>
+        )}
+        <SafeImg src={img.url} alt={img.caption ?? ""} className="max-h-full max-w-full object-contain" />
+        {many && (
+          <button onClick={() => go(1)} className="absolute right-1 top-1/2 -translate-y-1/2 text-white/60 hover:text-white text-4xl px-2 leading-none" aria-label="다음">›</button>
+        )}
+      </div>
+      {img.caption && (
+        <div className="px-6 py-4 text-center text-white/85 text-[13px] leading-relaxed" onClick={(e) => e.stopPropagation()}>
+          {img.caption}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 계좌 한 줄 + 복사 버튼 — 하객이 제일 많이 누르는 동작. 자유형식 계좌 문자열을 그대로 복사.
+function AccountRow({ label, account, locale }: { label: string; account: string; locale: Locale }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(account);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      window.prompt(t("계좌번호를 복사하세요", locale), account);
+    }
+  };
+  return (
+    <div className="bg-cream py-2.5 px-3 flex items-center justify-between gap-3 text-left">
+      <div className="min-w-0">
+        <div className="text-soft text-xs">{label}</div>
+        <div className="break-all">{account}</div>
+      </div>
+      <button
+        onClick={copy}
+        className="flex-shrink-0 text-[11px] border border-line bg-white px-2.5 py-1.5 hover:border-ink active:opacity-70 transition whitespace-nowrap"
+      >
+        {copied ? `✓ ${t("복사됨", locale)}` : t("복사", locale)}
+      </button>
     </div>
   );
 }
@@ -1486,6 +1581,9 @@ function t(ko: string, locale: Locale): string {
     "오시는 길": { en: "Location", zh: "交通指引" },
     "연락하기": { en: "Contact", zh: "聯絡方式" },
     "마음 전하실 곳": { en: "Gift Account", zh: "禮金帳號" },
+    "복사": { en: "Copy", zh: "複製" },
+    "복사됨": { en: "Copied", zh: "已複製" },
+    "계좌번호를 복사하세요": { en: "Copy this account", zh: "請複製帳號" },
     "참석 의사 전달": { en: "RSVP", zh: "出席回覆" },
     "참석 여부 전하기": { en: "Send RSVP", zh: "回覆出席" },
     "축하의 마음으로 참석해 주시는 분들을 위해": { en: "Please let us know if you can join us", zh: "請告知是否能出席" },
