@@ -20,15 +20,18 @@ type Locale = "ko" | "en" | "zh";
 type Theme = "cream" | "white" | "sage" | "rose" | "navy" | "sand" | "slate" | "blush";
 type FontStyle = "serif" | "sans" | "handwriting";
 
+// 큐레이션된 에디토리얼 팔레트 — 생짜 Tailwind 기본색(rose-500·blue-900 등)이 아니라
+// 고급 청첩장 스테이셔너리에 어울리는 톤다운된 색만. accent=섹션 제목/D-day 글자색,
+// chip=캘린더 당일 동그라미(흰 글자), swatch=테마 선택 점, heroGrad=사진 없을 때 배경.
 const THEME: Record<Theme, { heroGrad: string; accent: string; chip: string; swatch: string; label: string }> = {
-  cream: { heroGrad: "from-cream to-taupe/30",         accent: "text-gold",         chip: "bg-gold",         swatch: "bg-gold",         label: "크림" },
-  white: { heroGrad: "from-gray-50 to-gray-200",        accent: "text-soft",         chip: "bg-ink",          swatch: "bg-ink",          label: "화이트" },
-  sage:  { heroGrad: "from-sage/10 to-sage/30",         accent: "text-sage",         chip: "bg-sage",         swatch: "bg-sage",         label: "세이지" },
-  rose:  { heroGrad: "from-rose-50 to-rose-200/60",     accent: "text-rose-600",     chip: "bg-rose-500",     swatch: "bg-rose-400",     label: "로즈" },
-  navy:  { heroGrad: "from-slate-100 to-slate-300",     accent: "text-blue-900",     chip: "bg-blue-900",     swatch: "bg-blue-900",     label: "네이비" },
-  sand:  { heroGrad: "from-orange-50 to-orange-200/60", accent: "text-orange-700",   chip: "bg-orange-700",   swatch: "bg-orange-400",   label: "샌드" },
-  slate: { heroGrad: "from-slate-50 to-slate-200",      accent: "text-slate-700",    chip: "bg-slate-700",    swatch: "bg-slate-500",    label: "슬레이트" },
-  blush: { heroGrad: "from-pink-50 to-pink-200/40",     accent: "text-pink-700",     chip: "bg-pink-500",     swatch: "bg-pink-300",     label: "블러시" },
+  cream: { heroGrad: "from-[#F7F1E6] to-[#E6D7BC]",  accent: "text-gold",         chip: "bg-gold",            swatch: "bg-gold",            label: "크림" },
+  white: { heroGrad: "from-[#F6F4F0] to-[#E2DDD3]",  accent: "text-soft",         chip: "bg-ink",            swatch: "bg-ink",            label: "아이보리" },
+  sage:  { heroGrad: "from-[#EDF1EA] to-[#CFD9C6]",  accent: "text-[#7E8C77]",    chip: "bg-[#8B9A82]",      swatch: "bg-[#8B9A82]",      label: "세이지" },
+  rose:  { heroGrad: "from-[#F6ECE9] to-[#E6CCC6]",  accent: "text-[#A9756E]",    chip: "bg-[#BD8E88]",      swatch: "bg-[#C99C98]",      label: "더스티로즈" },
+  navy:  { heroGrad: "from-[#EAEDF1] to-[#C5CDD8]",  accent: "text-[#3B4A5A]",    chip: "bg-[#3B4A5A]",      swatch: "bg-[#3B4A5A]",      label: "잉크블루" },
+  sand:  { heroGrad: "from-[#F5EEE2] to-[#E2D2B9]",  accent: "text-[#9A7B4F]",    chip: "bg-[#A8895F]",      swatch: "bg-[#B89B6E]",      label: "카멜" },
+  slate: { heroGrad: "from-[#EFEFEC] to-[#D0D2CC]",  accent: "text-[#6C736D]",    chip: "bg-[#6C736D]",      swatch: "bg-[#828983]",      label: "스톤" },
+  blush: { heroGrad: "from-[#F7EEF0] to-[#E7CCD3]",  accent: "text-[#B07E8B]",    chip: "bg-[#C08495]",      swatch: "bg-[#D0A3B0]",      label: "블러시" },
 };
 
 const FONT: Record<FontStyle, { class: string; label: string; sample: string }> = {
