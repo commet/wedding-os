@@ -171,10 +171,10 @@ export default function AppShell({ data, children }: Props) {
         </div>
       )}
 
-      <main className={`flex-1 page-enter ${showNav ? "pb-24" : ""}`}>{children}</main>
+      <main className={`flex-1 page-enter ${showNav ? "pb-[calc(6rem+env(safe-area-inset-bottom))]" : ""}`}>{children}</main>
 
       {showNav && (
-        <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-app bg-paper/95 backdrop-blur z-30 border-t border-hair">
+        <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-app bg-paper/95 backdrop-blur z-30 border-t border-hair pb-[env(safe-area-inset-bottom)]">
           <div className="grid grid-cols-5">
             {NAV.map((item) => (
               <NavLink

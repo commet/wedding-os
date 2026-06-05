@@ -121,8 +121,37 @@ export async function submitHostedRsvp(
   input: HostedRsvpInput,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
   try {
+    // 입력 가드 — supabase insertRsvp 와 동일 기준(이름40·식사80·메시지500·인원0-20).
+    // hosted 는 본문이 암호화돼 서버가 못 거르므로 클라가 유일한 1차 방어선이다.
+    const name = input.name?.trim() ?? "";
+    if (!name) return { ok: false, reason: "이름을 입력해주세요" };
+    if (name.length > 40) return { ok: false, reason: "이름이 너무 길어요 (40자 이내)" };
+    const meal = input.meal?.trim();
+    if (meal && meal.length > 80) return { ok: false, reason: "식사 메모는 80자 이내로" };
+    const message = input.message?.trim();
+    if (message && message.length > 500) return { ok: false, reason: "메시지는 500자 이내로" };
+    const guests = typeof input.guests === "number" ? Math.max(0, Math.min(input.guests, 20)) : 1;
+
+    // 60초 rate-limit (한 기기·한 청첩장) — 봇/실수 도배 1차 방어.
+    const rlKey = `wedding-os/rsvp-last/${code}`;
+    try {
+      const last = localStorage.getItem(rlKey);
+      if (last) {
+        const diff = Date.now() - Number(last);
+        if (diff < 60_000) return { ok: false, reason: `${Math.ceil((60_000 - diff) / 1000)}초 후 다시 시도해주세요` };
+      }
+    } catch { /* localStorage 없으면 통과 */ }
+
     const key = await importInviteKey(keyRaw);
-    const rsvp: HostedRsvp = { ...input, submittedAt: new Date().toISOString() };
+    const rsvp: HostedRsvp = {
+      name,
+      attending: input.attending,
+      side: input.side,
+      guests: input.attending ? guests : 0,
+      meal: meal || undefined,
+      message: message || undefined,
+      submittedAt: new Date().toISOString(),
+    };
     const ciphertext = await encryptJSON(rsvp, key);
     const res = await fetch(`${RSVP_ENDPOINT}?code=${encodeURIComponent(code)}`, {
       method: "POST",
@@ -133,6 +162,7 @@ export async function submitHostedRsvp(
       const body = await res.json().catch(() => ({}));
       return { ok: false, reason: body?.error ?? "응답 전송에 실패했어요." };
     }
+    try { localStorage.setItem(rlKey, String(Date.now())); } catch { /* noop */ }
     return { ok: true };
   } catch {
     return { ok: false, reason: "응답을 보내는 중 오류가 났어요." };

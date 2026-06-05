@@ -33,7 +33,7 @@ export default function Modal({ open, onClose, title, children }: Props) {
           <button
             onClick={onClose}
             aria-label="닫기"
-            className="text-soft hover:text-ink text-lg leading-none"
+            className="text-soft hover:text-ink text-xl leading-none p-2 -m-2"
           >
             ×
           </button>
