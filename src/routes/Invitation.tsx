@@ -471,11 +471,14 @@ export function Preview({
               대표 사진을 추가해보세요
             </div>
           )}
-          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/50 to-transparent p-6 text-white text-center">
-            <div className="text-xs tracking-[0.2em] uppercase mb-2 opacity-90">{t("Wedding Invitation", locale)}</div>
-            <div className={`${fontClass} text-2xl`}>{names}</div>
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent px-6 pt-20 pb-9 text-white text-center">
+            <div className="text-[10.5px] tracking-[0.34em] uppercase mb-3.5 text-white/80">{t("Wedding Invitation", locale)}</div>
+            <div className="mx-auto w-7 h-px bg-white/45 mb-4" />
+            <div className={`${fontClass} text-[2rem] leading-tight tracking-wide drop-shadow-sm`}>{names}</div>
             {validDate && (
-              <div className="text-sm mt-2 opacity-90">{formatDate(validDate, locale)}{inv.time && ` · ${inv.time}`}</div>
+              <div className="text-[11.5px] mt-3.5 tracking-[0.18em] text-white/85">
+                {formatDate(validDate, locale)}{inv.time && ` · ${inv.time}`}
+              </div>
             )}
           </div>
         </div>
@@ -511,7 +514,7 @@ export function Preview({
         {/* 3. 모시는 글 */}
         <Reveal>
           <div className="px-7 py-8 text-center border-b border-line">
-            <h3 className={`text-sm ${theme.accent} mb-4 tracking-wide`}>{t("모시는 글", locale)}</h3>
+            <SectionTitle accent={theme.accent}>{t("모시는 글", locale)}</SectionTitle>
             <p className="text-sm leading-loose whitespace-pre-line text-ink/90">{inv.greeting}</p>
           </div>
         </Reveal>
@@ -540,7 +543,7 @@ export function Preview({
         {validDate && (
           <Reveal>
             <div className="px-7 py-7 border-b border-line">
-              <h3 className={`text-sm ${theme.accent} mb-4 text-center tracking-wide`}>{t("예식일", locale)}</h3>
+              <SectionTitle accent={theme.accent}>{t("예식일", locale)}</SectionTitle>
               <MiniCalendar date={validDate} chipClass={theme.chip} fontClass={fontClass} />
               <button
                 onClick={() => downloadIcs(inv, validDate)}
@@ -556,7 +559,7 @@ export function Preview({
         {inv.gallery && inv.gallery.length > 0 && (
           <Reveal>
             <div className="px-4 py-7 border-b border-line">
-              <h3 className={`text-sm ${theme.accent} mb-4 text-center tracking-wide`}>{t("갤러리", locale)}</h3>
+              <SectionTitle accent={theme.accent}>{t("갤러리", locale)}</SectionTitle>
               <div className="grid grid-cols-3 gap-1.5">
                 {inv.gallery.map((g, i) => (
                   <button
@@ -585,7 +588,7 @@ export function Preview({
         {inv.venue && (
           <Reveal>
             <div className="px-7 py-7 border-b border-line text-center">
-              <h3 className={`text-sm ${theme.accent} mb-3 tracking-wide`}>{t("오시는 길", locale)}</h3>
+              <SectionTitle accent={theme.accent}>{t("오시는 길", locale)}</SectionTitle>
               <div className="font-medium">{inv.venue}</div>
               {inv.venueHall && <div className="text-sm text-soft">{inv.venueHall}</div>}
               {inv.venueAddress && (
@@ -621,7 +624,7 @@ export function Preview({
         {/* 8. 연락처 */}
         {(inv.groomPhone || inv.bridePhone) && (
           <div className="px-7 py-6 border-b border-line">
-            <h3 className={`text-sm ${theme.accent} mb-3 text-center tracking-wide`}>{t("연락하기", locale)}</h3>
+            <SectionTitle accent={theme.accent}>{t("연락하기", locale)}</SectionTitle>
             <div className="flex gap-2">
               {safeTel(inv.groomPhone) && (
                 <a href={`tel:${safeTel(inv.groomPhone)}`} className="flex-1 text-center text-sm py-2.5 bg-cream border border-line">
@@ -647,9 +650,9 @@ export function Preview({
         {/* 10. RSVP (본식 전) 또는 감사 인사 (본식 후) */}
         {dday !== null && dday < 0 ? (
           <div className="px-7 py-8 text-center">
-            <h3 className={`text-sm ${theme.accent} mb-3 tracking-wide`}>
+            <SectionTitle accent={theme.accent}>
               {locale === "ko" ? "감사의 인사" : locale === "en" ? "Thank You" : "感謝您"}
-            </h3>
+            </SectionTitle>
             <p className="text-sm leading-relaxed text-ink/90 whitespace-pre-line">
               {locale === "ko"
                 ? "축하해주신 모든 분들께\n진심으로 감사드립니다.\n\n앞으로 더 행복하게 살아보겠습니다."
@@ -660,7 +663,7 @@ export function Preview({
           </div>
         ) : (
           <div className="px-7 py-7 text-center">
-            <h3 className={`text-sm ${theme.accent} mb-2 tracking-wide`}>{t("참석 의사 전달", locale)}</h3>
+            <SectionTitle accent={theme.accent}>{t("참석 의사 전달", locale)}</SectionTitle>
             <p className="text-xs text-soft mb-3">{t("축하의 마음으로 참석해 주시는 분들을 위해", locale)}</p>
             <button
               className="btn-primary text-sm w-full"
@@ -706,6 +709,17 @@ export function Preview({
           </p>
         </>
       )}
+    </div>
+  );
+}
+
+// 본문 섹션 제목 — 히어로의 에디토리얼 톤을 이어받는다: 자간 넓힌 라벨 + 가는 장식선.
+// 장식선은 bg-current(=accent 색)로 — 동적 클래스 조합은 Tailwind JIT가 못 잡으므로 currentColor 사용.
+function SectionTitle({ children, accent }: { children: React.ReactNode; accent: string }) {
+  return (
+    <div className={`flex flex-col items-center mb-5 ${accent}`}>
+      <h3 className="text-[12px] tracking-[0.2em] uppercase font-medium">{children}</h3>
+      <span className="block w-6 h-px mt-3 bg-current opacity-30" />
     </div>
   );
 }
