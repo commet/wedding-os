@@ -1749,7 +1749,7 @@ function Section({ title, children, defaultOpen = true }: { title: string; child
         onClick={() => setOpen((v) => !v)}
         className="w-full py-5 flex items-baseline justify-between text-left"
       >
-        <h3 className="eyebrow-gold">{title}</h3>
+        <h3 className="section-title">{title}</h3>
         <span className="text-[12px] text-soft">{open ? "접기" : "열기"}</span>
       </button>
       {open && <div className="space-y-3 pb-8">{children}</div>}

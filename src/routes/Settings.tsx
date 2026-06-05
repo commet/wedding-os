@@ -334,7 +334,7 @@ function LoginStatus() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="py-2">
-      <h3 className="eyebrow-gold mb-4">{title}</h3>
+      <h3 className="section-title mb-3">{title}</h3>
       {children}
       <div className="hairline mt-8" />
     </section>
