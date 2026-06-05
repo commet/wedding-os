@@ -1140,7 +1140,7 @@ function PublishSection({ data, update }: { data: WeddingData; update: (patch: a
             </div>
             {rsvpMsg && <p className="text-[11.5px] text-soft">{rsvpMsg}</p>}
             {rsvps && rsvps.length > 0 && (
-              <ul className="divide-y divide-hair border-y border-hair">
+              <ul className="group-card px-4">
                 {rsvps.map((r, i) => (
                   <li key={i} className="py-2.5 text-[12px]">
                     <div className="flex items-baseline justify-between gap-2">

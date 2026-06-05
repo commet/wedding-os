@@ -102,7 +102,7 @@ export default function Dashboard({ data, update }: Props) {
   return (
     <div className="pb-10">
       {/* ─── 히어로 — 박스 없이 풀폭 타이포 ─── */}
-      <section className="page pt-12 pb-14 text-center">
+      <section className="page pt-10 pb-9 text-center">
         {empty ? (
           <>
             <div className="eyebrow-gold mb-6">Wedding · OS</div>
@@ -184,9 +184,9 @@ export default function Dashboard({ data, update }: Props) {
       {/* ─── 이번 주에 할 일 — hairline 리스트 ─── */}
       {upcoming.length > 0 && (
         <>
-          <section className="page py-10">
-            <div className="flex items-baseline justify-between mb-6">
-              <h2 className="eyebrow-gold">이번 주에</h2>
+          <section className="page py-7">
+            <div className="flex items-baseline justify-between mb-4">
+              <h2 className="section-title">다가오는 일정</h2>
               <Link to="/checklist" className="text-[11px] text-soft underline underline-offset-4 hover:text-ink">
                 전체 보기
               </Link>
@@ -220,7 +220,7 @@ export default function Dashboard({ data, update }: Props) {
             <div className="border border-hair bg-paper px-4 py-4 shadow-[0_18px_45px_rgba(45,35,25,0.06)]">
               <div className="flex items-start justify-between gap-4 mb-5">
                 <div>
-                  <h2 className="eyebrow-gold mb-1">현재 진행률</h2>
+                  <h2 className="section-title mb-1">현재 진행률</h2>
                   <p className="text-[12px] text-soft">
                     완료한 항목과 남은 일을 한 번에 봅니다.
                   </p>
@@ -267,35 +267,28 @@ export default function Dashboard({ data, update }: Props) {
         </>
       )}
 
-      {/* ─── 메뉴 — 그룹별 hairline 리스트 ─── */}
-      <section className="page py-10 space-y-10">
-        {MENU_GROUPS.map((group, gi) => {
-          const offset = MENU_GROUPS.slice(0, gi).reduce((s, g) => s + g.items.length, 0);
-          return (
-            <div key={group.title}>
-              <h2 className="eyebrow-gold mb-5">{group.title}</h2>
-              <ul className="stack">
-                {group.items.map((item, idx) => (
-                  <li key={item.to}>
-                    <Link
-                      to={item.to}
-                      className="flex items-baseline gap-5 active:opacity-60 transition"
-                    >
-                      <span className="font-serif text-soft text-base tabular-nums w-6 flex-shrink-0">
-                        {String(offset + idx + 1).padStart(2, "0")}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-serif text-[17px] text-ink leading-tight mb-1">{item.label}</div>
-                        <div className="eyebrow">{item.sub}</div>
-                      </div>
-                      <span className="text-soft flex-shrink-0">→</span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+      {/* ─── 메뉴 — 그룹 컨테이너 + 밀집 리스트 (체계·위계 강화) ─── */}
+      <section className="page py-7 space-y-6">
+        {MENU_GROUPS.map((group) => (
+          <div key={group.title}>
+            <h2 className="section-title mb-2.5">{group.title}</h2>
+            <div className="group-card">
+              {group.items.map((item) => (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  className="group-row active:bg-cream/70 transition"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[14px] text-ink font-medium leading-tight">{item.label}</div>
+                    <div className="text-[11.5px] text-soft mt-0.5 truncate">{item.sub}</div>
+                  </div>
+                  <span className="text-mute text-sm flex-shrink-0">→</span>
+                </Link>
+              ))}
             </div>
-          );
-        })}
+          </div>
+        ))}
       </section>
     </div>
   );

@@ -131,7 +131,7 @@ export default function Venues({ data, update }: Props) {
           </div>
 
           <div className="flex items-baseline justify-between">
-            <h2 className="eyebrow-gold">내 후보</h2>
+            <h2 className="section-title">내 후보</h2>
             <button onClick={() => setShowAdd(true)} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
               + 직접 추가
             </button>
@@ -165,7 +165,7 @@ export default function Venues({ data, update }: Props) {
               {mineView === "compare" && myVenues.length >= 2 ? (
                 <VenueCompare venues={myVenues} />
               ) : (
-                <ul className="divide-y divide-hair border-y border-hair">
+                <ul className="group-card px-4">
                   {myVenues.map((v) => (
                     <MyVenueRow
                       key={v.id}
@@ -237,7 +237,7 @@ export default function Venues({ data, update }: Props) {
               조건에 맞는 식장이 없어요.
             </p>
           ) : (
-            <ul className="divide-y divide-hair border-y border-hair">
+            <ul className="group-card px-4">
               {filteredCatalog.map((v) => {
                 const added = myVenues.some((m) => m.name === v.name);
                 return <CatalogRow key={v.id} v={v} added={added} onAdd={() => addFromCatalog(v)} />;

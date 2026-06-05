@@ -144,10 +144,10 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
       {inCat.length > 0 && (
         <section>
           <div className="flex items-baseline justify-between mb-4">
-            <h2 className="eyebrow-gold">내 후보 · <span className="tabular-nums">{inCat.length}</span></h2>
+            <h2 className="section-title">내 후보 · <span className="tabular-nums">{inCat.length}</span></h2>
             <button onClick={() => setShowAdd(true)} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">+ 직접 추가</button>
           </div>
-          <div className="divide-y divide-hair border-y border-hair">
+          <div className="group-card px-4">
             {inCat.map((v) => (
               <MyVendorCard
                 key={v.id}
@@ -163,7 +163,7 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
       {/* 검색 + 지역 필터 */}
       <section className="space-y-5">
         <div className="flex items-baseline justify-between">
-          <h2 className="eyebrow-gold">자주 언급되는 곳들</h2>
+          <h2 className="section-title">자주 언급되는 곳들</h2>
           {inCat.length === 0 && (
             <button onClick={() => setShowAdd(true)} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">+ 직접 추가</button>
           )}
@@ -195,7 +195,7 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
             조건에 맞는 곳이 없어요. 다른 지역·검색어를 시도해보세요.
           </p>
         ) : (
-          <div className="divide-y divide-hair border-y border-hair">
+          <div className="group-card px-4">
             {filteredCatalog.map((e) => {
               const added = data.sdm.some((v) => v.name === e.name && v.category === e.category);
               return <CatalogCard key={e.id} entry={e} added={added} onAdd={() => addFromCatalog(e)} />;
@@ -249,7 +249,7 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
           사람들 대부분은 결혼 카페·인스타·유튜브에서 더 풍부한 후기를 봐요.
           후기는 단가·실장 이름·시즌별 패키지처럼 공식 사이트엔 안 나오는 정보가 많습니다.
         </p>
-        <ul className="divide-y divide-hair border-y border-hair">
+        <ul className="group-card px-4">
           {RESEARCH_CHANNELS.map((c) => (
             <li key={c.name}>
               <a

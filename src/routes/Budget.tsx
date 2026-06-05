@@ -208,15 +208,15 @@ export default function Budget({ data, update }: Props) {
           const groupActual = list.reduce((s, b) => s + (b.actual ?? 0), 0);
           return (
             <section key={group}>
-              <div className="flex items-baseline justify-between border-b border-hair pb-2 mb-1">
-                <h2 className="eyebrow-gold">{group}</h2>
+              <div className="flex items-baseline justify-between mb-2">
+                <h2 className="section-title">{group}</h2>
                 <span className="text-[11.5px] text-soft tabular-nums">
                   {groupPlanned > 0 ? `${fmtMan(groupPlanned)}만원 예산` : ""}
                   {groupActual > 0 && groupPlanned > 0 && " · "}
                   {groupActual > 0 && `${fmtMan(groupActual)}만원 지출`}
                 </span>
               </div>
-              <ul className="divide-y divide-hair">
+              <ul className="group-card">
                 {visible.map((b) => (
                   <BudgetRow key={b.id} b={b} onChange={(patch) => updateItem(b.id, patch)} onRemove={() => removeItem(b.id)} />
                 ))}
@@ -258,7 +258,7 @@ function BudgetRow({ b, onChange, onRemove }: { b: BudgetItem; onChange: (p: Par
   const overBudget = planned > 0 && actual > planned;
 
   return (
-    <li className="py-3.5">
+    <li className="px-4 py-3.5">
       <button onClick={() => setOpen((o) => !o)} className="w-full text-left flex items-baseline justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="text-[14px] text-ink">{name}</div>

@@ -381,7 +381,7 @@ export default function Video({ data, update }: Props) {
             빈 캔버스에서 시작하면 막막해요. 분위기 하나 고르면
             챕터 · 사진 길이 · 효과 · 전환 까지 한 번에 세팅됩니다.
           </p>
-          <div className="divide-y divide-hair border-y border-hair">
+          <div className="group-card px-4">
             {VIDEO_TEMPLATES.map((t) => (
               <TemplateCard key={t.id} template={t} onPick={() => applyTemplate(t)} />
             ))}
@@ -527,7 +527,7 @@ export default function Video({ data, update }: Props) {
             )}
           </div>
         ) : (
-          <div className="divide-y divide-hair border-y border-hair">
+          <div className="group-card px-4">
             {config.photos.map((photo, i) => (
               <PhotoRow
                 key={photo.id}

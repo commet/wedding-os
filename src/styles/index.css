@@ -95,6 +95,21 @@
   .hairline {
     @apply h-px bg-hair w-full;
   }
+
+  /* ───── 위계·체계 (앱 UI) ─────
+     섹션/그룹 제목 — 본문보다 크고 진하게. eyebrow(11px)를 제목으로 쓰면
+     위계가 역전돼 '체계 없는' 느낌이 나므로, 화면 섹션 제목은 이걸 쓴다. */
+  .section-title {
+    @apply text-[13px] font-semibold text-ink leading-tight;
+  }
+  /* 그룹 컨테이너 — 관련 항목을 은은한 면으로 묶어 '한 덩어리'가 보이게.
+     안의 항목은 .group-row 로 밀집 배치. */
+  .group-card {
+    @apply border border-hair bg-cream/30 divide-y divide-hair;
+  }
+  .group-row {
+    @apply flex items-center gap-3 px-4 py-3;
+  }
   .row {
     @apply flex items-center justify-between gap-3 py-4 border-b border-hair last:border-b-0;
   }

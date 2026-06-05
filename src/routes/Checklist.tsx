@@ -191,7 +191,7 @@ function GiftPanel() {
         <span className="text-ink font-medium">{tierData.range}</span> · {tierData.ideal}
       </div>
 
-      <ul className="divide-y divide-hair border-y border-hair">
+      <ul className="group-card px-4">
         {ideas.map((g, i) => (
           <li key={i} className="py-4 space-y-2">
             <div className="font-serif text-[15px] text-ink">{g.category}</div>
@@ -274,8 +274,8 @@ function TimelineView({
         const meta = BUCKET_META[bucket];
         return (
           <section key={bucket}>
-            <div className="flex items-baseline justify-between mb-1 border-b border-hair pb-2">
-              <h2 className={`eyebrow-gold ${meta.color === "text-soft" ? "!text-soft" : ""}`}>
+            <div className="flex items-baseline justify-between mb-2">
+              <h2 className={`section-title ${meta.color === "text-soft" ? "!text-soft" : ""}`}>
                 {meta.label}
               </h2>
               <span className="eyebrow tabular-nums">{list.length}</span>

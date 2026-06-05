@@ -106,8 +106,8 @@ function Destinations({ data, update }: Props) {
       {/* 내 후보 */}
       {regions.length > 0 && (
         <section>
-          <h2 className="eyebrow-gold mb-4">내 후보 · <span className="tabular-nums">{regions.length}</span></h2>
-          <div className="divide-y divide-hair border-y border-hair">
+          <h2 className="section-title mb-4">내 후보 · <span className="tabular-nums">{regions.length}</span></h2>
+          <div className="group-card px-4">
             {regions.map((r) => (
               <RegionCard
                 key={r.id}
@@ -125,13 +125,13 @@ function Destinations({ data, update }: Props) {
       {/* 추천 카탈로그 */}
       <section>
         <div className="flex items-baseline justify-between mb-2">
-          <h2 className="eyebrow-gold">인기 신혼여행지</h2>
+          <h2 className="section-title">인기 신혼여행지</h2>
           <span className="eyebrow tabular-nums">{HONEYMOON_CATALOG.length}곳</span>
         </div>
         <p className="text-[12.5px] text-soft mb-5 leading-relaxed">
           가장 많이 가는 곳들을 미리 정리해뒀어요. 마음에 드는 곳을 후보로 담아두면 비교가 쉬워요.
         </p>
-        <div className="divide-y divide-hair border-y border-hair">
+        <div className="group-card px-4">
           {HONEYMOON_CATALOG.map((p) => {
             const added = regions.some((r) => r.name === p.region);
             return (
@@ -319,7 +319,7 @@ function Flights({ data, update }: Props) {
   return (
     <div className="space-y-10">
       <section className="space-y-4">
-        <h2 className="eyebrow-gold">항공편 검색</h2>
+        <h2 className="section-title">항공편 검색</h2>
         <div className="grid grid-cols-2 gap-x-6 gap-y-4">
           <div>
             <label className="label">출발</label>
@@ -351,8 +351,8 @@ function Flights({ data, update }: Props) {
         <p className="text-center text-[12.5px] text-soft py-4">아직 담아둔 항공편이 없어요.</p>
       ) : (
         <section>
-          <h2 className="eyebrow-gold mb-4">담아둔 옵션 · <span className="tabular-nums">{data.flights.length}</span></h2>
-          <div className="divide-y divide-hair border-y border-hair">
+          <h2 className="section-title mb-4">담아둔 옵션 · <span className="tabular-nums">{data.flights.length}</span></h2>
+          <div className="group-card px-4">
             {data.flights.map((f) => (
               <div key={f.id} className="py-4">
                 <div className="flex items-start justify-between gap-3">
@@ -481,7 +481,7 @@ function Stays({ data, update }: Props) {
   return (
     <div className="space-y-10">
       <section className="space-y-4">
-        <h2 className="eyebrow-gold">숙소 검색</h2>
+        <h2 className="section-title">숙소 검색</h2>
         <input
           className="input"
           placeholder="지역·호텔명 (예: 발리 우붓, 강남)"
@@ -512,8 +512,8 @@ function Stays({ data, update }: Props) {
         <p className="text-center text-[12.5px] text-soft py-4">아직 담아둔 숙소가 없어요.</p>
       ) : (
         <section>
-          <h2 className="eyebrow-gold mb-4">담아둔 숙소 · <span className="tabular-nums">{data.hotels.length}</span></h2>
-          <div className="divide-y divide-hair border-y border-hair">
+          <h2 className="section-title mb-4">담아둔 숙소 · <span className="tabular-nums">{data.hotels.length}</span></h2>
+          <div className="group-card px-4">
             {data.hotels.map((hotel) => (
               <div key={hotel.id} className="py-4">
                 <div className="flex items-start justify-between">

@@ -249,7 +249,7 @@ export default function Guests({ data, update }: Props) {
       {filtered.length === 0 ? (
         <p className="text-center text-[12.5px] text-soft py-8">조건에 맞는 하객이 없어요.</p>
       ) : (
-        <ul className="divide-y divide-hair border-y border-hair">
+        <ul className="group-card px-4">
           {filtered.map((g) => (
             <GuestRow key={g.id} g={g} onChange={(p) => updateGuest(g.id, p)} onRemove={() => removeGuest(g.id)} />
           ))}

@@ -164,8 +164,8 @@ export default function Rings({ data, update }: Props) {
       {/* Top — 번호 매겨진 hairline 리스트 */}
       {top5.length > 0 && (
         <section>
-          <h2 className="eyebrow-gold mb-4">우리의 Top {top5.length}</h2>
-          <ul className="divide-y divide-hair border-y border-hair">
+          <h2 className="section-title mb-4">우리의 Top {top5.length}</h2>
+          <ul className="group-card px-4">
             {top5.map((ring, i) => (
               <li key={ring.id} className="flex items-center gap-4 py-4">
                 <span className="font-serif text-soft text-base tabular-nums w-5 flex-shrink-0">
@@ -212,7 +212,7 @@ export default function Rings({ data, update }: Props) {
       {/* 전체 카탈로그 */}
       <section>
         <div className="flex items-baseline justify-between mb-4">
-          <h2 className="eyebrow-gold">반지 카탈로그 · <span className="tabular-nums">{visible.length}</span></h2>
+          <h2 className="section-title">반지 카탈로그 · <span className="tabular-nums">{visible.length}</span></h2>
           <button onClick={resetCatalog} className="text-[11px] text-soft underline underline-offset-4 hover:text-ink">
             처음 상태로
           </button>
