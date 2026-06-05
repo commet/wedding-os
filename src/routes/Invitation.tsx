@@ -47,7 +47,10 @@ export default function Invitation({ data, update }: Props) {
   // 모드 2 청첩장이지만 오너 표시 없는 기기 — 게스트로 취급
   const guest = isGuestRoute || (data.preferences.mode === "supabase" && !isOwner());
   const canRsvp = data.preferences.mode === "supabase" && !!data.preferences.supabase;
-  const [tab, setTab] = useState<Tab>("preview");
+  // 새 청첩장(이름 비어있고 오너)이면 빈 미리보기 대신 편집 탭(QuickStart)으로 시작.
+  const [tab, setTab] = useState<Tab>(
+    () => (!guest && !isGuestRoute && !data.invitation.groomName && !data.invitation.brideName) ? "edit" : "preview",
+  );
   const [locale, setLocale] = useState<Locale>("ko");
   const [showRsvp, setShowRsvp] = useState(false);
   const inv = data.invitation;
@@ -237,7 +240,7 @@ export default function Invitation({ data, update }: Props) {
       )}
 
       {tab === "edit" && !guest ? (
-        <EditForm inv={inv} set={set} mode={data.preferences.mode} data={data} update={update} />
+        <EditForm inv={inv} set={set} mode={data.preferences.mode} data={data} update={update} onPreview={() => setTab("preview")} />
       ) : (
         <Preview
           inv={inv}
@@ -1185,15 +1188,75 @@ function PublishSection({ data, update }: { data: WeddingData; update: (patch: a
 
 /* ════════════ 편집 폼 ════════════ */
 
-function EditForm({ inv, set, mode, data, update }: {
+// 30초 완성 — 새 청첩장의 마찰 제거. 이름·날짜·식장만 받으면 모시는 글·디자인은
+// 이미 채워져 있어 즉시 완성된 청첩장이 된다. 필수가 채워지면 카드는 사라지고
+// 상세 섹션만 남는다(편집은 같은 inv 를 가리키므로 중복 입력이 아님).
+function QuickStart({ inv, set, onPreview }: {
+  inv: InvitationContent;
+  set: (k: any, v: any) => void;
+  onPreview?: () => void;
+}) {
+  const ready = !!inv.groomName && !!inv.brideName && !!inv.date;
+  // 마운트 시점에 이미 필수가 있으면 노출 안 함. 채우는 중 완성돼도 카드는 유지해
+  // CTA 버튼이 사라지지 않게 하고, 미리보기 다녀와 EditForm 이 재마운트되면 그때 사라진다.
+  const [neededAtMount] = useState(!ready);
+  if (!neededAtMount) return null;
+  return (
+    <div className="border border-hair bg-cream/40 px-5 py-6 mb-2">
+      <div className="eyebrow-gold mb-2">30초 만에 시작</div>
+      <h3 className="font-serif text-[1.4rem] text-ink leading-tight mb-2">
+        {ready ? "기본 정보가 채워졌어요" : "이 세 가지면, 청첩장이 완성돼요"}
+      </h3>
+      <p className="text-[12.5px] text-soft leading-relaxed mb-5">
+        모시는 글과 디자인은 이미 채워 두었어요. 두 분 이름과 날짜만 넣으면
+        바로 완성된 청첩장이 보입니다. 사진·색감은 미리보기를 보며 천천히 더하면 돼요.
+      </p>
+      <div className="grid grid-cols-2 gap-3 mb-3">
+        <div>
+          <label className="label">신랑 이름</label>
+          <input className="input" value={inv.groomName} onChange={(e) => set("groomName", e.target.value)} placeholder="도현" />
+        </div>
+        <div>
+          <label className="label">신부 이름</label>
+          <input className="input" value={inv.brideName} onChange={(e) => set("brideName", e.target.value)} placeholder="지윤" />
+        </div>
+      </div>
+      <div className="mb-3">
+        <label className="label">예식 날짜</label>
+        <input type="date" className="input" value={inv.date} onChange={(e) => set("date", e.target.value)} />
+      </div>
+      <div className="mb-5">
+        <label className="label">예식장 <span className="text-mute normal-case tracking-normal">· 나중에 넣어도 돼요</span></label>
+        <input className="input" value={inv.venue} onChange={(e) => set("venue", e.target.value)} placeholder="서울대학교 교수회관" />
+      </div>
+      <button
+        onClick={onPreview}
+        disabled={!ready || !onPreview}
+        className="btn-primary w-full py-3.5 text-[12.5px] disabled:opacity-40"
+      >
+        미리보기로 결과 보기 →
+      </button>
+      {!ready && (
+        <p className="text-[11px] text-soft text-center mt-2.5">
+          이름과 날짜를 채우면 완성된 청첩장을 볼 수 있어요.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function EditForm({ inv, set, mode, data, update, onPreview }: {
   inv: InvitationContent;
   set: (k: any, v: any) => void;
   mode: Mode | null;
   data: WeddingData;
   update: (patch: any) => void;
+  onPreview?: () => void;
 }) {
   const [picker, setPicker] = useState<null | "hero" | "gallery">(null);
   const theme = (inv.theme as Theme) ?? "cream";
+  // 새 청첩장 여부 — 이름·날짜가 비면 QuickStart(30초 완성)를 앞세우고 발행 섹션은 접어둔다.
+  const hasEssentials = !!inv.groomName && !!inv.brideName && !!inv.date;
   const saveStatus = useSaveStatus();
   const saveLabel =
     saveStatus === "saving" ? "저장 중" :
@@ -1209,7 +1272,9 @@ function EditForm({ inv, set, mode, data, update }: {
         </div>
       </div>
 
-      <Section title="청첩장 발행 — 진짜 링크 만들기" defaultOpen>
+      <QuickStart inv={inv} set={set} onPreview={onPreview} />
+
+      <Section title="청첩장 발행 — 진짜 링크 만들기" defaultOpen={hasEssentials}>
         <PublishSection data={data} update={update} />
       </Section>
 
