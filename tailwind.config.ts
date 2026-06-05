@@ -8,7 +8,7 @@ export default {
         paper: "#FBFAF7",
         cream: "#FAF8F5",
         ink: "#1B1A17",
-        soft: "#6E665B",
+        soft: "#635A4C",
         mute: "#C5BDB1",
         line: "#EDE7DE",
         hair: "#E3DCD1",
