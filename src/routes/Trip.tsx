@@ -227,7 +227,7 @@ function RegionCard({
         <button
           onClick={onRemove}
           aria-label={`${region.name} 삭제`}
-          className="w-10 h-10 border border-hair text-lg leading-none text-soft hover:text-ink hover:border-ink flex items-center justify-center flex-shrink-0"
+          className="w-8 h-10 text-lg leading-none text-mute hover:text-ink flex items-center justify-center flex-shrink-0 transition"
         >
           ×
         </button>

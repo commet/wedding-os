@@ -369,7 +369,7 @@ function CategoryView({
             <button
               key={section.id}
               onClick={() => setSelectedId(section.id)}
-              className={`text-left border p-3 transition ${active ? "border-ink bg-white" : "border-hair bg-transparent hover:border-mute"}`}
+              className={`text-left border p-3 transition ${active ? "border-ink bg-cream/60" : "border-hair bg-transparent hover:border-mute"}`}
             >
               <div className="font-serif text-[14px] text-ink truncate">{section.title}</div>
               <div className="eyebrow mt-2 tabular-nums">{done}/{section.items.length} · {pct}%</div>
