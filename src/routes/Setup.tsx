@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type { WeddingData } from "../lib/schema";
-import { pingSupabase, createSupabaseStorage } from "../lib/storage.supabase";
+import { exportData } from "../lib/storage";
+import { createSupabaseStorage, pingSupabase } from "../lib/storage.supabase";
 import { isSupabaseHost, markOwner } from "../lib/security";
 import { migrateImagesIdbToDataUrl } from "../lib/imageStore";
 import SchemaText from "../supabase-schema-text";
@@ -54,6 +55,8 @@ export default function Setup({ data, update }: Props) {
   const [pingStatus, setPingStatus] = useState<"idle" | "checking" | "ok" | "fail">("idle");
   const [pingMsg, setPingMsg] = useState("");
   const [sqlCopied, setSqlCopied] = useState(false);
+  const [finishStatus, setFinishStatus] = useState<"idle" | "working" | "fail">("idle");
+  const [finishMsg, setFinishMsg] = useState("");
   const navigate = useNavigate();
 
   // 입력 바뀔 때마다 draft 갱신 — 새로고침/뒤로가기 후에도 복원
@@ -97,61 +100,88 @@ export default function Setup({ data, update }: Props) {
       return;
     }
     const supabaseConf = { url: cleanUrl, anonKey: cleanKey, configId: "default" };
+    setFinishStatus("working");
+    setFinishMsg("같이 쓰는 저장소를 확인하는 중...");
 
-    const finishWith = (next: WeddingData) => {
-      update(() => next);
-      // 이 기기를 "오너" 로 표시 — 청첩장 페이지의 편집 탭은 오너에게만 노출됨.
-      // (게스트가 청첩장 URL 받고 들어와도 편집 폼이 안 뜨도록.)
+    try {
+      const driver = createSupabaseStorage(cleanUrl, cleanKey, "default");
+
+      // ── 블라인드 덮어쓰기 가드 ──
+      // 같은 owner token 을 공유한 배우자가 먼저 원격을 채워뒀을 수 있다. 확인 없이 전환하면
+      // 첫 save 가 원격을 이 기기의 데이터로 통째로 덮어쓴다.
+      let remote: WeddingData | null = null;
+      try {
+        remote = (await driver.load())?.data ?? null;
+      } catch { remote = null; }
+
+      const localHasContent = hasContent(data);
+      if (remote && hasContent(remote)) {
+        const remoteData: WeddingData = {
+          ...remote,
+          preferences: { ...remote.preferences, mode: "supabase", supabase: supabaseConf, isDemo: false },
+        };
+        if (!localHasContent) {
+          update(() => remoteData);
+          markOwner();
+          clearDraft();
+          navigate("/dashboard");
+          return;
+        }
+        const overwrite = confirm(
+          "원격(내 사이트)에 이미 저장된 결혼식 데이터가 있어요.\n\n" +
+          "확인 = 이 기기 데이터로 원격을 덮어씁니다 (원격 내용이 사라져요).\n" +
+          "취소 = 원격 데이터를 이 기기로 가져옵니다 (이 기기 내용이 사라져요).",
+        );
+        if (!overwrite) {
+          update(() => remoteData);
+          markOwner();
+          clearDraft();
+          navigate("/dashboard");
+          return;
+        }
+      }
+
+      setFinishMsg("전환 전 백업을 만드는 중...");
+      if (hasTransferableData(data)) {
+        await exportData(data);
+      }
+      setFinishMsg("사진을 둘이 같이 볼 수 있는 형태로 변환하는 중...");
+      // 모드 1 에서 IndexedDB 에 박힌 사진들은 다른 기기에서 못 푸므로,
+      // supabase 로 전환할 때 base64 로 인라인해서 JSONB 동기화 가능한 형태로 변환.
+      const migrated: WeddingData = await migrateImagesIdbToDataUrl(data);
+      const nextData: WeddingData = {
+        ...migrated,
+        preferences: {
+          ...migrated.preferences,
+          mode: "supabase",
+          supabase: supabaseConf,
+          lastBackupAt: hasTransferableData(data)
+            ? new Date().toISOString().split("T")[0]
+            : migrated.preferences.lastBackupAt,
+        },
+      };
+
+      setFinishMsg("같이 쓰는 저장소에 저장하는 중...");
+      // 이 기기를 "오너" 로 표시 — 저장 RPC도 같은 owner token 으로 검증된다.
       markOwner();
+      const saved = await driver.save(nextData);
+      if (!saved.ok) {
+        throw new Error(saved.conflict ? "이미 다른 편집 데이터가 있어요. 새로고침 후 다시 시도해주세요." : "같이 쓰는 저장소에 저장하지 못했어요.");
+      }
+
+      setFinishMsg("저장된 데이터를 다시 확인하는 중...");
+      const loaded = await driver.load();
+      if (!loaded?.data) {
+        throw new Error("저장된 데이터를 다시 확인하지 못했어요. 기존 로컬 데이터는 그대로 남아 있습니다.");
+      }
+
+      update(() => nextData);
       clearDraft();
       navigate("/dashboard");
-    };
-
-    // ── 블라인드 덮어쓰기 가드 ──
-    // 같은 owner token 을 공유한 배우자가 먼저 원격을 채워뒀을 수 있다. 확인 없이 전환하면
-    // 첫 save 가 원격을 이 기기의 (거의 빈) 데이터로 통째로 덮어쓴다. 전환 전에 원격을 들여다본다.
-    // (load 는 owner token 불일치 시 null 을 주므로, 데이터가 잡히면 '같은 token = 내 것' 인 경우다.)
-    let remote: WeddingData | null = null;
-    try {
-      const probe = createSupabaseStorage(cleanUrl, cleanKey, "default");
-      remote = (await probe.load())?.data ?? null;
-    } catch { remote = null; }
-
-    const localHasContent = hasContent(data);
-    if (remote && hasContent(remote)) {
-      const adoptRemote = () =>
-        finishWith({
-          ...remote!,
-          preferences: { ...remote!.preferences, mode: "supabase", supabase: supabaseConf, isDemo: false },
-        });
-      if (!localHasContent) {
-        // 이 기기는 비어 있고 원격엔 데이터가 있음 — 원격을 가져온다 (덮어쓰면 손실).
-        adoptRemote();
-        return;
-      }
-      const overwrite = confirm(
-        "원격(내 사이트)에 이미 저장된 결혼식 데이터가 있어요.\n\n" +
-        "확인 = 이 기기 데이터로 원격을 덮어씁니다 (원격 내용이 사라져요).\n" +
-        "취소 = 원격 데이터를 이 기기로 가져옵니다 (이 기기 내용이 사라져요).",
-      );
-      if (!overwrite) {
-        adoptRemote();
-        return;
-      }
-      // 확인 → 아래로 떨어져 이 기기 데이터로 덮어쓴다.
+    } catch (e: any) {
+      setFinishStatus("fail");
+      setFinishMsg(e?.message ?? "전환에 실패했어요. 기존 로컬 데이터는 그대로 남아 있습니다.");
     }
-
-    // 모드 1 에서 IndexedDB 에 박힌 사진들은 다른 기기에서 못 푸므로,
-    // supabase 로 전환할 때 base64 로 인라인해서 JSONB 동기화 가능한 형태로 변환.
-    const migrated: WeddingData = await migrateImagesIdbToDataUrl(data);
-    finishWith({
-      ...migrated,
-      preferences: {
-        ...migrated.preferences,
-        mode: "supabase",
-        supabase: supabaseConf,
-      },
-    });
   };
 
   return (
@@ -159,7 +189,7 @@ export default function Setup({ data, update }: Props) {
       <div className="flex items-baseline justify-between">
         <div>
           <div className="eyebrow-gold mb-2">Setup Guide</div>
-          <h1 className="font-serif text-[2rem] leading-none">동기화 셋업</h1>
+          <h1 className="font-serif text-[2rem] leading-none">둘이 같이 쓰기 셋업</h1>
         </div>
         <a
           href={`mailto:yclee913@gmail.com?subject=${encodeURIComponent(`[Wedding OS] 셋업 ${step}단계 도움 요청`)}&body=${encodeURIComponent(`안녕하세요,\n\n셋업 ${step}단계에서 막혔어요. 다음 부분이 헷갈려요:\n\n[여기에 상황 적기]\n\n---\n현재 단계: ${step} / 5\n`)}`}
@@ -172,9 +202,13 @@ export default function Setup({ data, update }: Props) {
       <ProgressDots current={step} />
 
       <p className="text-[12.5px] text-soft leading-relaxed text-center">
-        둘이 같이 편집하거나 청첩장 링크·RSVP를 쓰려면<br />
-        내 Supabase/Vercel에 배포해 데이터가 오갈 공간을 만듭니다.
+        혼자 시작한 데이터도 지우지 않고 옮깁니다.<br />
+        백업 → 사진 변환 → 저장 → 다시 확인 순서로 진행해요.
       </p>
+
+      <SetupChoiceNote />
+
+      <TransferSummary data={data} />
 
       {step === 1 && <Step1 onNext={() => setStep(2)} />}
       {step === 2 && <Step2 onNext={() => setStep(3)} onBack={() => setStep(1)} />}
@@ -194,7 +228,100 @@ export default function Setup({ data, update }: Props) {
           onBack={() => setStep(3)}
         />
       )}
-      {step === 5 && <Step5 onFinish={saveAndFinish} onBack={() => setStep(4)} />}
+      {step === 5 && (
+        <Step5
+          data={data}
+          finishStatus={finishStatus}
+          finishMsg={finishMsg}
+          onFinish={saveAndFinish}
+          onBack={() => setStep(4)}
+        />
+      )}
+    </div>
+  );
+}
+
+function SetupChoiceNote() {
+  return (
+    <div className="border-y border-hair py-4 space-y-3">
+      <div>
+        <div className="eyebrow-gold mb-2">먼저 확인</div>
+        <p className="text-[12.5px] text-soft leading-relaxed">
+          하객에게 보낼 청첩장 웹 링크만 필요하면 이 셋업 없이도 만들 수 있습니다.
+          이 셋업은 신랑·신부가 각자 기기에서 같이 편집하거나 RSVP를 두 기기에서 함께 관리할 때 필요해요.
+        </p>
+      </div>
+      <div className="border-t border-hair divide-y divide-hair text-[12.5px]">
+        <Link to="/invitation" className="flex items-baseline justify-between gap-4 py-3 text-ink hover:text-gold">
+          <span>청첩장 링크만 만들기</span>
+          <span className="text-soft">편집 탭에서 발행 →</span>
+        </Link>
+        <div className="flex items-baseline justify-between gap-4 py-3">
+          <span className="text-ink">같이 편집·RSVP 함께 관리</span>
+          <span className="text-soft">아래 5단계 진행</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function dataCounts(data: WeddingData) {
+  const checklistItems = data.checklist.reduce((n, s) => n + s.items.length, 0);
+  const gallery = data.invitation.gallery?.length ?? 0;
+  const videoPhotos = data.video.photos.length;
+  return {
+    invitation: [
+      data.invitation.groomName,
+      data.invitation.brideName,
+      data.invitation.date,
+      data.invitation.venue,
+      data.invitation.greeting,
+    ].filter(Boolean).length,
+    checklistItems,
+    venues: data.venues?.length ?? 0,
+    budget: data.budget?.length ?? 0,
+    guests: data.guests?.length ?? 0,
+    rings: data.rings.length,
+    trip: data.honeymoon.regions.length + data.flights.length + data.hotels.length,
+    sdm: data.sdm.length,
+    photos: (data.invitation.heroImageUrl ? 1 : 0) + gallery + videoPhotos,
+  };
+}
+
+function hasTransferableData(data: WeddingData): boolean {
+  const c = dataCounts(data);
+  return Object.values(c).some((n) => n > 0);
+}
+
+function TransferSummary({ data }: { data: WeddingData }) {
+  const counts = dataCounts(data);
+  const rows = [
+    ["청첩장 정보", counts.invitation],
+    ["체크리스트", counts.checklistItems],
+    ["예식장 후보", counts.venues],
+    ["예산 항목", counts.budget],
+    ["하객", counts.guests],
+    ["반지 후보", counts.rings],
+    ["여행 후보", counts.trip],
+    ["스드메·스냅", counts.sdm],
+    ["사진", counts.photos],
+  ] as const;
+
+  return (
+    <div className="border-y border-hair py-4">
+      <div className="eyebrow-gold mb-3">옮겨갈 데이터</div>
+      <div className="grid grid-cols-3 gap-x-3 gap-y-3">
+        {rows.map(([label, count]) => (
+          <div key={label}>
+            <div className="font-serif text-xl text-ink tabular-nums">{count}</div>
+            <div className="text-[10.5px] text-soft leading-tight">{label}</div>
+          </div>
+        ))}
+      </div>
+      <p className="text-[11px] text-soft leading-relaxed mt-4">
+          완료 전까지 기존 로컬 데이터는 지우지 않습니다. 사진은 둘이 같이 볼 수 있도록 변환하고,
+        변환할 수 없는 사진이 있으면 백업 단계에서 알려줍니다.
+      </p>
     </div>
   );
 }
@@ -476,22 +603,38 @@ function Step4({
 }
 
 // ─── Step 5: 저장 + 배포 ───
-function Step5({ onFinish, onBack }: { onFinish: () => void; onBack: () => void }) {
+function Step5({
+  data, finishStatus, finishMsg, onFinish, onBack,
+}: {
+  data: WeddingData;
+  finishStatus: "idle" | "working" | "fail";
+  finishMsg: string;
+  onFinish: () => void;
+  onBack: () => void;
+}) {
+  const hasData = hasTransferableData(data);
   return (
-    <StepCard icon="05" title="저장하고 링크 배포하기">
+    <StepCard icon="05" title="백업하고 둘이 쓰기로 전환하기">
       <div className="pl-4 border-l-2 border-sage text-[13px] space-y-2">
-        <p className="text-ink"><b>먼저 [완료]를 눌러 이 기기를 편집 기기로 등록하세요.</b></p>
+        <p className="text-ink"><b>완료를 누르면 전환을 안전 순서로 진행합니다.</b></p>
         <p className="text-[12px] text-soft leading-relaxed">
-          이후 Vercel 배포 링크를 열어 환경변수 두 개를 넣으면, 카톡에 보낼 수 있는 청첩장 주소가 생깁니다.
+          {hasData
+            ? "백업 파일을 먼저 만들고, 같이 쓰는 저장소에 옮긴 뒤 다시 읽어서 확인합니다."
+            : "아직 입력한 데이터가 거의 없어서 바로 같이 쓰는 저장을 시작합니다."}
         </p>
       </div>
 
       <div className="py-4 border-y border-hair text-[13px] space-y-2">
-        <p className="font-serif text-[15px] text-ink">청첩장 링크가 필요하면</p>
+        <p className="font-serif text-[15px] text-ink">둘이 쓰기에서 가능해지는 것</p>
         <p className="text-soft text-[12px] leading-relaxed">
-          Vercel 에 배포하세요. 배포된 주소의 <b className="text-ink">/i</b> 가 하객에게 보낼 공개 청첩장입니다.
-          공개 링크는 청첩장 정보만 읽고, 예산·하객 명단은 노출하지 않습니다.
+          신랑·신부가 각자 폰에서 같은 데이터를 보고, RSVP와 준비 현황을 함께 관리할 수 있습니다.
+          공개 청첩장은 필요한 정보만 읽고 예산·하객 명단·체크리스트는 공개하지 않습니다.
         </p>
+      </div>
+
+      <div className="pl-4 border-l-2 border-gold/50 text-[12px] text-soft leading-relaxed">
+        저장 후 다시 읽어서 확인될 때만 저장 방식이 바뀝니다.
+        중간에 실패하면 이 기기의 기존 데이터는 그대로 남습니다.
       </div>
 
       <a
@@ -503,12 +646,24 @@ function Step5({ onFinish, onBack }: { onFinish: () => void; onBack: () => void 
         Vercel 1-클릭 배포 열기 ↗
       </a>
 
-      <p className="text-[11px] text-soft">
-        Vercel 에 가입 후 환경변수 두 개만 넣으면 끝<br />
-        <code className="bg-cream px-1">VITE_SUPABASE_URL</code> · <code className="bg-cream px-1">VITE_SUPABASE_ANON_KEY</code>
+      <p className="text-[11px] text-soft leading-relaxed">
+        직접 배포할 때는 Vercel 환경변수를 확인해주세요.<br />
+        <code className="bg-cream px-1">BLOB_READ_WRITE_TOKEN</code>은 간편 청첩장 발행·RSVP에 필요하고,<br />
+        <code className="bg-cream px-1">VITE_SUPABASE_URL</code> · <code className="bg-cream px-1">VITE_SUPABASE_ANON_KEY</code>는 같이 쓰는 저장소 기본 연결에 씁니다.
       </p>
 
-      <NavButtons onBack={onBack} onNext={onFinish} nextLabel="완료 ✓" />
+      {finishMsg && (
+        <div className={`border-y border-hair py-3 text-[12px] leading-relaxed ${finishStatus === "fail" ? "text-gold" : "text-soft"}`}>
+          {finishMsg}
+        </div>
+      )}
+
+      <NavButtons
+        onBack={onBack}
+        onNext={onFinish}
+        nextLabel={finishStatus === "working" ? "전환 중..." : "백업 후 완료 ✓"}
+        nextDisabled={finishStatus === "working"}
+      />
     </StepCard>
   );
 }

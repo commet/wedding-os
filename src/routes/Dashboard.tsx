@@ -1,13 +1,31 @@
 import { Link } from "react-router-dom";
 import type { WeddingData } from "../lib/schema";
-import { useMemo } from "react";
-import { daysSince } from "../lib/freshness";
+import { useMemo, useState } from "react";
 import { recalcDueDates } from "../data/checklistTemplate";
 import { daysUntilISODate, parseISODateLocal } from "../lib/date";
+import ChatbotBridgeModal from "../components/ChatbotBridgeModal";
+import { type BridgePrompt, weddingPlanStarterPrompt } from "../lib/chatbotBridge";
+import { defaultData } from "../lib/schema";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 
+type FocusItem = {
+  to: string;
+  title: string;
+  desc: string;
+  tag: string;
+};
+
+type ReadinessItem = {
+  to: string;
+  label: string;
+  percent: number;
+  detail: string;
+};
+
 export default function Dashboard({ data, update }: Props) {
+  const [aiPrompt, setAiPrompt] = useState<BridgePrompt | null>(null);
+  const [aiMessage, setAiMessage] = useState("");
   const dday = useMemo(() => {
     return daysUntilISODate(data.invitation.date);
   }, [data.invitation.date]);
@@ -15,30 +33,6 @@ export default function Dashboard({ data, update }: Props) {
   const checklistTotal = data.checklist.reduce((n, s) => n + s.items.length, 0);
   const checklistDone = data.checklist.reduce((n, s) => n + s.items.filter((i) => i.done).length, 0);
   const progress = checklistTotal > 0 ? Math.round((checklistDone / checklistTotal) * 100) : 0;
-  const remaining = Math.max(checklistTotal - checklistDone, 0);
-  const firstPending = useMemo(() => {
-    return data.checklist
-      .flatMap((s) => s.items.map((i) => ({ section: s.title, item: i })))
-      .filter((x) => !x.item.done)
-      .sort((a, b) => {
-        if (!a.item.dueDate && !b.item.dueDate) return 0;
-        if (!a.item.dueDate) return 1;
-        if (!b.item.dueDate) return -1;
-        return a.item.dueDate.localeCompare(b.item.dueDate);
-      })[0];
-  }, [data.checklist]);
-
-  const upcoming = useMemo(() => {
-    const items = data.checklist.flatMap((s) =>
-      s.items
-        .filter((i) => !i.done && i.dueDate)
-        .map((i) => ({ section: s.title, icon: s.icon, item: i, d: daysSince(i.dueDate) }))
-    );
-    return items
-      .filter((x) => x.d !== null && x.d >= -7)
-      .sort((a, b) => (b.d ?? 0) - (a.d ?? 0))
-      .slice(0, 5);
-  }, [data.checklist]);
 
   const empty = !data.invitation.groomName && !data.invitation.brideName;
 
@@ -48,6 +42,25 @@ export default function Dashboard({ data, update }: Props) {
   const guestAttending = (data.guests ?? []).filter((g) => g.status === "참석").length;
   const sdmCount = data.sdm.filter((v) => v.category !== "snap").length;
   const snapCount = data.sdm.filter((v) => v.category === "snap").length;
+  const invitationReadyCount = [
+    data.invitation.groomName,
+    data.invitation.brideName,
+    data.invitation.date,
+    data.invitation.venue,
+    data.invitation.greeting,
+  ].filter(Boolean).length;
+  const coreProgress = Math.round(
+    ([
+      !!data.invitation.date,
+      !!data.invitation.venue || venueCount > 0,
+      checklistTotal > 0,
+      budgetCount > 0,
+      guestCount > 0,
+      invitationReadyCount >= 4,
+      data.rings.length > 0,
+      data.honeymoon.regions.length + data.flights.length + data.hotels.length > 0,
+    ].filter(Boolean).length / 8) * 100
+  );
 
   const setWeddingDate = (date: string) => {
     update((prev: WeddingData) => {
@@ -61,6 +74,308 @@ export default function Dashboard({ data, update }: Props) {
       };
     });
   };
+
+  const openAiStarter = () => {
+    setAiMessage("");
+    setAiPrompt(weddingPlanStarterPrompt(data));
+  };
+
+  const applyAiStarter = (parsed: any) => {
+    const now = Date.now();
+    const checklistItems = Array.isArray(parsed?.checklistItems) ? parsed.checklistItems : [];
+    const budgetItems = Array.isArray(parsed?.budgetItems) ? parsed.budgetItems : [];
+    const honeymoonRegions = Array.isArray(parsed?.honeymoonRegions) ? parsed.honeymoonRegions : [];
+    const todayItems = Array.isArray(parsed?.today) ? parsed.today : [];
+    const summary = typeof parsed?.summary === "string" ? parsed.summary.trim() : "";
+    const greeting = typeof parsed?.invitationGreeting === "string" ? parsed.invitationGreeting.trim() : "";
+    const defaultGreeting = defaultData().invitation.greeting.trim();
+
+    update((prev: WeddingData) => {
+      let next: WeddingData = { ...prev };
+
+      const newTasks = checklistItems
+        .map((item: any, idx: number) => ({
+          id: `ai-task-${now}-${idx}`,
+          text: typeof item?.text === "string" ? item.text.trim() : "",
+          done: false,
+          source: "ai" as const,
+          ddayOffset: typeof item?.ddayOffset === "number" ? item.ddayOffset : undefined,
+          priority: ["red", "yellow", "green"].includes(item?.priority) ? item.priority : "yellow",
+        }))
+        .filter((item: any) => item.text);
+      if (newTasks.length > 0) {
+        const sectionId = "ai-starter";
+        const existing = next.checklist.find((section) => section.id === sectionId);
+        const checklist = existing
+          ? next.checklist.map((section) =>
+              section.id === sectionId
+                ? { ...section, items: [...newTasks, ...section.items].slice(0, 12) }
+                : section,
+            )
+          : [
+              {
+                id: sectionId,
+                icon: "AI",
+                title: "AI 시작 정리",
+                items: newTasks,
+              },
+              ...next.checklist,
+            ];
+        next = {
+          ...next,
+          checklist: recalcDueDates(checklist, next.invitation.date),
+        };
+      }
+
+      const budgetCategories = new Set((next.budget ?? []).map((item) => item.category.trim()));
+      const newBudget = budgetItems
+        .map((item: any, idx: number) => ({
+          id: `ai-budget-${now}-${idx}`,
+          category: typeof item?.category === "string" ? item.category.trim() : "",
+          planned: typeof item?.planned === "number" && item.planned > 0 ? Math.round(item.planned) : undefined,
+          notes: typeof item?.notes === "string" ? item.notes.trim() : undefined,
+        }))
+        .filter((item: any) => item.category && !budgetCategories.has(item.category));
+      if (newBudget.length > 0) {
+        next = { ...next, budget: [...(next.budget ?? []), ...newBudget] };
+      }
+
+      const regionNames = new Set(next.honeymoon.regions.map((region) => region.name.trim()));
+      const newRegions = honeymoonRegions
+        .map((item: any, idx: number) => ({
+          id: `ai-region-${now}-${idx}`,
+          name: typeof item?.name === "string" ? item.name.trim() : "",
+          durationDays: typeof item?.durationDays === "number" ? Math.round(item.durationDays) : undefined,
+          notes: typeof item?.notes === "string" ? item.notes.trim() : undefined,
+        }))
+        .filter((item: any) => item.name && !regionNames.has(item.name));
+      if (newRegions.length > 0) {
+        next = {
+          ...next,
+          honeymoon: {
+            ...next.honeymoon,
+            regions: [...next.honeymoon.regions, ...newRegions],
+          },
+        };
+      }
+
+      if (greeting && (!next.invitation.greeting.trim() || next.invitation.greeting.trim() === defaultGreeting)) {
+        next = { ...next, invitation: { ...next.invitation, greeting } };
+      }
+
+      const normalizedToday = todayItems
+        .map((item: any) => ({
+          title: typeof item?.title === "string" ? item.title.trim() : "",
+          reason: typeof item?.reason === "string" ? item.reason.trim() : undefined,
+          targetPath: normalizeTargetPath(item?.targetPath),
+        }))
+        .filter((item: { title: string }) => item.title)
+        .slice(0, 3);
+      if (summary || normalizedToday.length > 0) {
+        next = {
+          ...next,
+          ai: {
+            ...(next.ai ?? {}),
+            starterSummary: summary || next.ai?.starterSummary,
+            today: normalizedToday.length > 0 ? normalizedToday : next.ai?.today,
+            updatedAt: new Date(now).toISOString(),
+          },
+        };
+      }
+
+      return next;
+    });
+
+    const added =
+      checklistItems.length +
+      budgetItems.length +
+      honeymoonRegions.length +
+      todayItems.length +
+      (summary ? 1 : 0) +
+      (greeting ? 1 : 0);
+    setAiMessage(added > 0 ? "준비 초안을 반영했어요. 체크리스트·예산·여행 후보를 확인해보세요." : "답변은 받았지만 반영할 항목이 없었어요.");
+  };
+
+  const focusItems = useMemo<FocusItem[]>(() => {
+    const items: FocusItem[] = [];
+    const aiToday = (data.ai?.today ?? [])
+      .map((item) => ({
+        to: normalizeTargetPath(item.targetPath) ?? "/checklist",
+        title: item.title,
+        desc: item.reason || "AI가 현재 입력된 정보를 보고 먼저 볼 일로 골랐습니다.",
+        tag: "AI",
+      }))
+      .filter((item) => item.title)
+      .slice(0, 3);
+    items.push(...aiToday);
+    if (!data.invitation.date) {
+      items.push({
+        to: "/invitation",
+        title: "기본 정보 정리하기",
+        desc: "정해진 이름·날짜·장소만 넣어두면 다음 준비가 더 정확해집니다.",
+        tag: "기본 정보",
+      });
+    }
+    if (!data.invitation.venue && venueCount === 0) {
+      items.push({
+        to: "/venues",
+        title: "예식장 후보 정리하기",
+        desc: "지역과 식수 기준으로 비교할 후보를 먼저 담아두세요.",
+        tag: "큰 예약",
+      });
+    }
+    if (budgetCount === 0) {
+      items.push({
+        to: "/budget",
+        title: "예산표 시작하기",
+        desc: "평균 항목을 넣어두면 견적을 받을 때 초과 위험이 바로 보입니다.",
+        tag: "돈 관리",
+      });
+    }
+    if (data.rings.length === 0) {
+      items.push({
+        to: "/rings",
+        title: "반지 후보 풀 만들기",
+        desc: "브랜드·예산·소재 기준으로 볼 만한 후보를 빠르게 좁힙니다.",
+        tag: "후보 정리",
+      });
+    }
+    if (data.honeymoon.regions.length + data.flights.length + data.hotels.length === 0) {
+      items.push({
+        to: "/trip",
+        title: "신혼여행 지역 비교하기",
+        desc: "기간과 예산을 기준으로 여행 후보와 일정 초안을 만들 수 있어요.",
+        tag: "지역 비교",
+      });
+    }
+    if (invitationReadyCount < 4) {
+      items.push({
+        to: "/invitation",
+        title: "청첩장 기본 정보 채우기",
+        desc: "이름·날짜·장소만 넣어도 공유 가능한 미리보기가 생깁니다.",
+        tag: "공유 준비",
+      });
+    }
+    if (data.preferences.mode === "supabase") {
+      items.push({
+        to: "/share",
+        title: "같이 편집할 사람 초대하기",
+        desc: "하객용 청첩장 링크와 다른 편집자용 링크를 공유 센터에서 보냅니다.",
+        tag: "함께 편집",
+      });
+    }
+    if (data.preferences.mode === "local") {
+      items.push({
+        to: "/setup",
+        title: "둘이 같이 쓸 준비하기",
+        desc: "혼자 정리한 내용은 그대로 두고, 필요할 때 둘이 쓰는 저장소로 옮길 수 있습니다.",
+        tag: "선택",
+      });
+    }
+    return dedupeFocusItems(items).slice(0, 3);
+  }, [
+    data.ai?.today,
+    budgetCount,
+    data.honeymoon.regions.length,
+    data.flights.length,
+    data.hotels.length,
+    data.invitation.date,
+    data.invitation.venue,
+    data.preferences.mode,
+    data.rings.length,
+    invitationReadyCount,
+    venueCount,
+  ]);
+
+  const timeline = useMemo(() => {
+    const rows = [
+      {
+        label: "기본 정보",
+        due: "지금",
+        done: !!data.invitation.date && checklistTotal > 0,
+        desc: "날짜와 체크리스트",
+      },
+      {
+        label: "큰 예약",
+        due: "D-240",
+        done: !!data.invitation.venue || venueCount > 0 || sdmCount > 0,
+        desc: "예식장·스드메",
+      },
+      {
+        label: "후보 비교",
+        due: "D-180",
+        done: data.rings.length > 0 || data.honeymoon.regions.length > 0,
+        desc: "반지·여행",
+      },
+      {
+        label: "공유 준비",
+        due: "D-90",
+        done: invitationReadyCount >= 4,
+        desc: "청첩장·하객",
+      },
+      {
+        label: "최종 점검",
+        due: "D-14",
+        done: guestCount > 0 && budgetCount > 0,
+        desc: "식수·결제",
+      },
+    ];
+    const activeIdx = rows.findIndex((r) => !r.done);
+    return rows.map((r, i) => ({
+      ...r,
+      active: activeIdx === -1 ? i === rows.length - 1 : i === activeIdx,
+    }));
+  }, [
+    budgetCount,
+    checklistTotal,
+    data.honeymoon.regions.length,
+    data.invitation.date,
+    data.invitation.venue,
+    data.rings.length,
+    guestCount,
+    invitationReadyCount,
+    sdmCount,
+    venueCount,
+  ]);
+
+  const readiness: ReadinessItem[] = [
+    {
+      to: "/checklist",
+      label: "체크리스트",
+      percent: progress,
+      detail: checklistTotal > 0 ? `${checklistDone}/${checklistTotal} 완료` : "기본판 필요",
+    },
+    {
+      to: "/invitation",
+      label: "청첩장",
+      percent: Math.round((invitationReadyCount / 5) * 100),
+      detail: invitationReadyCount >= 4 ? "공유 준비 중" : "기본 정보 입력",
+    },
+    {
+      to: "/venues",
+      label: "예식장",
+      percent: data.invitation.venue || venueCount > 0 ? 70 : 0,
+      detail: venueCount > 0 ? `${venueCount}곳 후보` : data.invitation.venue ? "장소 입력됨" : "후보 없음",
+    },
+    {
+      to: "/budget",
+      label: "예산",
+      percent: budgetCount > 0 ? 60 : 0,
+      detail: budgetCount > 0 ? `${budgetCount}개 항목` : "템플릿 필요",
+    },
+    {
+      to: "/guests",
+      label: "하객",
+      percent: guestCount > 0 ? Math.min(85, 30 + guestAttending * 5) : 0,
+      detail: guestCount > 0 ? `${guestCount}명 · 참석 ${guestAttending}` : "명단 시작 전",
+    },
+    {
+      to: "/trip",
+      label: "신혼여행",
+      percent: data.honeymoon.regions.length > 0 ? 45 : 0,
+      detail: data.honeymoon.regions.length > 0 ? `${data.honeymoon.regions.length}곳 후보` : "지역 비교 전",
+    },
+  ];
 
   // 메뉴 순서는 실제 결혼 준비 흐름을 따른다 — 먼저 큰 예약을 잡고(결정·예약),
   // 청첩장·영상을 만들고(함께 만들기), 그 뒤 꾸준히 관리. 공유·AI는 도구로 분리.
@@ -78,7 +393,7 @@ export default function Dashboard({ data, update }: Props) {
     {
       title: "함께 만들기",
       items: [
-        { to: "/invitation", label: "모바일 청첩장", sub: "정보 입력 · 카톡 공유" },
+        { to: "/invitation", label: "모바일 청첩장", sub: "정보 입력 · 하객용 링크" },
         { to: "/video", label: "식전영상", sub: "사진 · BGM · 자연어 편집" },
       ],
     },
@@ -93,7 +408,7 @@ export default function Dashboard({ data, update }: Props) {
     {
       title: "도구",
       items: [
-        { to: "/share", label: "공유 센터", sub: "Excel · PDF · 카톡 · 백업" },
+        { to: "/share", label: "공유 센터", sub: "청첩장 · 초대 링크 · 백업" },
         { to: "/ai", label: "AI 연결", sub: "복붙 모드 · API 키 · 로컬 LLM" },
       ],
     },
@@ -102,42 +417,56 @@ export default function Dashboard({ data, update }: Props) {
   return (
     <div className="pb-10">
       {/* ─── 히어로 — 박스 없이 풀폭 타이포 ─── */}
-      <section className="page pt-10 pb-9 text-center">
+      <section className="page pt-6 pb-6">
         {empty ? (
-          <>
-            <div className="eyebrow-gold mb-6">Wedding · OS</div>
-            <h1 className="display-sm mb-5">
-              결혼 준비,<br />
-              어디서부터 시작할까요?
-            </h1>
-            <p className="text-[13px] text-soft leading-relaxed mb-8">
-              청첩장 정보부터 한 줄씩 채워보세요.
-            </p>
-            <div className="text-left border border-hair bg-cream/35 px-4 py-4 mb-6">
-              <div className="eyebrow-gold mb-2">Wedding day</div>
-              <label className="block">
-                <span className="text-[12px] text-soft">예식 날짜를 먼저 넣어보세요</span>
-                <input
-                  type="date"
-                  className="input mt-2 bg-paper"
-                  value={data.invitation.date}
-                  onChange={(e) => setWeddingDate(e.target.value)}
-                />
-              </label>
-              <div className="mt-4 flex items-end justify-between border-t border-hair pt-4">
-                <div>
-                  <div className="eyebrow">오늘 기준</div>
-                  <div className="text-[12px] text-soft mt-1">
-                    날짜를 넣으면 체크리스트 마감일도 같이 맞춰집니다.
-                  </div>
-                </div>
-                <DdayMark dday={dday} />
+          <div className="overflow-hidden border border-line bg-white lift">
+            <div className="h-1.5 bg-ink" />
+            <div className="px-5 pt-5 pb-4">
+              <div className="flex items-baseline justify-between gap-4 mb-5">
+                <div className="eyebrow-gold">처음 시작</div>
+                <span className="text-[11px] text-soft whitespace-nowrap">날짜 없이도 가능</span>
+              </div>
+              <h1 className="font-serif text-[1.72rem] leading-[1.18] text-ink tracking-tight mb-3">
+                결혼 준비의 첫 장을<br />
+                정돈해드릴게요.
+              </h1>
+              <p className="text-[12.5px] text-soft leading-relaxed mb-5">
+                청첩장 정보, 체크리스트, 예산, 반지와 여행 후보까지. 지금 적을 수 있는 것만 바탕으로 시작점을 만듭니다.
+              </p>
+
+              <button
+                data-testid="dashboard-ai-starter"
+                onClick={openAiStarter}
+                className="btn-primary w-full py-3.5 text-[12.5px]"
+              >
+                내 준비판 만들기 →
+              </button>
+            </div>
+
+            <div className="border-y border-line bg-[#F5F7F2] px-5 py-4">
+              <div className="flex items-baseline justify-between gap-3 mb-3">
+                <div className="eyebrow">바로 생기는 것</div>
+                <span className="text-[11px] text-soft">수정 가능</span>
+              </div>
+              <div className="space-y-2.5">
+                <StarterPreview num="01" title="오늘 볼 일" desc="당장 정해야 할 것부터 앞에 둡니다." />
+                <StarterPreview num="02" title="비용의 큰 틀" desc="견적을 받기 전에 비교 기준을 만듭니다." />
+                <StarterPreview num="03" title="반지·여행 후보" desc="처음 고르기 좋은 풀에서 시작합니다." />
               </div>
             </div>
-            <Link to="/invitation" className="btn-primary px-8 py-3.5 text-[12.5px]">
-              청첩장 정보 입력 →
-            </Link>
-          </>
+
+            <div className="grid grid-cols-3 divide-x divide-line text-center text-[12px]">
+              <a href="#wedding-day-input" className="px-2 py-3 text-soft hover:text-ink">
+                날짜
+              </a>
+              <Link to="/invitation" className="px-2 py-3 text-soft hover:text-ink">
+                청첩장
+              </Link>
+              <Link to="/rings?starter=1" className="px-2 py-3 text-soft hover:text-ink">
+                반지
+              </Link>
+            </div>
+          </div>
         ) : (
           <>
             <div className="eyebrow-gold mb-6">Our Wedding</div>
@@ -175,121 +504,216 @@ export default function Dashboard({ data, update }: Props) {
                 {data.invitation.venue || "장소 미정"}
               </p>
             </div>
+
+            <div className="mt-8 max-w-[18rem] mx-auto">
+              <div className="flex items-end justify-between mb-2">
+                <span className="eyebrow">전체 준비도</span>
+                <span className="font-serif text-2xl text-ink tabular-nums">{coreProgress}%</span>
+              </div>
+              <ProgressLine value={coreProgress} />
+            </div>
+            <button
+              data-testid="dashboard-ai-starter"
+              onClick={openAiStarter}
+              className="mt-7 text-[12.5px] text-ink underline underline-offset-4 hover:text-gold"
+            >
+              다음 할 일 정리하기 →
+            </button>
           </>
         )}
       </section>
 
       <div className="hairline" />
 
-      {/* ─── 이번 주에 할 일 — hairline 리스트 ─── */}
-      {upcoming.length > 0 && (
-        <>
-          <section className="page py-7">
-            <div className="flex items-baseline justify-between mb-4">
-              <h2 className="section-title">다가오는 일정</h2>
-              <Link to="/checklist" className="text-[11px] text-soft underline underline-offset-4 hover:text-ink">
-                전체 보기
-              </Link>
-            </div>
-            <ul className="stack">
-              {upcoming.map((u, i) => {
-                const overdue = (u.d ?? 0) > 0;
-                const label = overdue ? `${u.d}일 지남` : u.d === 0 ? "오늘" : `${-(u.d ?? 0)}일 남음`;
-                return (
-                  <li key={i} className="flex items-baseline justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[14px] text-ink truncate">{u.item.text}</div>
-                      <div className="eyebrow mt-1.5">{u.section}</div>
-                    </div>
-                    <span className={`text-[12px] tabular-nums flex-shrink-0 ${overdue ? "text-gold" : "text-soft"}`}>
-                      {label}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-          <div className="hairline" />
-        </>
-      )}
-
-      {/* ─── 진행률 — 시각 카드 ─── */}
-      {checklistTotal > 0 && (
-        <>
-          <Link to="/checklist" className="block page py-8 hover:bg-cream/40 transition">
-            <div className="border border-hair bg-paper px-4 py-4 shadow-[0_18px_45px_rgba(45,35,25,0.06)]">
-              <div className="flex items-start justify-between gap-4 mb-5">
-                <div>
-                  <h2 className="section-title mb-1">현재 진행률</h2>
-                  <p className="text-[12px] text-soft">
-                    완료한 항목과 남은 일을 한 번에 봅니다.
-                  </p>
-                </div>
-                <span className="font-serif text-[2.6rem] leading-none text-ink tabular-nums">
-                  {progress}<span className="text-gold text-[1.35rem]">%</span>
+      {/* ─── 다음 행동 — 앱이 먼저 정리해주는 영역 ─── */}
+      <section className="page py-9">
+        <div className="flex items-baseline justify-between mb-5">
+          <div>
+            <div className="eyebrow-gold mb-2">Next</div>
+            <h2 className="font-serif text-xl text-ink">오늘은 이것만</h2>
+          </div>
+          <span className="text-[11px] text-soft">지금 필요한 순서</span>
+        </div>
+        {aiMessage && (
+          <p className="text-[11.5px] text-soft leading-relaxed -mt-2 mb-4">
+            {aiMessage}
+          </p>
+        )}
+        {data.ai?.starterSummary && (
+          <div className="border-l-2 border-hair pl-3 mb-4">
+            <div className="eyebrow-gold mb-1">AI note</div>
+            <p className="text-[12px] text-soft leading-relaxed">
+              {data.ai.starterSummary}
+            </p>
+          </div>
+        )}
+        <ul className="border-y border-hair divide-y divide-hair">
+          {focusItems.map((item, idx) => (
+            <li key={`${item.to}-${item.title}`}>
+              <Link to={item.to} className="flex items-start gap-4 py-4 active:opacity-70 transition">
+                <span className="font-serif text-soft text-base tabular-nums w-6 flex-shrink-0">
+                  {String(idx + 1).padStart(2, "0")}
                 </span>
-              </div>
-              <div className="h-2.5 bg-line overflow-hidden">
-                <div
-                  className="h-full bg-ink transition-all duration-500"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <div className="bg-cream/50 px-3 py-3">
-                  <div className="eyebrow">완료</div>
-                  <div className="font-serif text-xl text-ink tabular-nums mt-1">
-                    {checklistDone} / {checklistTotal}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline gap-2 mb-1">
+                    <span className="font-serif text-[16px] text-ink">{item.title}</span>
+                    <span className="eyebrow-gold">{item.tag}</span>
                   </div>
+                  <p className="text-[12px] text-soft leading-relaxed">{item.desc}</p>
                 </div>
-                <div className="bg-cream/50 px-3 py-3">
-                  <div className="eyebrow">남은 일</div>
-                  <div className="font-serif text-xl text-ink tabular-nums mt-1">
-                    {remaining}
-                  </div>
-                </div>
-              </div>
-              <div className="mt-4 flex items-center justify-between">
-                <p className="text-[12px] text-soft leading-relaxed pr-3">
-                  {firstPending ? (
-                    <>
-                      다음 체크 · <span className="text-ink">{firstPending.item.text}</span>
-                    </>
-                  ) : (
-                    "체크리스트로 이동"
-                  )}
-                </p>
-                <span className="text-soft">→</span>
-              </div>
-            </div>
-          </Link>
-          <div className="hairline" />
-        </>
-      )}
+                <span className="text-soft pt-1">→</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
 
-      {/* ─── 메뉴 — 그룹 컨테이너 + 밀집 리스트 (체계·위계 강화) ─── */}
-      <section className="page py-7 space-y-6">
-        {MENU_GROUPS.map((group) => (
-          <div key={group.title}>
-            <h2 className="section-title mb-2.5">{group.title}</h2>
-            <div className="group-card">
-              {group.items.map((item) => (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className="group-row active:bg-cream/70 transition"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[14px] text-ink font-medium leading-tight">{item.label}</div>
-                    <div className="text-[11.5px] text-soft mt-0.5 truncate">{item.sub}</div>
-                  </div>
-                  <span className="text-mute text-sm flex-shrink-0">→</span>
-                </Link>
-              ))}
+      {empty && (
+        <section id="wedding-day-input" className="page pb-9">
+          <div className="text-left border-y border-hair py-4">
+            <div className="eyebrow-gold mb-2">Wedding day</div>
+            <label className="block">
+              <span className="text-[12px] text-soft">날짜를 알면 체크리스트 마감일이 더 정확해져요</span>
+              <input
+                type="date"
+                className="input mt-2 bg-paper"
+                value={data.invitation.date}
+                onChange={(e) => setWeddingDate(e.target.value)}
+              />
+            </label>
+            <div className="mt-4 flex items-end justify-between border-t border-hair pt-4">
+              <div>
+                <div className="eyebrow">오늘 기준</div>
+                <div className="text-[12px] text-soft mt-1">
+                  비워둬도 괜찮고, 정해지면 나중에 넣어도 됩니다.
+                </div>
+              </div>
+              <DdayMark dday={dday} />
             </div>
           </div>
-        ))}
+        </section>
+      )}
+
+      <div className="hairline" />
+
+      {/* ─── 타임라인 — 큰 흐름을 한눈에 ─── */}
+      <section className="page py-9">
+        <div className="eyebrow-gold mb-5">Timeline</div>
+        <div className="space-y-4">
+          {timeline.map((m, i) => (
+            <div key={m.label} className="grid grid-cols-[3.5rem_1fr] gap-3 items-start">
+              <div className="text-right">
+                <div className={`font-serif text-sm tabular-nums ${m.active ? "text-gold" : m.done ? "text-ink" : "text-soft"}`}>
+                  {m.due}
+                </div>
+              </div>
+              <div className="relative pb-4">
+                {i < timeline.length - 1 && <div className="absolute left-[5px] top-5 bottom-0 w-px bg-hair" />}
+                <div className="flex items-start gap-3">
+                  <span className={`relative z-10 mt-1 w-3 h-3 border ${m.done ? "bg-ink border-ink" : m.active ? "bg-gold border-gold" : "bg-paper border-hair"}`} />
+                  <div>
+                    <div className={`font-serif text-[16px] ${m.active ? "text-ink" : m.done ? "text-ink" : "text-soft"}`}>
+                      {m.label}
+                    </div>
+                    <div className="text-[11.5px] text-soft mt-1">{m.desc}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </section>
+
+      <div className="hairline" />
+
+      {/* ─── 영역별 준비도 — 한눈에 보이는 운영판 ─── */}
+      <section className="page py-9">
+        <div className="flex items-baseline justify-between mb-5">
+          <div>
+            <div className="eyebrow-gold mb-2">Readiness</div>
+            <h2 className="font-serif text-xl text-ink">영역별 준비도</h2>
+          </div>
+          <Link to="/ai" className="text-[11px] text-soft underline underline-offset-4 hover:text-ink">
+            AI 연결
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          {readiness.map((item) => (
+            <Link key={item.label} to={item.to} className="border border-hair bg-paper p-3 active:opacity-70 transition">
+              <div className="flex items-baseline justify-between gap-2 mb-3">
+                <span className="font-serif text-[15px] text-ink">{item.label}</span>
+                <span className="text-[12px] text-soft tabular-nums">{item.percent}%</span>
+              </div>
+              <ProgressLine value={item.percent} subtle />
+              <div className="text-[11px] text-soft mt-2 leading-tight">{item.detail}</div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <div className="hairline" />
+
+      <section className="page py-9">
+        <div className="flex items-baseline justify-between gap-4 mb-5">
+          <div>
+            <div className="eyebrow-gold mb-2">기본 후보</div>
+            <h2 className="font-serif text-xl text-ink">시작 후보 잡기</h2>
+          </div>
+          <Link to="/ai" className="text-[11px] text-soft underline underline-offset-4 hover:text-ink">
+            AI로 더 좁히기
+          </Link>
+        </div>
+        <div className="border-y border-hair divide-y divide-hair">
+          <AiStarter to="/rings?starter=1" title="반지 후보 풀 만들기" desc="예산·소재·다이아 여부로 먼저 비교할 후보를 3~5개 잡습니다." />
+          <AiStarter to="/trip?starter=1" title="신혼여행 지역 비교" desc="기간·예산·여행 톤을 기준으로 지역과 일정 메모를 시작합니다." />
+          <AiStarter to="/venues?starter=1" title="상담 후보 추리기" desc="지역·하객 수·식대 기준으로 먼저 문의할 식장을 정리합니다." />
+        </div>
+      </section>
+
+      <div className="hairline" />
+
+      {/* ─── 전체 메뉴는 접어서, 첫 화면 집중도를 유지 ─── */}
+      <section className="page py-7">
+        <details>
+          <summary className="list-none cursor-pointer flex items-baseline justify-between gap-4">
+            <span>
+              <span className="eyebrow-gold block mb-1">All sections</span>
+              <span className="font-serif text-lg text-ink">전체 메뉴</span>
+            </span>
+            <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
+          </summary>
+          <div className="pt-7 space-y-8">
+            {MENU_GROUPS.map((group) => (
+              <div key={group.title}>
+                <h2 className="eyebrow-gold mb-3">{group.title}</h2>
+                <ul className="border-y border-hair divide-y divide-hair">
+                  {group.items.map((item) => (
+                    <li key={item.to}>
+                      <Link
+                        to={item.to}
+                        className="flex items-baseline justify-between gap-4 py-3.5 active:opacity-60 transition"
+                      >
+                        <div className="min-w-0">
+                          <div className="font-serif text-[15px] text-ink leading-tight">{item.label}</div>
+                          <div className="text-[11px] text-soft mt-1 truncate">{item.sub}</div>
+                        </div>
+                        <span className="text-soft flex-shrink-0">→</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </details>
+      </section>
+
+      <ChatbotBridgeModal
+        open={!!aiPrompt}
+        onClose={() => setAiPrompt(null)}
+        prompt={aiPrompt}
+        onApply={applyAiStarter}
+      />
     </div>
   );
 }
@@ -325,6 +749,69 @@ function DdayMark({ dday }: { dday: number | null }) {
       <div className="eyebrow mt-1">남았습니다</div>
     </div>
   );
+}
+
+function ProgressLine({ value, subtle = false }: { value: number; subtle?: boolean }) {
+  const width = `${Math.max(0, Math.min(100, value))}%`;
+  return (
+    <div className={`h-2 overflow-hidden ${subtle ? "bg-line" : "bg-hair"}`}>
+      <div className={`h-full transition-all duration-500 ${subtle ? "bg-gold" : "bg-ink"}`} style={{ width }} />
+    </div>
+  );
+}
+
+function StarterPreview({ num, title, desc }: { num: string; title: string; desc: string }) {
+  return (
+    <div className="flex items-start gap-3 bg-white/70 px-3 py-3 border border-white">
+      <span className="font-serif text-[16px] leading-none text-gold tabular-nums pt-0.5">{num}</span>
+      <div className="min-w-0">
+        <div className="text-[13px] font-medium text-ink leading-snug">{title}</div>
+        <p className="text-[11.5px] text-soft leading-relaxed mt-0.5">{desc}</p>
+      </div>
+    </div>
+  );
+}
+
+function AiStarter({ to, title, desc }: { to: string; title: string; desc: string }) {
+  return (
+    <Link to={to} className="flex items-start justify-between gap-4 py-4 active:opacity-70 transition">
+      <div className="min-w-0">
+        <div className="font-serif text-[16px] text-ink">{title}</div>
+        <p className="text-[12px] text-soft leading-relaxed mt-1">{desc}</p>
+      </div>
+      <span className="text-soft pt-1 flex-shrink-0">→</span>
+    </Link>
+  );
+}
+
+const SAFE_TARGET_PATHS = new Set([
+  "/dashboard",
+  "/checklist",
+  "/budget",
+  "/guests",
+  "/invitation",
+  "/rings",
+  "/trip",
+  "/venues",
+  "/share",
+  "/setup",
+  "/settings",
+]);
+
+function normalizeTargetPath(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const path = value.trim();
+  return SAFE_TARGET_PATHS.has(path) ? path : undefined;
+}
+
+function dedupeFocusItems(items: FocusItem[]): FocusItem[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = `${item.to}|${item.title}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function formatWeddingDate(iso?: string): string {

@@ -257,7 +257,7 @@ export default function Guests({ data, update }: Props) {
       )}
 
       <p className="text-[10.5px] text-soft text-center pt-2">
-        축의금 · 식수 합계는 자동 계산. 모드 1 에선 본인 휴대폰에만 저장.
+        축의금 · 식수 합계는 자동 계산. 혼자 쓰는 동안에는 이 기기에만 저장됩니다.
       </p>
     </div>
   );

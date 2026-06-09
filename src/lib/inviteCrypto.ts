@@ -19,7 +19,7 @@ export function bytesToBase64Url(bytes: Bytes): string {
 }
 
 export function base64UrlToBytes(s: string): Bytes {
-  const b64 = s.replace(/-/g, "+").replace(/_/g, "/");
+  const b64 = s.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(s.length / 4) * 4, "=");
   const bin = atob(b64);
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);

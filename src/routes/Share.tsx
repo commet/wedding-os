@@ -12,6 +12,7 @@ import {
   downloadInvitationText,
   downloadPrintableHtml,
 } from "../lib/exporters";
+import { getOrCreateOwnerToken } from "../lib/security";
 
 type Props = { data: WeddingData; update: (patch: any) => void };
 
@@ -49,6 +50,30 @@ export default function Share({ data, update }: Props) {
   };
 
   const canNativeShare = typeof navigator !== "undefined" && "share" in navigator;
+  const editorInviteUrl = () => {
+    const token = getOrCreateOwnerToken();
+    return `${window.location.origin}/dashboard#ownerToken=${encodeURIComponent(token)}`;
+  };
+  const copyEditorInvite = async () => {
+    const url = editorInviteUrl();
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      window.prompt("아래 편집 초대 링크를 복사해주세요:", url);
+    }
+  };
+  const nativeShareEditorInvite = async () => {
+    const url = editorInviteUrl();
+    if (navigator.share) {
+      await navigator.share({
+        title: "Wedding OS 편집 초대",
+        text: "같이 결혼 준비를 편집할 수 있는 링크입니다. 하객에게는 보내지 마세요.",
+        url,
+      });
+      return;
+    }
+    await navigator.clipboard.writeText(url);
+  };
   const nativeShare = async () => {
     const inv = data.invitation;
     const text = [
@@ -69,7 +94,7 @@ export default function Share({ data, update }: Props) {
 
       <p className="text-[13px] text-soft leading-relaxed border-b border-hair pb-5">
         기본은 내 기기에 안전하게 저장하고, 필요할 때만 파일이나 텍스트로 꺼내 전달합니다.
-        링크 공유와 동시 편집은 [내 사이트] 모드에서만 필요해요.
+        하객용 청첩장 공유와 신랑·신부 편집 초대는 서로 다른 링크로 나눠 관리합니다.
       </p>
 
       {status !== "idle" && (
@@ -99,13 +124,18 @@ export default function Share({ data, update }: Props) {
       <Section
         num="02"
         title="청첩장 공유"
-        desc="배포 없이도 카톡에 붙여넣거나 이미지 카드로 보낼 수 있게 만듭니다."
+        desc="카톡 문안·이미지 카드를 만들고, 하객이 여는 웹 링크는 청첩장 편집에서 발행합니다."
       >
+        <Action
+          title="청첩장 링크 만들기"
+          desc="하객에게 보낼 웹 링크를 발행하거나 다시 반영합니다."
+          onClick={() => { window.location.href = "/invitation"; }}
+          primary
+        />
         <Action
           title="청첩장 텍스트 복사"
           desc="카톡·문자·DM에 바로 붙여넣을 수 있는 문장입니다."
           onClick={() => run("청첩장 텍스트 복사", copyInvite)}
-          primary
         />
         <Action
           title="청첩장 텍스트 파일"
@@ -128,6 +158,41 @@ export default function Share({ data, update }: Props) {
 
       <Section
         num="03"
+        title="같이 편집하기"
+        desc={
+          data.preferences.mode === "supabase"
+            ? "신랑·신부에게만 보내는 편집 권한 링크입니다. 하객용 청첩장 링크와 다릅니다."
+            : "둘이 각자 기기에서 편집하려면 같이 쓰는 저장소가 필요합니다. 혼자 시작한 데이터는 전환 때 그대로 옮깁니다."
+        }
+      >
+        {data.preferences.mode === "supabase" ? (
+          <>
+            <Action
+              title="편집 초대 링크 복사"
+              desc="이 링크를 받은 사람은 같은 준비 데이터를 편집할 수 있어요. 하객 단톡방에는 보내지 마세요."
+              onClick={() => run("편집 초대 링크", copyEditorInvite)}
+              primary
+            />
+            {canNativeShare && (
+              <Action
+                title="휴대폰 공유 메뉴로 보내기"
+                desc="카톡이나 문자 공유 시트로 편집 초대 링크를 보냅니다."
+                onClick={() => run("편집 초대 링크 공유", nativeShareEditorInvite)}
+              />
+            )}
+          </>
+        ) : (
+          <Action
+            title="둘이 같이 쓰기 설정"
+            desc="같은 준비판을 두 기기에서 보고 편집할 수 있게 연결합니다."
+            onClick={() => { window.location.href = "/setup"; }}
+            primary
+          />
+        )}
+      </Section>
+
+      <Section
+        num="04"
         title="표로 내보내기"
         desc="각 영역만 따로 CSV로 빼서 엑셀, 구글시트, 카카오톡 파일 전송에 씁니다."
       >
@@ -137,30 +202,17 @@ export default function Share({ data, update }: Props) {
       </Section>
 
       <Section
-        num="04"
+        num="05"
         title="전체 백업"
         desc="다른 기기에서 이어서 쓰거나, 혹시 모를 데이터 손실에 대비하는 원본 파일입니다."
       >
         <Action
           title="전체 데이터 백업"
-          desc="사진은 가능한 한 포함하고, Supabase 키 같은 연결 정보는 제외합니다."
+          desc="사진은 가능한 한 포함하고, 연결 키 같은 민감한 정보는 제외합니다."
           onClick={() => run("전체 데이터 백업", backup)}
           primary
         />
       </Section>
-
-      {data.preferences.mode !== "supabase" && (
-        <div className="pt-2 border-t border-hair">
-          <div className="eyebrow-gold mb-2">Live sharing</div>
-          <p className="text-[12.5px] text-soft leading-relaxed mb-4">
-            신랑·신부가 동시에 편집하거나 하객 RSVP를 받으려면 클라우드 동기화가 필요합니다.
-            제작자 서버가 아니라 본인의 Supabase/Vercel을 연결하는 방식이에요.
-          </p>
-          <a href="/setup" className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
-            내 사이트/커플 동기화 설정하기 →
-          </a>
-        </div>
-      )}
     </div>
   );
 }

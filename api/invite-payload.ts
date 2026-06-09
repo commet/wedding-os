@@ -15,7 +15,7 @@ function err(message: string, status: number): Response {
   });
 }
 
-export default async function handler(req: Request): Promise<Response> {
+async function handler(req: Request): Promise<Response> {
   const code = new URL(req.url).searchParams.get("code") ?? "";
   if (!/^[a-z0-9]{6,16}$/.test(code)) return err("잘못된 코드입니다.", 400);
 
@@ -46,3 +46,5 @@ export default async function handler(req: Request): Promise<Response> {
     },
   });
 }
+
+export default { fetch: handler };

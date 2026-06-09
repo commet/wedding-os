@@ -8,15 +8,17 @@ export type AiRunResult = {
 };
 
 export function hasDirectAi(config: AiConfig = getAiConfig()): boolean {
+  if (config.provider === "managed") return true;
   if (config.provider === "bridge") return false;
   if (config.provider === "ollama") return !!config.baseUrl && !!config.model;
   return !!config.apiKey && !!config.model;
 }
 
 export function defaultModel(provider: AiConfig["provider"]): string {
+  if (provider === "managed") return "claude-3-5-haiku-20241022";
   if (provider === "gemini") return "gemini-1.5-flash";
   if (provider === "openai") return "gpt-4o-mini";
-  if (provider === "anthropic") return "claude-3-5-haiku-latest";
+  if (provider === "anthropic") return "claude-3-5-haiku-20241022";
   if (provider === "ollama") return "llama3.1";
   return "";
 }
@@ -26,6 +28,7 @@ export async function runAiPrompt(prompt: BridgePrompt, config: AiConfig = getAi
     if (!hasDirectAi(config)) {
       return { ok: false, reason: "AI 설정이 아직 없어요. 복붙 모드를 쓰거나 API 키를 연결해주세요." };
     }
+    if (config.provider === "managed") return runManagedAI(prompt.prompt, config);
     if (config.provider === "gemini") return runGemini(prompt.prompt, config);
     if (config.provider === "openai") return runOpenAI(prompt.prompt, config);
     if (config.provider === "anthropic") return runAnthropic(prompt.prompt, config);
@@ -34,6 +37,23 @@ export async function runAiPrompt(prompt: BridgePrompt, config: AiConfig = getAi
   } catch (e: any) {
     return { ok: false, reason: e?.message ?? "AI 호출에 실패했어요." };
   }
+}
+
+async function runManagedAI(input: string, config: AiConfig): Promise<AiRunResult> {
+  const res = await fetch("/api/ai", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: input }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (res.status === 404) {
+    return {
+      ok: false,
+      reason: "로컬 Vite 서버에서는 Wedding OS AI 서버 함수가 실행되지 않을 수 있어요. 배포 환경에서는 ANTHROPIC_API_KEY를 설정하고, 로컬에서는 복붙 모드나 개인 API 키를 사용해주세요.",
+    };
+  }
+  if (!res.ok) return { ok: false, reason: json?.error ?? `Wedding OS AI 오류 (${res.status})` };
+  return json?.text ? { ok: true, text: json.text } : { ok: false, reason: "Wedding OS AI 응답이 비어 있어요." };
 }
 
 async function runGemini(input: string, config: AiConfig): Promise<AiRunResult> {

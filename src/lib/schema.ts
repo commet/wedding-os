@@ -24,6 +24,18 @@ export type Ring = Verifiable & {
   priceKRW?: number;
   hasDiamond?: boolean;
   imageUrl?: string;
+  imageUrls?: string[];
+  imageFit?:
+    | "contain"
+    | "top"
+    | "center"
+    | "product"
+    | "centerProduct"
+    | "flatProduct"
+    | "smallProduct"
+    | "cleanProduct"
+    | "slightLeftProduct"
+    | "slightLeftCenterProduct";
   notes?: string;
   starredBy?: ("groom" | "bride")[];   // ★ 즐겨찾기
   likedBy?: ("groom" | "bride")[];     // ♥ 좋아요
@@ -151,6 +163,7 @@ export type CheckItem = {
   id: string;
   text: string;
   done: boolean;
+  source?: "ai" | "user" | "template";
   dueDate?: string;       // 절대 마감일 (ISO). ddayOffset이 있으면 결혼식 날짜 기준으로 자동 계산됨
   ddayOffset?: number;    // 결혼식 D-day 기준 상대 일수 (음수 = 그 전). 예: -90 = D-90
   priority?: "red" | "yellow" | "green";
@@ -288,6 +301,11 @@ export type PublishedInvite = {
 export type WeddingData = {
   schemaVersion: number;
   preferences: Preferences;
+  ai?: {
+    starterSummary?: string;
+    today?: { title: string; reason?: string; targetPath?: string }[];
+    updatedAt?: string;
+  };
   invitation: InvitationContent;
   rings: Ring[];
   sdm: SdmVendor[];
@@ -310,6 +328,7 @@ export function defaultData(): WeddingData {
       mode: null,
       locale: "ko",
     },
+    ai: {},
     invitation: {
       groomName: "",
       brideName: "",

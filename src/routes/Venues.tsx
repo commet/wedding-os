@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import type { WeddingData, WeddingVenue, VenueHallType } from "../lib/schema";
 import {
   VENUE_CATALOG,
@@ -25,12 +26,15 @@ const REGION_GROUPS: { key: string; label: string; match: (r?: string) => boolea
 ];
 
 export default function Venues({ data, update }: Props) {
-  const [tab, setTab] = useState<Tab>("mine");
+  const [searchParams] = useSearchParams();
+  const starterOpen = searchParams.get("starter") === "1";
+  const [tab, setTab] = useState<Tab>(starterOpen ? "catalog" : "mine");
   const [mineView, setMineView] = useState<"list" | "compare">("list");
   const [region, setRegion] = useState<string>("all");
   const [hallFilter, setHallFilter] = useState<VenueHallType | "all">("all");
   const [showAdd, setShowAdd] = useState(false);
   const [showGuide, setShowGuide] = useState<VenueHallType | null>(null);
+  const [showStarter, setShowStarter] = useState(starterOpen);
 
   const myVenues = data.venues ?? [];
   const haveStatusCount: Record<NonNullable<WeddingVenue["status"]>, number> = useMemo(() => {
@@ -97,6 +101,18 @@ export default function Venues({ data, update }: Props) {
     setShowAdd(false);
   };
 
+  const applyVenueStarter = (picks: WeddingVenue[]) => {
+    update((prev: WeddingData) => {
+      const names = new Set((prev.venues ?? []).map((v) => v.name));
+      const additions = picks
+        .filter((v) => !names.has(v.name))
+        .map((v) => ({ ...v, id: `v-${Date.now()}-${v.id}`, status: "관심" as const }));
+      return { ...prev, venues: [...(prev.venues ?? []), ...additions] };
+    });
+    setTab("mine");
+    setShowStarter(false);
+  };
+
   return (
     <div className="page pt-8 pb-10 space-y-8">
       <div>
@@ -104,153 +120,170 @@ export default function Venues({ data, update }: Props) {
         <h1 className="font-serif text-[2rem] leading-none">예식장</h1>
       </div>
 
-      {/* 탭 */}
-      <div className="flex items-center gap-6 border-b border-hair pb-3">
-        <button
-          onClick={() => setTab("mine")}
-          className={`text-[12px] tracking-wide pb-1 transition ${tab === "mine" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
-        >
-          내 후보 · <span className="tabular-nums">{myVenues.length}</span>
-        </button>
-        <button
-          onClick={() => setTab("catalog")}
-          className={`text-[12px] tracking-wide pb-1 transition ${tab === "catalog" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
-        >
-          카탈로그 · <span className="tabular-nums">{VENUE_CATALOG.length}</span>
-        </button>
-      </div>
-
-      {tab === "mine" && (
+      {showStarter ? (
+        <VenueStarter onApply={applyVenueStarter} onClose={() => setShowStarter(false)} />
+      ) : (
         <>
-          {/* 진척도 */}
-          <div className="flex items-baseline gap-6 text-[12px] border-b border-hair pb-3">
-            <span className="eyebrow">진척도</span>
-            <span><span className="tabular-nums text-ink">{haveStatusCount["관심"]}</span> <span className="text-soft">관심</span></span>
-            <span><span className="tabular-nums text-ink">{haveStatusCount["투어"]}</span> <span className="text-soft">투어</span></span>
-            <span className="ml-auto"><span className="tabular-nums text-gold">{haveStatusCount["계약"]}</span> <span className="text-soft">계약</span></span>
-          </div>
-
-          <div className="flex items-baseline justify-between">
-            <h2 className="section-title">내 후보</h2>
-            <button onClick={() => setShowAdd(true)} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
-              + 직접 추가
+          {/* 탭 */}
+          <div className="flex items-center gap-6 border-b border-hair pb-3">
+            <button
+              onClick={() => setTab("mine")}
+              className={`text-[12px] tracking-wide pb-1 transition ${tab === "mine" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+            >
+              내 후보 · <span className="tabular-nums">{myVenues.length}</span>
+            </button>
+            <button
+              onClick={() => setTab("catalog")}
+              className={`text-[12px] tracking-wide pb-1 transition ${tab === "catalog" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+            >
+              카탈로그 · <span className="tabular-nums">{VENUE_CATALOG.length}</span>
             </button>
           </div>
 
-          {myVenues.length === 0 ? (
-            <div className="py-10 text-center text-soft text-[13px] border-y border-hair">
-              아직 담아둔 식장이 없어요.<br />
-              <button onClick={() => setTab("catalog")} className="mt-3 text-ink underline underline-offset-4 hover:text-gold text-[12px]">
-                카탈로그에서 골라 담기 →
-              </button>
-            </div>
-          ) : (
+          <button
+            onClick={() => setShowStarter(true)}
+            className="w-full text-left border-y border-hair py-4 flex items-baseline justify-between gap-4"
+          >
+            <span>
+              <span className="eyebrow-gold block mb-1">기본 후보</span>
+              <span className="font-serif text-[17px] text-ink">예식장 기준 잡기</span>
+            </span>
+            <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
+          </button>
+
+          {tab === "mine" && (
             <>
-              {myVenues.length >= 2 && (
-                <div className="flex items-center gap-6 border-b border-hair pb-3">
-                  <button
-                    onClick={() => setMineView("list")}
-                    className={`text-[12px] tracking-wide pb-1 transition ${mineView === "list" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
-                  >
-                    목록
-                  </button>
-                  <button
-                    onClick={() => setMineView("compare")}
-                    className={`text-[12px] tracking-wide pb-1 transition ${mineView === "compare" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
-                  >
-                    나란히 비교
+              {/* 진척도 */}
+              <div className="flex items-baseline gap-6 text-[12px] border-b border-hair pb-3">
+                <span className="eyebrow">진척도</span>
+                <span><span className="tabular-nums text-ink">{haveStatusCount["관심"]}</span> <span className="text-soft">관심</span></span>
+                <span><span className="tabular-nums text-ink">{haveStatusCount["투어"]}</span> <span className="text-soft">투어</span></span>
+                <span className="ml-auto"><span className="tabular-nums text-gold">{haveStatusCount["계약"]}</span> <span className="text-soft">계약</span></span>
+              </div>
+
+              <div className="flex items-baseline justify-between">
+                <h2 className="eyebrow-gold">내 후보</h2>
+                <button onClick={() => setShowAdd(true)} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
+                  + 직접 추가
+                </button>
+              </div>
+
+              {myVenues.length === 0 ? (
+                <div className="py-10 text-center text-soft text-[13px] border-y border-hair">
+                  아직 담아둔 식장이 없어요.<br />
+                  <button onClick={() => setTab("catalog")} className="mt-3 text-ink underline underline-offset-4 hover:text-gold text-[12px]">
+                    카탈로그에서 골라 담기 →
                   </button>
                 </div>
-              )}
-              {mineView === "compare" && myVenues.length >= 2 ? (
-                <VenueCompare venues={myVenues} />
               ) : (
-                <ul className="group-card px-4">
-                  {myVenues.map((v) => (
-                    <MyVenueRow
-                      key={v.id}
-                      v={v}
-                      onUpdate={(patch) => updateVenue(v.id, patch)}
-                      onRemove={() => removeVenue(v.id)}
-                      onApply={() => applyToInvitation(v)}
-                    />
-                  ))}
-                </ul>
+                <>
+                  {myVenues.length >= 2 && (
+                    <div className="flex items-center gap-6 border-b border-hair pb-3">
+                      <button
+                        onClick={() => setMineView("list")}
+                        className={`text-[12px] tracking-wide pb-1 transition ${mineView === "list" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                      >
+                        목록
+                      </button>
+                      <button
+                        onClick={() => setMineView("compare")}
+                        className={`text-[12px] tracking-wide pb-1 transition ${mineView === "compare" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                      >
+                        나란히 비교
+                      </button>
+                    </div>
+                  )}
+                  {mineView === "compare" && myVenues.length >= 2 ? (
+                    <VenueCompare venues={myVenues} />
+                  ) : (
+                    <ul className="divide-y divide-hair border-y border-hair">
+                      {myVenues.map((v) => (
+                        <MyVenueRow
+                          key={v.id}
+                          v={v}
+                          onUpdate={(patch) => updateVenue(v.id, patch)}
+                          onRemove={() => removeVenue(v.id)}
+                          onApply={() => applyToInvitation(v)}
+                        />
+                      ))}
+                    </ul>
+                  )}
+                </>
               )}
             </>
           )}
-        </>
-      )}
 
-      {tab === "catalog" && (
-        <>
-          {/* 안내 */}
-          <p className="text-[12px] text-soft leading-relaxed border-b border-hair pb-4">
-            {VENUE_PRICE_NOTE}
-          </p>
+          {tab === "catalog" && (
+            <>
+              {/* 안내 */}
+              <p className="text-[12px] text-soft leading-relaxed border-b border-hair pb-4">
+                {VENUE_PRICE_NOTE}
+              </p>
 
-          {/* 홀 형식 필터 */}
-          <div className="flex gap-5 overflow-x-auto pb-2 -mx-6 px-6 scrollbar-hide">
-            <button
-              onClick={() => setHallFilter("all")}
-              className={`text-[12px] tracking-wide whitespace-nowrap pb-1 transition ${hallFilter === "all" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
-            >
-              전체
-            </button>
-            {(Object.keys(HALL_TYPE_LABEL) as VenueHallType[]).map((t) => (
-              <button
-                key={t}
-                onClick={() => setHallFilter(t)}
-                className={`text-[12px] tracking-wide whitespace-nowrap pb-1 transition ${hallFilter === t ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
-              >
-                {HALL_TYPE_LABEL[t]}
-              </button>
-            ))}
-          </div>
+              {/* 홀 형식 필터 */}
+              <div className="flex gap-5 overflow-x-auto pb-2 -mx-6 px-6 scrollbar-hide">
+                <button
+                  onClick={() => setHallFilter("all")}
+                  className={`text-[12px] tracking-wide whitespace-nowrap pb-1 transition ${hallFilter === "all" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                >
+                  전체
+                </button>
+                {(Object.keys(HALL_TYPE_LABEL) as VenueHallType[]).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setHallFilter(t)}
+                    className={`text-[12px] tracking-wide whitespace-nowrap pb-1 transition ${hallFilter === t ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                  >
+                    {HALL_TYPE_LABEL[t]}
+                  </button>
+                ))}
+              </div>
 
-          {/* 지역 필터 */}
-          <div className="flex gap-5 overflow-x-auto pb-2 -mx-6 px-6 scrollbar-hide">
-            {REGION_GROUPS.map((g) => (
-              <button
-                key={g.key}
-                onClick={() => setRegion(g.key)}
-                className={`text-[11.5px] tracking-wide whitespace-nowrap pb-1 transition ${region === g.key ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
-              >
-                {g.label}
-              </button>
-            ))}
-          </div>
+              {/* 지역 필터 */}
+              <div className="flex gap-5 overflow-x-auto pb-2 -mx-6 px-6 scrollbar-hide">
+                {REGION_GROUPS.map((g) => (
+                  <button
+                    key={g.key}
+                    onClick={() => setRegion(g.key)}
+                    className={`text-[11.5px] tracking-wide whitespace-nowrap pb-1 transition ${region === g.key ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                  >
+                    {g.label}
+                  </button>
+                ))}
+              </div>
 
-          {/* 가이드 토글 */}
-          {hallFilter !== "all" && (
-            <button
-              onClick={() => setShowGuide(hallFilter)}
-              className="text-[12px] underline underline-offset-4 text-ink hover:text-gold"
-            >
-              {HALL_TYPE_LABEL[hallFilter]} 가이드 보기 →
-            </button>
+              {/* 가이드 토글 */}
+              {hallFilter !== "all" && (
+                <button
+                  onClick={() => setShowGuide(hallFilter)}
+                  className="text-[12px] underline underline-offset-4 text-ink hover:text-gold"
+                >
+                  {HALL_TYPE_LABEL[hallFilter]} 가이드 보기 →
+                </button>
+              )}
+
+              {/* 결과 */}
+              {filteredCatalog.length === 0 ? (
+                <p className="text-center text-[12.5px] text-soft py-8">
+                  조건에 맞는 식장이 없어요.
+                </p>
+              ) : (
+                <ul className="divide-y divide-hair border-y border-hair">
+                  {filteredCatalog.map((v) => {
+                    const added = myVenues.some((m) => m.name === v.name);
+                    return <CatalogRow key={v.id} v={v} added={added} onAdd={() => addFromCatalog(v)} />;
+                  })}
+                </ul>
+              )}
+
+              <p className="text-[10.5px] text-soft text-center leading-relaxed pt-2">
+                가격 범위는 공개 정보 추정치 — 시즌·요일·메뉴별 변동 큼. 최종 결정 전 직접 문의 필수.<br />
+                표시 삭제·정정 요청은{" "}
+                <a href="mailto:yclee913@gmail.com" rel="noopener noreferrer" className="underline underline-offset-2 text-ink">yclee913@gmail.com</a>
+                {" "}으로.
+              </p>
+            </>
           )}
-
-          {/* 결과 */}
-          {filteredCatalog.length === 0 ? (
-            <p className="text-center text-[12.5px] text-soft py-8">
-              조건에 맞는 식장이 없어요.
-            </p>
-          ) : (
-            <ul className="group-card px-4">
-              {filteredCatalog.map((v) => {
-                const added = myVenues.some((m) => m.name === v.name);
-                return <CatalogRow key={v.id} v={v} added={added} onAdd={() => addFromCatalog(v)} />;
-              })}
-            </ul>
-          )}
-
-          <p className="text-[10.5px] text-soft text-center leading-relaxed pt-2">
-            가격 범위는 공개 정보 추정치 — 시즌·요일·메뉴별 변동 큼. 최종 결정 전 직접 문의 필수.<br />
-            표시 삭제·정정 요청은{" "}
-            <a href="mailto:yclee913@gmail.com" rel="noopener noreferrer" className="underline underline-offset-2 text-ink">yclee913@gmail.com</a>
-            {" "}으로.
-          </p>
         </>
       )}
 
@@ -285,6 +318,169 @@ export default function Venues({ data, update }: Props) {
       </Modal>
     </div>
   );
+}
+
+function VenueStarter({
+  onApply,
+  onClose,
+}: {
+  onApply: (picks: WeddingVenue[]) => void;
+  onClose: () => void;
+}) {
+  const [area, setArea] = useState("gangnam");
+  const [hallType, setHallType] = useState<VenueHallType | "all">("all");
+  const [guestBand, setGuestBand] = useState<"small" | "medium" | "large">("medium");
+  const [mealMax, setMealMax] = useState<"any" | "8" | "12" | "16">("12");
+
+  const picks = useMemo(
+    () => pickStarterVenues({ area, hallType, guestBand, mealMax }),
+    [area, hallType, guestBand, mealMax]
+  );
+
+  return (
+    <section className="border-y border-hair py-5 space-y-5">
+      <div className="flex items-baseline justify-between gap-4">
+        <div>
+          <div className="eyebrow-gold mb-2">기본 후보</div>
+          <h2 className="font-serif text-xl text-ink">예식장 기준 잡기</h2>
+        </div>
+        <button onClick={onClose} className="text-[12px] text-soft underline underline-offset-4 hover:text-ink">
+          닫기
+        </button>
+      </div>
+
+      <p className="text-[12px] text-soft leading-relaxed">
+        지역·하객 수·식대 기준으로 먼저 문의할 식장을 잡습니다. 식대·보증인원·대관 조건은 상담 때 다시 확인해야 합니다.
+      </p>
+
+      <StarterOption label="지역">
+        {REGION_GROUPS.filter((g) => g.key !== "etc").map((g) => (
+          <Segment key={g.key} active={area === g.key} onClick={() => setArea(g.key)}>
+            {g.label}
+          </Segment>
+        ))}
+      </StarterOption>
+
+      <StarterOption label="홀 분위기">
+        <Segment active={hallType === "all"} onClick={() => setHallType("all")}>상관없음</Segment>
+        {(Object.keys(HALL_TYPE_LABEL) as VenueHallType[]).map((t) => (
+          <Segment key={t} active={hallType === t} onClick={() => setHallType(t)}>
+            {HALL_TYPE_LABEL[t]}
+          </Segment>
+        ))}
+      </StarterOption>
+
+      <StarterOption label="예상 하객">
+        <Segment active={guestBand === "small"} onClick={() => setGuestBand("small")}>120명 이하</Segment>
+        <Segment active={guestBand === "medium"} onClick={() => setGuestBand("medium")}>120~250명</Segment>
+        <Segment active={guestBand === "large"} onClick={() => setGuestBand("large")}>250명 이상</Segment>
+      </StarterOption>
+
+      <StarterOption label="식대 상한">
+        <Segment active={mealMax === "any"} onClick={() => setMealMax("any")}>상관없음</Segment>
+        <Segment active={mealMax === "8"} onClick={() => setMealMax("8")}>8만원대</Segment>
+        <Segment active={mealMax === "12"} onClick={() => setMealMax("12")}>12만원대</Segment>
+        <Segment active={mealMax === "16"} onClick={() => setMealMax("16")}>16만원대</Segment>
+      </StarterOption>
+
+      <div className="border-y border-hair divide-y divide-hair">
+        {picks.map((venue, idx) => (
+          <div key={venue.id} className="py-3 flex items-start gap-3">
+            <span className="font-serif text-soft text-base tabular-nums w-5 flex-shrink-0">
+              {String(idx + 1).padStart(2, "0")}
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="font-serif text-[15px] text-ink">{venue.name}</div>
+              <div className="text-[11.5px] text-soft leading-relaxed mt-1">
+                {[venue.region, venue.hallType ? HALL_TYPE_LABEL[venue.hallType] : undefined, venue.foodType ? FOOD_TYPE_LABEL[venue.foodType] : undefined].filter(Boolean).join(" · ")}
+              </div>
+              <div className="eyebrow mt-2">
+                하객 {venue.capacityMin ?? "?"}~{venue.capacityMax ?? "?"}명
+                {(venue.mealPriceMin || venue.mealPriceMax) && (
+                  <span> · 식대 {fmtMan(venue.mealPriceMin)}~{fmtMan(venue.mealPriceMax)}만원</span>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+        {picks.length === 0 && (
+          <p className="py-4 text-[12px] text-soft leading-relaxed">
+            조건에 맞는 후보가 없습니다. 지역이나 식대 조건을 조금 넓혀보세요.
+          </p>
+        )}
+      </div>
+
+      <button
+        onClick={() => onApply(picks)}
+        disabled={picks.length === 0}
+        className="btn-primary w-full py-3 text-[12.5px] disabled:opacity-40"
+      >
+        후보 {picks.length}곳 담기 →
+      </button>
+    </section>
+  );
+}
+
+function StarterOption({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="eyebrow mb-3">{label}</div>
+      <div className="flex flex-wrap gap-x-5 gap-y-3">{children}</div>
+    </div>
+  );
+}
+
+function Segment({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`text-[12px] tracking-wide pb-1 transition ${
+        active ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function pickStarterVenues({
+  area,
+  hallType,
+  guestBand,
+  mealMax,
+}: {
+  area: string;
+  hallType: VenueHallType | "all";
+  guestBand: "small" | "medium" | "large";
+  mealMax: "any" | "8" | "12" | "16";
+}): WeddingVenue[] {
+  const areaMatch = REGION_GROUPS.find((g) => g.key === area)?.match ?? (() => true);
+  const maxMeal = mealMax === "any" ? Infinity : Number(mealMax) * 10_000;
+  return VENUE_CATALOG.map((venue) => {
+    let score = 0;
+    if (areaMatch(venue.region)) score += 4;
+    if (hallType === "all" || venue.hallType === hallType) score += 4;
+    if (matchesGuestBand(venue, guestBand)) score += 3;
+    if (!venue.mealPriceMin || venue.mealPriceMin <= maxMeal) score += 3;
+    return { venue, score };
+  })
+    .filter(({ venue, score }) => {
+      if (score < 7) return false;
+      if (hallType !== "all" && venue.hallType !== hallType) return false;
+      if (mealMax !== "any" && venue.mealPriceMin && venue.mealPriceMin > maxMeal + 20_000) return false;
+      return true;
+    })
+    .sort((a, b) => b.score - a.score || (a.venue.mealPriceMin ?? 0) - (b.venue.mealPriceMin ?? 0))
+    .slice(0, 4)
+    .map(({ venue }) => venue);
+}
+
+function matchesGuestBand(venue: WeddingVenue, band: "small" | "medium" | "large"): boolean {
+  const min = venue.capacityMin ?? 0;
+  const max = venue.capacityMax ?? 999;
+  if (band === "small") return min <= 120 && max >= 80;
+  if (band === "medium") return min <= 220 && max >= 150;
+  return max >= 250;
 }
 
 function CatalogRow({ v, added, onAdd }: { v: WeddingVenue; added: boolean; onAdd: () => void }) {

@@ -21,14 +21,16 @@ export function safeHref(url: unknown): string | undefined {
   }
 }
 
-/** 이미지/오디오 src 용 — http(s), data:image|audio, blob: (same-origin ObjectURL) 허용.
+/** 이미지/오디오 src 용 — http(s), 안전한 data:image/audio, blob: (same-origin ObjectURL) 허용.
  *  idb:<id> 는 가짜 스킴(IndexedDB 참조) 이라 그대로는 못 그림 → useImageSrc 로 먼저 blob: 으로 해석한 뒤 호출. */
 export function safeMediaSrc(url: unknown): string | undefined {
   if (typeof url !== "string") return undefined;
   const trimmed = url.trim();
   if (!trimmed) return undefined;
+  if (trimmed.startsWith("/") && !trimmed.startsWith("//")) return trimmed;
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  if (/^data:(image|audio)\//i.test(trimmed)) return trimmed;
+  if (/^data:image\/(?:png|jpe?g|webp|gif);/i.test(trimmed)) return trimmed;
+  if (/^data:audio\/[a-z0-9.+-]+;/i.test(trimmed)) return trimmed;
   if (/^blob:/i.test(trimmed)) return trimmed;
   // 같은 출처 정적 경로 (예: /rings/r1.png — 번들된 카탈로그 이미지). '//'(프로토콜 상대)는 제외.
   if (/^\/(?!\/)/.test(trimmed)) return trimmed;
@@ -74,7 +76,7 @@ type Secrets = {
 /** 간편(hosted) 모드 자격증명 — weddingId + weddingKey. */
 export type HostedConfig = { weddingId: string; weddingKey: string };
 
-export type AiProvider = "bridge" | "gemini" | "openai" | "anthropic" | "ollama";
+export type AiProvider = "managed" | "bridge" | "gemini" | "openai" | "anthropic" | "ollama";
 
 export type AiConfig = {
   provider: AiProvider;
@@ -104,7 +106,8 @@ export function setSecrets(patch: Secrets): void {
 
 export function getAiConfig(): AiConfig {
   const ai = getSecrets().ai;
-  if (!ai || ai.provider === "bridge") return { provider: "bridge" };
+  if (!ai) return { provider: "managed" };
+  if (ai.provider === "bridge") return { provider: "bridge" };
   return {
     provider: ai.provider,
     apiKey: ai.apiKey,
@@ -120,7 +123,7 @@ export function setAiConfig(ai: AiConfig): void {
     model: ai.model?.trim() || undefined,
     baseUrl: ai.baseUrl?.trim() || undefined,
   };
-  setSecrets({ ai: clean.provider === "bridge" ? { provider: "bridge" } : clean });
+  setSecrets({ ai: clean.provider === "bridge" || clean.provider === "managed" ? { provider: clean.provider } : clean });
 }
 
 export function clearSecrets(): void {

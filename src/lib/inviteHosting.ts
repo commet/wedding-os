@@ -10,6 +10,7 @@ import { getOrCreateOwnerToken } from "./security";
 
 const PUBLISH_ENDPOINT = "/api/invite-publish";
 const PAYLOAD_ENDPOINT = "/api/invite-payload";
+const MAX_PUBLISH_BYTES = 4 * 1024 * 1024;
 
 export type PublishResult =
   | { ok: true; code: string; keyRaw: string; link: string; droppedPhotos: number }
@@ -33,6 +34,12 @@ export async function publishInvitation(
 ): Promise<PublishResult> {
   try {
     const sealed = await sealInvitation(data, existing?.keyRaw);
+    if (sealed.ciphertext.byteLength > MAX_PUBLISH_BYTES) {
+      return {
+        ok: false,
+        reason: "청첩장 용량이 커서 발행할 수 없어요. 사진 수를 줄이거나 큰 사진을 교체해주세요.",
+      };
+    }
     const meta = {
       ogMeta: sealed.ogMeta,
       ownerToken: getOrCreateOwnerToken(),

@@ -5,6 +5,7 @@ import { type AiConfig, type AiProvider, getAiConfig, setAiConfig } from "../lib
 type Props = { data?: unknown };
 
 const PROVIDERS: { id: AiProvider; label: string; desc: string; link?: string }[] = [
+  { id: "managed", label: "Wedding OS AI", desc: "운영자 서버의 AI로 앱 안에서 바로 실행하는 기본 방식" },
   { id: "bridge", label: "복붙 모드", desc: "API 키 없이 챗봇에 프롬프트를 복사해 쓰는 기본 방식" },
   { id: "gemini", label: "Gemini API", desc: "Google AI Studio 키로 앱 안에서 바로 실행", link: "https://ai.google.dev/gemini-api/docs/api-key" },
   { id: "openai", label: "OpenAI API", desc: "OpenAI API 키로 앱 안에서 바로 실행", link: "https://platform.openai.com/api-keys" },
@@ -27,8 +28,8 @@ export default function AiSettings(_: Props) {
   const save = () => {
     const next: AiConfig = {
       provider,
-      apiKey: provider === "bridge" || provider === "ollama" ? undefined : apiKey,
-      model: provider === "bridge" ? undefined : model || defaultModel(provider),
+      apiKey: provider === "bridge" || provider === "managed" || provider === "ollama" ? undefined : apiKey,
+      model: provider === "bridge" || provider === "managed" ? undefined : model || defaultModel(provider),
       baseUrl: provider === "ollama" ? baseUrl : undefined,
     };
     setAiConfig(next);
@@ -75,8 +76,8 @@ export default function AiSettings(_: Props) {
       </div>
 
       <p className="text-[13px] text-soft leading-relaxed border-b border-hair pb-5">
-        Wedding OS는 AI 없이도 저장·공유 도구로 작동합니다. API 키를 연결하면 반지 가격 확인,
-        숙소/항공 검색, 식전영상 수정 같은 기존 AI 버튼들이 앱 안에서 바로 실행됩니다.
+        Wedding OS는 AI 없이도 저장·공유 도구로 작동합니다. 연결해두면 준비 초안 만들기,
+        청첩장 문안, 반지 가격 확인, 숙소·항공 검색처럼 막히기 쉬운 작업을 앱 안에서 바로 정리할 수 있습니다.
       </p>
 
       <section>
@@ -98,7 +99,30 @@ export default function AiSettings(_: Props) {
         </div>
       </section>
 
-      {provider !== "bridge" && (
+      {provider === "managed" && (
+        <section className="border-y border-hair py-4 space-y-4">
+          <div>
+            <div className="eyebrow-gold mb-2">배포에서 켜는 방법</div>
+            <p className="text-[12.5px] text-soft leading-relaxed">
+              Vercel 프로젝트에 서버 환경변수
+              <code className="bg-cream px-1 mx-1">ANTHROPIC_API_KEY</code>
+              를 넣고 다시 배포하면, 사용자는 별도 키 없이 앱 안에서 바로 실행할 수 있습니다.
+            </p>
+          </div>
+          <ol className="list-decimal list-inside space-y-1.5 text-[12px] text-soft leading-relaxed">
+            <li>Anthropic Console에서 API 키를 새로 만듭니다.</li>
+            <li>Vercel 프로젝트의 Settings → Environment Variables로 갑니다.</li>
+            <li>이름은 <code className="bg-cream px-1">ANTHROPIC_API_KEY</code>, 값은 발급받은 키 전체를 넣습니다.</li>
+            <li>Production과 Preview에 적용하고 저장한 뒤, 새 배포를 실행합니다.</li>
+          </ol>
+          <p className="text-[11px] text-soft leading-relaxed">
+            이 키는 서버 함수에서만 읽습니다. <code className="bg-cream px-1">VITE_</code>를 붙이지 말고,
+            코드나 백업 파일에 저장하지 마세요.
+          </p>
+        </section>
+      )}
+
+      {provider !== "bridge" && provider !== "managed" && (
         <section className="space-y-5">
           <div>
             <label className="label">모델</label>
@@ -133,7 +157,7 @@ export default function AiSettings(_: Props) {
                 autoComplete="off"
               />
               <p className="text-[11px] text-soft mt-2 leading-relaxed">
-                키는 이 브라우저의 localStorage secrets에만 저장되고, 백업 파일이나 Supabase 데이터에는 들어가지 않습니다.
+                키는 이 기기에만 따로 저장되고, 백업 파일이나 같이 쓰는 저장소에는 들어가지 않습니다.
               </p>
             </div>
           )}

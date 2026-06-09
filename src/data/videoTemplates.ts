@@ -2,7 +2,7 @@
 // pastelwediter 같은 서비스가 잘 되는 핵심은 "결정 피로 제거": 사용자는 채우기만 하면 된다.
 //
 // 각 템플릿은:
-// - 권장 챕터(막) 구성 + 챕터별 사진 수
+// - 권장 사진 묶음 + 묶음별 사진 수
 // - 기본 효과/필터/전환/사진 길이
 // - 총 길이와 BGM 무드 가이드
 // 를 제공한다. 사용자는 "이 템플릿으로 시작" 버튼 한 번 누른 뒤 사진만 채우면 된다.
@@ -41,7 +41,7 @@ export type VideoTemplate = {
     effect: VideoEffect;
     photoDurationSec: number;
   };
-  /** 챕터 구성. 빈 배열이면 막 없이 사진이 흐른다. */
+  /** 사진 묶음 구성. 빈 배열이면 구간 없이 사진이 흐른다. */
   chapters: TemplateChapter[];
 };
 
@@ -49,7 +49,7 @@ export const VIDEO_TEMPLATES: VideoTemplate[] = [
   {
     id: "classic",
     name: "클래식 정통",
-    tagline: "신랑 · 신부 · 함께 — 가장 무난한 3막 구성",
+    tagline: "신랑 · 신부 · 함께 — 가장 무난한 구성",
     mood: "전통적",
     emoji: "🎼",
     themeColor: "#c4a373",
@@ -71,7 +71,7 @@ export const VIDEO_TEMPLATES: VideoTemplate[] = [
   {
     id: "cinematic",
     name: "시네마틱 여정",
-    tagline: "어린 시절부터 오늘까지 — 6막 풀스토리",
+    tagline: "어린 시절부터 오늘까지 — 긴 이야기형",
     mood: "시네마틱",
     emoji: "🎬",
     themeColor: "#1a1510",
@@ -159,7 +159,7 @@ export const VIDEO_TEMPLATES: VideoTemplate[] = [
   {
     id: "family-album",
     name: "양가 가족 앨범",
-    tagline: "부모님 · 형제자매까지 — 따뜻한 5막",
+    tagline: "부모님 · 형제자매까지 — 가족 사진 중심",
     mood: "따뜻함",
     emoji: "👨‍👩‍👧‍👦",
     totalDurationSec: 300,

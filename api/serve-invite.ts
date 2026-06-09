@@ -88,7 +88,7 @@ function injectOg(html: string, code: string, og: OgMeta): string {
     );
 }
 
-export default async function handler(req: Request): Promise<Response> {
+async function handler(req: Request): Promise<Response> {
   try {
     const url = new URL(req.url);
     const code = url.searchParams.get("code") ?? "";
@@ -131,3 +131,5 @@ export default async function handler(req: Request): Promise<Response> {
     );
   }
 }
+
+export default { fetch: handler };

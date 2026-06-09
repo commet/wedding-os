@@ -14,7 +14,7 @@ const NAV = [
   { to: "/dashboard", label: "홈" },
   { to: "/invitation", label: "청첩장" },
   { to: "/checklist", label: "체크리스트" },
-  { to: "/video", label: "영상" },
+  { to: "/budget", label: "예산" },
   { to: "/settings", label: "더보기" },
 ];
 
@@ -75,7 +75,7 @@ export default function AppShell({ data, children }: Props) {
   return (
     <div className="min-h-screen max-w-app mx-auto flex flex-col bg-paper">
       {showChrome && (
-        <header className="sticky top-0 z-30 bg-paper/95 backdrop-blur">
+        <header className="sticky top-0 z-30 bg-paper">
           <div className="px-6 h-14 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               {showBack && (
@@ -104,15 +104,15 @@ export default function AppShell({ data, children }: Props) {
         </header>
       )}
 
-      {/* 데모 띠 — hairline 한 줄. 세션 단위로 닫기 가능 (× 버튼) */}
+      {/* 데모 띠 — 작은 안내. 세션 단위로 닫기 가능 (× 버튼) */}
       {isDemo && !isWelcome && !isGuestInvitation && !bannerDismissed && (
-        <div className="px-6 py-3 flex items-center justify-between gap-4 border-b border-hair">
-          <div className="text-[12px] leading-tight flex-1 min-w-0">
-            <div className="eyebrow-gold mb-1">예시 데이터</div>
-            <div className="text-soft text-[12px]">마음에 들면 내 정보로 새로 시작</div>
+        <div className="px-6 py-2.5 flex items-center justify-between gap-3 border-b border-hair">
+          <div className="text-[11.5px] leading-tight flex-1 min-w-0 flex items-baseline gap-2">
+            <span className="eyebrow-gold">예시</span>
+            <span className="text-soft truncate">둘러본 뒤 내 정보로 시작할 수 있어요</span>
           </div>
           <button onClick={startMine} className="text-[12px] underline underline-offset-4 decoration-ink text-ink whitespace-nowrap">
-            내 결혼식 시작 →
+            시작 →
           </button>
           <button
             onClick={dismissBanner}
@@ -174,7 +174,7 @@ export default function AppShell({ data, children }: Props) {
       <main className={`flex-1 page-enter ${showNav ? "pb-[calc(6rem+env(safe-area-inset-bottom))]" : ""}`}>{children}</main>
 
       {showNav && (
-        <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-app bg-paper/95 backdrop-blur z-30 border-t border-hair pb-[env(safe-area-inset-bottom)]">
+        <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-app bg-paper z-30 border-t border-hair pb-[env(safe-area-inset-bottom)]">
           <div className="grid grid-cols-5">
             {NAV.map((item) => (
               <NavLink

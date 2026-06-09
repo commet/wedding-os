@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 
 type Props = {
   open: boolean;
@@ -20,10 +21,10 @@ export default function Modal({ open, onClose, title, children }: Props) {
   }, [open, onClose]);
 
   if (!open) return null;
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-app bg-paper p-6 max-h-[88vh] overflow-y-auto shadow-2xl">
+      <div className="relative w-full max-w-app bg-paper p-6 max-h-[88vh] overflow-y-auto shadow-2xl pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         {/* 모바일 스와이프 힌트 핸들 */}
         <div className="sm:hidden flex justify-center -mt-3 mb-4">
           <div className="w-10 h-0.5 bg-hair" />
@@ -40,6 +41,7 @@ export default function Modal({ open, onClose, title, children }: Props) {
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -1,74 +1,66 @@
 import type { Ring } from "../lib/schema";
+import { ringOptions } from "./ringsLegacy";
 
-let n = 0;
-const id = () => `ring-${++n}`;
 const catalogLastVerified: string | undefined = undefined;
+const ringImageUrl = (filename: string) => `/rings/${filename}`;
 
-// 반지 카탈로그 — 직접 수집한 브랜드 이미지(public/rings/, 카드형이라 imgFit 으로 크롭 위치 지정)
-// + 실제 견적·링크·메모. 가격은 견적/정가 기준 — 사용자가 "지금 확인"으로 갱신.
-export const RING_CATALOG: Ring[] = [
-  { id: id(), brand: "Tiffany & Co.", model: "클래식 밀그레인 밴드", material: "PT950", priceKRW: 4000000, imageUrl: "/rings/r1.png", imgFit: "center", link: "https://www.tiffany.kr/engagement/wedding-band-sets/", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Tiffany & Co.", model: "티파니 포에버 밴드 (2mm DI)", material: "PT950", priceKRW: 2740000, hasDiamond: true, imageUrl: "/rings/r2.png", imgFit: "center", link: "https://www.tiffany.kr/designers-collections/tiffany-forever/", notes: "다이아 세팅, 2mm", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Tiffany & Co.", model: "투게더 밀그레인 밴드 (기본)", material: "PT950", priceKRW: 2440000, imageUrl: "/rings/r3.png", imgFit: "top", link: "https://www.tiffany.kr/designers-collections/tiffany-together/", notes: "판교점 견적 완료 · 3mm ₩244만 / 4mm ₩340만", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Tiffany & Co.", model: "투게더 밀그레인 밴드 (DI)", material: "PT950", priceKRW: 2740000, hasDiamond: true, imageUrl: "/rings/r52.png", imgFit: "center", link: "https://www.tiffany.kr/designers-collections/tiffany-together/", notes: "판교점 견적 완료 · 3mm DI ₩274만 / 4mm DI ₩399만", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Tiffany & Co.", model: "티파니 T 트루 내로우 밴드", material: "18K WG", priceKRW: 3810000, imageUrl: "/rings/r4.png", imgFit: "center", link: "https://www.tiffany.kr/engagement/womens-wedding-bands/", notes: "T 모티프, 모던", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Tiffany & Co.", model: "찰스 티파니 세팅 밴드", material: "PT950", priceKRW: 5300000, link: "https://www.tiffany.kr/engagement/mens-wedding-bands/", notes: "새틴 마감, 프리미엄", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Tiffany & Co.", model: "티파니 트루 밴드 (DI)", material: "PT950", priceKRW: 2920000, hasDiamond: true, imageUrl: "/rings/r49.png", imgFit: "top", link: "https://www.tiffany.kr/engagement/shop/womens-wedding-bands/", notes: "기하학 컷, 다이아", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Tiffany & Co.", model: "메트로 풀 이터니티 링 (DI)", material: "PT950", priceKRW: 4730000, hasDiamond: true, imageUrl: "/rings/r50.png", imgFit: "top", link: "https://www.tiffany.kr/engagement/shop/womens-wedding-bands/", notes: "풀 이터니티 다이아 세팅", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Tiffany & Co.", model: "엘사 퍼레티 웨딩밴드 (DI)", material: "PT950", priceKRW: 3710000, hasDiamond: true, imageUrl: "/rings/r51.png", imgFit: "center", link: "https://www.tiffany.kr/engagement/shop/womens-wedding-bands/", notes: "유기적 커브, 7P 다이아", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Cartier", model: "LOVE 웨딩 밴드 (스몰)", material: "18K WG", priceKRW: 2340000, imageUrl: "/rings/r6.png", imgFit: "top", link: "https://www.cartier.com/ko-kr/%EC%A3%BC%EC%96%BC%EB%A6%AC/%EC%9B%A8%EB%94%A9-%EB%B0%B4%EB%93%9C/", notes: "아이코닉 스크류 모티브", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Cartier", model: "1895 웨딩 밴드 (2.6mm DI)", material: "PT950", priceKRW: 2490000, hasDiamond: true, imageUrl: "/rings/r7.png", imgFit: "top", link: "https://www.cartier.com/ko-kr/%EC%A3%BC%EC%96%BC%EB%A6%AC/%EC%9B%A8%EB%94%A9-%EB%B0%B4%EB%93%9C/", notes: "다이아 1개 ₩249만 / 3개 ₩299만", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Cartier", model: "C 드 까르띠에 웨딩 밴드 (3mm DI)", material: "18K PG", priceKRW: 2650000, hasDiamond: true, imageUrl: "/rings/r8.png", imgFit: "top", link: "https://www.cartier.com/ko-kr/%EC%A3%BC%EC%96%BC%EB%A6%AC/%EC%9B%A8%EB%94%A9-%EB%B0%B4%EB%93%9C/", notes: "핑크골드, 다이아, 로고 각인", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Cartier", model: "까르띠에 다무르 웨딩 밴드 (3.5mm)", material: "PT950", priceKRW: 3310000, imageUrl: "/rings/r9.png", imgFit: "top", link: "https://www.cartier.com/ko-kr/%EC%A3%BC%EC%96%BC%EB%A6%AC/%EC%9B%A8%EB%94%A9-%EB%B0%B4%EB%93%9C/", notes: "볼륨감 있는 곡선형", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Cartier", model: "트리니티 웨딩 밴드", material: "18K 삼색", priceKRW: 4500000, link: "https://www.cartier.com/ko-kr/%EC%A3%BC%EC%96%BC%EB%A6%AC/%EC%9B%A8%EB%94%A9-%EB%B0%B4%EB%93%9C/", notes: "삼색골드, 유니크", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Cartier", model: "발레린 웨딩 밴드 (1P 다이아)", material: "PT950", priceKRW: 3800000, hasDiamond: true, link: "https://www.cartier.com/ko-kr/%EC%A3%BC%EC%96%BC%EB%A6%AC/%EC%9B%A8%EB%94%A9-%EB%B0%B4%EB%93%9C/", notes: "여성용 다이아 포인트", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Chaumet", model: "레 제떼르넬 드 쇼메 (2.5mm)", material: "PT950", priceKRW: 4200000, hasDiamond: true, link: "https://www.chaumet.com/kr_kr/bridal/women-wedding-bands", notes: "심플 + 다이아 하프서클", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Chaumet", model: "토르사드 드 쇼메", material: "PT950", priceKRW: 4700000, link: "https://www.chaumet.com/kr_kr/bridal/women-wedding-bands", notes: "꼬임 디자인, 우아함", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Chaumet", model: "조세핀 아무르 아그레뜨 밴드", material: "PT950", priceKRW: 4500000, link: "https://www.chaumet.com/kr_kr/bridal/women-wedding-bands", notes: "티아라 모티프, 여성적", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Chaumet", model: "트리옹프 드 쇼메", material: "PT950/PG", priceKRW: 4800000, link: "https://www.chaumet.com/kr_kr/bridal/men-wedding-bands", notes: "월계관 모티프", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Chaumet", model: "리앙 에비당스 (3mm DI)", material: "18K RG", priceKRW: 3000000, hasDiamond: true, imageUrl: "/rings/r40.png", imgFit: "top", link: "https://www.chaumet.com/kr_kr/bridal/women-wedding-bands", notes: "로즈골드, 다이아, 매듭 모티프", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Chaumet", model: "비 드 쇼메 (2.5mm)", material: "18K WG", priceKRW: 1790000, imageUrl: "/rings/r41.png", imgFit: "top", link: "https://www.chaumet.com/kr_kr/bridal/women-wedding-bands", notes: "벌집 모티프, 가장 저렴", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Chaumet", model: "비 드 쇼메 (4mm DI)", material: "18K WG", priceKRW: 3680000, hasDiamond: true, imageUrl: "/rings/r42.png", imgFit: "top", link: "https://www.chaumet.com/kr_kr/bridal/women-wedding-bands", notes: "벌집 모티프, 다이아, 볼드", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Chanel", model: "코코 크러쉬 웨딩밴드 (스몰)", material: "PT950", priceKRW: 2590000, hasDiamond: true, imageUrl: "/rings/r16.png", imgFit: "center", link: "https://www.chanel.com/kr/fine-jewelry/bridal-exclusive-countries/c/3x2x10/", notes: "퀼팅 모티프 · 기본 ₩259만 / DI ₩389만", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Chanel", model: "까멜리아 웨딩밴드", material: "PT950", priceKRW: 2290000, imageUrl: "/rings/r17.png", imgFit: "center", link: "https://www.chanel.com/kr/fine-jewelry/bridal-exclusive-countries/c/3x2x10/", notes: "동백꽃 디테일", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Chanel", model: "마틀라세 웨딩밴드", material: "PT950", priceKRW: 4300000, link: "https://www.chanel.com/kr/fine-jewelry/bridal-exclusive-countries/c/3x2x10/", notes: "넓은 퀼팅", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Chanel", model: "프르미에르 프로메스 웨딩밴드", material: "PT950", priceKRW: 4200000, link: "https://www.chanel.com/kr/fine-jewelry/bridal-exclusive-countries/c/3x2x10/", notes: "한국/일본 한정", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Bvlgari", model: "마리미 웨딩밴드 (DI)", material: "18K RG / PT950", priceKRW: 2060000, hasDiamond: true, imageUrl: "/rings/r20.png", imgFit: "center", link: "https://www.bulgari.com/ko-kr/engagement-and-wedding/wedding-bands/", notes: "RG DI ₩206만 / RG 5DI ₩357만 / PT DI ₩330만", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Bvlgari", model: "인피니토 웨딩밴드", material: "PT950", priceKRW: 2600000, hasDiamond: true, imageUrl: "/rings/r21.png", imgFit: "center", link: "https://www.bulgari.com/ko-kr/engagement-and-wedding/wedding-bands/", notes: "∞ 모티프 · 기본 ₩260만 / DI ₩306만", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Bvlgari", model: "페디 웨딩밴드", material: "PT950/18K", priceKRW: 3300000, link: "https://www.bulgari.com/ko-kr/engagement-and-wedding/wedding-bands/", notes: "심플 클래식", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Bvlgari", model: "로마 아모르 웨딩밴드", material: "18K RG/WG", priceKRW: 2890000, imageUrl: "/rings/r23.png", imgFit: "center", link: "https://www.bulgari.com/ko-kr/engagement-and-wedding/wedding-bands/", notes: "RG ₩289만 / WG ₩309만", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Van Cleef & Arpels", model: "앙팡뜨리 웨딩밴드", material: "PT950", priceKRW: 4700000, link: "https://www.vancleefarpels.com/kr/ko/collections/engagement/wedding-bands.html", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Van Cleef & Arpels", model: "텐드르망 에또왈 웨딩밴드", material: "PT950 / 18K RG", priceKRW: 2310000, hasDiamond: true, imageUrl: "/rings/r25.png", imgFit: "top", link: "https://www.vancleefarpels.com/kr/ko/collections/engagement/wedding-bands.html", notes: "RG DI ₩231만 / PT DI ₩515만", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Van Cleef & Arpels", model: "에스떼 웨딩밴드", material: "PT950", priceKRW: 4300000, link: "https://www.vancleefarpels.com/kr/ko/collections/engagement/wedding-bands.html", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Van Cleef & Arpels", model: "뚜쥬르 에또왈 웨딩밴드", material: "PT950", priceKRW: 5150000, hasDiamond: true, imageUrl: "/rings/r43.png", imgFit: "top", link: "https://www.vancleefarpels.com/kr/ko/collections/engagement/wedding-bands.html", notes: "다이아, 두꺼운 밴드", lastVerified: catalogLastVerified },
-  { id: id(), brand: "De Beers", model: "DB Classic Half Eternity", material: "PT950", priceKRW: 2450, hasDiamond: true, imageUrl: "/rings/r27.png", imgFit: "center", link: "https://www.debeers.com/en-us/engagement-bridal/wedding-bands/", notes: "커브드 하프 이터니티", lastVerified: catalogLastVerified },
-  { id: id(), brand: "De Beers", model: "Aura Eternity Band", material: "18K WG", priceKRW: 2000, hasDiamond: true, imageUrl: "/rings/r44.png", imgFit: "center", link: "https://www.debeers.com/en-us/engagement-bridal/wedding-bands/", notes: "풀 이터니티 다이아", lastVerified: catalogLastVerified },
-  { id: id(), brand: "De Beers", model: "Infinity Half Pavé Band", material: "18K RG/WG", priceKRW: 2550, imageUrl: "/rings/r45.png", imgFit: "center", link: "https://www.debeers.com/en-us/engagement-bridal/wedding-bands/", notes: "인피니티 모티프, 하프 파베", lastVerified: catalogLastVerified },
-  { id: id(), brand: "De Beers", model: "Infinity Plain SM Band", material: "18K RG", priceKRW: 1550, imageUrl: "/rings/r53.png", imgFit: "center", link: "https://www.debeers.com/en-us/engagement-bridal/wedding-bands/", notes: "인피니티 플레인, 심플", lastVerified: catalogLastVerified },
-  { id: id(), brand: "De Beers", model: "Petal Band (화이트골드)", material: "18K WG", priceKRW: 3000, hasDiamond: true, imageUrl: "/rings/r46.png", imgFit: "center", link: "https://www.debeers.com/en-us/engagement-bridal/wedding-bands/", notes: "꽃잎 컷 다이아", lastVerified: catalogLastVerified },
-  { id: id(), brand: "De Beers", model: "Petal Band (로즈골드)", material: "18K RG", priceKRW: 3000, hasDiamond: true, imageUrl: "/rings/r47.png", imgFit: "center", link: "https://www.debeers.com/en-us/engagement-bridal/wedding-bands/", notes: "꽃잎 컷 다이아, 로즈골드", lastVerified: catalogLastVerified },
-  { id: id(), brand: "De Beers", model: "Channel-set Half Eternity", material: "PT950", priceKRW: 2550, hasDiamond: true, imageUrl: "/rings/r48.png", imgFit: "center", link: "https://www.debeers.com/en-us/engagement-bridal/wedding-bands/", notes: "채널 세팅 하프 이터니티", lastVerified: catalogLastVerified },
-  { id: id(), brand: "De Beers", model: "Caress Band", material: "PT950", priceKRW: 1900, imageUrl: "/rings/r54.png", imgFit: "center", link: "https://www.debeers.com/en-us/engagement-bridal/wedding-bands/", notes: "커브드 파베", lastVerified: catalogLastVerified },
-  { id: id(), brand: "De Beers", model: "The Promise Half Pavé", material: "18K WG", priceKRW: 1800, imageUrl: "/rings/r55.png", imgFit: "center", link: "https://www.debeers.com/en-us/engagement-bridal/wedding-bands/", notes: "크로스오버 하프 파베", lastVerified: catalogLastVerified },
-  { id: id(), brand: "De Beers", model: "포에버마크 밴드", material: "PT950", priceKRW: 4500000, link: "https://www.debeers.com/en-us/engagement-bridal/wedding-bands/", lastVerified: catalogLastVerified },
-  { id: id(), brand: "De Beers", model: "DB 다를링 밴드", material: "18K RG", priceKRW: 4200000, link: "https://www.debeers.com/en-us/engagement-bridal/wedding-bands/", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Tasaki", model: "피아노 밴드", material: "PT950", priceKRW: 3300000, link: "https://www.tasaki.co.kr/bridal/wedding-bands/", notes: "가장 인기 라인", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Tasaki", model: "인피니타 밴드", material: "PT950", priceKRW: 3800000, link: "https://www.tasaki.co.kr/bridal/wedding-bands/", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Tasaki", model: "라벨로 밴드", material: "PT950", priceKRW: 3500000, link: "https://www.tasaki.co.kr/bridal/wedding-bands/", notes: "일본 구매 시 ~100만원 절감", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Tasaki", model: "브릴란테 하프 이터니티 16", material: "PT950", priceKRW: 3350000, hasDiamond: true, imageUrl: "/rings/r56.png", imgFit: "top", link: "https://www.tasaki.co.kr/bridal/wedding-bands/", notes: "하프 이터니티 다이아", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Tasaki", model: "피아레체 하프 이터니티", material: "사쿠라골드", priceKRW: 4030000, hasDiamond: true, imageUrl: "/rings/r57.png", imgFit: "top", link: "https://www.tasaki.co.kr/bridal/wedding-bands/", notes: "사쿠라골드(핑크), 다이아", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Boucheron", model: "콰트로 클래식 웨딩밴드", material: "18K RG+PVD", priceKRW: 3250000, imageUrl: "/rings/r33.png", imgFit: "center", link: "https://www.boucheron.com/ko/jewelry/bridal/wedding-bands.html", notes: "로즈골드 + 블랙 PVD", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Boucheron", model: "콰트로 화이트 에디션", material: "18K WG", priceKRW: 4700000, link: "https://www.boucheron.com/ko/jewelry/bridal/wedding-bands.html", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Boucheron", model: "콰트로 블랙 에디션", material: "18K WG+PVD", priceKRW: 3840000, imageUrl: "/rings/r35.png", imgFit: "center", link: "https://www.boucheron.com/ko/jewelry/bridal/wedding-bands.html", notes: "화이트골드 + 블랙 PVD", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Boucheron", model: "파셋 웨딩밴드", material: "PT950", priceKRW: 3470000, imageUrl: "/rings/r58.png", imgFit: "center", link: "https://www.boucheron.com/ko/jewelry/bridal/wedding-bands.html", notes: "기하학 컷팅", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Boucheron", model: "파셋 웨딩밴드 (DI)", material: "PT950", priceKRW: 4200000, hasDiamond: true, imageUrl: "/rings/r59.png", imgFit: "center", link: "https://www.boucheron.com/ko/jewelry/bridal/wedding-bands.html", notes: "기하학 컷팅, 다이아", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Boucheron", model: "더블 고드롱 웨딩밴드", material: "PT950", priceKRW: 3520000, imageUrl: "/rings/r60.png", imgFit: "center", link: "https://www.boucheron.com/ko/jewelry/bridal/wedding-bands.html", notes: "더블 그루브 클래식", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Boucheron", model: "에퓨어 스몰 웨딩밴드", material: "PT950", priceKRW: 4970000, hasDiamond: true, imageUrl: "/rings/r61.png", imgFit: "center", link: "https://www.boucheron.com/ko/jewelry/bridal/wedding-bands.html", notes: "다이아 이터니티", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Boucheron", model: "퐁 드 파리 웨딩밴드", material: "PT950", priceKRW: 5350000, hasDiamond: true, imageUrl: "/rings/r62.png", imgFit: "center", link: "https://www.boucheron.com/ko/jewelry/bridal/wedding-bands.html", notes: "V자 다이아", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Piaget", model: "포제션 DI 밴드 (스몰)", material: "18K RG/WG", priceKRW: 2300, hasDiamond: true, imageUrl: "/rings/r36.png", imgFit: "top", link: "https://www.piaget.com/kr-ko/jewelry/wedding/wedding-rings", notes: "회전밴드 · RG $2,300 / WG $2,480", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Piaget", model: "포제션 원포인트 다이아", material: "18K WG", priceKRW: 5200000, hasDiamond: true, link: "https://www.piaget.com/kr-ko/jewelry/wedding/wedding-rings", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Piaget", model: "Limelight 웨딩링 (DI)", material: "18K RG", priceKRW: 2890, hasDiamond: true, imageUrl: "/rings/r63.png", imgFit: "top", link: "https://www.piaget.com/kr-ko/jewelry/wedding/wedding-rings", notes: "로즈골드, 하프 파베", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Piaget", model: "Wedding Band (DI)", material: "PT950", priceKRW: 3150, hasDiamond: true, imageUrl: "/rings/r64.png", imgFit: "top", link: "https://www.piaget.com/kr-ko/jewelry/wedding/wedding-rings", notes: "플래티넘 다이아 밴드", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Chopard", model: "아이스큐브 퓨어 밴드", material: "18K RG/WG", priceKRW: 4300000, hasDiamond: true, imageUrl: "/rings/r38.png", imgFit: "center", link: "https://www.chopard.com/ko-kr/jewellery-wedding-rings", notes: "큐브 패턴, 1P DI", lastVerified: catalogLastVerified },
-  { id: id(), brand: "Chopard", model: "아이스큐브 다이아 밴드", material: "18K WG", priceKRW: 5100000, hasDiamond: true, link: "https://www.chopard.com/ko-kr/jewellery-wedding-rings", notes: "다이아 세팅 큐브", lastVerified: catalogLastVerified },
-];
+export const RING_CATALOG: Ring[] = ringOptions
+  .filter((option) => option.images?.length)
+  .map((option) => {
+    const imageUrls = option.images?.map(ringImageUrl) ?? [];
+    return {
+      id: `ring-${option.id}`,
+      brand: normalizeBrand(option.brand),
+      model: option.name,
+      material: normalizeMaterial(option.material),
+      priceKRW: parsePriceKRW(option.priceSet),
+      hasDiamond: hasDiamond(option),
+      imageUrl: imageUrls[0],
+      imageUrls,
+      imageFit: option.imgFit ?? "contain",
+      notes: [option.note, option.priceSet ? `가격표기: ${option.priceSet}` : undefined].filter(Boolean).join("\n") || undefined,
+      link: option.link,
+      source: "mayrriage 이미지 카탈로그",
+      lastVerified: catalogLastVerified,
+    };
+  });
+
+function normalizeBrand(brand: string): string {
+  const map: Record<string, string> = {
+    "Tiffany & Co.": "티파니",
+    Cartier: "까르띠에",
+    Chaumet: "쇼메",
+    Chanel: "샤넬",
+    Bvlgari: "불가리",
+    "Van Cleef & Arpels": "반 클리프 아펠",
+    "De Beers": "드 비어스",
+    Tasaki: "타사키",
+    Boucheron: "부쉐론",
+    Piaget: "피아제",
+    Chopard: "쇼파드",
+  };
+  return map[brand] ?? brand;
+}
+
+function normalizeMaterial(material: string): string | undefined {
+  if (/PT|플래티/i.test(material)) return "플래티넘";
+  if (/WG|화이트/i.test(material)) return "화이트골드";
+  if (/RG|PG|로즈|핑크|사쿠라/i.test(material)) return "로즈골드";
+  if (/YG|옐로|골드/i.test(material)) return "옐로우골드";
+  return material || undefined;
+}
+
+function hasDiamond(option: { name: string; note?: string; images?: string[] }): boolean {
+  return /DI|다이아|이터니티|Pav[eé]|파베|diamond/i.test(`${option.name} ${option.note ?? ""} ${option.images?.join(" ") ?? ""}`);
+}
+
+function parsePriceKRW(priceSet: string): number | undefined {
+  const clean = priceSet.replace(/,/g, "");
+  const man = clean.match(/(\d+(?:\.\d+)?)\s*(?:~|-)?\s*\d*(?:\.\d+)?\s*만/);
+  if (man) return Math.round(Number(man[1]) * 10_000);
+
+  const won = clean.match(/₩\s*(\d{5,})/);
+  if (won) return Number(won[1]);
+
+  return undefined;
+}

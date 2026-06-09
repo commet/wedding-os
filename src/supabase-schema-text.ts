@@ -1,21 +1,22 @@
-// 사용자 클립보드 복사용 SQL 텍스트 (supabase/schema.sql 의 내용과 동일하게 유지할 것)
+﻿// 사용자 클립보드 복사용 SQL 텍스트 (supabase/schema.sql 의 내용과 동일하게 유지할 것)
 const SchemaText = `-- Wedding OS — Supabase 셋업 SQL
 -- ------------------------------------------------------------------
 -- 사용 방법:
 --   1) Supabase 프로젝트 만들기 → SQL Editor 열기
 --   2) 아래 SQL 전체를 복사해서 붙여넣고 "Run" 클릭
---   3) 끝. (옛 스키마를 이미 깐 경우에도 재실행 안전 — idempotent.)
+--   3) 끝.
 --
 -- 안전성 메모:
---   - RLS 를 켭니다.
+--   - RLS(Row Level Security)를 켭니다.
 --   - 공개 청첩장은 invitation JSON 만 읽습니다. 예산·하객·체크리스트는 공개 응답에 포함되지 않습니다.
 --   - 전체 데이터 읽기/쓰기는 앱이 로컬에 보관하는 owner token 을 RPC 에 전달할 때만 허용합니다.
---   - RSVP 와 코멘트는 게스트가 INSERT 만 가능. 다른 사람 응답을 보거나 변경할 수 없습니다.
+--   - RSVP 와 코멘트 테이블은 게스트가 INSERT 만 가능. 다른 사람 응답을 보거나 변경할 수 없습니다.
 --   - 본 도구의 제작자는 사용자의 Supabase 에 접근할 수 없습니다.
 -- ------------------------------------------------------------------
 
 create extension if not exists pgcrypto;
 
+-- 1. 메인 데이터 테이블
 create table if not exists public.wedding_data (
   id text primary key default 'default',
   data jsonb not null default '{}'::jsonb,
@@ -25,10 +26,11 @@ create table if not exists public.wedding_data (
   updated_at timestamptz not null default now()
 );
 
--- 옛 스키마 호환 — version 컬럼이 없으면 추가
+-- 옛 스키마 호환 — version 컬럼이 없으면 추가.
 alter table public.wedding_data add column if not exists version int not null default 1;
 alter table public.wedding_data add column if not exists owner_token_hash text;
 
+-- 2. RSVP 테이블 (하객 응답)
 create table if not exists public.rsvp (
   id uuid primary key default gen_random_uuid(),
   config_id text not null default 'default',
@@ -44,6 +46,7 @@ create table if not exists public.rsvp (
 alter table public.rsvp add column if not exists config_id text not null default 'default';
 create index if not exists rsvp_config_created_idx on public.rsvp (config_id, created_at desc);
 
+-- 3. 코멘트 / 협업 (선택)
 create table if not exists public.collab_comments (
   id uuid primary key default gen_random_uuid(),
   page text not null,
@@ -54,24 +57,31 @@ create table if not exists public.collab_comments (
   created_at timestamptz not null default now()
 );
 
+-- 4. RLS 켜기
 alter table public.wedding_data enable row level security;
 alter table public.rsvp enable row level security;
 alter table public.collab_comments enable row level security;
 
--- wedding_data: 직접 SELECT/UPDATE 는 막고, SECURITY DEFINER RPC 로만 접근
+-- 5. 정책
+--    wedding_data: 직접 SELECT/UPDATE 는 막고, 아래 SECURITY DEFINER RPC 로만 접근합니다.
 drop policy if exists "wedding_data_all"    on public.wedding_data;
 drop policy if exists "wedding_data_read"   on public.wedding_data;
 drop policy if exists "wedding_data_write"  on public.wedding_data;
 
--- rsvp / collab: INSERT 만 허용 (게스트 간 정보 보호)
-drop policy if exists "rsvp_all"            on public.rsvp;
-drop policy if exists "rsvp_insert_only"    on public.rsvp;
-create policy "rsvp_insert_only"    on public.rsvp for insert with check (true);
+--    rsvp: 게스트는 자기 응답을 INSERT 만 가능. SELECT/UPDATE/DELETE 는 차단.
+--          → 한 명의 악의적 게스트가 다른 게스트의 응답을 보거나 지우는 걸 방지.
+--          → 부부는 owner token 으로 list_rsvp RPC 를 통해 앱에서 응답을 조회
+--            (Supabase 대시보드의 Table Editor 에서도 직접 볼 수 있음).
+drop policy if exists "rsvp_all"        on public.rsvp;
+drop policy if exists "rsvp_insert_only" on public.rsvp;
+create policy "rsvp_insert_only" on public.rsvp for insert with check (true);
 
-drop policy if exists "collab_all"          on public.collab_comments;
-drop policy if exists "collab_insert_only"  on public.collab_comments;
-create policy "collab_insert_only"  on public.collab_comments for insert with check (true);
+--    collab_comments: 동일 — 코멘트 작성만 허용, 변조·열람 차단.
+drop policy if exists "collab_all"         on public.collab_comments;
+drop policy if exists "collab_insert_only" on public.collab_comments;
+create policy "collab_insert_only" on public.collab_comments for insert with check (true);
 
+-- 5-1. 공개/오너 RPC
 create or replace function public.ensure_wedding_owner(p_id text, p_token text)
 returns void
 language plpgsql
@@ -202,11 +212,13 @@ grant execute on function public.save_wedding_data(text, text, jsonb, int) to an
 grant execute on function public.get_public_invitation(text) to anon, authenticated;
 grant execute on function public.list_rsvp(text, text) to anon, authenticated;
 
--- updated_at 자동 갱신 + version 자동 증가 (낙관적 동시성)
+-- 6. updated_at 자동 갱신 + version 자동 증가 (낙관적 동시성)
 create or replace function public.touch_updated_at()
 returns trigger as $$
 begin
   new.updated_at = now();
+  -- 클라이언트가 version 을 명시했고 그대로 두면 server-side 에서 +1.
+  -- 클라이언트가 OLD.version 을 보내고 우리가 검증할 때, 통과 시 자동 증가.
   if new.version = old.version then
     new.version = old.version + 1;
   end if;
@@ -219,7 +231,8 @@ create trigger wedding_data_touch
 before update on public.wedding_data
 for each row execute function public.touch_updated_at();
 
--- wedding_data row 크기 가드 — JSONB 가 5MB 넘으면 reject (사진 base64 폭주 방지)
+-- 7. wedding_data row 크기 가드 — JSONB 가 폭주하면 동기화 느려지고 비용 ↑.
+--   사진을 base64 로 박으면 금방 커지므로 5MB 한도 (대형 갤러리 + 안전 마진).
 create or replace function public.wedding_data_size_guard()
 returns trigger as $$
 declare
@@ -239,8 +252,11 @@ create trigger wedding_data_size_check
 before insert or update on public.wedding_data
 for each row execute function public.wedding_data_size_guard();
 
+-- 8. 기본 row 하나 (있으면 그대로 둠)
 insert into public.wedding_data (id, data) values ('default', '{}'::jsonb)
 on conflict (id) do nothing;
+
+-- 완료. 이 SQL이 정상적으로 실행되면 "Success. No rows returned" 가 보입니다.
 `;
 
 export default SchemaText;

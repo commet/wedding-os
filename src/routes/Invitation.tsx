@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import type { WeddingData, InvitationContent, Mode } from "../lib/schema";
 import Modal from "../components/Modal";
+import ChatbotBridgeModal from "../components/ChatbotBridgeModal";
 import { STOCK_HERO, STOCK_GALLERY } from "../data/stockPhotos";
 import { PAPER_INVITATIONS, MOBILE_INVITATIONS } from "../data/invitationPlatforms";
 import VendorActions from "../components/VendorActions";
@@ -13,6 +14,7 @@ import SafeImg from "../components/SafeImg";
 import { useSaveStatus } from "../lib/storage";
 import { daysUntilISODate, parseISODateLocal } from "../lib/date";
 import { publishInvitation, unpublishInvitation, fetchHostedRsvps, type HostedRsvp } from "../lib/inviteHosting";
+import { type BridgePrompt, invitationGreetingPrompt } from "../lib/chatbotBridge";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type Tab = "edit" | "preview";
@@ -51,15 +53,9 @@ export default function Invitation({ data, update }: Props) {
   const [tab, setTab] = useState<Tab>(
     () => (!guest && !isGuestRoute && !data.invitation.groomName && !data.invitation.brideName) ? "edit" : "preview",
   );
-  const [locale, setLocale] = useState<Locale>("ko");
   const [showRsvp, setShowRsvp] = useState(false);
   const inv = data.invitation;
-
-  // 활성 언어가 바뀌어 현재 locale 이 더 이상 허용되지 않으면 한국어로 fallback.
-  useEffect(() => {
-    const allowed: Locale[] = ["ko", ...((inv.enabledLocales ?? []) as Locale[])];
-    if (!allowed.includes(locale)) setLocale("ko");
-  }, [inv.enabledLocales, locale]);
+  const locale: Locale = "ko";
 
   const set = <K extends keyof InvitationContent>(key: K, value: InvitationContent[K]) => {
     update((prev: WeddingData) => ({ ...prev, invitation: { ...prev.invitation, [key]: value } }));
@@ -198,35 +194,7 @@ export default function Invitation({ data, update }: Props) {
             {!guest && (
               <TabBtn active={tab === "edit"} onClick={() => setTab("edit")}>편집</TabBtn>
             )}
-            {tab === "preview" && (inv.enabledLocales?.length ?? 0) > 0 && (
-              <div className="ml-auto flex gap-3">
-                {(["ko", ...(inv.enabledLocales ?? [])] as Locale[]).map((l) => (
-                  <button
-                    key={l}
-                    onClick={() => setLocale(l)}
-                    className={`text-[11px] tracking-wide transition ${locale === l ? "text-ink underline underline-offset-4" : "text-soft"}`}
-                  >
-                    {l === "ko" ? "한" : l === "en" ? "EN" : "中"}
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
-        </div>
-      )}
-
-      {/* 게스트 라우트 — 헤더 대신 부드러운 언어 전환만 (활성 언어 있을 때) */}
-      {isGuestRoute && (inv.enabledLocales?.length ?? 0) > 0 && (
-        <div className="flex justify-center gap-4 pt-4 pb-2">
-          {(["ko", ...(inv.enabledLocales ?? [])] as Locale[]).map((l) => (
-            <button
-              key={l}
-              onClick={() => setLocale(l)}
-              className={`text-[11px] tracking-wide ${locale === l ? "text-ink underline underline-offset-4" : "text-soft"}`}
-            >
-              {l === "ko" ? "한" : l === "en" ? "EN" : "中"}
-            </button>
-          ))}
         </div>
       )}
 
@@ -250,6 +218,11 @@ export default function Invitation({ data, update }: Props) {
           hideShareBox={isGuestRoute}
           onShare={share}
           shareCopied={shareCopied}
+          shareHint={
+            data.preferences.mode === "supabase"
+              ? "하객이 여는 청첩장 링크를 공유합니다. 편집 초대 링크는 공유 센터에서 따로 보내세요."
+              : "카톡에 붙여넣을 문안을 만듭니다. 하객이 여는 웹 링크는 [편집] 탭의 [청첩장 링크 만들기]에서 만들 수 있어요."
+          }
         />
       )}
 
@@ -440,7 +413,7 @@ function TabBtn({ active, onClick, children }: any) {
 /* ════════════ 미리보기 — 실제 청첩장 ════════════ */
 
 export function Preview({
-  inv, locale, rsvpEnabled, onRsvpClick, hideShareBox, onShare, shareCopied,
+  inv, locale, rsvpEnabled, onRsvpClick, hideShareBox, onShare, shareCopied, shareHint,
 }: {
   inv: InvitationContent;
   locale: Locale;
@@ -449,6 +422,7 @@ export function Preview({
   hideShareBox?: boolean;
   onShare?: () => void;
   shareCopied?: boolean;
+  shareHint?: string;
 }) {
   const theme = THEME[(inv.theme as Theme) ?? "cream"];
   const fontClass = FONT[(inv.fontStyle as FontStyle) ?? "serif"].class;
@@ -677,7 +651,7 @@ export function Preview({
             </button>
             {!rsvpEnabled && (
               <p className="text-[11px] text-soft mt-2">
-                {t("실제 RSVP는 [내 사이트] 모드에서 작동합니다", locale)}
+                {t("RSVP는 발행된 하객용 링크에서 작동합니다", locale)}
               </p>
             )}
           </div>
@@ -706,10 +680,11 @@ export function Preview({
           >
             {shareCopied ? "복사됐어요" : "청첩장 공유하기"}
           </button>
-          <p className="text-xs text-center text-soft mt-3 leading-relaxed">
-            모드 1에서도 청첩장을 카톡으로 보낼 수 있어요.<br />
-            진짜 청첩장 링크(웹사이트)는 [내 사이트 만들기] 모드에서.
-          </p>
+          {shareHint && (
+            <p className="text-xs text-center text-soft mt-3 leading-relaxed">
+              {shareHint}
+            </p>
+          )}
         </>
       )}
     </div>
@@ -1086,9 +1061,8 @@ function PublishSection({ data, update }: { data: WeddingData; update: (patch: a
   return (
     <div className="space-y-4">
       <p className="text-[12.5px] text-soft leading-relaxed">
-        청첩장을 <b className="text-ink">진짜 링크</b>로 발행합니다. 하객은 링크만 열면
-        청첩장을 볼 수 있어요. 내용은 <b className="text-ink">암호화</b>되어 올라가며,
-        운영자도 청첩장 내용을 읽을 수 없습니다 (이름·날짜만 카톡 미리보기용으로 보관).
+        하객에게 보낼 <b className="text-ink">청첩장 웹 링크</b>를 만듭니다. 내용은 암호화되어 올라가며,
+        운영자도 청첩장 본문을 읽을 수 없습니다. 이 링크는 편집 초대 링크와 다릅니다.
       </p>
 
       {published ? (
@@ -1254,6 +1228,7 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
   onPreview?: () => void;
 }) {
   const [picker, setPicker] = useState<null | "hero" | "gallery">(null);
+  const [bridgePrompt, setBridgePrompt] = useState<BridgePrompt | null>(null);
   const theme = (inv.theme as Theme) ?? "cream";
   // 새 청첩장 여부 — 이름·날짜가 비면 QuickStart(30초 완성)를 앞세우고 발행 섹션은 접어둔다.
   const hasEssentials = !!inv.groomName && !!inv.brideName && !!inv.date;
@@ -1345,10 +1320,6 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
           <Field label="신랑 이름"><input className="input" value={inv.groomName} onChange={(e) => set("groomName", e.target.value)} placeholder="도현" /></Field>
           <Field label="신부 이름"><input className="input" value={inv.brideName} onChange={(e) => set("brideName", e.target.value)} placeholder="지윤" /></Field>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <Field label="신랑 (영문)"><input className="input" value={inv.groomEnglishName ?? ""} onChange={(e) => set("groomEnglishName", e.target.value)} placeholder="Dohyun" /></Field>
-          <Field label="신부 (영문)"><input className="input" value={inv.brideEnglishName ?? ""} onChange={(e) => set("brideEnglishName", e.target.value)} placeholder="Jiyoon" /></Field>
-        </div>
       </Section>
 
       <Section title="예식 일정" defaultOpen>
@@ -1361,6 +1332,25 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
 
       <Section title="모시는 글" defaultOpen>
         <textarea className="input min-h-[140px]" value={inv.greeting} onChange={(e) => set("greeting", e.target.value)} />
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { label: "담백하게", tone: "담백하고 정중하게" },
+            { label: "따뜻하게", tone: "조금 더 따뜻하지만 과하지 않게" },
+            { label: "짧게", tone: "짧고 정중하게" },
+          ].map((option) => (
+            <button
+              key={option.label}
+              type="button"
+              onClick={() => setBridgePrompt(invitationGreetingPrompt(inv, option.tone))}
+              className="border border-hair py-2 text-[12px] text-ink hover:border-ink active:opacity-70"
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <p className="text-[11px] text-soft leading-relaxed">
+          이름·연락처·계좌는 보내지 않고, 현재 문안과 예식 정보 정도만 바탕으로 다듬습니다.
+        </p>
       </Section>
 
       <Section title="혼주" defaultOpen={false}>
@@ -1376,31 +1366,6 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
           <input className="input" placeholder="어머니" value={inv.brideParents?.mother ?? ""} onChange={(e) => set("brideParents", { ...inv.brideParents, mother: e.target.value })} />
         </div>
         <input className="input" placeholder="관계 (예: 장녀, 외동딸)" value={inv.brideOrder ?? ""} onChange={(e) => set("brideOrder", e.target.value)} />
-      </Section>
-
-      <Section title="외국 하객 (선택)" defaultOpen={false}>
-        <p className="text-xs text-soft leading-relaxed">
-          외국에 사는 가족·친구가 있으면 영문·중문을 추가로 켤 수 있어요.
-          체크하면 미리보기 상단에 언어 전환 버튼이 보입니다.
-        </p>
-        {([
-          { id: "en" as const, label: "🇺🇸 영문 추가" },
-          { id: "zh" as const, label: "🇨🇳 중문(번체) 추가" },
-        ]).map((opt) => {
-          const on = (inv.enabledLocales ?? []).includes(opt.id);
-          return (
-            <button
-              key={opt.id}
-              onClick={() => {
-                const cur = inv.enabledLocales ?? [];
-                set("enabledLocales", on ? cur.filter((x) => x !== opt.id) : [...cur, opt.id]);
-              }}
-              className={`w-full text-sm py-2 border ${on ? "border-gold bg-gold/5 text-gold" : "border-line text-soft"}`}
-            >
-              {on ? "✓ " : ""}{opt.label}
-            </button>
-          );
-        })}
       </Section>
 
       <Section title="배경 음악 (선택)" defaultOpen={false}>
@@ -1446,8 +1411,8 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
       </Section>
 
       <p className="text-[11px] text-soft text-center leading-relaxed pt-6">
-        휴대폰 저장 모드는 카톡에 붙여넣을 초대 문구를 만들 수 있어요.<br />
-        하객이 여는 청첩장 링크와 RSVP가 필요하면 [청첩장 링크 만들기]로 전환하세요.
+        카톡 문안은 미리보기의 [공유]에서 만들고,<br />
+        하객이 여는 웹 링크와 RSVP는 위의 [청첩장 링크 만들기]에서 발행합니다.
       </p>
 
       <Section title="다른 청첩장 서비스도 알아보기" defaultOpen={false}>
@@ -1491,6 +1456,14 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
           }}
         />
       )}
+      <ChatbotBridgeModal
+        open={!!bridgePrompt}
+        onClose={() => setBridgePrompt(null)}
+        prompt={bridgePrompt}
+        onApply={(text) => {
+          if (typeof text === "string" && text.trim()) set("greeting", text.trim());
+        }}
+      />
     </div>
   );
 }
@@ -1780,7 +1753,7 @@ function t(ko: string, locale: Locale): string {
     "참석 의사 전달": { en: "RSVP", zh: "出席回覆" },
     "참석 여부 전하기": { en: "Send RSVP", zh: "回覆出席" },
     "축하의 마음으로 참석해 주시는 분들을 위해": { en: "Please let us know if you can join us", zh: "請告知是否能出席" },
-    "실제 RSVP는 [내 사이트] 모드에서 작동합니다": { en: "RSVP works in [My Site] mode", zh: "RSVP 功能於「我的網站」模式啟用" },
+    "RSVP는 발행된 하객용 링크에서 작동합니다": { en: "RSVP works on the published guest link", zh: "RSVP 會在已發佈的賓客連結中啟用" },
     "신랑": { en: "Groom", zh: "新郎" },
     "신부": { en: "Bride", zh: "新娘" },
     "아들": { en: "son", zh: "之子" },

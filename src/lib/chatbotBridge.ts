@@ -1,5 +1,6 @@
 // AI 비용 0 — 사용자가 챗봇(ChatGPT, Claude, Gemini)에 복붙해서 결과를 받아온다.
 // 우리는 프롬프트만 만들어주고, 답변에서 JSON을 뽑아내는 도우미만 제공한다.
+import type { InvitationContent, WeddingData } from "./schema";
 
 export type BridgePrompt = {
   title: string;
@@ -8,6 +9,108 @@ export type BridgePrompt = {
   /** 답변에서 추출할 JSON 키 — UI에 자동 채워줄 필드 */
   keys?: string[];
 };
+
+export function weddingPlanStarterPrompt(data: WeddingData): BridgePrompt {
+  const inv = data.invitation;
+  const summary = {
+    weddingDate: inv.date || null,
+    venueFilled: Boolean(inv.venue),
+    invitationFieldsFilled: [
+      inv.groomName,
+      inv.brideName,
+      inv.date,
+      inv.venue,
+      inv.greeting,
+    ].filter(Boolean).length,
+    counts: {
+      checklistItems: data.checklist.reduce((n, section) => n + section.items.length, 0),
+      budgetItems: data.budget?.length ?? 0,
+      guests: data.guests?.length ?? 0,
+      rings: data.rings.length,
+      venues: data.venues?.length ?? 0,
+      honeymoonRegions: data.honeymoon.regions.length,
+      flights: data.flights.length,
+      hotels: data.hotels.length,
+    },
+    currentHoneymoonRegions: data.honeymoon.regions.map((r) => r.name).slice(0, 5),
+    currentBudgetCategories: (data.budget ?? []).map((b) => b.category).slice(0, 8),
+  };
+
+  return {
+    title: "준비 초안 만들기",
+    prompt: `당신은 한국 결혼 준비를 돕는 중립적인 웨딩 플래너입니다.
+아래 Wedding OS 상태를 보고 사용자가 바로 시작할 수 있는 기본판을 만들어주세요.
+
+중요한 원칙:
+- 부모님 관여도, 종교, 문화, 언어, 가족사 같은 민감하거나 지나치게 개인적인 가정은 하지 마세요.
+- 업체·가격·일정은 확정처럼 말하지 말고, 사용자가 확인할 출발점으로 제안하세요.
+- 너무 많이 만들지 말고, 오늘 바로 도움이 되는 핵심만 제안하세요.
+- 전화번호, 계좌, 하객 이름 같은 민감 정보는 요청하지 마세요.
+
+현재 상태:
+\`\`\`json
+${JSON.stringify(summary, null, 2)}
+\`\`\`
+
+반드시 아래 JSON 형식으로만 답해주세요:
+\`\`\`json
+{
+  "summary": "지금 이 사용자가 먼저 잡으면 좋은 방향 한 문장",
+  "today": [
+    { "title": "오늘 할 일", "reason": "왜 지금 필요한지", "targetPath": "/budget" }
+  ],
+  "checklistItems": [
+    { "section": "AI 시작 정리", "text": "구체적인 할 일", "ddayOffset": -180, "priority": "yellow" }
+  ],
+  "budgetItems": [
+    { "category": "예산 항목명", "planned": 1000000, "notes": "확인할 기준" }
+  ],
+  "honeymoonRegions": [
+    { "name": "지역명", "durationDays": 6, "notes": "어울리는 이유와 확인할 점" }
+  ],
+  "invitationGreeting": "청첩장 모시는 글 초안. 4~6줄. 과하게 감성적이지 않고 담백하게."
+}
+\`\`\`
+
+제안 수 제한:
+- today 3개 이하
+- checklistItems 5개 이하
+- budgetItems 5개 이하
+- honeymoonRegions 3개 이하`,
+    expectedShape: "json",
+  };
+}
+
+export function invitationGreetingPrompt(inv: InvitationContent, tone = "담백하고 정중하게"): BridgePrompt {
+  const summary = {
+    hasNames: Boolean(inv.groomName || inv.brideName),
+    date: inv.date || null,
+    venueFilled: Boolean(inv.venue),
+    currentGreeting: inv.greeting,
+    theme: inv.theme ?? "cream",
+    fontStyle: inv.fontStyle ?? "serif",
+  };
+
+  return {
+    title: "청첩장 문안 다듬기",
+    prompt: `한국 모바일 청첩장에 들어갈 "모시는 글"을 다듬어주세요.
+
+원칙:
+- 원하는 톤: ${tone}
+- 과하게 오글거리거나 상투적인 표현은 피하고, 자연스럽게.
+- 부모님, 종교, 문화, 언어, 가족 관계를 새로 추정하지 마세요.
+- 이름·연락처·계좌 같은 개인정보를 본문에 넣지 마세요.
+- 4~6줄 정도로 읽기 쉽게 줄바꿈을 포함하세요.
+
+현재 정보:
+\`\`\`json
+${JSON.stringify(summary, null, 2)}
+\`\`\`
+
+모시는 글 본문만 답해주세요. 제목이나 설명은 붙이지 마세요.`,
+    expectedShape: "text",
+  };
+}
 
 export function ringPriceCheckPrompt(brand: string, model: string, material?: string): BridgePrompt {
   return {

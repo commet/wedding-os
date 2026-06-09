@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import type { WeddingData, HoneymoonRegion, Flight, Hotel } from "../lib/schema";
 import { HONEYMOON_CATALOG, type HoneymoonPick } from "../data/honeymoonCatalog";
 import { OTA_LIST } from "../data/hotelOtaTemplate";
@@ -20,9 +21,35 @@ import { todayISO } from "../lib/freshness";
 
 type Props = { data: WeddingData; update: (patch: any) => void };
 type Tab = "destinations" | "flights" | "stays";
+type TripMood = "rest" | "balanced" | "active" | "short";
+type TripBudget = "value" | "mid" | "luxury";
 
 export default function Trip({ data, update }: Props) {
+  const [searchParams] = useSearchParams();
   const [tab, setTab] = useState<Tab>("destinations");
+  const [showStarter, setShowStarter] = useState(() => searchParams.get("starter") === "1");
+
+  const applyTripStarter = (picks: HoneymoonPick[]) => {
+    update((prev: WeddingData) => {
+      const names = new Set(prev.honeymoon.regions.map((r) => r.name));
+      const additions = picks
+        .filter((pick) => !names.has(pick.region))
+        .map((pick) => ({
+          id: `region-${Date.now()}-${pick.id}`,
+          name: pick.region,
+          notes: starterTripNotes(pick),
+        }));
+      return {
+        ...prev,
+        honeymoon: {
+          ...prev.honeymoon,
+          regions: [...prev.honeymoon.regions, ...additions],
+        },
+      };
+    });
+    setTab("destinations");
+    setShowStarter(false);
+  };
 
   return (
     <div className="page pt-8 pb-10 space-y-6">
@@ -31,15 +58,32 @@ export default function Trip({ data, update }: Props) {
         <h1 className="font-serif text-[2rem] leading-none">신혼여행</h1>
       </div>
 
-      <div className="flex items-center gap-6 border-b border-hair pb-3">
-        <TabBtn active={tab === "destinations"} onClick={() => setTab("destinations")}>여행지</TabBtn>
-        <TabBtn active={tab === "flights"} onClick={() => setTab("flights")}>항공</TabBtn>
-        <TabBtn active={tab === "stays"} onClick={() => setTab("stays")}>숙소</TabBtn>
-      </div>
+      {showStarter ? (
+        <TripStarter onApply={applyTripStarter} onClose={() => setShowStarter(false)} />
+      ) : (
+        <>
+          <div className="flex items-center gap-6 border-b border-hair pb-3">
+            <TabBtn active={tab === "destinations"} onClick={() => setTab("destinations")}>여행지</TabBtn>
+            <TabBtn active={tab === "flights"} onClick={() => setTab("flights")}>항공</TabBtn>
+            <TabBtn active={tab === "stays"} onClick={() => setTab("stays")}>숙소</TabBtn>
+          </div>
 
-      {tab === "destinations" && <Destinations data={data} update={update} />}
-      {tab === "flights" && <Flights data={data} update={update} />}
-      {tab === "stays" && <Stays data={data} update={update} />}
+          <button
+            onClick={() => setShowStarter(true)}
+            className="w-full text-left border-y border-hair py-4 flex items-baseline justify-between gap-4"
+          >
+            <span>
+              <span className="eyebrow-gold block mb-1">기본 후보</span>
+              <span className="font-serif text-[17px] text-ink">여행 기준 잡기</span>
+            </span>
+            <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
+          </button>
+
+          {tab === "destinations" && <Destinations data={data} update={update} />}
+          {tab === "flights" && <Flights data={data} update={update} />}
+          {tab === "stays" && <Stays data={data} update={update} />}
+        </>
+      )}
     </div>
   );
 }
@@ -55,6 +99,148 @@ function TabBtn({ active, onClick, children }: any) {
       {children}
     </button>
   );
+}
+
+function TripStarter({
+  onApply,
+  onClose,
+}: {
+  onApply: (picks: HoneymoonPick[]) => void;
+  onClose: () => void;
+}) {
+  const [mood, setMood] = useState<TripMood>("balanced");
+  const [budget, setBudget] = useState<TripBudget>("mid");
+  const [days, setDays] = useState<"short" | "week" | "long">("week");
+
+  const picks = useMemo(
+    () => pickStarterTrips({ mood, budget, days }),
+    [mood, budget, days]
+  );
+
+  return (
+    <section className="border-y border-hair py-5 space-y-5">
+      <div className="flex items-baseline justify-between gap-4">
+        <div>
+          <div className="eyebrow-gold mb-2">기본 후보</div>
+          <h2 className="font-serif text-xl text-ink">여행 기준 잡기</h2>
+        </div>
+        <button onClick={onClose} className="text-[12px] text-soft underline underline-offset-4 hover:text-ink">
+          닫기
+        </button>
+      </div>
+
+      <p className="text-[12px] text-soft leading-relaxed">
+        여행 톤과 기간을 기준으로 먼저 비교할 지역을 잡습니다. 항공·숙소 가격과 시즌은 예약 전에 직접 다시 확인해야 합니다.
+      </p>
+
+      <StarterOption label="여행 톤">
+        <Segment active={mood === "rest"} onClick={() => setMood("rest")}>휴양 중심</Segment>
+        <Segment active={mood === "balanced"} onClick={() => setMood("balanced")}>휴양+관광</Segment>
+        <Segment active={mood === "active"} onClick={() => setMood("active")}>관광 중심</Segment>
+        <Segment active={mood === "short"} onClick={() => setMood("short")}>짧고 편하게</Segment>
+      </StarterOption>
+
+      <StarterOption label="예산감">
+        <Segment active={budget === "value"} onClick={() => setBudget("value")}>가볍게</Segment>
+        <Segment active={budget === "mid"} onClick={() => setBudget("mid")}>중간</Segment>
+        <Segment active={budget === "luxury"} onClick={() => setBudget("luxury")}>크게</Segment>
+      </StarterOption>
+
+      <StarterOption label="기간">
+        <Segment active={days === "short"} onClick={() => setDays("short")}>3~5일</Segment>
+        <Segment active={days === "week"} onClick={() => setDays("week")}>5~7일</Segment>
+        <Segment active={days === "long"} onClick={() => setDays("long")}>8일 이상</Segment>
+      </StarterOption>
+
+      <div className="border-y border-hair divide-y divide-hair">
+        {picks.map((pick, idx) => (
+          <div key={pick.id} className="py-3 flex items-start gap-3">
+            <span className="font-serif text-soft text-base tabular-nums w-5 flex-shrink-0">
+              {String(idx + 1).padStart(2, "0")}
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="font-serif text-[15px] text-ink">{pick.region}</div>
+              <p className="text-[11.5px] text-soft leading-relaxed mt-1">{pick.vibe}</p>
+              <div className="eyebrow mt-2 space-x-2">
+                <span>{pick.bestSeason}</span>
+                <span>· {pick.flightHours}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <button onClick={() => onApply(picks)} className="btn-primary w-full py-3 text-[12.5px]">
+        후보 3곳 담기 →
+      </button>
+    </section>
+  );
+}
+
+function StarterOption({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="eyebrow mb-3">{label}</div>
+      <div className="flex flex-wrap gap-x-5 gap-y-3">{children}</div>
+    </div>
+  );
+}
+
+function Segment({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`text-[12px] tracking-wide pb-1 transition ${
+        active ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function pickStarterTrips({
+  mood,
+  budget,
+  days,
+}: {
+  mood: TripMood;
+  budget: TripBudget;
+  days: "short" | "week" | "long";
+}): HoneymoonPick[] {
+  return HONEYMOON_CATALOG.map((pick) => {
+    let score = 0;
+    if (budget === "value" && pick.budgetLevel <= 2) score += 4;
+    if (budget === "mid" && pick.budgetLevel >= 2 && pick.budgetLevel <= 3) score += 4;
+    if (budget === "luxury" && pick.budgetLevel >= 3) score += 4;
+
+    const text = `${pick.region} ${pick.vibe} ${pick.pairs ?? ""} ${pick.highlights.join(" ")}`;
+    if (mood === "rest" && /휴양|리조트|빌라|스파|바다|풀/.test(text)) score += 4;
+    if (mood === "balanced" && /발리|하와이|푸켓|오키나와|제주|다낭/.test(text)) score += 4;
+    if (mood === "active" && /관광|문화|하이킹|도시|유럽|하와이|두바이|부산|스위스/.test(text)) score += 4;
+    if (mood === "short" && /제주|강원|부산|오키나와|다낭/.test(text)) score += 5;
+
+    if (days === "short" && /1시간|2.5시간|5시간|차로|기차/.test(pick.flightHours)) score += 3;
+    if (days === "week" && /5시간|6시간|7시간|8~9시간/.test(pick.flightHours)) score += 3;
+    if (days === "long" && /9|10|12|14|15/.test(pick.flightHours)) score += 3;
+
+    return { pick, score };
+  })
+    .sort((a, b) => b.score - a.score || a.pick.budgetLevel - b.pick.budgetLevel)
+    .slice(0, 3)
+    .map(({ pick }) => pick);
+}
+
+function starterTripNotes(pick: HoneymoonPick): string {
+  return [
+    pick.vibe,
+    "",
+    `[추천 시기] ${pick.bestSeason}`,
+    `[비행] ${pick.flightHours}`,
+    `[예산] ${pick.budgetKRWPerPerson}`,
+    "",
+    `[일정 메모] ${pick.tip}`,
+  ].join("\n");
 }
 
 /* ──────────── 여행지 탭 ──────────── */

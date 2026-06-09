@@ -7,6 +7,7 @@
     -webkit-text-size-adjust: 100%;
     -webkit-font-smoothing: antialiased;
     -webkit-tap-highlight-color: transparent;
+    scroll-padding-top: 72px;
   }
   body {
     font-family: theme('fontFamily.sans');
@@ -17,6 +18,14 @@
   }
   button, a {
     -webkit-touch-callout: none;
+  }
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: 2px solid theme('colors.ink');
+    outline-offset: 3px;
   }
   button {
     min-height: 36px;

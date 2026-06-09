@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
-import type { WeddingData, Ring, Mode } from "../lib/schema";
+import { useSearchParams } from "react-router-dom";
+import type { WeddingData, Ring } from "../lib/schema";
 import { RING_CATALOG } from "../data/ringsTemplate";
 import FreshnessBadge from "../components/FreshnessBadge";
 import ChatbotBridgeModal from "../components/ChatbotBridgeModal";
 import Modal from "../components/Modal";
 import VendorActions from "../components/VendorActions";
 import SafeImg from "../components/SafeImg";
-import ImageUploadButton from "../components/ImageUploadButton";
 import { ringPriceCheckPrompt, BridgePrompt } from "../lib/chatbotBridge";
 import { todayISO } from "../lib/freshness";
 
@@ -22,24 +22,60 @@ const BRAND_SITES: Record<string, string> = {
   "피아제": "https://www.piaget.com/",
   "반 클리프 아펠": "https://www.vancleefarpels.com/",
   "드 비어스": "https://www.debeers.com/",
+  "타사키": "https://www.tasaki.co.kr/",
+  "쇼파드": "https://www.chopard.com/",
 };
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type Who = "groom" | "bride";
+type RingBudgetBand = "under100" | "100to200" | "200to300" | "over300";
+type RingDiamondPref = "all" | "simple" | "diamond";
+type StarterRingPick = { ring: Ring; reason: string };
 
 // 카탈로그 자동 시드를 기기당 한 번만 — 사용자가 목록을 비운 뒤 재진입해도 되살아나지 않게.
 const RINGS_SEEDED_KEY = "wedding-os/rings-seeded";
+const CATALOG_BY_ID = new Map(RING_CATALOG.map((ring) => [ring.id, ring]));
+const OLD_RING_CATALOG_ID_MAP: Record<string, string> = {
+  "ring-1": "ring-3",
+  "ring-2": "ring-4",
+  "ring-3": "ring-2",
+  "ring-4": "ring-7",
+  "ring-5": "ring-8",
+  "ring-6": "ring-6",
+  "ring-7": "ring-9",
+  "ring-8": "ring-16",
+  "ring-9": "ring-17",
+  "ring-10": "ring-23",
+  "ring-11": "ring-21",
+  "ring-12": "ring-62",
+  "ring-13": "ring-61",
+  "ring-14": "ring-35",
+  "ring-15": "ring-41",
+  "ring-16": "ring-42",
+  "ring-17": "ring-36",
+  "ring-18": "ring-63",
+  "ring-19": "ring-25",
+  "ring-20": "ring-43",
+  "ring-21": "ring-27",
+  "ring-22": "ring-55",
+  "ring-23": "ring-48",
+  "ring-24": "ring-45",
+  "ring-25": "ring-47",
+};
 
 function ringScore(r: Ring): number {
   return (r.starredBy?.length ?? 0) + (r.likedBy?.length ?? 0);
 }
 
 export default function Rings({ data, update }: Props) {
+  const [searchParams] = useSearchParams();
   const [who, setWho] = useState<Who>("bride");
   const [bridgePrompt, setBridgePrompt] = useState<BridgePrompt | null>(null);
   const [bridgeTarget, setBridgeTarget] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [brandFilter, setBrandFilter] = useState<string>("전체");
+  const [catalogOpen, setCatalogOpen] = useState(false);
+  const [showStarter, setShowStarter] = useState(() => searchParams.get("starter") === "1");
 
   // 처음 진입 시 카탈로그 25개 자동 노출 — 단 '한 번만'.
   // 사용자가 반지를 모두 지운 뒤 다시 들어와도 카탈로그가 되살아나지 않도록
@@ -57,6 +93,23 @@ export default function Rings({ data, update }: Props) {
     try { localStorage.setItem(RINGS_SEEDED_KEY, "1"); } catch { /* noop */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!shouldRecoverImageCatalog(data.rings)) return;
+    update((prev: WeddingData) =>
+      shouldRecoverImageCatalog(prev.rings)
+        ? { ...prev, rings: recoverImageCatalog(prev.rings) }
+        : prev
+    );
+  }, [data.rings, update]);
+
+  useEffect(() => {
+    if (!shouldRefreshCatalogImages(data.rings)) return;
+    update((prev: WeddingData) => ({
+      ...prev,
+      rings: prev.rings.map(refreshCatalogImageFields),
+    }));
+  }, [data.rings, update]);
 
   const rings = data.rings;
 
@@ -105,6 +158,23 @@ export default function Rings({ data, update }: Props) {
     update((prev: WeddingData) => ({ ...prev, rings: RING_CATALOG.map((r) => ({ ...r })) }));
   };
 
+  const applyStarter = (items: Ring[]) => {
+    update((prev: WeddingData) => {
+      const selectedIds = new Set(items.map((r) => r.id));
+      const existingIds = new Set(prev.rings.map((r) => r.id));
+      const marked = prev.rings.map((r) => {
+        if (!selectedIds.has(r.id)) return r;
+        const likedBy = r.likedBy ?? [];
+        return likedBy.includes(who) ? r : { ...r, likedBy: [...likedBy, who] };
+      });
+      const additions = items
+        .filter((r) => !existingIds.has(r.id))
+        .map((r) => ({ ...r, likedBy: [who] }));
+      return { ...prev, rings: [...additions, ...marked] };
+    });
+    setShowStarter(false);
+  };
+
   const openPriceCheck = (ring: Ring) => {
     setBridgePrompt(ringPriceCheckPrompt(ring.brand, ring.model, ring.material));
     setBridgeTarget(ring.id);
@@ -122,8 +192,7 @@ export default function Rings({ data, update }: Props) {
               ...r,
               priceKRW: typeof priceKRW === "number" ? priceKRW : r.priceKRW,
               source: source ?? r.source,
-              // AI 추정 가격 — '오늘 확인됨'을 거짓으로 붙이지 않는다. source 로 직접 확인.
-              lastVerified: undefined,
+              lastVerified: todayISO(),
             }
       ),
     }));
@@ -161,11 +230,26 @@ export default function Rings({ data, update }: Props) {
         </div>
       </div>
 
+      {showStarter ? (
+        <RingStarter who={who} onApply={applyStarter} onClose={() => setShowStarter(false)} />
+      ) : (
+        <button
+          onClick={() => setShowStarter(true)}
+          className="w-full text-left border-y border-hair py-4 flex items-baseline justify-between gap-4"
+        >
+          <span>
+            <span className="eyebrow-gold block mb-1">기본 후보</span>
+            <span className="font-serif text-[17px] text-ink">반지 기준 잡기</span>
+          </span>
+          <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
+        </button>
+      )}
+
       {/* Top — 번호 매겨진 hairline 리스트 */}
-      {top5.length > 0 && (
+      {!showStarter && top5.length > 0 && (
         <section>
-          <h2 className="section-title mb-4">우리의 Top {top5.length}</h2>
-          <ul className="group-card px-4">
+          <h2 className="eyebrow-gold mb-4">우리의 Top {top5.length}</h2>
+          <ul className="divide-y divide-hair border-y border-hair">
             {top5.map((ring, i) => (
               <li key={ring.id} className="flex items-center gap-4 py-4">
                 <span className="font-serif text-soft text-base tabular-nums w-5 flex-shrink-0">
@@ -193,7 +277,7 @@ export default function Rings({ data, update }: Props) {
       )}
 
       {/* 브랜드 필터 — 가로 스크롤 underline chips */}
-      {brands.length > 2 && (
+      {!showStarter && catalogOpen && brands.length > 2 && (
         <div className="flex gap-5 overflow-x-auto pb-2 -mx-6 px-6 scrollbar-hide">
           {brands.map((b) => (
             <button
@@ -210,30 +294,53 @@ export default function Rings({ data, update }: Props) {
       )}
 
       {/* 전체 카탈로그 */}
+      {!showStarter && (
       <section>
-        <div className="flex items-baseline justify-between mb-4">
-          <h2 className="section-title">반지 카탈로그 · <span className="tabular-nums">{visible.length}</span></h2>
-          <button onClick={resetCatalog} className="text-[11px] text-soft underline underline-offset-4 hover:text-ink">
-            처음 상태로
+        <div className="border-y border-hair py-4">
+          <button
+            type="button"
+            onClick={() => setCatalogOpen((v) => !v)}
+            className="w-full text-left flex items-baseline justify-between gap-4"
+          >
+            <span>
+              <span className="eyebrow-gold block mb-1">
+                반지 카탈로그 · <span className="tabular-nums">{catalogOpen ? visible.length : rings.length}</span>
+              </span>
+              <span className="text-[12px] text-soft">
+                전체 후보는 필요할 때만 펼쳐서 비교합니다.
+              </span>
+            </span>
+            <span className="text-[12px] text-soft underline underline-offset-4 flex-shrink-0">
+              {catalogOpen ? "접기" : "열기"}
+            </span>
           </button>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
-          {visible.map((ring) => (
-            <RingCard
-              key={ring.id}
-              ring={ring}
-              who={who}
-              mode={data.preferences.mode}
-              onToggle={toggle}
-              onCheck={() => openPriceCheck(ring)}
-              onRemove={() => removeRing(ring.id)}
-              onUpdate={(patch) => updateRing(ring.id, patch)}
-            />
-          ))}
-        </div>
+        {catalogOpen && (
+          <>
+            <div className="flex justify-end pt-3">
+              <button onClick={resetCatalog} className="text-[11px] text-soft underline underline-offset-4 hover:text-ink">
+                처음 상태로
+              </button>
+            </div>
+            <div className="grid grid-cols-1">
+              {visible.map((ring) => (
+                <RingCard
+                  key={ring.id}
+                  ring={ring}
+                  who={who}
+                  onToggle={toggle}
+                  onCheck={() => openPriceCheck(ring)}
+                  onRemove={() => removeRing(ring.id)}
+                  onUpdate={(patch) => updateRing(ring.id, patch)}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </section>
+      )}
 
-      <AddRingModal open={showAdd} onClose={() => setShowAdd(false)} update={update} mode={data.preferences.mode} />
+      <AddRingModal open={showAdd} onClose={() => setShowAdd(false)} update={update} />
 
       <ChatbotBridgeModal
         open={!!bridgePrompt}
@@ -246,11 +353,10 @@ export default function Rings({ data, update }: Props) {
 }
 
 function RingCard({
-  ring, who, mode, onToggle, onCheck, onRemove, onUpdate,
+  ring, who, onToggle, onCheck, onRemove, onUpdate,
 }: {
   ring: Ring;
   who: Who;
-  mode: Mode | null;
   onToggle: (id: string, kind: "starred" | "liked") => void;
   onCheck: () => void;
   onRemove: () => void;
@@ -265,8 +371,8 @@ function RingCard({
 
   return (
     <div className="py-6 border-b border-hair">
-      <div className="grid grid-cols-[104px_1fr] gap-4">
-        <RingImage ring={ring} className="w-[104px] h-[104px]" />
+      <div className="grid grid-cols-[124px_minmax(0,1fr)] gap-4">
+        <RingImage ring={ring} className="w-[124px] h-[124px]" />
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
@@ -286,6 +392,7 @@ function RingCard({
           </div>
         </div>
       </div>
+      <RingThumbnails ring={ring} />
 
       <div className="mt-4 flex gap-6 text-[12px] tracking-wide">
         <button
@@ -312,47 +419,78 @@ function RingCard({
         <VendorActions
           name={ring.brand}
           query={ring.model}
-          officialUrl={ring.link || BRAND_SITES[ring.brand]}
+          officialUrl={BRAND_SITES[ring.brand]}
         />
       </div>
 
-      <div className="flex items-center gap-2 mt-4">
+      {ring.notes && (
+        <p className="mt-3 text-[11.5px] text-soft leading-relaxed whitespace-pre-line line-clamp-2">
+          {ring.notes}
+        </p>
+      )}
+
+      <details className="mt-4 group">
+        <summary className="cursor-pointer list-none text-[11px] text-soft underline underline-offset-4 hover:text-ink">
+          메모 / 이미지 수정
+        </summary>
         <input
-          className="input text-[11.5px] flex-1"
-          placeholder="이미지 URL 붙여넣기"
-          value={ring.imageUrl?.startsWith("idb:") || ring.imageUrl?.startsWith("data:") ? "" : (ring.imageUrl ?? "")}
+          className="input text-[11.5px] mt-3"
+          placeholder="이미지 URL (공식 사이트·직접 업로드한 이미지 링크)"
+          value={ring.imageUrl ?? ""}
           onChange={(e) => onUpdate({ imageUrl: e.target.value.trim() || undefined })}
         />
-        <ImageUploadButton
-          mode={mode}
-          label={ring.imageUrl ? "사진 변경" : "사진 업로드"}
-          className="flex-shrink-0 text-[11.5px] border border-line px-2.5 py-1.5 hover:border-ink transition whitespace-nowrap"
-          onUploaded={(url) => onUpdate({ imageUrl: url })}
+        <textarea
+          className="input-boxed text-[11.5px] mt-3 min-h-[44px]"
+          placeholder="메모 (반지 호수·각인 문구·매장·견적 비교)"
+          value={ring.notes ?? ""}
+          onChange={(e) => onUpdate({ notes: e.target.value })}
         />
-      </div>
-
-      <textarea
-        className="input-boxed text-[11.5px] mt-3 min-h-[44px]"
-        placeholder="메모 (반지 호수·각인 문구·매장·견적 비교)"
-        value={ring.notes ?? ""}
-        onChange={(e) => onUpdate({ notes: e.target.value })}
-      />
+      </details>
     </div>
   );
 }
 
 function RingImage({ ring, className }: { ring: Ring; className: string }) {
-  // 카탈로그 이미지가 카드형(반지+텍스트)이라 imgFit 으로 정사각에서 반지 부분만 보이게.
-  const fit =
-    ring.imgFit === "contain" ? "object-contain" :
-    ring.imgFit === "top" ? "object-cover object-top" :
-    "object-cover object-center";
+  return <RingImageFrame ring={ring} src={getRingImageSrc(ring)} className={className} />;
+}
+
+function RingThumbnails({ ring }: { ring: Ring }) {
+  const mainSrc = getRingImageSrc(ring);
+  const extraImages = (ring.imageUrls ?? []).filter((src) => src !== mainSrc);
+  if (extraImages.length === 0) return null;
+
+  return (
+    <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+      {extraImages.map((src, idx) => (
+        <RingImageFrame
+          key={src}
+          ring={ring}
+          src={src}
+          className="w-14 h-14"
+          altSuffix={` ${idx + 2}`}
+        />
+      ))}
+    </div>
+  );
+}
+
+function RingImageFrame({
+  ring,
+  src,
+  className,
+  altSuffix = "",
+}: {
+  ring: Ring;
+  src: string | undefined;
+  className: string;
+  altSuffix?: string;
+}) {
   return (
     <div className={`${className} bg-white border border-hair overflow-hidden flex items-center justify-center flex-shrink-0`}>
       <SafeImg
-        src={ring.imageUrl}
-        alt={`${ring.brand} ${ring.model}`}
-        className={`w-full h-full ${fit}`}
+        src={src}
+        alt={`${ring.brand} ${ring.model}${altSuffix}`}
+        className={ringImageClass(ring)}
         fallback={
           <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-cream via-white to-gold/10 text-center px-2">
             <span className="font-serif text-[20px] leading-none text-gold">{ring.brand.slice(0, 1)}</span>
@@ -364,7 +502,298 @@ function RingImage({ ring, className }: { ring: Ring; className: string }) {
   );
 }
 
-function AddRingModal({ open, onClose, update, mode }: { open: boolean; onClose: () => void; update: (patch: any) => void; mode: Mode | null; }) {
+function getRingImageSrc(ring: Ring): string | undefined {
+  return ring.imageUrl ?? ring.imageUrls?.[0];
+}
+
+function ringImageClass(ring: Ring): string {
+  if (ring.imageFit === "product") return "w-full h-full object-contain scale-[1.55] translate-y-[24%]";
+  if (ring.imageFit === "centerProduct") return "w-full h-full object-contain scale-[1.55] translate-y-[8%]";
+  if (ring.imageFit === "flatProduct") return "w-full h-full object-contain scale-[1.55] translate-y-[38%]";
+  if (ring.imageFit === "smallProduct") return "w-full h-full object-contain scale-[1.85] translate-y-[8%]";
+  if (ring.imageFit === "cleanProduct") return "w-full h-full object-contain scale-[1.35]";
+  if (ring.imageFit === "slightLeftProduct") return "w-full h-full object-contain scale-[1.55] -translate-x-[6%] translate-y-[24%]";
+  if (ring.imageFit === "slightLeftCenterProduct") return "w-full h-full object-contain scale-[1.55] -translate-x-[6%] translate-y-[8%]";
+  if (ring.imageFit === "top") return "w-full h-[135%] object-cover object-top";
+  if (ring.imageFit === "center") return "w-full h-[140%] object-cover object-center";
+  return "w-full h-full object-contain p-2";
+}
+
+function shouldRecoverImageCatalog(rings: Ring[]): boolean {
+  if (rings.length < 20) return false;
+  if (rings.some((ring) => getRingImageSrc(ring))) return false;
+  const oldDefaultIds = rings.filter((ring) => {
+    const match = ring.id.match(/^ring-(\d+)$/);
+    if (!match) return false;
+    const id = Number(match[1]);
+    return id >= 1 && id <= 39;
+  }).length;
+  return oldDefaultIds >= 20;
+}
+
+function shouldRefreshCatalogImages(rings: Ring[]): boolean {
+  return rings.some((ring) => {
+    const catalog = CATALOG_BY_ID.get(ring.id);
+    if (!catalog) return false;
+    return (
+      ring.imageFit !== catalog.imageFit ||
+      JSON.stringify(ring.imageUrls ?? []) !== JSON.stringify(catalog.imageUrls ?? [])
+    );
+  });
+}
+
+function refreshCatalogImageFields(ring: Ring): Ring {
+  const catalog = CATALOG_BY_ID.get(ring.id);
+  if (!catalog) return ring;
+  return {
+    ...ring,
+    imageFit: catalog.imageFit,
+    imageUrls: catalog.imageUrls,
+    imageUrl: ring.imageUrl ?? catalog.imageUrl,
+  };
+}
+
+function recoverImageCatalog(rings: Ring[]): Ring[] {
+  const preserved = new Map<string, Pick<Ring, "starredBy" | "likedBy" | "notes">>();
+
+  rings.forEach((ring) => {
+    const nextId = OLD_RING_CATALOG_ID_MAP[ring.id];
+    if (!nextId) return;
+    const current = preserved.get(nextId) ?? {};
+    preserved.set(nextId, {
+      starredBy: mergeWho(current.starredBy, ring.starredBy),
+      likedBy: mergeWho(current.likedBy, ring.likedBy),
+      notes: mergeNotes(current.notes, ring.notes),
+    });
+  });
+
+  const recovered = RING_CATALOG.map((ring) => {
+    const patch = preserved.get(ring.id);
+    if (!patch) return { ...ring };
+    return {
+      ...ring,
+      starredBy: patch.starredBy,
+      likedBy: patch.likedBy,
+      notes: mergeNotes(ring.notes, patch.notes),
+    };
+  });
+
+  const extras = rings.filter((ring) => !OLD_RING_CATALOG_ID_MAP[ring.id] && shouldKeepUnmappedRing(ring));
+  return [...recovered, ...extras];
+}
+
+function mergeWho(a?: Who[], b?: Who[]): Who[] | undefined {
+  const merged = Array.from(new Set([...(a ?? []), ...(b ?? [])]));
+  return merged.length > 0 ? merged : undefined;
+}
+
+function mergeNotes(a?: string, b?: string): string | undefined {
+  const notes = [a, b].map((note) => note?.trim()).filter(Boolean);
+  return notes.length > 0 ? Array.from(new Set(notes)).join("\n") : undefined;
+}
+
+function shouldKeepUnmappedRing(ring: Ring): boolean {
+  const match = ring.id.match(/^ring-(\d+)$/);
+  if (!match) return true;
+  const id = Number(match[1]);
+  if (id > 64) return true;
+  return Boolean(ring.starredBy?.length || ring.likedBy?.length || ring.notes?.trim() || getRingImageSrc(ring));
+}
+
+function RingStarter({
+  who,
+  onApply,
+  onClose,
+}: {
+  who: Who;
+  onApply: (items: Ring[]) => void;
+  onClose: () => void;
+}) {
+  const [budget, setBudget] = useState<RingBudgetBand>("100to200");
+  const [material, setMaterial] = useState<string>("전체");
+  const [diamond, setDiamond] = useState<RingDiamondPref>("all");
+
+  const picks = useMemo(
+    () => pickStarterRings({ budget, material, diamond }),
+    [budget, material, diamond]
+  );
+  const whoLabel = who === "bride" ? "신부" : "신랑";
+
+  return (
+    <section className="border-y border-hair py-5 space-y-5">
+      <div className="flex items-baseline justify-between gap-4">
+        <div>
+          <div className="eyebrow-gold mb-2">기본 후보</div>
+          <h2 className="font-serif text-xl text-ink">반지 기준 잡기</h2>
+        </div>
+        <button onClick={onClose} className="text-[12px] text-soft underline underline-offset-4 hover:text-ink">
+          닫기
+        </button>
+      </div>
+
+      <p className="text-[12px] text-soft leading-relaxed">
+        조건 몇 개만 골라 먼저 비교할 후보를 잡습니다. 가격은 상담 전 감을 잡는 기준이라,
+        마음에 드는 후보는 {whoLabel}의 좋아요로 표시하고 매장 상담 전에 다시 확인하세요.
+      </p>
+
+      <StarterOption label="예산">
+        <Segment active={budget === "under100"} onClick={() => setBudget("under100")}>100만 이하</Segment>
+        <Segment active={budget === "100to200"} onClick={() => setBudget("100to200")}>100~200</Segment>
+        <Segment active={budget === "200to300"} onClick={() => setBudget("200to300")}>200~300</Segment>
+        <Segment active={budget === "over300"} onClick={() => setBudget("over300")}>300 이상</Segment>
+      </StarterOption>
+
+      <StarterOption label="소재">
+        {["전체", "플래티넘", "화이트골드", "로즈골드", "옐로우골드"].map((m) => (
+          <Segment key={m} active={material === m} onClick={() => setMaterial(m)}>{m}</Segment>
+        ))}
+      </StarterOption>
+
+      <StarterOption label="디자인">
+        <Segment active={diamond === "all"} onClick={() => setDiamond("all")}>상관없음</Segment>
+        <Segment active={diamond === "simple"} onClick={() => setDiamond("simple")}>심플</Segment>
+        <Segment active={diamond === "diamond"} onClick={() => setDiamond("diamond")}>다이아</Segment>
+      </StarterOption>
+
+      <div className="border-y border-hair divide-y divide-hair">
+        {picks.map(({ ring, reason }, idx) => (
+          <div key={ring.id} className="py-3 flex items-start gap-3">
+            <span className="font-serif text-soft text-base tabular-nums w-5 flex-shrink-0">
+              {String(idx + 1).padStart(2, "0")}
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="font-serif text-[15px] text-ink truncate">
+                {ring.brand}<span className="text-soft"> · </span>{ring.model}
+              </div>
+              <div className="text-[11px] text-soft mt-1">
+                {[ring.material, ring.hasDiamond ? "다이아" : "심플", ring.priceKRW ? `${Math.round(ring.priceKRW / 10000)}만원대` : undefined].filter(Boolean).join(" · ")}
+              </div>
+              <p className="text-[11px] text-soft leading-relaxed mt-1">{reason}</p>
+            </div>
+          </div>
+        ))}
+        {picks.length === 0 && (
+          <p className="py-4 text-[12px] text-soft leading-relaxed">
+            조건에 맞는 후보가 없습니다. 예산이나 소재 조건을 조금 넓혀보세요.
+          </p>
+        )}
+      </div>
+
+      <button
+        onClick={() => onApply(picks.map(({ ring }) => ring))}
+        disabled={picks.length === 0}
+        className="btn-primary w-full py-3 text-[12.5px] disabled:opacity-40"
+      >
+        후보 {picks.length}개 표시하기 →
+      </button>
+    </section>
+  );
+}
+
+function StarterOption({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="eyebrow mb-3">{label}</div>
+      <div className="flex flex-wrap gap-x-5 gap-y-3">{children}</div>
+    </div>
+  );
+}
+
+function Segment({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`text-[12px] tracking-wide pb-1 transition ${
+        active ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function pickStarterRings({
+  budget,
+  material,
+  diamond,
+}: {
+  budget: RingBudgetBand;
+  material: string;
+  diamond: RingDiamondPref;
+}): StarterRingPick[] {
+  const scored = RING_CATALOG.map((ring) => {
+    let score = 0;
+    if (ring.priceKRW && isRingBudgetMatch(ring.priceKRW, budget)) score += 5;
+    if (material === "전체" || ring.material === material) score += 3;
+    if (diamond === "all") score += 1;
+    else if (diamond === "diamond" && ring.hasDiamond) score += 2;
+    else if (diamond === "simple" && !ring.hasDiamond) score += 2;
+    if ((ring.source ?? "").includes("백화점") || (ring.source ?? "").includes("종로")) score += budget === "under100" ? 2 : 0;
+    return { ring, score };
+  });
+
+  const byScore = (a: { ring: Ring; score: number }, b: { ring: Ring; score: number }) =>
+    b.score - a.score || (a.ring.priceKRW ?? Number.MAX_SAFE_INTEGER) - (b.ring.priceKRW ?? Number.MAX_SAFE_INTEGER);
+
+  const selected: { ring: Ring; score: number }[] = [];
+  const add = (items: { ring: Ring; score: number }[]) => {
+    for (const item of items.sort(byScore)) {
+      if (selected.length >= 5) break;
+      if (!selected.some(({ ring }) => ring.id === item.ring.id)) selected.push(item);
+    }
+  };
+
+  add(scored.filter(({ ring, score }) =>
+    score >= 6 && (!ring.priceKRW || isRingBudgetWithinLooseRange(ring.priceKRW, budget))
+  ));
+
+  if (selected.length < 5) {
+    add(scored.filter(({ ring }) =>
+      !ring.priceKRW || isRingBudgetWithinLooseRange(ring.priceKRW, budget)
+    ));
+  }
+
+  if (selected.length < 3) {
+    add(scored);
+  }
+
+  return selected.slice(0, 5).map(({ ring }) => ({
+    ring,
+    reason: ringStarterReason(ring, budget, material, diamond),
+  }));
+}
+
+function ringStarterReason(ring: Ring, budget: RingBudgetBand, material: string, diamond: RingDiamondPref): string {
+  const parts: string[] = [];
+  if (ring.priceKRW && isRingBudgetMatch(ring.priceKRW, budget)) {
+    parts.push("예산대에 맞는 후보");
+  } else if (ring.priceKRW && isRingBudgetWithinLooseRange(ring.priceKRW, budget)) {
+    parts.push("예산 근처에서 비교할 후보");
+  } else {
+    parts.push("취향 기준을 넓혀볼 후보");
+  }
+  if (material !== "전체" && ring.material === material) parts.push(`${material} 소재`);
+  else if (ring.material) parts.push(ring.material);
+  if (diamond === "diamond" && ring.hasDiamond) parts.push("다이아 디자인");
+  if (diamond === "simple" && !ring.hasDiamond) parts.push("심플 디자인");
+  return parts.slice(0, 3).join(" · ");
+}
+
+function isRingBudgetMatch(price: number, band: RingBudgetBand): boolean {
+  if (band === "under100") return price <= 1_000_000;
+  if (band === "100to200") return price > 1_000_000 && price <= 2_000_000;
+  if (band === "200to300") return price > 2_000_000 && price <= 3_000_000;
+  return price > 3_000_000;
+}
+
+function isRingBudgetWithinLooseRange(price: number, band: RingBudgetBand): boolean {
+  if (band === "under100") return price <= 1_300_000;
+  if (band === "100to200") return price >= 800_000 && price <= 2_300_000;
+  if (band === "200to300") return price >= 1_700_000 && price <= 3_300_000;
+  return price >= 2_600_000;
+}
+
+function AddRingModal({ open, onClose, update }: { open: boolean; onClose: () => void; update: (patch: any) => void; }) {
   const [brand, setBrand] = useState("");
   const [model, setModel] = useState("");
   const [material, setMaterial] = useState("");
@@ -412,22 +841,8 @@ function AddRingModal({ open, onClose, update, mode }: { open: boolean; onClose:
           <input className="input" type="number" value={priceKRW} onChange={(e) => setPriceKRW(e.target.value)} placeholder="1850000" />
         </div>
         <div>
-          <label className="label">반지 사진 (선택)</label>
-          <div className="flex items-center gap-2">
-            <input
-              className="input flex-1"
-              value={imageUrl.startsWith("idb:") || imageUrl.startsWith("data:") ? "" : imageUrl}
-              onChange={(e) => setImageUrl(e.target.value)}
-              placeholder="URL 붙여넣기"
-            />
-            <ImageUploadButton
-              mode={mode}
-              label={imageUrl ? "변경" : "업로드"}
-              className="flex-shrink-0 text-sm border border-line px-3 py-2 hover:border-ink transition whitespace-nowrap"
-              onUploaded={(url) => setImageUrl(url)}
-            />
-          </div>
-          {imageUrl && <SafeImg src={imageUrl} alt="" className="mt-2 w-20 h-20 object-cover rounded-md border border-hair" />}
+          <label className="label">이미지 URL (선택)</label>
+          <input className="input" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://...jpg" />
         </div>
         <button onClick={submit} className="btn-primary w-full">추가하기</button>
       </div>

@@ -319,6 +319,9 @@ function TimelineRow({
         <div className={`text-[14px] ${item.done ? "line-through text-soft" : "text-ink"}`}>
           {item.priority === "red" && <span className="text-gold">● </span>}
           {item.text}
+          {item.source === "ai" && (
+            <span className="ml-2 align-middle text-[10px] tracking-wide text-gold">AI</span>
+          )}
         </div>
         <div className="flex items-center gap-3 mt-1.5 text-[11px]">
           <span className="text-soft">{item.section}</span>
@@ -430,6 +433,9 @@ function SectionCard({
                   <div className="flex-1 min-w-0">
                     <span className={item.done ? "line-through text-soft" : "text-ink"}>
                       {item.priority === "red" && <span className="text-gold">● </span>}{item.text}
+                      {item.source === "ai" && (
+                        <span className="ml-2 align-middle text-[10px] tracking-wide text-gold">AI</span>
+                      )}
                     </span>
                     {item.dueDate && (
                       <span className={`ml-2 text-[11px] tabular-nums ${overdue ? "text-gold" : "text-soft"}`}>

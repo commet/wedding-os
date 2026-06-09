@@ -77,6 +77,7 @@ export default function Settings({ data, update }: Props) {
     // 3. 로컬 정리
     localStorage.removeItem("wedding-os/v1");
     localStorage.removeItem("wedding-os/published-invite");
+    localStorage.removeItem("wedding-os/setup-draft/v1");
     clearSecrets();
     clearOwner();
     window.location.href = "/";
@@ -135,7 +136,7 @@ export default function Settings({ data, update }: Props) {
           </Link>
         )}
         <button onClick={switchMode} className="block text-[12px] underline underline-offset-4 text-soft hover:text-ink mt-3">
-          저장 방식 직접 고르기 (고급) →
+          저장 방식 다시 선택 →
         </button>
       </Section>
 

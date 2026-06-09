@@ -14,7 +14,9 @@ import { put, get } from "@vercel/blob";
 
 declare const process: { env: Record<string, string | undefined> };
 
-const MAX_BYTES = 8 * 1024 * 1024;
+// Vercel Function request body hard limit is 4.5 MB. Keep our own cap lower
+// so users get an app-level message instead of a platform 413.
+const MAX_BYTES = 4 * 1024 * 1024;
 
 type OgMeta = { groomName: string; brideName: string; date: string };
 type PublishMeta = { ogMeta: OgMeta; ownerToken: string; code?: string };
@@ -28,7 +30,7 @@ function json(body: unknown, status = 200): Response {
 }
 
 function decodeBase64Url(s: string): string {
-  const b64 = s.replace(/-/g, "+").replace(/_/g, "/");
+  const b64 = s.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(s.length / 4) * 4, "=");
   const bin = atob(b64);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
@@ -66,7 +68,7 @@ async function readStoredMeta(code: string, token: string): Promise<StoredMeta |
   }
 }
 
-export default async function handler(req: Request): Promise<Response> {
+async function handler(req: Request): Promise<Response> {
   if (req.method !== "POST") return json({ error: "POST 요청만 허용됩니다." }, 405);
 
   const token = process.env.BLOB_READ_WRITE_TOKEN;
@@ -135,3 +137,5 @@ export default async function handler(req: Request): Promise<Response> {
 
   return json({ code });
 }
+
+export default { fetch: handler };

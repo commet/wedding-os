@@ -58,11 +58,11 @@ function demoSdm(): SdmVendor[] {
 function demoRings(): Ring[] {
   // 카탈로그 전체 + 5개에 ★/♥ 표시 → Top 5 자동 생성
   const picks: Record<string, { starredBy?: ("groom"|"bride")[]; likedBy?: ("groom"|"bride")[] }> = {
-    "ring-1":  { starredBy: ["bride", "groom"], likedBy: ["bride"] },         // 티파니 투게더 — 둘 다 ★
-    "ring-5":  { starredBy: ["bride"], likedBy: ["bride", "groom"] },         // 까르띠에 C 드 까르띠에
-    "ring-15": { starredBy: ["groom"], likedBy: ["groom"] },                  // 쇼메 비 드 쇼메
-    "ring-10": { likedBy: ["bride"] },                                        // 불가리 로마 아모르
-    "ring-21": { starredBy: ["groom"], likedBy: ["bride"] },                  // 드 비어스 DB Classic
+    "ring-3":  { starredBy: ["bride", "groom"], likedBy: ["bride"] },         // 티파니 투게더
+    "ring-8":  { starredBy: ["bride"], likedBy: ["bride", "groom"] },         // 까르띠에 C 드 까르띠에
+    "ring-41": { starredBy: ["groom"], likedBy: ["groom"] },                  // 쇼메 비 드 쇼메
+    "ring-23": { likedBy: ["bride"] },                                        // 불가리 로마 아모르
+    "ring-27": { starredBy: ["groom"], likedBy: ["bride"] },                  // 드 비어스 DB Classic
   };
   return RING_CATALOG.map((r) => ({ ...r, ...(picks[r.id] ?? {}) }));
 }
@@ -102,8 +102,7 @@ export function demoData(): WeddingData {
       ],
       rsvpEnabled: true,
       theme: "cream",
-      // 데모는 외국 하객 케이스를 보여주려 다국어 켜둠 — 사용자는 자기 결혼식 시작 시 빈 배열로 리셋됨.
-      enabledLocales: ["en", "zh"],
+      enabledLocales: [],
     },
     rings: demoRings(),
     sdm: demoSdm(),

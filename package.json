@@ -8,6 +8,9 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
+    "test:e2e": "playwright test",
+    "verify:critical": "playwright test tests/critical-flows.spec.ts",
+    "verify:screenshots": "playwright test tests/dashboard-visual.spec.ts",
     "video:render": "remotion render src/video/index.ts WeddingVideo out/wedding-video.mp4 --props=./wedding-video-props.json",
     "video:studio": "remotion studio src/video/index.ts"
   },
@@ -22,6 +25,7 @@
     "remotion": "^4.0.461"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@remotion/cli": "^4.0.461",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
