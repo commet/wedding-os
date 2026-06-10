@@ -14,7 +14,7 @@ export default function Privacy() {
 
       <Section num="01" title="한눈에">
         <ul className="list-disc list-outside pl-5 space-y-1.5 marker:text-soft">
-          <li>본 도구는 <b>오픈소스</b>이며, 저장 방식을 <b>3가지 중 직접 선택</b>합니다 — ① <b>이 기기만</b>(로컬) ② <b>간편</b>(운영자 호스팅·종단간 암호화) ③ <b>독립</b>(본인 Supabase).</li>
+          <li>본 도구는 <b>오픈소스</b>이며, 저장 방식을 직접 선택합니다 — ① <b>이 기기만</b>(로컬) ② <b>간편</b>(운영자 호스팅·종단간 암호화) ③ <b>독립</b>(본인 Supabase) ④ <b>코드 직접 운영</b>.</li>
           <li><b>로컬·독립</b>은 운영자 서버를 거치지 않습니다(본인 기기 또는 본인 인프라).</li>
           <li><b>간편</b>은 운영자 서버에 저장하되, 모든 내용이 <b>이 기기에서 종단간 암호화</b>되어 암호문으로만 올라갑니다. 복호화 키는 서버로 전송되지 않아 <b>운영자는 내용도 키도 알 수 없습니다</b> (03·08 항목).</li>
           <li><b>운영자(yclee913)는 어느 모드에서도 사용자 데이터의 내용을 읽을 수 없습니다.</b> (간편 모드 로그인 시 이메일 등 신원은 알 수 있으나, 내용은 여전히 못 읽습니다 — 05 항목.)</li>
@@ -71,8 +71,9 @@ export default function Privacy() {
       <Section num="06" title="데이터 삭제 · 내려받기">
         <p className="mb-3">모든 데이터는 본인이 직접 통제합니다.</p>
         <ul className="list-disc list-outside pl-5 space-y-1.5 marker:text-soft">
-          <li>모드 1 · 더보기 → "모든 데이터 지우기"</li>
-          <li>모드 2 · 본인의 Supabase 대시보드에서 row/table 삭제</li>
+          <li>로컬 · 더보기 → "모든 데이터 지우기"</li>
+          <li>간편 · 더보기 → "모든 데이터 지우기"를 누르면 운영자 서버의 암호문과 복구 연결도 함께 삭제됩니다.</li>
+          <li>독립 · 본인의 Supabase 대시보드에서 row/table 삭제</li>
           <li>백업 · 더보기 → "내려받기" 로 JSON 다운로드 가능 (보안상 anon key 등 시크릿은 제외됨)</li>
         </ul>
       </Section>
@@ -110,7 +111,7 @@ export default function Privacy() {
           <b className="text-ink">이용 조건</b> · 간편 발행은 무료 편의 기능으로 제공되며 가용성·보존을
           보장하지 않습니다. 중요한 데이터는 [더보기 → 백업]으로 따로 보관하세요. 불법이거나 타인의 권리를
           침해하는 콘텐츠의 발행은 금지되며, 신고가 접수되면 운영자가 삭제할 수 있습니다 (운영자는 암호문을
-          못 읽으므로 신고에 의존합니다). 더 강한 통제가 필요하면 모드 2(본인 Supabase) 또는 모드 3을 사용하세요.
+          못 읽으므로 신고에 의존합니다). 더 강한 통제가 필요하면 독립 모드(본인 Supabase) 또는 코드 직접 운영을 사용하세요.
         </p>
       </Section>
 

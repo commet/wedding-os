@@ -23,7 +23,7 @@ const FEATURES = [
 const MODES = [
   {
     id: "hosted",
-    title: "간편하게 같이 시작",
+    title: "간편 시작",
     oneLiner: "복구 링크로 함께 편집하고 하객 RSVP까지 받을 수 있어요.",
     difficulty: "가입 없음 · 추천",
     highlight: true,
@@ -38,7 +38,7 @@ const MODES = [
   {
     id: "supabase",
     title: "둘이 같이 시작",
-    oneLiner: "처음부터 각자 폰에서 같은 준비판을 보고 편집합니다.",
+    oneLiner: "내 프로젝트를 연결해 각자 폰에서 같은 준비판을 보고 편집합니다.",
     difficulty: "내 Supabase",
     highlight: false,
   },
@@ -244,7 +244,7 @@ export default function Welcome({ data, update }: Props) {
           </button>
         </div>
         <p className="mt-5 text-center text-[11.5px] text-soft leading-relaxed">
-          가입·설치 없이 바로. 입력한 내용은 이 기기에 저장돼요.
+          혼자 시작하거나, 링크로 같이 쓰거나, 내 저장소로 운영할 수 있어요.
         </p>
       </section>
 

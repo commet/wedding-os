@@ -2,12 +2,12 @@ import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useWeddingData } from "./lib/storage";
 import AppShell from "./components/AppShell";
-// 첫 진입 셸 — 랜딩(/)·홈(/dashboard)·게스트 청첩장(/i) 까지는 즉시 떠야 하므로 eager.
+// 첫 진입 셸 — 랜딩(/)·홈(/dashboard)만 즉시 떠야 하므로 eager.
 // 나머지는 메뉴/탭 누른 뒤에야 보이므로 라우트별 lazy 로 분할 — 초기 번들 ↓.
 import Welcome from "./routes/Welcome";
 import Dashboard from "./routes/Dashboard";
-import Invitation from "./routes/Invitation";
 
+const Invitation = lazy(() => import("./routes/Invitation"));
 const Rings = lazy(() => import("./routes/Rings"));
 const Trip = lazy(() => import("./routes/Trip"));
 const Sdm = lazy(() => import("./routes/Sdm"));
