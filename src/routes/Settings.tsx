@@ -95,7 +95,7 @@ export default function Settings({ data, update }: Props) {
   const currentMode =
     data.preferences.mode === "local" ? "내 휴대폰에 저장" :
     data.preferences.mode === "hosted" ? "간편 (운영자 호스팅)" :
-    data.preferences.mode === "supabase" ? "내 사이트로 배포" :
+    data.preferences.mode === "supabase" ? "내 저장소로 직접 운영" :
     data.preferences.mode === "devOnly" ? "코드 직접 수정" : "선택 안 됨";
 
   const copyRecoveryLink = async () => {
@@ -202,9 +202,9 @@ export default function Settings({ data, update }: Props) {
       </Section>
 
       {data.preferences.mode === "supabase" && (
-        <Section title="Supabase 연결 정보">
+        <Section title="직접 저장소 연결 정보">
           <div className="space-y-1.5 text-[11.5px] text-soft">
-            <p className="break-all">URL · <span className="text-ink">{data.preferences.supabase?.url}</span></p>
+            <p className="break-all">저장소 URL · <span className="text-ink">{data.preferences.supabase?.url}</span></p>
             <p>anon key · <span className="text-ink">••••••{data.preferences.supabase?.anonKey.slice(-6)}</span></p>
           </div>
           <Link to="/setup" className="text-[12px] underline underline-offset-4 text-ink hover:text-gold inline-block mt-3">

@@ -144,7 +144,7 @@ export default function Share({ data, update }: Props) {
         desc={
           data.preferences.mode === "supabase"
             ? "준비 데이터를 같이 수정할 수 있는 편집 링크입니다. 하객용 청첩장 링크와 다릅니다."
-            : "둘이 각자 기기에서 편집하려면 같이 쓰는 저장소가 필요합니다. 혼자 시작한 데이터는 전환 때 그대로 옮깁니다."
+            : "배우자와 같이 편집하려면 링크를 만들면 됩니다. 혼자 시작한 데이터는 그대로 이어집니다."
         }
       >
         {data.preferences.mode === "supabase" ? (
@@ -165,9 +165,9 @@ export default function Share({ data, update }: Props) {
           </>
         ) : (
           <Action
-            title="둘이 같이 쓰기 설정"
-            desc="같은 준비판을 두 기기에서 보고 편집할 수 있게 연결합니다."
-            onClick={() => { window.location.href = "/setup"; }}
+            title="함께 편집할 링크 만들기"
+            desc="같은 준비판을 두 기기에서 보고 편집할 수 있게 초대 링크를 만듭니다."
+            onClick={() => { window.location.href = "/start-hosted"; }}
             primary
           />
         )}

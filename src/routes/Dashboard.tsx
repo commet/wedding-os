@@ -284,10 +284,10 @@ export default function Dashboard({ data, update }: Props) {
     }
     if (data.preferences.mode === "local") {
       items.push({
-        to: "/setup",
-        title: "둘이 같이 쓸 준비하기",
-        desc: "혼자 정리한 내용은 그대로 두고, 필요할 때 둘이 쓰는 저장소로 옮길 수 있습니다.",
-        tag: "선택",
+        to: "/start-hosted",
+        title: "링크로 같이 쓰기",
+        desc: "혼자 정리한 내용은 그대로 두고, 배우자와 함께 편집할 수 있는 링크를 만듭니다.",
+        tag: "함께 편집",
       });
     }
     return dedupeFocusItems(items).slice(0, 3);

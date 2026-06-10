@@ -37,7 +37,7 @@ test.describe("critical product flows", () => {
     await page.getByRole("button", { name: "저장 방식 다시 선택 →" }).click();
 
     await page.getByRole("button", { name: "내 결혼식 준비 시작" }).click();
-    await page.getByText("내 Supabase로 운영").click();
+    await page.getByText("내 저장소로 직접 운영").click();
 
     await expect(page).toHaveURL(/\/setup$/);
     await expect(page.getByText("옮겨갈 데이터")).toBeVisible();

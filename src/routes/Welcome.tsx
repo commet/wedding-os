@@ -37,9 +37,9 @@ const MODES = [
   },
   {
     id: "supabase",
-    title: "내 Supabase로 운영",
-    oneLiner: "내 Supabase 프로젝트를 연결해 둘이 같은 준비판을 보고 편집합니다.",
-    difficulty: "독립 운영",
+    title: "내 저장소로 직접 운영",
+    oneLiner: "직접 만든 저장 공간에 연결해 운영합니다. 기술 설정에 익숙한 분께 맞습니다.",
+    difficulty: "고급 · 직접 설정",
     highlight: false,
   },
   {
@@ -148,8 +148,8 @@ export default function Welcome({ data, update }: Props) {
             먼저 정해둘게요.
           </h1>
           <p className="text-soft text-[13px] leading-relaxed">
-            혼자 정리해도 되고, 처음부터 링크로 같이 써도 됩니다.
-            전환 전에는 백업을 만들고 사진까지 옮길 수 있는지 확인합니다.
+            대부분은 첫 번째를 고르면 됩니다. 혼자 먼저 정리해도 나중에 링크로 같이 쓸 수 있고,
+            직접 운영은 기술 설정에 익숙한 분만 선택해도 충분합니다.
           </p>
           <Link to="/trust" className="inline-block mt-4 text-[12px] text-ink underline underline-offset-4 hover:text-gold transition">
             저장 방식과 암호화 확인 →
@@ -195,13 +195,13 @@ export default function Welcome({ data, update }: Props) {
                     <th className="text-left py-2 font-normal eyebrow"></th>
                     <th className="text-center py-2 font-normal eyebrow">내 기기</th>
                     <th className="text-center py-2 font-normal eyebrow">링크</th>
-                    <th className="text-center py-2 font-normal eyebrow">Supabase</th>
+                    <th className="text-center py-2 font-normal eyebrow">직접</th>
                     <th className="text-center py-2 font-normal eyebrow">코드로</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-hair">
-                  <tr><td className="py-3 text-soft">가입</td><td className="text-center">없음</td><td className="text-center">없음</td><td className="text-center">필요</td><td className="text-center">GitHub</td></tr>
-                  <tr><td className="py-3 text-soft">저장 위치</td><td className="text-center">이 기기</td><td className="text-center">암호화 저장</td><td className="text-center">내 DB</td><td className="text-center">내가 정함</td></tr>
+                  <tr><td className="py-3 text-soft">가입</td><td className="text-center">없음</td><td className="text-center">없음</td><td className="text-center">외부 서비스</td><td className="text-center">GitHub</td></tr>
+                  <tr><td className="py-3 text-soft">저장 위치</td><td className="text-center">이 기기</td><td className="text-center">암호화 저장</td><td className="text-center">내 저장소</td><td className="text-center">내가 정함</td></tr>
                   <tr><td className="py-3 text-soft">함께 편집</td><td className="text-center">전환 후</td><td className="text-center">바로</td><td className="text-center">바로</td><td className="text-center">구현 자유</td></tr>
                   <tr><td className="py-3 text-soft">청첩장 링크</td><td className="text-center">발행 가능</td><td className="text-center">가능</td><td className="text-center">가능</td><td className="text-center">구현 자유</td></tr>
                   <tr><td className="py-3 text-soft">데이터 이동</td><td className="text-center">백업 후 전환</td><td className="text-center">처음부터 같이</td><td className="text-center">처음부터 독립</td><td className="text-center">내가 관리</td></tr>

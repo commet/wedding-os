@@ -10,8 +10,8 @@ import SchemaText from "../supabase-schema-text";
 type Props = { data: WeddingData; update: (patch: any) => void; };
 
 const STEPS = [
-  { n: 1, label: "가입" },
-  { n: 2, label: "프로젝트" },
+  { n: 1, label: "계정" },
+  { n: 2, label: "공간" },
   { n: 3, label: "SQL" },
   { n: 4, label: "키 입력" },
   { n: 5, label: "배포" },
@@ -189,7 +189,7 @@ export default function Setup({ data, update }: Props) {
       <div className="flex items-baseline justify-between">
         <div>
           <div className="eyebrow-gold mb-2">Setup Guide</div>
-          <h1 className="font-serif text-[2rem] leading-none">둘이 같이 쓰기 셋업</h1>
+          <h1 className="font-serif text-[2rem] leading-none">직접 저장소 셋업</h1>
         </div>
         <a
           href={`mailto:yclee913@gmail.com?subject=${encodeURIComponent(`[Wedding OS] 셋업 ${step}단계 도움 요청`)}&body=${encodeURIComponent(`안녕하세요,\n\n셋업 ${step}단계에서 막혔어요. 다음 부분이 헷갈려요:\n\n[여기에 상황 적기]\n\n---\n현재 단계: ${step} / 5\n`)}`}
@@ -202,8 +202,8 @@ export default function Setup({ data, update }: Props) {
       <ProgressDots current={step} />
 
       <p className="text-[12.5px] text-soft leading-relaxed text-center">
-        혼자 시작한 데이터도 지우지 않고 옮깁니다.<br />
-        백업 → 사진 변환 → 저장 → 다시 확인 순서로 진행해요.
+        대부분의 사용자는 이 단계가 필요 없습니다.<br />
+        직접 운영하고 싶은 경우에만 백업 → 사진 변환 → 저장 → 다시 확인 순서로 진행해요.
       </p>
 
       <SetupChoiceNote />
@@ -247,17 +247,21 @@ function SetupChoiceNote() {
       <div>
         <div className="eyebrow-gold mb-2">먼저 확인</div>
         <p className="text-[12.5px] text-soft leading-relaxed">
-          하객에게 보낼 청첩장 웹 링크만 필요하면 이 셋업 없이도 만들 수 있습니다.
-          이 셋업은 신랑·신부가 각자 기기에서 같이 편집하거나 RSVP를 두 기기에서 함께 관리할 때 필요해요.
+          하객에게 보낼 청첩장 링크나 배우자와 함께 편집할 링크는 이 셋업 없이도 만들 수 있습니다.
+          이 화면은 본인이 직접 외부 저장소를 만들고 운영하고 싶을 때만 사용해요.
         </p>
       </div>
       <div className="border-t border-hair divide-y divide-hair text-[12.5px]">
         <Link to="/invitation" className="flex items-baseline justify-between gap-4 py-3 text-ink hover:text-gold">
           <span>청첩장 링크만 만들기</span>
-          <span className="text-soft">편집 탭에서 발행 →</span>
+          <span className="text-soft">청첩장에서 발행 →</span>
+        </Link>
+        <Link to="/start-hosted" className="flex items-baseline justify-between gap-4 py-3 text-ink hover:text-gold">
+          <span>배우자와 같이 편집하기</span>
+          <span className="text-soft">링크 만들기 →</span>
         </Link>
         <div className="flex items-baseline justify-between gap-4 py-3">
-          <span className="text-ink">같이 편집·RSVP 함께 관리</span>
+          <span className="text-ink">내 저장소를 직접 만들기</span>
           <span className="text-soft">아래 5단계 진행</span>
         </div>
       </div>
@@ -395,9 +399,9 @@ function NavButtons({
 // ─── Step 1: 가입 ───
 function Step1({ onNext }: { onNext: () => void }) {
   return (
-    <StepCard icon="01" title="Supabase 가입하기">
+    <StepCard icon="01" title="저장소 계정 만들기">
       <p className="text-sm text-soft leading-relaxed">
-        결혼식 정보·청첩장·하객 RSVP를 저장하고 동기화할 데이터베이스예요.
+        Supabase라는 외부 서비스를 써서 결혼식 정보·청첩장·하객 RSVP를 저장하고 동기화합니다.
         작은 개인 사이트는 보통 무료 플랜 범위에서 시작할 수 있지만,
         한도와 휴면 정책은 서비스 정책에 따라 바뀔 수 있습니다.
       </p>
@@ -405,7 +409,7 @@ function Step1({ onNext }: { onNext: () => void }) {
       <div className="py-4 border-y border-hair text-[13px] space-y-2">
         <p className="font-medium">👉 따라하기</p>
         <ol className="space-y-1.5 list-decimal list-inside text-soft">
-          <li>아래 [Supabase 가입] 버튼 클릭</li>
+          <li>아래 [저장소 계정 만들기] 버튼 클릭</li>
           <li><b className="text-ink">"Start your project"</b> 클릭</li>
           <li><b className="text-ink">GitHub 계정으로 가입</b> (가장 빠름)</li>
         </ol>
@@ -417,7 +421,7 @@ function Step1({ onNext }: { onNext: () => void }) {
         rel="noopener noreferrer"
         className="btn-primary px-6 py-3 text-[12px]"
       >
-        Supabase 가입하러 가기 ↗
+        저장소 계정 만들기 ↗
       </a>
 
       <p className="text-[11.5px] text-soft">
@@ -432,9 +436,9 @@ function Step1({ onNext }: { onNext: () => void }) {
 // ─── Step 2: 프로젝트 ───
 function Step2({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
   return (
-    <StepCard icon="02" title="새 프로젝트 만들기">
+    <StepCard icon="02" title="새 저장 공간 만들기">
       <p className="text-sm text-soft leading-relaxed">
-        Supabase 대시보드에서 결혼식 정보를 담을 빈 공간(프로젝트)을 만들어요.
+        Supabase 대시보드에서 결혼식 정보를 담을 빈 공간을 만들어요.
       </p>
 
       <div className="py-4 border-y border-hair text-[13px] space-y-2">
@@ -520,7 +524,7 @@ function Step4({
   const valid = url.startsWith("https://") && anonKey.length > 20;
 
   return (
-    <StepCard icon="04" title="연결 키 가져오기">
+    <StepCard icon="04" title="연결 정보 가져오기">
       <p className="text-sm text-soft leading-relaxed">
         방금 만든 프로젝트의 "주소"와 "키"를 우리 도구에 알려주면,
         둘이 같은 데이터를 보고 편집할 수 있게 돼요.
