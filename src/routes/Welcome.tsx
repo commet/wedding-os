@@ -12,34 +12,34 @@ type Props = {
 };
 
 const FEATURES = [
-  { num: "01", title: "준비 흐름", desc: "날짜를 기준으로 지금 할 일과 다음 결정을 정리합니다" },
-  { num: "02", title: "후보 비교", desc: "반지·여행·예식장처럼 막막한 영역은 출발점을 만들어 둡니다" },
-  { num: "03", title: "청첩장과 RSVP", desc: "정보를 채우면 미리보기와 공유 링크까지 이어집니다" },
-  { num: "04", title: "예산과 하객", desc: "비용·식수·응답을 같은 결혼식 데이터 위에서 봅니다" },
-  { num: "05", title: "안전한 전환", desc: "혼자 시작한 데이터도 나중에 백업 후 그대로 옮깁니다" },
+  { num: "01", title: "오늘 할 일", desc: "지금 필요한 일만 먼저 보여주고, 나머지는 접어둡니다" },
+  { num: "02", title: "후보 풀", desc: "반지·여행·예식장처럼 막막한 선택지를 비교 가능한 형태로 시작합니다" },
+  { num: "03", title: "청첩장", desc: "기본 정보와 문안을 다듬고, 하객에게 보낼 링크까지 이어집니다" },
+  { num: "04", title: "비용과 하객", desc: "예산·식수·응답을 한 데이터 위에서 조용히 관리합니다" },
+  { num: "05", title: "공유와 백업", desc: "혼자 시작한 기록도 나중에 같이 쓰는 방식으로 옮길 수 있습니다" },
 ];
 
 // 프라이버시 ↔ 편의 스펙트럼. 간편(hosted)이 기본 추천.
 const MODES = [
   {
     id: "hosted",
-    title: "간편 시작",
-    oneLiner: "복구 링크로 함께 편집하고 하객 RSVP까지 받을 수 있어요.",
-    difficulty: "가입 없음 · 추천",
+    title: "링크로 같이 시작",
+    oneLiner: "별도 셋업 없이 복구 링크와 편집 링크를 만들고, 청첩장 RSVP까지 받을 수 있어요.",
+    difficulty: "가장 쉬움 · 추천",
     highlight: true,
   },
   {
     id: "local",
-    title: "혼자 먼저 시작",
-    oneLiner: "가입 없이 바로 시작합니다. 나중에 둘이 같이 쓰도록 그대로 옮길 수 있어요.",
-    difficulty: "30초 · 로컬 저장",
+    title: "혼자 이 기기에 저장",
+    oneLiner: "가입 없이 바로 시작합니다. 나중에 필요하면 기록을 그대로 옮겨 같이 쓸 수 있어요.",
+    difficulty: "30초 · 내 기기",
     highlight: false,
   },
   {
     id: "supabase",
-    title: "둘이 같이 시작",
-    oneLiner: "내 프로젝트를 연결해 각자 폰에서 같은 준비판을 보고 편집합니다.",
-    difficulty: "내 Supabase",
+    title: "내 Supabase로 운영",
+    oneLiner: "내 Supabase 프로젝트를 연결해 둘이 같은 준비판을 보고 편집합니다.",
+    difficulty: "독립 운영",
     highlight: false,
   },
   {
@@ -141,18 +141,18 @@ export default function Welcome({ data, update }: Props) {
           <span>←</span> 돌아가기
         </button>
 
-        <div className="mb-12">
+        <div className="mb-9">
           <div className="eyebrow-gold mb-4">01 · 저장 방식</div>
           <h1 className="display-sm mb-3">
-            먼저 편하게 시작할까요,<br />
-            같이 쓸 준비까지 할까요?
+            어떻게 이어서 쓸지<br />
+            먼저 정해둘게요.
           </h1>
           <p className="text-soft text-[13px] leading-relaxed">
-            혼자 정리하다가 나중에 둘이 같이 쓰는 방식으로 옮겨도 됩니다.
-            전환 전에 백업을 만들고, 사진까지 옮길 수 있는지 확인해요.
+            혼자 정리해도 되고, 처음부터 링크로 같이 써도 됩니다.
+            전환 전에는 백업을 만들고 사진까지 옮길 수 있는지 확인합니다.
           </p>
           <Link to="/trust" className="inline-block mt-4 text-[12px] text-ink underline underline-offset-4 hover:text-gold transition">
-            🔒 어디에 저장하든 운영자는 내용을 못 읽어요 — 직접 확인 →
+            저장 방식과 암호화 확인 →
           </Link>
         </div>
 
@@ -169,7 +169,7 @@ export default function Welcome({ data, update }: Props) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline gap-2 mb-1.5">
                     <h2 className="font-serif text-lg text-ink">{m.title}</h2>
-                    {m.highlight && <span className="eyebrow-gold">먼저 추천</span>}
+                    {m.highlight && <span className="eyebrow-gold">추천</span>}
                   </div>
                   <p className="text-[13px] text-soft leading-relaxed mb-2">{m.oneLiner}</p>
                   <span className="eyebrow">{m.difficulty}</span>
@@ -193,17 +193,18 @@ export default function Welcome({ data, update }: Props) {
                 <thead>
                   <tr className="text-soft">
                     <th className="text-left py-2 font-normal eyebrow"></th>
-                    <th className="text-center py-2 font-normal eyebrow">혼자</th>
-                    <th className="text-center py-2 font-normal eyebrow">같이</th>
+                    <th className="text-center py-2 font-normal eyebrow">내 기기</th>
+                    <th className="text-center py-2 font-normal eyebrow">링크</th>
+                    <th className="text-center py-2 font-normal eyebrow">Supabase</th>
                     <th className="text-center py-2 font-normal eyebrow">코드로</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-hair">
-                  <tr><td className="py-3 text-soft">가입</td><td className="text-center">없음</td><td className="text-center">필요</td><td className="text-center">GitHub</td></tr>
-                  <tr><td className="py-3 text-soft">저장 위치</td><td className="text-center">이 기기</td><td className="text-center">같이 쓰는 저장소</td><td className="text-center">내가 정함</td></tr>
-                  <tr><td className="py-3 text-soft">함께 편집</td><td className="text-center">전환 후</td><td className="text-center">바로</td><td className="text-center">구현 자유</td></tr>
-                  <tr><td className="py-3 text-soft">청첩장 링크</td><td className="text-center">발행 가능</td><td className="text-center">가능</td><td className="text-center">구현 자유</td></tr>
-                  <tr><td className="py-3 text-soft">데이터 이동</td><td className="text-center">백업 후 전환</td><td className="text-center">처음부터 같이</td><td className="text-center">내가 관리</td></tr>
+                  <tr><td className="py-3 text-soft">가입</td><td className="text-center">없음</td><td className="text-center">없음</td><td className="text-center">필요</td><td className="text-center">GitHub</td></tr>
+                  <tr><td className="py-3 text-soft">저장 위치</td><td className="text-center">이 기기</td><td className="text-center">암호화 저장</td><td className="text-center">내 DB</td><td className="text-center">내가 정함</td></tr>
+                  <tr><td className="py-3 text-soft">함께 편집</td><td className="text-center">전환 후</td><td className="text-center">바로</td><td className="text-center">바로</td><td className="text-center">구현 자유</td></tr>
+                  <tr><td className="py-3 text-soft">청첩장 링크</td><td className="text-center">발행 가능</td><td className="text-center">가능</td><td className="text-center">가능</td><td className="text-center">구현 자유</td></tr>
+                  <tr><td className="py-3 text-soft">데이터 이동</td><td className="text-center">백업 후 전환</td><td className="text-center">처음부터 같이</td><td className="text-center">처음부터 독립</td><td className="text-center">내가 관리</td></tr>
                 </tbody>
               </table>
             </div>
@@ -225,8 +226,8 @@ export default function Welcome({ data, update }: Props) {
           <span className="italic font-light text-gold">선명해지도록.</span>
         </h1>
         <p className="text-[13.5px] text-soft leading-[1.7] max-w-[20rem]">
-          체크리스트·후보 비교·예산·청첩장까지.<br />
-          흩어진 준비를 하나의 흐름으로 모읍니다.
+          체크리스트, 후보 비교, 예산, 청첩장까지.<br />
+          흩어진 준비를 차분한 흐름으로 모읍니다.
         </p>
       </section>
 
@@ -244,7 +245,7 @@ export default function Welcome({ data, update }: Props) {
           </button>
         </div>
         <p className="mt-5 text-center text-[11.5px] text-soft leading-relaxed">
-          혼자 시작하거나, 링크로 같이 쓰거나, 내 저장소로 운영할 수 있어요.
+          혼자 기록하고, 같이 편집하고, 하객에게 공유하는 흐름까지 이어집니다.
         </p>
       </section>
 
@@ -273,7 +274,7 @@ export default function Welcome({ data, update }: Props) {
       {/* 4. 하단 반복 CTA — 가벼운 마무리 */}
       <section className="page py-14 text-center">
         <p className="font-serif text-xl text-ink leading-snug mb-6">
-          시작은 30초면 충분합니다.
+          처음부터 완벽하지 않아도 됩니다.
         </p>
         <button onClick={startMine} className="btn-primary px-10 py-4 text-[13px]">
           저장 방식 고르기 →

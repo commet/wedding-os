@@ -23,9 +23,18 @@ type ReadinessItem = {
   detail: string;
 };
 
+type StarterResult = {
+  tasks: number;
+  budget: number;
+  regions: number;
+  today: number;
+  greeting: boolean;
+};
+
 export default function Dashboard({ data, update }: Props) {
   const [aiPrompt, setAiPrompt] = useState<BridgePrompt | null>(null);
   const [aiMessage, setAiMessage] = useState("");
+  const [starterResult, setStarterResult] = useState<StarterResult | null>(null);
   const dday = useMemo(() => {
     return daysUntilISODate(data.invitation.date);
   }, [data.invitation.date]);
@@ -77,6 +86,7 @@ export default function Dashboard({ data, update }: Props) {
 
   const openAiStarter = () => {
     setAiMessage("");
+    setStarterResult(null);
     setAiPrompt(weddingPlanStarterPrompt(data));
   };
 
@@ -89,6 +99,13 @@ export default function Dashboard({ data, update }: Props) {
     const summary = typeof parsed?.summary === "string" ? parsed.summary.trim() : "";
     const greeting = typeof parsed?.invitationGreeting === "string" ? parsed.invitationGreeting.trim() : "";
     const defaultGreeting = defaultData().invitation.greeting.trim();
+    const result: StarterResult = {
+      tasks: 0,
+      budget: 0,
+      regions: 0,
+      today: 0,
+      greeting: false,
+    };
 
     update((prev: WeddingData) => {
       let next: WeddingData = { ...prev };
@@ -125,6 +142,7 @@ export default function Dashboard({ data, update }: Props) {
           ...next,
           checklist: recalcDueDates(checklist, next.invitation.date),
         };
+        result.tasks = newTasks.length;
       }
 
       const budgetCategories = new Set((next.budget ?? []).map((item) => item.category.trim()));
@@ -138,6 +156,7 @@ export default function Dashboard({ data, update }: Props) {
         .filter((item: any) => item.category && !budgetCategories.has(item.category));
       if (newBudget.length > 0) {
         next = { ...next, budget: [...(next.budget ?? []), ...newBudget] };
+        result.budget = newBudget.length;
       }
 
       const regionNames = new Set(next.honeymoon.regions.map((region) => region.name.trim()));
@@ -157,10 +176,12 @@ export default function Dashboard({ data, update }: Props) {
             regions: [...next.honeymoon.regions, ...newRegions],
           },
         };
+        result.regions = newRegions.length;
       }
 
       if (greeting && (!next.invitation.greeting.trim() || next.invitation.greeting.trim() === defaultGreeting)) {
         next = { ...next, invitation: { ...next.invitation, greeting } };
+        result.greeting = true;
       }
 
       const normalizedToday = todayItems
@@ -181,19 +202,16 @@ export default function Dashboard({ data, update }: Props) {
             updatedAt: new Date(now).toISOString(),
           },
         };
+        result.today = normalizedToday.length;
       }
 
       return next;
     });
 
-    const added =
-      checklistItems.length +
-      budgetItems.length +
-      honeymoonRegions.length +
-      todayItems.length +
-      (summary ? 1 : 0) +
-      (greeting ? 1 : 0);
-    setAiMessage(added > 0 ? "준비 초안을 반영했어요. 체크리스트·예산·여행 후보를 확인해보세요." : "답변은 받았지만 반영할 항목이 없었어요.");
+    const applied = result.tasks + result.budget + result.regions + result.today + (result.greeting ? 1 : 0);
+    const added = applied + (summary ? 1 : 0);
+    setStarterResult(applied > 0 ? result : null);
+    setAiMessage(added > 0 ? "시작점을 만들었어요. 아래에서 바로 이어갈 수 있습니다." : "답변은 받았지만 반영할 항목이 없었어요.");
   };
 
   const focusItems = useMemo<FocusItem[]>(() => {
@@ -539,9 +557,10 @@ export default function Dashboard({ data, update }: Props) {
             {aiMessage}
           </p>
         )}
+        {starterResult && <StarterResultPanel result={starterResult} />}
         {data.ai?.starterSummary && (
           <div className="border-l-2 border-hair pl-3 mb-4">
-            <div className="eyebrow-gold mb-1">AI note</div>
+            <div className="eyebrow-gold mb-1">정리 메모</div>
             <p className="text-[12px] text-soft leading-relaxed">
               {data.ai.starterSummary}
             </p>
@@ -767,6 +786,37 @@ function StarterPreview({ num, title, desc }: { num: string; title: string; desc
       <div className="min-w-0">
         <div className="text-[13px] font-medium text-ink leading-snug">{title}</div>
         <p className="text-[11.5px] text-soft leading-relaxed mt-0.5">{desc}</p>
+      </div>
+    </div>
+  );
+}
+
+function StarterResultPanel({ result }: { result: StarterResult }) {
+  const rows = [
+    { to: "/checklist", label: "체크리스트", value: result.tasks, unit: "개" },
+    { to: "/budget", label: "예산 항목", value: result.budget, unit: "개" },
+    { to: "/trip", label: "여행 후보", value: result.regions, unit: "곳" },
+    { to: "/checklist", label: "오늘 볼 일", value: result.today, unit: "개" },
+  ].filter((row) => row.value > 0);
+
+  return (
+    <div className="mb-5 border-y border-hair py-4">
+      <div className="grid grid-cols-2 gap-3">
+        {rows.map((row) => (
+          <Link key={row.label} to={row.to} className="bg-cream/45 px-3 py-3 active:opacity-70 transition">
+            <div className="eyebrow mb-2">{row.label}</div>
+            <div className="font-serif text-2xl text-ink tabular-nums">
+              {row.value}
+              <span className="ml-1 text-[12px] text-soft font-sans">{row.unit}</span>
+            </div>
+          </Link>
+        ))}
+        {result.greeting && (
+          <Link to="/invitation" className="bg-cream/45 px-3 py-3 active:opacity-70 transition">
+            <div className="eyebrow mb-2">청첩장 문안</div>
+            <div className="font-serif text-[16px] text-ink">초안 반영</div>
+          </Link>
+        )}
       </div>
     </div>
   );
