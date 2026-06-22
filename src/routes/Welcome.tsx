@@ -7,17 +7,13 @@ import { defaultChecklist } from "../data/checklistTemplate";
 import { demoData } from "../data/demoData";
 import { authAvailable } from "../lib/auth";
 import { downloadCorruptLocalBackup, hasCorruptLocalBackup } from "../lib/storage";
+import AgentOnboarding from "../components/AgentOnboarding";
+import { buildAgentDraft, type AgentAnswers } from "../lib/agentDraft";
 
 type Props = {
   data: WeddingData;
   update: (patch: any) => void;
 };
-
-const FEATURES = [
-  { num: "01", title: "오늘 할 일 3가지", desc: "긴 체크리스트 대신 지금 결정할 일부터 보여줍니다" },
-  { num: "02", title: "같은 기준으로 비교", desc: "예식장·반지·여행 후보와 견적을 한곳에서 비교합니다" },
-  { num: "03", title: "준비한 정보로 청첩장까지", desc: "이름·날짜·장소를 다시 입력하지 않고 청첩장과 RSVP로 이어집니다" },
-];
 
 // 프라이버시 ↔ 편의 스펙트럼. 간편(hosted)이 기본 추천.
 const MODES = [
@@ -133,7 +129,11 @@ export default function Welcome({ data, update }: Props) {
     navigate(id === "local" ? "/dashboard" : "/setup");
   };
 
-  const startMine = () => selectMode("local");
+  const completeAgent = (answers: AgentAnswers) => {
+    update(() => buildAgentDraft(data, answers));
+    markOwner();
+    navigate(answers.storage === "hosted" ? "/start-hosted" : "/dashboard");
+  };
 
   /* ──────── 모드 선택 단계 ──────── */
   if (step === "modeSelect") {
@@ -222,106 +222,22 @@ export default function Welcome({ data, update }: Props) {
 
   /* ──────── 랜딩 ──────── */
   return (
-    <div className="max-w-app mx-auto bg-paper min-h-screen">
+    <div className="max-w-app mx-auto min-h-screen">
       {hasCorruptLocalBackup() && (
-        <div role="alert" className="mx-6 mt-6 border border-gold/40 bg-gold/5 p-4">
+        <div role="alert" className="mx-6 mt-6 border border-gold/40 bg-paper p-4 relative z-10">
           <p className="text-[12px] text-ink leading-relaxed">이 기기의 이전 데이터가 손상되어 자동으로 열지 못했습니다. 원문은 덮어쓰지 않고 별도로 보존했습니다.</p>
           <button onClick={downloadCorruptLocalBackup} className="mt-2 min-h-11 text-[12px] underline underline-offset-4 text-ink">
             손상 원문 내려받기 →
           </button>
         </div>
       )}
-      {/* 1. 히어로 — 큰 세리프, hairline */}
-      <section className="page pt-20 pb-16">
-        <div className="eyebrow-gold mb-6">Wedding · OS</div>
-        <h1 className="font-serif text-[2.5rem] leading-[1.08] tracking-tight text-ink mb-6">
-          결혼 준비,<br />
-          오늘 무엇부터 할지<br />
-          <span className="italic font-light text-gold">바로 보이도록.</span>
-        </h1>
-        <p className="text-[13.5px] text-soft leading-[1.7] max-w-[20rem]">
-          할 일, 예산, 후보 비교, 청첩장을 한곳에 모으고<br />
-          둘이 같은 준비판을 보며 결정합니다.
-        </p>
-      </section>
-
-      {/* 2. 메인 CTA — 바로 시작이 1순위, 데모는 보조 */}
-      <section className="page pb-8">
-        <button
-          onClick={startMine}
-          className="btn-primary w-full py-4 text-[13px]"
-        >
-          가입 없이 바로 시작
-        </button>
-        <div className="mt-4 flex items-center justify-center gap-5 text-center">
-          {hostedReady && (
-            <button onClick={() => selectMode("hosted")} className="text-[13px] text-ink underline underline-offset-4 hover:text-gold transition">
-              둘이 같이 시작
-            </button>
-          )}
-          <button onClick={browseDemo} className="text-[13px] text-soft underline underline-offset-4 hover:text-ink transition">
-            예시 먼저 보기
-          </button>
-        </div>
-        <p className="mt-5 text-center text-[11.5px] text-soft leading-relaxed">
-          설치 없이 시작하고, 필요할 때 배우자와 공유할 수 있습니다.
-        </p>
-      </section>
-
-      <div className="hairline" />
-
-      {/* 3. What's inside — 번호 매겨진 hairline 리스트 */}
-      <section className="page pt-8 pb-14">
-        <div className="eyebrow-gold mb-6">What's inside</div>
-        <ul className="stack">
-          {FEATURES.map((f) => (
-            <li key={f.title} className="flex items-baseline gap-5">
-              <span className="font-serif text-soft text-base tabular-nums w-6 flex-shrink-0">
-                {f.num}
-              </span>
-              <div className="flex-1 min-w-0">
-                <div className="font-serif text-base text-ink mb-1">{f.title}</div>
-                <div className="text-[12.5px] text-soft leading-relaxed">{f.desc}</div>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <div className="hairline" />
-
-      {/* 4. 하단 반복 CTA — 가벼운 마무리 */}
-      <section className="page py-14 text-center">
-        <p className="font-serif text-xl text-ink leading-snug mb-6">
-          처음부터 완벽하지 않아도 됩니다.
-        </p>
-        <button onClick={startMine} className="btn-primary px-10 py-4 text-[13px]">
-          가입 없이 바로 시작 →
-        </button>
-        <div className="mt-5">
-          <button onClick={() => setStep("modeSelect")} className="min-h-11 px-2 text-[12px] text-soft underline underline-offset-4 hover:text-ink transition">
-            저장·공유 방식 직접 고르기 (고급)
-          </button>
-        </div>
-      </section>
-
-      {/* 5. 푸터 — 미니멀하게 */}
-      <footer className="page py-10 border-t border-hair text-center">
-        <p className="text-[11px] text-soft leading-relaxed">
-          문의 · 정정 요청은 아래 메일로 보내주세요.
-        </p>
-        <p className="text-[11px] text-soft mt-2">
-          문의는{" "}
-          <a href="mailto:yclee913@gmail.com" rel="noopener noreferrer" className="underline underline-offset-2 text-ink">
-            yclee913@gmail.com
-          </a>
-        </p>
-        <p className="text-[11px] text-soft mt-4 space-x-3">
-          <Link to="/trust" className="inline-flex min-h-11 items-center underline underline-offset-2">운영자도 못 봐요</Link>
-          <span>·</span>
-          <a href="/privacy" className="inline-flex min-h-11 items-center underline underline-offset-2">개인정보 · 보안 안내</a>
-        </p>
-      </footer>
+      <AgentOnboarding
+        data={data}
+        hostedReady={hostedReady}
+        onComplete={completeAgent}
+        onAdvanced={() => setStep("modeSelect")}
+        onDemo={browseDemo}
+      />
     </div>
   );
 }

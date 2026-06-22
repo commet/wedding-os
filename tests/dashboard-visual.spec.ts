@@ -16,7 +16,8 @@ test.describe("dashboard visual smoke", () => {
     await page.goto("/dashboard");
     await page.waitForLoadState("networkidle");
 
-    await expect(page.getByText("먼저 할 일 3가지")).toBeVisible();
+    await expect(page.getByText("Wedding OS Agent")).toBeVisible();
+    await expect(page.getByText("제가 보기엔, 지금은")).toBeVisible();
     await expect(page.getByTestId("dashboard-ai-starter")).toBeVisible();
     await expect(page.getByLabel("예식 날짜")).toBeVisible();
     await expect(page.getByText("Timeline")).toHaveCount(0);
@@ -44,11 +45,11 @@ test.describe("dashboard visual smoke", () => {
     await page.addInitScript(() => { localStorage.clear(); sessionStorage.clear(); });
     await page.goto("/");
 
-    await expect(page.getByRole("heading", { name: "결혼 준비, 오늘 무엇부터 할지 바로 보이도록." })).toBeVisible();
-    await expect(page.getByRole("button", { name: "가입 없이 바로 시작", exact: true })).toBeVisible();
-    await expect(page.getByText("오늘 할 일 3가지")).toBeVisible();
-    await expect(page.getByText("같은 기준으로 비교")).toBeVisible();
-    await expect(page.getByText("준비한 정보로 청첩장까지")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "막막한 준비를 두 분의 순서로 바꿔볼게요." })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Agent와 준비 시작하기 →" })).toBeVisible();
+    await expect(page.getByText("약 2분")).toBeVisible();
+    await expect(page.getByText("나중에 수정")).toBeVisible();
+    await expect(page.getByText("자동 저장")).toBeVisible();
     await expect(page.getByText("내 저장소로 직접 운영")).toHaveCount(0);
     await assertLayoutHealth(page);
   });

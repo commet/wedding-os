@@ -6,6 +6,7 @@ import { daysUntilISODate, parseISODateLocal } from "../lib/date";
 import ChatbotBridgeModal from "../components/ChatbotBridgeModal";
 import { type BridgePrompt, weddingPlanStarterPrompt } from "../lib/chatbotBridge";
 import { defaultData } from "../lib/schema";
+import { AGENT_PRIORITIES, type AgentPriority } from "../lib/agentDraft";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 
@@ -35,6 +36,7 @@ export default function Dashboard({ data, update }: Props) {
   const [aiPrompt, setAiPrompt] = useState<BridgePrompt | null>(null);
   const [aiMessage, setAiMessage] = useState("");
   const [starterResult, setStarterResult] = useState<StarterResult | null>(null);
+  const [agentChoosing, setAgentChoosing] = useState(false);
   const dday = useMemo(() => {
     return daysUntilISODate(data.invitation.date);
   }, [data.invitation.date]);
@@ -43,7 +45,8 @@ export default function Dashboard({ data, update }: Props) {
   const checklistDone = data.checklist.reduce((n, s) => n + s.items.filter((i) => i.done).length, 0);
   const progress = checklistTotal > 0 ? Math.round((checklistDone / checklistTotal) * 100) : 0;
 
-  const empty = !data.invitation.groomName && !data.invitation.brideName;
+  const agentOnboarded = !!data.ai?.profile?.onboardedAt;
+  const empty = !agentOnboarded && !data.invitation.groomName && !data.invitation.brideName;
 
   const venueCount = (data.venues ?? []).length;
   const budgetCount = (data.budget ?? []).length;
@@ -88,6 +91,23 @@ export default function Dashboard({ data, update }: Props) {
     setAiMessage("");
     setStarterResult(null);
     setAiPrompt(weddingPlanStarterPrompt(data));
+  };
+
+  const chooseAgentPriority = (priority: AgentPriority) => {
+    const choice = AGENT_PRIORITIES[priority];
+    update((prev: WeddingData) => ({
+      ...prev,
+      ai: {
+        ...(prev.ai ?? {}),
+        profile: { ...(prev.ai?.profile ?? {}), priority },
+        today: [
+          { title: choice.title, reason: choice.reason, targetPath: choice.targetPath },
+          ...(prev.ai?.today ?? []).filter((item) => item.targetPath !== choice.targetPath),
+        ].slice(0, 3),
+        updatedAt: new Date().toISOString(),
+      },
+    }));
+    setAgentChoosing(false);
   };
 
   const applyAiStarter = (parsed: any) => {
@@ -380,6 +400,13 @@ export default function Dashboard({ data, update }: Props) {
       ],
     },
   ];
+  const primaryFocus = focusItems[0] ?? {
+    to: "/checklist",
+    title: "오늘 할 일 확인하기",
+    desc: "완료한 일과 다음 일정을 가볍게 확인해보세요.",
+    tag: "다음 단계",
+  };
+  const coupleDisplay = [data.invitation.groomName, data.invitation.brideName].filter(Boolean).join(" · ") || "우리";
 
   return (
     <div className="pb-10">
@@ -416,9 +443,7 @@ export default function Dashboard({ data, update }: Props) {
           <>
             <div className="eyebrow-gold mb-6">Our Wedding</div>
             <p className="font-serif text-xl text-ink mb-8 tracking-wide">
-              {data.invitation.groomName}
-              <span className="mx-3 text-gold">·</span>
-              {data.invitation.brideName}
+              {coupleDisplay}
             </p>
 
             {dday !== null && (
@@ -458,7 +483,6 @@ export default function Dashboard({ data, update }: Props) {
               <ProgressLine value={coreProgress} />
             </div>
             <button
-              data-testid="dashboard-ai-starter"
               onClick={openAiStarter}
               className="mt-7 text-[12.5px] text-ink underline underline-offset-4 hover:text-gold"
             >
@@ -470,57 +494,73 @@ export default function Dashboard({ data, update }: Props) {
 
       <div className="hairline" />
 
-      {/* ─── 다음 행동 — 앱이 먼저 정리해주는 영역 ─── */}
+      {/* ─── Wedding OS Agent — 한 번에 한 가지 제안 ─── */}
       <section id="today-focus" className="page py-9 scroll-mt-20">
-        <div className="flex items-baseline justify-between mb-5">
+        <div className="flex items-center gap-3 mb-5">
+          <span aria-hidden="true" className="w-10 h-10 flex-shrink-0 rounded-full bg-[radial-gradient(circle_at_32%_28%,#DCC49A,#9B7443_70%)] text-white flex items-center justify-center font-serif shadow-[0_8px_22px_rgba(155,116,67,0.20)]">W</span>
           <div>
-            <div className="eyebrow-gold mb-2">Next</div>
-            <h2 className="font-serif text-xl text-ink">먼저 할 일 3가지</h2>
+            <div className="text-[13px] font-semibold tracking-wide text-ink">Wedding OS Agent</div>
+            <div className="text-[10.5px] text-sage mt-0.5">{coupleDisplay}의 준비를 함께 보고 있어요</div>
           </div>
-          <span className="text-[11px] text-soft">지금 필요한 순서</span>
         </div>
         {aiMessage && (
-          <p className="text-[11.5px] text-soft leading-relaxed -mt-2 mb-4">
+          <p className="text-[11.5px] text-soft leading-relaxed mb-4">
             {aiMessage}
           </p>
         )}
         {starterResult && <StarterResultPanel result={starterResult} />}
         {data.ai?.starterSummary && (
-          <div className="border-l-2 border-hair pl-3 mb-4">
-            <div className="eyebrow-gold mb-1">정리 메모</div>
+          <div className="rounded-[4px_18px_18px_18px] bg-cream px-4 py-3 mb-4">
+            <div className="eyebrow-gold mb-1">Agent memo</div>
             <p className="text-[12px] text-soft leading-relaxed">
               {data.ai.starterSummary}
             </p>
           </div>
         )}
-        <ul className="border-y border-hair divide-y divide-hair">
-          {focusItems.map((item, idx) => (
-            <li key={`${item.to}-${item.title}`}>
-              <Link to={item.to} className="flex items-start gap-4 py-4 active:opacity-70 transition">
-                <span className="font-serif text-soft text-base tabular-nums w-6 flex-shrink-0">
-                  {String(idx + 1).padStart(2, "0")}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline gap-2 mb-1">
-                    <span className="font-serif text-[16px] text-ink">{item.title}</span>
-                    <span className="eyebrow-gold">{item.tag}</span>
-                  </div>
-                  <p className="text-[12px] text-soft leading-relaxed">{item.desc}</p>
-                </div>
-                <span className="text-soft pt-1">→</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-        {empty && (
-          <button
-            data-testid="dashboard-ai-starter"
-            onClick={openAiStarter}
-            className="mt-5 text-[12px] text-soft underline underline-offset-4 hover:text-ink"
-          >
-            AI로 내 상황에 맞게 다시 정리
-          </button>
+        {agentChoosing ? (
+          <div className="page-enter">
+            <h2 className="font-serif text-xl text-ink mb-2">무엇을 먼저 해볼까요?</h2>
+            <p className="text-[12px] text-soft mb-4">고르면 준비판 순서를 바로 바꿔둘게요.</p>
+            <div className="space-y-2.5">
+              {(Object.entries(AGENT_PRIORITIES) as Array<[AgentPriority, (typeof AGENT_PRIORITIES)[AgentPriority]]>).map(([id, item]) => (
+                <button key={id} onClick={() => chooseAgentPriority(id)} className="w-full min-h-[56px] rounded-[16px] border border-hair bg-white/60 px-4 py-3 text-left flex items-center justify-between gap-3 hover:border-gold transition">
+                  <span className="text-[13px] text-ink">{item.label}</span>
+                  <span className="text-gold">→</span>
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setAgentChoosing(false)} className="mt-4 min-h-11 text-[12px] text-soft underline underline-offset-4">지금 제안으로 돌아가기</button>
+          </div>
+        ) : (
+          <div className="rounded-[22px] border border-hair bg-white/65 p-5 shadow-[0_16px_40px_rgba(104,82,50,0.07)]">
+            <div className="eyebrow-gold mb-2">제가 보기엔, 지금은</div>
+            <h2 className="font-serif text-[1.35rem] leading-snug text-ink">{primaryFocus.title}</h2>
+            <p className="text-[12.5px] text-soft leading-relaxed mt-3">{primaryFocus.desc}</p>
+            <Link to={primaryFocus.to} className="mt-5 min-h-[50px] rounded-full bg-ink text-paper flex items-center justify-center px-5 text-[12.5px] font-medium tracking-wide">
+              이것부터 시작하기 →
+            </Link>
+            <button onClick={() => setAgentChoosing(true)} className="mt-3 w-full min-h-11 text-[12px] text-soft underline underline-offset-4">
+              다른 걸 먼저 하고 싶어요
+            </button>
+          </div>
         )}
+        {!agentChoosing && focusItems.length > 1 && (
+          <div className="mt-5">
+            <div className="eyebrow mb-2">그 다음에 이어갈 일</div>
+            <div className="flex flex-wrap gap-x-5 gap-y-1">
+              {focusItems.slice(1, 3).map((item) => (
+                <Link key={`${item.to}-${item.title}`} to={item.to} className="min-h-11 inline-flex items-center text-[12px] text-soft underline underline-offset-4 hover:text-ink">{item.title}</Link>
+              ))}
+            </div>
+          </div>
+        )}
+        <button
+          data-testid="dashboard-ai-starter"
+          onClick={openAiStarter}
+          className="mt-4 min-h-11 text-[12px] text-soft underline underline-offset-4 hover:text-ink"
+        >
+          AI와 우선순위 다시 대화하기
+        </button>
       </section>
 
       {!empty && <>

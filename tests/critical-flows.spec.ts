@@ -14,23 +14,39 @@ const DRAFT_KEY = "wedding-os/setup-draft/v1";
 const OWNER_KEY = "wedding-os/owner/v1";
 
 test.describe("critical product flows", () => {
-  test("starts from the demo and creates a clean local workspace", async ({ page }) => {
-    await resetBrowserStorage(page);
+  test("builds a personalized local workspace through the Wedding OS Agent", async ({ page }) => {
     await page.goto("/");
+    await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
+    await page.reload();
 
-    await page.getByRole("button", { name: "가입 없이 바로 시작", exact: true }).first().click();
+    await page.getByRole("button", { name: "Agent와 준비 시작하기 →" }).click();
+    await page.getByPlaceholder("예: 민준").fill("민준");
+    await page.getByPlaceholder("예: 서연").fill("서연");
+    await page.getByRole("button", { name: "계속 →" }).click();
+    await page.getByRole("button", { name: "아직 미정이에요 →" }).click();
+    await page.getByRole("button", { name: "후보부터 찾아볼게요 →" }).click();
+    await page.getByRole("button", { name: "5천만원 안팎" }).click();
+    await page.getByRole("button", { name: "예산부터" }).click();
+    await page.getByRole("button", { name: "우선 이 기기에서 시작" }).click();
+    await page.getByRole("button", { name: "내 준비판 열기 →" }).click();
 
     await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(page.getByLabel("예식 날짜")).toBeVisible();
-    await expect(page.getByText("먼저 할 일 3가지")).toBeVisible();
+    await expect(page.getByText("Wedding OS Agent")).toBeVisible();
+    await expect(page.getByText("둘이 쓸 수 있는 총예산 정하기")).toBeVisible();
 
     const stored = await readStoredData(page);
     expect(stored.preferences.mode).toBe("local");
     expect(stored.preferences.isDemo).toBe(false);
-    expect(stored.invitation.groomName).toBe("");
-    expect(stored.invitation.brideName).toBe("");
+    expect(stored.invitation.groomName).toBe("민준");
+    expect(stored.invitation.brideName).toBe("서연");
     expect(stored.checklist.length).toBeGreaterThan(0);
+    expect(stored.budget?.length).toBe(5);
+    expect(stored.ai?.profile?.priority).toBe("budget");
+    expect(stored.ai?.profile?.onboardedAt).toBeTruthy();
     expect(await page.evaluate((key) => localStorage.getItem(key), OWNER_KEY)).toBe("1");
+    await page.reload();
+    await expect(page.getByText("둘이 쓸 수 있는 총예산 정하기")).toBeVisible();
+    expect((await readStoredData(page)).ai?.profile?.priority).toBe("budget");
   });
 
   test("keeps existing local data when moving from local mode into setup", async ({ page }) => {
@@ -41,7 +57,7 @@ test.describe("critical product flows", () => {
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "저장 방식 다시 선택 →" }).click();
 
-    await page.getByRole("button", { name: "저장·공유 방식 직접 고르기 (고급)" }).click();
+    await page.getByRole("button", { name: "고급 저장 설정" }).click();
     await page.getByText("내 저장소로 직접 운영").click();
 
     await expect(page).toHaveURL(/\/setup$/);
@@ -374,7 +390,10 @@ test.describe("critical product flows", () => {
     await page.goto("/dashboard");
     const secondTab = await page.context().newPage();
     await secondTab.goto("/dashboard");
-    await expect(secondTab.getByText(seeded.invitation.groomName)).toBeVisible();
+    await expect(secondTab.getByText(
+      `${seeded.invitation.groomName} · ${seeded.invitation.brideName}`,
+      { exact: true },
+    )).toBeVisible();
 
     await page.evaluate(async () => {
       const storageModulePath = "/src/lib/storage.ts";
@@ -382,7 +401,7 @@ test.describe("critical product flows", () => {
       await storage.clearLocalDeviceData();
     });
     await expect(secondTab).toHaveURL(/\/$/);
-    await expect(secondTab.getByRole("button", { name: "가입 없이 바로 시작", exact: true })).toBeVisible();
+    await expect(secondTab.getByRole("button", { name: "Agent와 준비 시작하기 →" })).toBeVisible();
     expect(await secondTab.evaluate(() => localStorage.getItem("wedding-os/v1"))).toBeNull();
     await secondTab.close();
   });

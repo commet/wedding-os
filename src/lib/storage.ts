@@ -234,6 +234,31 @@ function migrate(raw: unknown): WeddingData {
       supabase: sanitizeSupabaseConfig(prefsRaw.supabase),
       lastBackupAt: typeof prefsRaw.lastBackupAt === "string" ? prefsRaw.lastBackupAt : undefined,
     },
+    ai: (() => {
+      const rawAi = isPlainObject(data.ai) ? data.ai : {};
+      const rawProfile = isPlainObject(rawAi.profile) ? rawAi.profile : {};
+      const priority = ["venue", "budget", "invitation", "rings", "trip"].includes(String(rawProfile.priority))
+        ? rawProfile.priority as "venue" | "budget" | "invitation" | "rings" | "trip"
+        : undefined;
+      return {
+        starterSummary: typeof rawAi.starterSummary === "string" ? rawAi.starterSummary : undefined,
+        today: Array.isArray(rawAi.today)
+          ? rawAi.today.filter(isPlainObject).slice(0, 3).map((item) => ({
+              title: typeof item.title === "string" ? item.title.slice(0, 200) : "",
+              reason: typeof item.reason === "string" ? item.reason.slice(0, 500) : undefined,
+              targetPath: typeof item.targetPath === "string" ? item.targetPath.slice(0, 100) : undefined,
+            })).filter((item) => item.title)
+          : undefined,
+        updatedAt: typeof rawAi.updatedAt === "string" ? rawAi.updatedAt : undefined,
+        profile: {
+          priority,
+          budgetKRW: typeof rawProfile.budgetKRW === "number" && rawProfile.budgetKRW > 0
+            ? Math.min(rawProfile.budgetKRW, 10_000_000_000)
+            : undefined,
+          onboardedAt: typeof rawProfile.onboardedAt === "string" ? rawProfile.onboardedAt : undefined,
+        },
+      };
+    })(),
     invitation:  { ...base.invitation,  ...(isPlainObject(data.invitation) ? data.invitation : {}) },
     rings:       (Array.isArray(data.rings)   ? data.rings.filter(isPlainObject)   : []) as WeddingData["rings"],
     sdm:         (Array.isArray(data.sdm)     ? data.sdm.filter(isPlainObject)     : []) as WeddingData["sdm"],

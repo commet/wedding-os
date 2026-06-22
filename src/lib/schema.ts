@@ -308,6 +308,11 @@ export type WeddingData = {
     starterSummary?: string;
     today?: { title: string; reason?: string; targetPath?: string }[];
     updatedAt?: string;
+    profile?: {
+      priority?: "venue" | "budget" | "invitation" | "rings" | "trip";
+      budgetKRW?: number;
+      onboardedAt?: string;
+    };
   };
   invitation: InvitationContent;
   rings: Ring[];
