@@ -66,7 +66,7 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
       <div className="px-6 pt-7 pb-5 flex items-center justify-between gap-4">
         <AgentIdentity compact />
         {step > 0 && step < TOTAL_STEPS && (
-          <button onClick={back} className="min-h-11 px-2 text-[13px] text-soft underline underline-offset-4">이전</button>
+          <button onClick={back} className="min-h-11 px-2 text-[13px] text-soft underline underline-offset-2">이전</button>
         )}
       </div>
 
@@ -93,8 +93,8 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
             </div>
             <AgentPrimary onClick={next}>Agent와 시작하기</AgentPrimary>
             <div className="mt-5 flex justify-center gap-6">
-              <button onClick={onDemo} className="min-h-11 text-[13px] text-soft underline underline-offset-4">완성 예시 보기</button>
-              <button onClick={onAdvanced} className="min-h-11 text-[13px] text-soft underline underline-offset-4">고급 저장 설정</button>
+              <button onClick={onDemo} className="min-h-11 text-[13px] text-soft underline underline-offset-2">완성 예시 보기</button>
+              <button onClick={onAdvanced} className="min-h-11 text-[13px] text-soft underline underline-offset-2">고급 저장 설정</button>
             </div>
           </AgentStep>
         )}
@@ -146,7 +146,7 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
                 <AgentPrimary onClick={next}>이 지역으로 보기</AgentPrimary>
               </div>
             )}
-            <button onClick={() => { setOtherOpen(false); set("region", ""); next(); }} className="mt-5 block min-h-11 text-[13px] text-soft underline underline-offset-4">지역은 나중에 정할게요</button>
+            <button onClick={() => { setOtherOpen(false); set("region", ""); next(); }} className="mt-5 block min-h-11 text-[13px] text-soft underline underline-offset-2">지역은 나중에 정할게요</button>
           </AgentStep>
         )}
 
@@ -175,7 +175,7 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
               <StorageChoice active={answers.storage === "local"} onClick={() => { set("storage", "local"); next(); }} title="우선 이 기기에서 시작" desc="가입 없이 바로 열고, 나중에 둘이 쓰기로 바꿀 수 있어요." badge="가장 빠름" />
               <StorageChoice active={answers.storage === "hosted"} onClick={() => { if (hostedReady) { set("storage", "hosted"); next(); } }} title="처음부터 둘이 같이" desc={hostedReady ? "로그인 후 암호화된 준비판을 함께 편집해요." : "현재 배포에서 로그인 연결이 필요해요."} badge="추천" disabled={!hostedReady} />
             </div>
-            <button onClick={onAdvanced} className="mt-5 min-h-11 text-[13px] text-soft underline underline-offset-4">내 저장소로 직접 운영</button>
+            <button onClick={onAdvanced} className="mt-5 min-h-11 text-[13px] text-soft underline underline-offset-2">내 저장소로 직접 운영</button>
           </AgentStep>
         )}
 
@@ -200,7 +200,7 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
             <AgentPrimary onClick={() => onComplete(answers)}>
               {answers.storage === "hosted" ? "준비판 열고 함께 연결하기" : "이 순서로 준비 시작하기"}
             </AgentPrimary>
-            <button onClick={back} className="block mx-auto mt-4 min-h-11 text-[13px] text-soft underline underline-offset-4">답변 다시 보기</button>
+            <button onClick={back} className="block mx-auto mt-4 min-h-11 text-[13px] text-soft underline underline-offset-2">답변 다시 보기</button>
           </AgentStep>
         )}
       </main>
@@ -212,7 +212,7 @@ function AgentStep({ eyebrow, title, message, children }: { eyebrow: string; tit
   return (
     <section className="page-enter">
       <div className="eyebrow-gold mb-4">{eyebrow}</div>
-      <h1 className="font-serif text-[26px] leading-[1.4] tracking-[-0.005em] text-ink break-keep [text-wrap:balance] max-w-[19rem]">{title}</h1>
+      <h1 className="font-serif text-[26px] leading-[1.5] tracking-[-0.005em] text-ink break-keep [text-wrap:balance] max-w-[19rem]">{title}</h1>
       {message && <p className="mt-4 max-w-[20rem] text-[15px] leading-[1.85] text-soft">{message}</p>}
       {children}
     </section>
@@ -221,7 +221,7 @@ function AgentStep({ eyebrow, title, message, children }: { eyebrow: string; tit
 
 function AgentPrimary({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
   return (
-    <button onClick={onClick} className="mt-9 min-h-[52px] w-full rounded-none bg-ink px-6 text-[13px] font-medium tracking-[0.04em] text-paper transition active:opacity-85">
+    <button onClick={onClick} className="mt-9 min-h-[52px] w-full rounded-none bg-ink px-6 text-[13px] font-medium tracking-[0.04em] text-paper transition hover:opacity-90 active:opacity-85">
       {children} →
     </button>
   );

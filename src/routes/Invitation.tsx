@@ -164,7 +164,7 @@ export default function Invitation({ data, update }: Props) {
       <div className="min-h-screen bg-paper flex items-center justify-center px-6">
         <div className="text-center max-w-xs">
           <div className="eyebrow-gold mb-4">Wedding · Invitation</div>
-          <h1 className="font-serif text-[1.75rem] text-ink leading-tight mb-3">
+          <h1 className="display-sm text-ink mb-3">
             아직 준비 중이에요
           </h1>
           <p className="text-[13px] text-soft leading-relaxed">
@@ -387,7 +387,7 @@ export function RsvpModal({
             />
           </div>
 
-          {errMsg && <p className="text-red-500 text-sm">{errMsg}</p>}
+          {errMsg && <p className="text-ink text-sm">{errMsg}</p>}
 
           <button
             onClick={submit}
@@ -456,7 +456,7 @@ export function Preview({
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent px-6 pt-20 pb-9 text-white text-center">
             <div className="text-[10.5px] tracking-[0.34em] uppercase mb-3.5 text-white/80">{t("Wedding Invitation", locale)}</div>
             <div className="mx-auto w-7 h-px bg-white/45 mb-4" />
-            <div className={`${fontClass} text-[2rem] leading-tight tracking-wide drop-shadow-sm`}>{names}</div>
+            <div className={`${fontClass} text-[2rem] leading-tight tracking-wide`}>{names}</div>
             {validDate && (
               <div className="text-[11.5px] mt-3.5 tracking-[0.18em] text-white/85">
                 {formatDate(validDate, locale)}{inv.time && ` · ${inv.time}`}
@@ -547,7 +547,7 @@ export function Preview({
                   <button
                     key={i}
                     onClick={() => setLightbox(i)}
-                    className="block w-full aspect-square overflow-hidden rounded-md active:opacity-80 transition"
+                    className="block w-full aspect-square overflow-hidden active:opacity-80 transition"
                     aria-label={g.caption || `사진 ${i + 1} 크게 보기`}
                   >
                     <SafeImg src={g.url} alt={g.caption ?? ""} className="w-full h-full object-cover" />
@@ -907,14 +907,14 @@ function MiniCalendar({ date, chipClass, fontClass = "font-serif" }: { date: Dat
       <div className={`text-center ${fontClass} text-lg mb-3`}>{year}.{String(month + 1).padStart(2, "0")}</div>
       <div className="grid grid-cols-7 gap-1 text-center text-xs">
         {WD.map((w, i) => (
-          <div key={w} className={`py-1 ${i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-soft"}`}>{w}</div>
+          <div key={w} className="py-1 text-soft">{w}</div>
         ))}
         {cells.map((c, i) => (
           <div key={i} className="py-1.5">
             {c === day ? (
-              <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full ${chipClass} text-white font-medium`}>{c}</span>
+              <span className={`inline-flex items-center justify-center w-7 h-7 rounded-none ${chipClass} text-white font-medium`}>{c}</span>
             ) : (
-              <span className={`${i % 7 === 0 ? "text-red-400" : i % 7 === 6 ? "text-blue-400" : "text-ink"}`}>{c}</span>
+              <span className={`${i % 7 === 0 || i % 7 === 6 ? "text-soft" : "text-ink"}`}>{c}</span>
             )}
           </div>
         ))}
@@ -1188,7 +1188,7 @@ function QuickStart({ inv, set, onPreview }: {
   return (
     <div className="border border-hair bg-cream/40 px-5 py-6 mb-2">
       <div className="eyebrow-gold mb-2">30초 만에 시작</div>
-      <h3 className="font-serif text-[1.4rem] text-ink leading-tight mb-2">
+      <h3 className="font-serif text-2xl text-ink leading-tight mb-2">
         {ready ? "기본 정보가 채워졌어요" : "이 세 가지면, 청첩장이 완성돼요"}
       </h3>
       <p className="text-[12.5px] text-soft leading-relaxed mb-5">
@@ -1487,11 +1487,11 @@ function PhotoPickerModal({
                 if (isHero) onPickHero(url);
                 else setSelected((s) => (on ? s.filter((x) => x !== url) : [...s, url]));
               }}
-              className={`relative rounded-lg overflow-hidden ${on ? "ring-2 ring-gold" : ""}`}
+              className={`relative overflow-hidden ${on ? "ring-2 ring-ink" : ""}`}
             >
               <img src={url} alt="" className="w-full aspect-square object-cover" />
               {!isHero && on && (
-                <span className="absolute top-1 right-1 bg-gold text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">✓</span>
+                <span className="absolute top-1 right-1 bg-ink text-paper rounded-none w-5 h-5 text-xs flex items-center justify-center">✓</span>
               )}
             </button>
           );
@@ -1640,9 +1640,9 @@ function GalleryEditor({ gallery, onChange }: { gallery: { url: string; caption?
             return (
               <div key={i} className="flex items-center gap-2.5">
                 {u ? (
-                  <img src={u} alt="" className="w-14 h-14 object-cover rounded-md flex-shrink-0" />
+                  <img src={u} alt="" className="w-14 h-14 object-cover flex-shrink-0" />
                 ) : (
-                  <div className="w-14 h-14 rounded-md bg-cream border border-red-200 flex items-center justify-center text-[10px] text-red-500 text-center flex-shrink-0 leading-tight">잘못된<br />주소</div>
+                  <div className="w-14 h-14 bg-cream border border-hair flex items-center justify-center text-[10px] text-soft text-center flex-shrink-0 leading-tight">잘못된<br />주소</div>
                 )}
                 <input
                   aria-label={`${i + 1}번째 사진 설명`}

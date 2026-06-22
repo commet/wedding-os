@@ -89,15 +89,15 @@ export default function Share({ data, update }: Props) {
     <div className="page pt-8 pb-10 space-y-9">
       <div>
         <div className="eyebrow-gold mb-2">링크와 파일</div>
-        <h1 className="font-serif text-[2rem] leading-none">공유 센터</h1>
+        <h1 className="h-page">공유 센터</h1>
       </div>
 
-      <p className="text-[13px] text-soft leading-relaxed border-b border-hair pb-5">
+      <p className="text-[15px] text-soft leading-[1.85] border-b border-hair pb-5">
         하객용 청첩장과 함께 편집할 초대 링크는 권한이 다릅니다. 받을 사람에 맞는 메뉴를 골라주세요.
       </p>
 
       {status !== "idle" && (
-        <div className={`border-y border-hair py-3 text-[12px] ${status === "fail" ? "text-gold" : "text-soft"}`}>
+        <div className={`border-y border-hair py-3 text-[12px] ${status === "fail" ? "text-ink" : "text-soft"}`}>
           {message}
         </div>
       )}
@@ -166,7 +166,7 @@ export default function Share({ data, update }: Props) {
       <details className="border-y border-hair py-2">
         <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-2">
           <span>
-            <span className="eyebrow-gold block mb-1">필요할 때</span>
+            <span className="eyebrow block mb-1">필요할 때</span>
             <span className="font-serif text-lg text-ink">파일로 내보내기와 백업</span>
           </span>
           <span className="text-[12px] text-soft">펼쳐보기</span>
@@ -229,8 +229,8 @@ function Action({
   return (
     <button onClick={onClick} className="w-full text-left py-4 flex items-baseline gap-4 active:opacity-70 transition">
       <div className="flex-1 min-w-0">
-        <div className={`font-serif text-[16px] ${primary ? "text-ink" : "text-ink/90"}`}>{title}</div>
-        <div className="text-[11.5px] text-soft leading-relaxed mt-1">{desc}</div>
+        <div className={`font-serif text-[16px] text-ink ${primary ? "font-medium" : ""}`}>{title}</div>
+        <div className="text-[12px] text-soft leading-relaxed mt-1">{desc}</div>
       </div>
       <span className={primary ? "text-gold" : "text-soft"}>→</span>
     </button>

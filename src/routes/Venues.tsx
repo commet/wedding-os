@@ -117,7 +117,7 @@ export default function Venues({ data, update }: Props) {
     <div className="page pt-8 pb-10 space-y-8">
       <div>
         <div className="eyebrow-gold mb-2">장소 찾기</div>
-        <h1 className="font-serif text-[2rem] leading-none">예식장</h1>
+        <h1 className="h-page">예식장</h1>
       </div>
 
       {showStarter ? (
@@ -128,13 +128,13 @@ export default function Venues({ data, update }: Props) {
           <div className="flex items-center gap-6 border-b border-hair pb-3">
             <button
               onClick={() => setTab("mine")}
-              className={`text-[12px] tracking-wide pb-1 transition ${tab === "mine" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+              className={`text-[13px] tracking-wide pb-1 transition ${tab === "mine" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
             >
               내 후보 · <span className="tabular-nums">{myVenues.length}</span>
             </button>
             <button
               onClick={() => setTab("catalog")}
-              className={`text-[12px] tracking-wide pb-1 transition ${tab === "catalog" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+              className={`text-[13px] tracking-wide pb-1 transition ${tab === "catalog" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
             >
               카탈로그 · <span className="tabular-nums">{VENUE_CATALOG.length}</span>
             </button>
@@ -145,8 +145,8 @@ export default function Venues({ data, update }: Props) {
             className="w-full text-left border-y border-hair py-4 flex items-baseline justify-between gap-4"
           >
             <span>
-              <span className="eyebrow-gold block mb-1">기본 후보</span>
-              <span className="font-serif text-[17px] text-ink">예식장 기준 잡기</span>
+              <span className="eyebrow block mb-1">기본 후보</span>
+              <span className="font-serif text-[18px] text-ink break-keep">예식장 기준 잡기</span>
             </span>
             <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
           </button>
@@ -162,7 +162,7 @@ export default function Venues({ data, update }: Props) {
               </div>
 
               <div className="flex items-baseline justify-between">
-                <h2 className="eyebrow-gold">내 후보</h2>
+                <h2 className="eyebrow">내 후보</h2>
                 <button onClick={() => setShowAdd(true)} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
                   + 직접 추가
                 </button>
@@ -171,7 +171,7 @@ export default function Venues({ data, update }: Props) {
               {myVenues.length === 0 ? (
                 <div className="py-10 text-center text-soft text-[13px] border-y border-hair">
                   아직 담아둔 식장이 없어요.<br />
-                  <button onClick={() => setTab("catalog")} className="mt-3 text-ink underline underline-offset-4 hover:text-gold text-[12px]">
+                  <button onClick={() => setTab("catalog")} className="mt-3 text-ink underline underline-offset-4 hover:text-gold text-[13px]">
                     카탈로그에서 골라 담기 →
                   </button>
                 </div>
@@ -181,13 +181,13 @@ export default function Venues({ data, update }: Props) {
                     <div className="flex items-center gap-6 border-b border-hair pb-3">
                       <button
                         onClick={() => setMineView("list")}
-                        className={`text-[12px] tracking-wide pb-1 transition ${mineView === "list" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                        className={`text-[13px] tracking-wide pb-1 transition ${mineView === "list" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
                       >
                         목록
                       </button>
                       <button
                         onClick={() => setMineView("compare")}
-                        className={`text-[12px] tracking-wide pb-1 transition ${mineView === "compare" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                        className={`text-[13px] tracking-wide pb-1 transition ${mineView === "compare" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
                       >
                         나란히 비교
                       </button>
@@ -224,7 +224,7 @@ export default function Venues({ data, update }: Props) {
               <div className="flex gap-5 overflow-x-auto pb-2 -mx-6 px-6 scrollbar-hide">
                 <button
                   onClick={() => setHallFilter("all")}
-                  className={`text-[12px] tracking-wide whitespace-nowrap pb-1 transition ${hallFilter === "all" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                  className={`text-[13px] tracking-wide whitespace-nowrap pb-1 transition ${hallFilter === "all" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
                 >
                   전체
                 </button>
@@ -232,7 +232,7 @@ export default function Venues({ data, update }: Props) {
                   <button
                     key={t}
                     onClick={() => setHallFilter(t)}
-                    className={`text-[12px] tracking-wide whitespace-nowrap pb-1 transition ${hallFilter === t ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                    className={`text-[13px] tracking-wide whitespace-nowrap pb-1 transition ${hallFilter === t ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
                   >
                     {HALL_TYPE_LABEL[t]}
                   </button>
@@ -245,7 +245,7 @@ export default function Venues({ data, update }: Props) {
                   <button
                     key={g.key}
                     onClick={() => setRegion(g.key)}
-                    className={`text-[11.5px] tracking-wide whitespace-nowrap pb-1 transition ${region === g.key ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                    className={`text-[13px] tracking-wide whitespace-nowrap pb-1 transition ${region === g.key ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
                   >
                     {g.label}
                   </button>
@@ -264,7 +264,7 @@ export default function Venues({ data, update }: Props) {
 
               {/* 결과 */}
               {filteredCatalog.length === 0 ? (
-                <p className="text-center text-[12.5px] text-soft py-8">
+                <p className="text-center text-[13px] text-soft py-8">
                   조건에 맞는 식장이 없어요.
                 </p>
               ) : (
@@ -276,7 +276,7 @@ export default function Venues({ data, update }: Props) {
                 </ul>
               )}
 
-              <p className="text-[10.5px] text-soft text-center leading-relaxed pt-2">
+              <p className="text-[11px] text-soft text-center leading-relaxed pt-2">
                 가격 범위는 공개 정보 추정치 — 시즌·요일·메뉴별 변동 큼. 최종 결정 전 직접 문의 필수.<br />
                 표시 삭제·정정 요청은{" "}
                 <a href="mailto:yclee913@gmail.com" rel="noopener noreferrer" className="underline underline-offset-2 text-ink">yclee913@gmail.com</a>
@@ -309,7 +309,7 @@ export default function Venues({ data, update }: Props) {
                   {g.cons.map((c, i) => <li key={i}>· {c}</li>)}
                 </ul>
               </div>
-              <div className="pl-4 border-l-2 border-gold/50 text-[12.5px] text-soft leading-relaxed">
+              <div className="pl-4 border-l-2 border-gold/50 text-[13px] text-soft leading-relaxed">
                 {g.tip}
               </div>
             </div>
@@ -341,8 +341,8 @@ function VenueStarter({
     <section className="border-y border-hair py-5 space-y-5">
       <div className="flex items-baseline justify-between gap-4">
         <div>
-          <div className="eyebrow-gold mb-2">기본 후보</div>
-          <h2 className="font-serif text-xl text-ink">예식장 기준 잡기</h2>
+          <div className="eyebrow mb-2">기본 후보</div>
+          <h2 className="font-serif text-[18px] text-ink break-keep">예식장 기준 잡기</h2>
         </div>
         <button onClick={onClose} className="text-[12px] text-soft underline underline-offset-4 hover:text-ink">
           닫기
@@ -391,7 +391,7 @@ function VenueStarter({
             </span>
             <div className="flex-1 min-w-0">
               <div className="font-serif text-[15px] text-ink">{venue.name}</div>
-              <div className="text-[11.5px] text-soft leading-relaxed mt-1">
+              <div className="text-[12px] text-soft leading-relaxed mt-1">
                 {[venue.region, venue.hallType ? HALL_TYPE_LABEL[venue.hallType] : undefined, venue.foodType ? FOOD_TYPE_LABEL[venue.foodType] : undefined].filter(Boolean).join(" · ")}
               </div>
               <div className="eyebrow mt-2">
@@ -413,7 +413,7 @@ function VenueStarter({
       <button
         onClick={() => onApply(picks)}
         disabled={picks.length === 0}
-        className="btn-primary w-full py-3 text-[12.5px] disabled:opacity-40"
+        className="btn-primary w-full py-3 text-[13px] disabled:opacity-40"
       >
         후보 {picks.length}곳 담기 →
       </button>
@@ -434,7 +434,7 @@ function Segment({ active, onClick, children }: { active: boolean; onClick: () =
   return (
     <button
       onClick={onClick}
-      className={`text-[12px] tracking-wide pb-1 transition ${
+      className={`text-[13px] tracking-wide pb-1 transition ${
         active ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
       }`}
     >
@@ -494,7 +494,7 @@ function CatalogRow({ v, added, onAdd }: { v: WeddingVenue; added: boolean; onAd
             {v.hallType && <span>· {HALL_TYPE_LABEL[v.hallType]}</span>}
             {v.foodType && <span>· {FOOD_TYPE_LABEL[v.foodType]}</span>}
           </div>
-          <div className="text-[11.5px] text-soft mt-1.5 tabular-nums">
+          <div className="text-[12px] text-soft mt-1.5 tabular-nums">
             {(v.capacityMin || v.capacityMax) && (
               <>하객 {v.capacityMin ?? "?"}~{v.capacityMax ?? "?"}명 </>
             )}
@@ -503,13 +503,13 @@ function CatalogRow({ v, added, onAdd }: { v: WeddingVenue; added: boolean; onAd
             )}
           </div>
           {v.notes && (
-            <div className="text-[11.5px] text-soft mt-1 italic leading-relaxed">{v.notes}</div>
+            <div className="text-[12px] text-soft mt-1 italic leading-relaxed">{v.notes}</div>
           )}
         </div>
         <button
           onClick={onAdd}
           disabled={added}
-          className={`text-[11.5px] tracking-wide whitespace-nowrap flex-shrink-0 underline underline-offset-4 ${added ? "text-soft" : "text-gold hover:text-ink"}`}
+          className={`text-[12px] tracking-wide whitespace-nowrap flex-shrink-0 underline underline-offset-4 ${added ? "text-soft" : "text-gold hover:text-ink"}`}
         >
           {added ? "✓ 담음" : "+ 담기"}
         </button>
@@ -552,7 +552,7 @@ function MyVenueRow({
               <button
                 key={s}
                 onClick={() => onUpdate({ status: s })}
-                className={`text-[12px] tracking-wide pb-1 transition ${v.status === s ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                className={`text-[13px] tracking-wide pb-1 transition ${v.status === s ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
               >
                 {s}
               </button>
@@ -572,7 +572,7 @@ function MyVenueRow({
           <div>
             <label className="label">메모 (식대 견적·실장 이름·인상)</label>
             <textarea
-              className="input-boxed text-[12.5px] min-h-[60px]"
+              className="input-boxed text-[13px] min-h-[60px]"
               value={v.notes ?? ""}
               onChange={(e) => onUpdate({ notes: e.target.value })}
               placeholder="예: 토요일 12시 13만원, 보증 250명, 평일 12만원 가능"
@@ -634,7 +634,7 @@ function VenueCompare({ venues }: { venues: WeddingVenue[] }) {
               {venues.map((v) => (
                 <td
                   key={v.id}
-                  className={`py-3 px-3 text-[12.5px] align-top whitespace-nowrap ${
+                  className={`py-3 px-3 text-[13px] align-top whitespace-nowrap ${
                     row.label === "상태" && v.status === "계약" ? "text-gold" : "text-ink/90"
                   }`}
                 >
@@ -664,7 +664,7 @@ function CustomAdd({ onAdd }: { onAdd: (v: Omit<WeddingVenue, "id">) => void }) 
         <div className="flex flex-wrap gap-5">
           <button
             onClick={() => setHallType(undefined)}
-            className={`text-[12px] tracking-wide pb-1 ${!hallType ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+            className={`text-[13px] tracking-wide pb-1 ${!hallType ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
           >
             미정
           </button>
@@ -672,7 +672,7 @@ function CustomAdd({ onAdd }: { onAdd: (v: Omit<WeddingVenue, "id">) => void }) 
             <button
               key={t}
               onClick={() => setHallType(t)}
-              className={`text-[12px] tracking-wide pb-1 ${hallType === t ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+              className={`text-[13px] tracking-wide pb-1 ${hallType === t ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
             >
               {HALL_TYPE_LABEL[t]}
             </button>
@@ -682,7 +682,7 @@ function CustomAdd({ onAdd }: { onAdd: (v: Omit<WeddingVenue, "id">) => void }) 
       <input className="input text-[13px]" placeholder="홈페이지·예약 링크 (선택)" value={link} onChange={(e) => setLink(e.target.value)} />
       <textarea className="input-boxed text-[13px] min-h-[60px]" placeholder="메모" value={notes} onChange={(e) => setNotes(e.target.value)} />
       <button
-        className="btn-primary w-full py-3 text-[12.5px]"
+        className="btn-primary w-full py-3 text-[13px]"
         onClick={() => {
           if (!name.trim()) return;
           onAdd({

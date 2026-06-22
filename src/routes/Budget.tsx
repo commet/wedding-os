@@ -101,7 +101,7 @@ export default function Budget({ data, update }: Props) {
     <div className="page pt-8 pb-10 space-y-8">
       <div>
         <div className="eyebrow-gold mb-2">예산과 지출</div>
-        <h1 className="font-serif text-[2rem] leading-none">비용 관리</h1>
+        <h1 className="h-page">비용 관리</h1>
       </div>
 
       {/* 합계 요약 */}
@@ -118,7 +118,7 @@ export default function Budget({ data, update }: Props) {
             </button>
             <button onClick={() => setView("over")} className="text-left border-t border-hair pt-2">
               <span className="eyebrow">예산 초과</span>
-              <span className="block font-serif text-xl text-gold tabular-nums mt-1">{totals.overCount}</span>
+              <span className="block font-serif text-xl text-ink font-semibold tabular-nums mt-1">{totals.overCount}</span>
             </button>
           </div>
           {totals.planned > 0 && (
@@ -129,9 +129,9 @@ export default function Budget({ data, update }: Props) {
                   {totals.planned > 0 ? Math.round((totals.actual / totals.planned) * 100) : 0}%
                 </span>
               </div>
-              <div className="w-full h-px bg-line relative">
+              <div className="w-full h-1 bg-mute/30 relative">
                 <div
-                  className={`absolute top-0 left-0 h-px transition-all ${totals.actual > totals.planned ? "bg-gold" : "bg-ink"}`}
+                  className={`absolute top-0 left-0 h-1 transition-all ${totals.actual > totals.planned ? "bg-gold" : "bg-ink"}`}
                   style={{ width: `${Math.min(100, totals.planned > 0 ? (totals.actual / totals.planned) * 100 : 0)}%` }}
                 />
               </div>
@@ -144,25 +144,25 @@ export default function Budget({ data, update }: Props) {
       <div className="flex items-center gap-6 border-b border-hair pb-3">
         <button
           onClick={() => setView("all")}
-          className={`text-[12px] tracking-wide pb-1 transition ${view === "all" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+          className={`tracking-wide ${view === "all" ? "seg-active" : "seg"}`}
         >
           전체
         </button>
         <button
           onClick={() => setView("current")}
-          className={`text-[12px] tracking-wide pb-1 transition ${view === "current" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+          className={`tracking-wide ${view === "current" ? "seg-active" : "seg"}`}
         >
           입력된 것만
         </button>
         <button
           onClick={() => setView("unpaid")}
-          className={`text-[12px] tracking-wide pb-1 transition ${view === "unpaid" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+          className={`tracking-wide ${view === "unpaid" ? "seg-active" : "seg"}`}
         >
           미결제
         </button>
         <button
           onClick={() => setView("over")}
-          className={`text-[12px] tracking-wide pb-1 transition ${view === "over" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+          className={`tracking-wide ${view === "over" ? "seg-active" : "seg"}`}
         >
           초과
         </button>
@@ -254,7 +254,7 @@ function BudgetRow({ b, onChange, onRemove }: { b: BudgetItem; onChange: (p: Par
   const overBudget = planned > 0 && actual > planned;
 
   return (
-    <li className="px-4 py-3.5">
+    <li className="row-tap px-4 py-3.5">
       <button onClick={() => setOpen((o) => !o)} className="w-full text-left flex items-baseline justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="text-[14px] text-ink">{name}</div>
@@ -266,7 +266,7 @@ function BudgetRow({ b, onChange, onRemove }: { b: BudgetItem; onChange: (p: Par
           <span className={`font-serif text-base tabular-nums ${actual > 0 ? (overBudget ? "text-gold" : "text-ink") : "text-soft"}`}>
             {fmtMan(actual || planned)}<span className="text-[11px] text-soft ml-0.5">만</span>
           </span>
-          {b.paid && <span className="eyebrow-gold mt-0.5">완료</span>}
+          {b.paid && <span className="eyebrow mt-0.5">완료</span>}
         </div>
       </button>
 

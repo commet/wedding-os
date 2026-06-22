@@ -203,9 +203,9 @@ export default function Rings({ data, update }: Props) {
   return (
     <div className="page pt-8 pb-10 space-y-8">
       <div>
-        <div className="eyebrow-gold mb-2">반지 후보</div>
+        <div className="eyebrow-gold mb-3">반지 후보</div>
         <div className="flex items-baseline justify-between">
-          <h1 className="font-serif text-[2rem] leading-none">결혼반지</h1>
+          <h1 className="h-page">결혼반지</h1>
           <button onClick={() => setShowAdd(true)} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
             + 직접 추가
           </button>
@@ -239,8 +239,8 @@ export default function Rings({ data, update }: Props) {
           className="w-full text-left border-y border-hair py-4 flex items-baseline justify-between gap-4"
         >
           <span>
-            <span className="eyebrow-gold block mb-1">기본 후보</span>
-            <span className="font-serif text-[17px] text-ink">반지 기준 잡기</span>
+            <span className="eyebrow block mb-1">기본 후보</span>
+            <span className="font-serif text-[18px] text-ink break-keep">반지 기준 잡기</span>
           </span>
           <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
         </button>
@@ -249,7 +249,7 @@ export default function Rings({ data, update }: Props) {
       {/* Top — 번호 매겨진 hairline 리스트 */}
       {!showStarter && top5.length > 0 && (
         <section>
-          <h2 className="eyebrow-gold mb-4">우리의 Top {top5.length}</h2>
+          <h2 className="eyebrow mb-4">우리의 Top {top5.length}</h2>
           <ul className="divide-y divide-hair border-y border-hair">
             {top5.map((ring, i) => (
               <li key={ring.id} className="flex items-center gap-4 py-4">
@@ -304,10 +304,10 @@ export default function Rings({ data, update }: Props) {
             className="w-full text-left flex items-baseline justify-between gap-4"
           >
             <span>
-              <span className="eyebrow-gold block mb-1">
+              <span className="eyebrow block mb-1">
                 반지 카탈로그 · <span className="tabular-nums">{catalogOpen ? visible.length : rings.length}</span>
               </span>
-              <span className="text-[12px] text-soft">
+              <span className="text-[13px] text-soft leading-relaxed break-keep">
                 전체 후보는 필요할 때만 펼쳐서 비교합니다.
               </span>
             </span>
@@ -378,7 +378,7 @@ function RingCard({
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <div className="eyebrow text-soft mb-1">{ring.brand}</div>
-              <div className="font-serif text-[17px] text-ink truncate">{ring.model}</div>
+              <div className="font-serif text-[18px] text-ink truncate">{ring.model}</div>
               {ring.material && <div className="text-[11px] text-soft mt-1">{ring.material}</div>}
             </div>
             <button onClick={onRemove} className="text-soft hover:text-ink text-sm px-1">×</button>
@@ -411,7 +411,7 @@ function RingCard({
       </div>
 
       {(starredByOther || likedByOther) && (
-        <div className="mt-2 text-[10.5px] tracking-wide text-soft">
+        <div className="mt-2 text-[11px] tracking-wide text-soft">
           {otherLabel}: {starredByOther && "★"} {likedByOther && "♥"}
         </div>
       )}
@@ -425,7 +425,7 @@ function RingCard({
       </div>
 
       {ring.notes && (
-        <p className="mt-3 text-[11.5px] text-soft leading-relaxed whitespace-pre-line line-clamp-2">
+        <p className="mt-3 text-[12px] text-soft leading-relaxed whitespace-pre-line line-clamp-2 break-keep">
           {ring.notes}
         </p>
       )}
@@ -435,13 +435,13 @@ function RingCard({
           메모 / 이미지 수정
         </summary>
         <input
-          className="input text-[11.5px] mt-3"
+          className="input text-[12px] mt-3"
           placeholder="이미지 URL (공식 사이트·직접 업로드한 이미지 링크)"
           value={ring.imageUrl ?? ""}
           onChange={(e) => onUpdate({ imageUrl: e.target.value.trim() || undefined })}
         />
         <textarea
-          className="input-boxed text-[11.5px] mt-3 min-h-[44px]"
+          className="input-boxed text-[12px] mt-3 min-h-[44px]"
           placeholder="메모 (반지 호수·각인 문구·매장·견적 비교)"
           value={ring.notes ?? ""}
           onChange={(e) => onUpdate({ notes: e.target.value })}
@@ -494,8 +494,8 @@ function RingImageFrame({
         className={ringImageClass(ring)}
         fallback={
           <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-cream via-white to-gold/10 text-center px-2">
-            <span className="font-serif text-[20px] leading-none text-gold">{ring.brand.slice(0, 1)}</span>
-            <span className="mt-1 text-[9px] leading-tight text-soft line-clamp-2">{ring.model}</span>
+            <span className="font-serif text-[16px] leading-none text-gold">{ring.brand.slice(0, 1)}</span>
+            <span className="mt-1 text-[10px] leading-tight text-soft line-clamp-2">{ring.model}</span>
           </div>
         }
       />
@@ -624,15 +624,15 @@ function RingStarter({
     <section className="border-y border-hair py-5 space-y-5">
       <div className="flex items-baseline justify-between gap-4">
         <div>
-          <div className="eyebrow-gold mb-2">기본 후보</div>
-          <h2 className="font-serif text-xl text-ink">반지 기준 잡기</h2>
+          <div className="eyebrow mb-2">기본 후보</div>
+          <h2 className="font-serif text-[18px] text-ink break-keep">반지 기준 잡기</h2>
         </div>
         <button onClick={onClose} className="text-[12px] text-soft underline underline-offset-4 hover:text-ink">
           닫기
         </button>
       </div>
 
-      <p className="text-[12px] text-soft leading-relaxed">
+      <p className="text-[15px] text-soft leading-relaxed break-keep">
         조건 몇 개만 골라 먼저 비교할 후보를 잡습니다. 가격은 상담 전 감을 잡는 기준이라,
         마음에 드는 후보는 {whoLabel}의 좋아요로 표시하고 매장 상담 전에 다시 확인하세요.
       </p>
@@ -669,12 +669,12 @@ function RingStarter({
               <div className="text-[11px] text-soft mt-1">
                 {[ring.material, ring.hasDiamond ? "다이아" : "심플", ring.priceKRW ? `${Math.round(ring.priceKRW / 10000)}만원대` : undefined].filter(Boolean).join(" · ")}
               </div>
-              <p className="text-[11px] text-soft leading-relaxed mt-1">{reason}</p>
+              <p className="text-[11px] text-soft leading-relaxed mt-1 break-keep">{reason}</p>
             </div>
           </div>
         ))}
         {picks.length === 0 && (
-          <p className="py-4 text-[12px] text-soft leading-relaxed">
+          <p className="py-4 text-[15px] text-soft leading-relaxed break-keep">
             조건에 맞는 후보가 없습니다. 예산이나 소재 조건을 조금 넓혀보세요.
           </p>
         )}
@@ -683,7 +683,7 @@ function RingStarter({
       <button
         onClick={() => onApply(picks.map(({ ring }) => ring))}
         disabled={picks.length === 0}
-        className="btn-primary w-full py-3 text-[12.5px] disabled:opacity-40"
+        className="btn-primary w-full py-3 text-[13px] disabled:opacity-40"
       >
         후보 {picks.length}개 표시하기 →
       </button>

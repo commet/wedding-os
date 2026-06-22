@@ -141,7 +141,7 @@ export default function Settings({ data, update }: Props) {
     <div className="page pt-8 pb-10 space-y-10">
       <div>
         <div className="eyebrow-gold mb-2">Wedding OS</div>
-        <h1 className="font-serif text-[2rem] leading-none">설정</h1>
+        <h1 className="h-page">설정</h1>
       </div>
 
       <Section title="저장 방식">
@@ -149,7 +149,7 @@ export default function Settings({ data, update }: Props) {
           현재 · <b className="text-ink">{currentMode}</b>
         </p>
         {data.preferences.mode === "local" && authAvailable() && (
-          <Link to="/start-hosted" className="block mt-3 text-[12.5px] text-ink underline underline-offset-4 hover:text-gold">
+          <Link to="/start-hosted" className="block mt-3 text-[12px] text-ink underline underline-offset-4 hover:text-gold">
             👫 배우자와 함께 편집 · 다른 기기에서 이어서 →
           </Link>
         )}
@@ -160,7 +160,7 @@ export default function Settings({ data, update }: Props) {
 
       <Section title="PDF로 저장">
         <details>
-          <summary className="min-h-11 cursor-pointer text-[12.5px] text-ink underline underline-offset-4">기기별 저장 방법 보기</summary>
+          <summary className="min-h-11 cursor-pointer text-[12px] text-ink underline underline-offset-4">기기별 저장 방법 보기</summary>
           <div className="mt-3 border-l border-hair pl-4 text-[12px] leading-[1.75] text-soft">
             <p>컴퓨터: 각 페이지에서 <b className="text-ink">Cmd/Ctrl + P</b>를 누른 뒤 ‘PDF로 저장’을 선택하세요.</p>
             <p className="mt-2">휴대폰: 브라우저의 공유 메뉴에서 ‘프린트’를 선택하세요.</p>
@@ -170,7 +170,7 @@ export default function Settings({ data, update }: Props) {
 
       <div id="data-backup" className="scroll-mt-20">
       <Section title="데이터 백업">
-        <p className="text-[12.5px] text-soft mb-4 leading-relaxed">
+        <p className="text-[15px] text-soft mb-4 leading-[1.85]">
           준비 데이터를 파일로 보관하거나 다른 기기에서 다시 불러옵니다.
         </p>
         <div className="flex gap-6">
@@ -193,13 +193,13 @@ export default function Settings({ data, update }: Props) {
           </button>
         </div>
         {data.preferences.lastBackupAt && (
-          <p className="eyebrow mt-3">
+          <p className="eyebrow mt-4">
             마지막 백업 · <span className="tabular-nums">{data.preferences.lastBackupAt}</span>
           </p>
         )}
         {hasCorruptLocalBackup() && (
           <div className="mt-4 border border-gold/30 bg-gold/5 p-3">
-            <p className="text-[11.5px] text-ink leading-relaxed mb-2">손상된 이전 로컬 데이터 원문을 보존하고 있습니다.</p>
+            <p className="text-[12px] text-ink leading-relaxed mb-2">손상된 이전 로컬 데이터 원문을 보존하고 있습니다.</p>
             <button onClick={downloadCorruptLocalBackup} className="text-[12px] underline underline-offset-4 text-ink">
               손상 원문 내려받기 →
             </button>
@@ -209,7 +209,7 @@ export default function Settings({ data, update }: Props) {
       </div>
 
       <Section title="공유 센터">
-        <p className="text-[12.5px] text-soft mb-4 leading-relaxed">
+        <p className="text-[15px] text-soft mb-4 leading-[1.85]">
           청첩장 공유, 편집 초대, Excel·CSV 내보내기를 한곳에서 관리합니다.
         </p>
         <Link to="/share" className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
@@ -218,7 +218,7 @@ export default function Settings({ data, update }: Props) {
       </Section>
 
       <Section title="AI 편집 방식">
-        <p className="text-[12px] text-soft leading-relaxed">
+        <p className="text-[15px] text-soft leading-[1.85]">
           앱에서 바로 쓰는 AI, 외부 챗봇 복사, 개인 API 연결 중에서 선택합니다.
         </p>
         <Link to="/ai" className="text-[12px] underline underline-offset-4 text-ink hover:text-gold inline-block mt-3">
@@ -228,7 +228,7 @@ export default function Settings({ data, update }: Props) {
 
       {data.preferences.mode === "supabase" && (
         <Section title="직접 저장소 연결 정보">
-          <div className="space-y-1.5 text-[11.5px] text-soft">
+          <div className="space-y-1.5 text-[12px] text-soft">
             <p className="break-all">저장소 URL · <span className="text-ink">{data.preferences.supabase?.url}</span></p>
             <p>anon key · <span className="text-ink">••••••{data.preferences.supabase?.anonKey.slice(-6)}</span></p>
           </div>
@@ -236,10 +236,10 @@ export default function Settings({ data, update }: Props) {
             셋업 가이드 다시 보기 →
           </Link>
           <div className="pt-4 mt-4 border-t border-hair space-y-2">
-            <p className="text-[11.5px] text-soft leading-relaxed">
+            <p className="text-[12px] text-soft leading-relaxed">
               다른 기기에서 함께 편집하려면 편집 초대 링크를 보내세요. 이 링크는 하객에게 보내는 청첩장
               링크가 <b className="text-ink">아니라</b>, 모든 데이터를 보고 고칠 수 있는{" "}
-              <b className="text-gold">오너 권한 링크</b>예요. 배우자에게 1:1로만 보내고,
+              <b className="text-ink">오너 권한 링크</b>예요. 배우자에게 1:1로만 보내고,
               단톡방·SNS·캡처로 공유하지 마세요.
             </p>
             <button onClick={copyEditorInvite} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
@@ -252,7 +252,7 @@ export default function Settings({ data, update }: Props) {
 
       {data.preferences.mode === "hosted" && (
         <Section title="복구 링크 · 배우자 초대">
-          <p className="text-[12.5px] text-soft leading-relaxed mb-3">
+          <p className="text-[15px] text-soft leading-[1.85] mb-3">
             기기를 바꿔도 이 링크로 복구하고, 배우자에게 보내면 함께 편집해요.
             내용은 암호화돼 운영자도 못 보지만, <b className="text-ink">이 링크를 가진 사람은 전부 보고 고칠 수 있어요.</b>
           </p>
@@ -267,17 +267,17 @@ export default function Settings({ data, update }: Props) {
       )}
 
       <Section title="문의 / 오류 신고">
-        <p className="text-[12.5px] text-soft mb-4 leading-relaxed">
+        <p className="text-[15px] text-soft mb-4 leading-[1.85]">
           이상하거나 안 되는 흐름이 있으면 알려주세요.
           화면 이름과 상황을 같이 보내주시면 빠르게 확인할 수 있어요.
         </p>
-        <Link to="/contact" className="btn-primary px-6 py-3 text-[12px]">
+        <Link to="/contact" className="text-[12px] text-ink hover:text-gold underline underline-offset-4 inline-block py-2">
           문의하기 →
         </Link>
       </Section>
 
       <Section title="위험한 작업">
-        <button onClick={reset} disabled={wiping} className="text-[12px] underline underline-offset-4 text-gold hover:text-ink disabled:opacity-50">
+        <button onClick={reset} disabled={wiping} className="text-[12px] underline underline-offset-4 text-soft hover:text-ink disabled:opacity-50">
           {wiping ? "지우는 중…" : "모든 데이터 지우기 →"}
         </button>
         <p className="text-[11px] text-soft mt-2 leading-relaxed">
@@ -342,7 +342,7 @@ function LoginStatus() {
     <div className="pt-4 mt-4 border-t border-hair">
       {email ? (
         <div className="space-y-2">
-          <p className="text-[11.5px] text-soft">
+          <p className="text-[12px] text-soft">
             로그인됨 · <b className="text-ink">{email}</b>{linked ? " · 복구 연결됨" : ""}
           </p>
           <div className="flex gap-5">
@@ -358,7 +358,7 @@ function LoginStatus() {
         </div>
       ) : (
         <div>
-          <p className="text-[11.5px] text-soft leading-relaxed mb-2">
+          <p className="text-[12px] text-soft leading-relaxed mb-2">
             링크를 따로 안 챙겨도, 로그인으로 연결해두면 기기를 바꿔도 복구돼요.
           </p>
           <Link to="/login" className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
@@ -393,9 +393,9 @@ function OwnerToggle() {
 
   return (
     <div className="pt-4 mt-4 border-t border-hair space-y-2">
-      <p className="text-[11.5px] text-soft">
+      <p className="text-[12px] text-soft">
         이 기기는 현재{" "}
-        <b className={owner ? "text-gold" : "text-soft"}>{owner ? "편집 가능" : "보기 전용"}</b>
+        <b className={owner ? "text-ink" : "text-soft"}>{owner ? "편집 가능" : "보기 전용"}</b>
         예요.
       </p>
       {owner ? (
@@ -403,7 +403,7 @@ function OwnerToggle() {
           이 기기를 보기 전용으로 바꾸기 →
         </button>
       ) : (
-        <p className="text-[11.5px] text-soft leading-relaxed">
+        <p className="text-[12px] text-soft leading-relaxed">
           편집 권한이 필요하면 부부의 기존 편집 기기에서 [편집 초대 링크]를 받아 다시 열어주세요.
         </p>
       )}

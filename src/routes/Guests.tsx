@@ -143,9 +143,9 @@ export default function Guests({ data, update }: Props) {
       <div className="page pt-20 pb-10 text-center space-y-8">
         <div>
           <div className="eyebrow-gold mb-4">하객 명단</div>
-          <h1 className="display-sm mb-4">떠오르는 분부터<br /><span className="italic font-light text-gold">한 명씩 적어보세요.</span></h1>
-          <p className="text-[13px] text-soft leading-relaxed">
-            이름과 어느 쪽 하객인지 먼저 적어두면<br />참석 여부와 식수는 자동으로 모입니다.
+          <h1 className="display-sm mb-4 [text-wrap:balance] max-w-[18rem] mx-auto">떠오르는 분부터 <span className="italic font-light">한 명씩 적어보세요.</span></h1>
+          <p className="text-[15px] text-soft leading-[1.85]">
+            이름과 어느 쪽 하객인지 먼저 적어두면 참석 여부와 식수는 자동으로 모입니다.
           </p>
         </div>
         <GuestAddBlock
@@ -157,8 +157,8 @@ export default function Guests({ data, update }: Props) {
         />
         {data.preferences.mode === "supabase" && (
           <div className="border-y border-hair py-4">
-            <div className="eyebrow-gold mb-2">RSVP</div>
-            <p className={`text-[11.5px] leading-relaxed mb-3 ${rsvpStatus === "fail" ? "text-gold" : "text-soft"}`}>
+            <div className="eyebrow mb-2">RSVP</div>
+            <p className={`text-[12px] leading-relaxed mb-3 ${rsvpStatus === "fail" ? "text-ink" : "text-soft"}`}>
               {rsvpMsg || "청첩장으로 받은 응답이 있다면 하객 명단으로 가져올 수 있어요."}
             </p>
             <button
@@ -178,7 +178,7 @@ export default function Guests({ data, update }: Props) {
     <div className="page pt-8 pb-10 space-y-8">
       <div>
         <div className="eyebrow-gold mb-2">초대와 참석</div>
-        <h1 className="font-serif text-[2rem] leading-none">하객 명단</h1>
+        <h1 className="h-page">하객 명단</h1>
       </div>
 
       {/* 통계 — hairline 그리드 */}
@@ -198,8 +198,8 @@ export default function Guests({ data, update }: Props) {
         {data.preferences.mode === "supabase" && (
           <div className="border-y border-hair py-4 flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <div className="eyebrow-gold mb-1">RSVP</div>
-              <p className={`text-[11.5px] leading-relaxed ${rsvpStatus === "fail" ? "text-gold" : "text-soft"}`}>
+              <div className="eyebrow mb-1">RSVP</div>
+              <p className={`text-[12px] leading-relaxed ${rsvpStatus === "fail" ? "text-ink" : "text-soft"}`}>
                 {rsvpMsg || "청첩장 응답을 하객 명단으로 가져옵니다."}
               </p>
             </div>
@@ -224,9 +224,7 @@ export default function Guests({ data, update }: Props) {
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`text-[12px] tracking-wide whitespace-nowrap pb-1 transition ${
-                  filter === f ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
-                }`}
+                className={`whitespace-nowrap ${filter === f ? "seg-active" : "seg"}`}
               >
                 {f === "all" ? "전체" : f === "groom" ? "신랑" : f === "bride" ? "신부" : f === "attending" ? "참석" : "대기"}
               </button>
@@ -243,7 +241,7 @@ export default function Guests({ data, update }: Props) {
 
       {/* 명단 */}
       {filtered.length === 0 ? (
-        <p className="text-center text-[12.5px] text-soft py-8">조건에 맞는 하객이 없어요.</p>
+        <p className="text-center text-[13px] text-soft py-8">조건에 맞는 하객이 없어요.</p>
       ) : (
         <ul className="group-card px-4">
           {filtered.map((g) => (
@@ -252,7 +250,7 @@ export default function Guests({ data, update }: Props) {
         </ul>
       )}
 
-      <p className="text-[10.5px] text-soft text-center pt-2">
+      <p className="text-[11px] text-soft text-center pt-2">
         축의금 · 식수 합계는 자동 계산. 혼자 쓰는 동안에는 이 기기에만 저장됩니다.
       </p>
     </div>
@@ -303,9 +301,7 @@ function GuestAddBlock({
               key={s}
               type="button"
               onClick={() => onSideChange(s)}
-              className={`text-[12px] tracking-wide pb-1 transition ${
-                side === s ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
-              }`}
+              className={side === s ? "seg-active" : "seg"}
             >
               {SIDE_LABEL[s]}
             </button>
@@ -335,7 +331,7 @@ function GuestAddBlock({
               disabled={!name.trim()}
               className={
                 primary
-                  ? "btn-primary px-8 py-3.5 text-[12.5px] disabled:opacity-40"
+                  ? "btn-primary px-8 py-3.5 text-[13px] disabled:opacity-40"
                   : "text-[12px] text-ink underline underline-offset-4 pb-3 hover:text-gold disabled:opacity-40 whitespace-nowrap"
               }
             >
@@ -420,11 +416,11 @@ function Stat({ label, value, accent, muted, unit, hint }: { label: string; valu
   return (
     <div>
       <div className="eyebrow mb-1">{label}</div>
-      <div className={`font-serif tabular-nums ${accent ? "text-2xl text-ink" : muted ? "text-lg text-soft" : "text-xl text-ink"}`}>
+      <div className={`font-serif text-xl tabular-nums ${accent ? "text-ink font-semibold" : muted ? "text-soft" : "text-ink"}`}>
         {display}
         {unit && <span className="text-[11px] text-soft ml-1">{unit === "원" ? "만원" : unit}</span>}
       </div>
-      {hint && <div className="text-[10.5px] text-soft mt-0.5">{hint}</div>}
+      {hint && <div className="text-[11px] text-soft mt-0.5">{hint}</div>}
     </div>
   );
 }
@@ -433,15 +429,15 @@ function GuestRow({ g, onChange, onRemove }: { g: Guest; onChange: (p: Partial<G
   const [open, setOpen] = useState(false);
   return (
     <li className="py-3.5">
-      <button onClick={() => setOpen((o) => !o)} className="w-full text-left flex items-baseline justify-between gap-3">
+      <button onClick={() => setOpen((o) => !o)} className="row-tap w-full text-left flex items-baseline justify-between gap-3 -mx-4 px-4 py-1">
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2.5">
             <span className="font-serif text-[15px] text-ink truncate">{g.name}</span>
             <span className="eyebrow">{SIDE_LABEL[g.side]}</span>
           </div>
-          <div className="text-[11.5px] text-soft mt-1 space-x-2">
+          <div className="text-[12px] text-soft mt-1 space-x-2">
             {g.relation && <span>{g.relation}</span>}
-            <span className={g.status === "참석" ? "text-gold" : ""}>· {STATUS_LABEL[g.status]}</span>
+            <span className={g.status === "참석" ? "text-ink" : ""}>· {STATUS_LABEL[g.status]}</span>
             {g.giftKRW != null && g.giftKRW > 0 && (
               <span className="tabular-nums">· {g.giftKRW.toLocaleString()}원</span>
             )}
@@ -472,7 +468,7 @@ function GuestRow({ g, onChange, onRemove }: { g: Guest; onChange: (p: Partial<G
                 <button
                   key={s}
                   onClick={() => onChange({ side: s })}
-                  className={`text-[12px] tracking-wide pb-1 ${g.side === s ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                  className={g.side === s ? "seg-active" : "seg"}
                 >
                   {SIDE_LABEL[s]}
                 </button>
@@ -487,7 +483,7 @@ function GuestRow({ g, onChange, onRemove }: { g: Guest; onChange: (p: Partial<G
                 <button
                   key={s}
                   onClick={() => onChange({ status: s })}
-                  className={`text-[12px] tracking-wide pb-1 ${g.status === s ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                  className={g.status === s ? "seg-active" : "seg"}
                 >
                   {STATUS_LABEL[s]}
                 </button>
@@ -527,7 +523,7 @@ function GuestRow({ g, onChange, onRemove }: { g: Guest; onChange: (p: Partial<G
             placeholder="연락처"
           />
 
-          <label className="flex items-center gap-2 text-[12.5px] text-soft">
+          <label className="flex items-center gap-2 text-[13px] text-soft">
             <input
               type="checkbox"
               checked={g.meal !== false}
@@ -538,14 +534,14 @@ function GuestRow({ g, onChange, onRemove }: { g: Guest; onChange: (p: Partial<G
           </label>
 
           <textarea
-            className="input-boxed text-[12.5px] min-h-[50px]"
+            className="input-boxed text-[13px] min-h-[50px]"
             value={g.notes ?? ""}
             onChange={(e) => onChange({ notes: e.target.value })}
             placeholder="메모"
           />
 
           <div className="flex items-center justify-between pt-2 border-t border-hair">
-            <span className="text-[10.5px] text-soft">
+            <span className="text-[11px] text-soft">
               {g.invitedAt ? `초대 ${g.invitedAt}` : "아직 초대장 미전송"}
             </span>
             <button onClick={onRemove} className="text-[11px] text-soft hover:text-gold underline underline-offset-4">

@@ -40,7 +40,7 @@ export default function Modal({ open, onClose, title, children }: Props) {
   if (!open) return null;
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
+      <div className="anim-fade absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
       <div
         ref={panelRef}
         role="dialog"
@@ -48,7 +48,7 @@ export default function Modal({ open, onClose, title, children }: Props) {
         aria-labelledby={title ? titleId : undefined}
         aria-label={title ? undefined : "대화 상자"}
         tabIndex={-1}
-        className="relative w-full max-w-app bg-paper p-6 max-h-[88vh] overflow-y-auto shadow-2xl pb-[max(1.5rem,env(safe-area-inset-bottom))]"
+        className="anim-sheet relative w-full max-w-app bg-paper p-6 max-h-[88vh] overflow-y-auto shadow-2xl pb-[max(1.5rem,env(safe-area-inset-bottom))]"
       >
         {/* 모바일 스와이프 힌트 핸들 */}
         <div className="sm:hidden flex justify-center -mt-3 mb-4">

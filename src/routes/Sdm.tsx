@@ -129,7 +129,7 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
           <span className="text-soft text-[12px] group-open:rotate-180 transition">▾</span>
         </summary>
         <div className="mt-4 space-y-4">
-          <p className="text-[13px] leading-relaxed text-soft">{guide.tip}</p>
+          <p className="text-[13px] leading-loose text-soft">{guide.tip}</p>
           <div>
             <div className="eyebrow mb-2">체크포인트</div>
             <ul className="text-[13px] space-y-1.5 text-ink/90">
@@ -291,14 +291,14 @@ function CatalogCard({
       <div className="flex items-baseline justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="font-serif text-[15px] text-ink">{entry.name}</div>
-          <div className="text-[12px] text-soft mt-1 leading-relaxed line-clamp-2">{entry.vibe}</div>
+          <div className="text-[12px] text-soft mt-1 leading-relaxed line-clamp-2 break-keep">{entry.vibe}</div>
           {entry.region && <div className="eyebrow mt-2">{entry.region}</div>}
         </div>
         <button
           onClick={onAdd}
           disabled={added}
           className={`text-[11.5px] tracking-wide whitespace-nowrap flex-shrink-0 underline underline-offset-4 ${
-            added ? "text-soft" : "text-gold hover:text-ink"
+            added ? "text-ink" : "text-gold hover:text-ink"
           }`}
         >
           {added ? "✓ 담음" : "+ 담기"}
@@ -319,7 +319,7 @@ function MyVendorCard({
   onRemove: () => void;
 }) {
   return (
-    <div className="py-5 space-y-3">
+    <div className="py-4 space-y-3">
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
           <div className="font-serif text-[15px] text-ink">{v.name}</div>
@@ -344,20 +344,20 @@ function MyVendorCard({
         ))}
       </div>
       <textarea
-        className="input-boxed text-[12.5px] min-h-[50px]"
+        className="input-boxed text-[13px] min-h-[50px]"
         placeholder="메모 (가격·실장 이름·인상 등)"
         value={v.notes ?? ""}
         onChange={(e) => onUpdate({ notes: e.target.value })}
       />
       <div className="grid grid-cols-2 gap-x-4">
         <input
-          className="input text-[12.5px]"
+          className="input text-[13px]"
           placeholder="가격 메모"
           value={v.priceRange ?? ""}
           onChange={(e) => onUpdate({ priceRange: e.target.value })}
         />
         <input
-          className="input text-[12.5px]"
+          className="input text-[13px]"
           placeholder="링크 (인스타·홈피)"
           value={v.link ?? ""}
           onChange={(e) => onUpdate({ link: e.target.value })}
@@ -380,10 +380,10 @@ function CustomAdd({
   const [notes, setNotes] = useState("");
   return (
     <div className="space-y-3">
-      <input className="input text-sm" placeholder="업체 이름" value={name} onChange={(e) => setName(e.target.value)} />
-      <input className="input text-sm" placeholder="지역 (예: 청담)" value={region} onChange={(e) => setRegion(e.target.value)} />
-      <input className="input text-sm" placeholder="홈페이지·인스타 링크" value={link} onChange={(e) => setLink(e.target.value)} />
-      <textarea className="input text-sm min-h-[80px]" placeholder="메모" value={notes} onChange={(e) => setNotes(e.target.value)} />
+      <input className="input text-[13px]" placeholder="업체 이름" value={name} onChange={(e) => setName(e.target.value)} />
+      <input className="input text-[13px]" placeholder="지역 (예: 청담)" value={region} onChange={(e) => setRegion(e.target.value)} />
+      <input className="input text-[13px]" placeholder="홈페이지·인스타 링크" value={link} onChange={(e) => setLink(e.target.value)} />
+      <textarea className="input text-[13px] min-h-[80px]" placeholder="메모" value={notes} onChange={(e) => setNotes(e.target.value)} />
       <button
         className="btn-primary w-full"
         onClick={() => {

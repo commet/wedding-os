@@ -55,7 +55,7 @@ export default function Trip({ data, update }: Props) {
     <div className="page pt-8 pb-10 space-y-6">
       <div>
         <div className="eyebrow-gold mb-2">여행 계획</div>
-        <h1 className="font-serif text-[2rem] leading-none">신혼여행</h1>
+        <h1 className="h-page">신혼여행</h1>
       </div>
 
       {showStarter ? (
@@ -73,8 +73,8 @@ export default function Trip({ data, update }: Props) {
             className="w-full text-left border-y border-hair py-4 flex items-baseline justify-between gap-4"
           >
             <span>
-              <span className="eyebrow-gold block mb-1">기본 후보</span>
-              <span className="font-serif text-[17px] text-ink">여행 기준 잡기</span>
+              <span className="eyebrow block mb-1">기본 후보</span>
+              <span className="font-serif text-[18px] text-ink">여행 기준 잡기</span>
             </span>
             <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
           </button>
@@ -121,7 +121,7 @@ function TripStarter({
     <section className="border-y border-hair py-5 space-y-5">
       <div className="flex items-baseline justify-between gap-4">
         <div>
-          <div className="eyebrow-gold mb-2">기본 후보</div>
+          <div className="eyebrow mb-2">기본 후보</div>
           <h2 className="font-serif text-xl text-ink">여행 기준 잡기</h2>
         </div>
         <button onClick={onClose} className="text-[12px] text-soft underline underline-offset-4 hover:text-ink">
@@ -160,7 +160,7 @@ function TripStarter({
             </span>
             <div className="flex-1 min-w-0">
               <div className="font-serif text-[15px] text-ink">{pick.region}</div>
-              <p className="text-[11.5px] text-soft leading-relaxed mt-1">{pick.vibe}</p>
+              <p className="text-[12px] text-soft leading-relaxed mt-1">{pick.vibe}</p>
               <div className="eyebrow mt-2 space-x-2">
                 <span>{pick.bestSeason}</span>
                 <span>· {pick.flightHours}</span>
@@ -170,7 +170,7 @@ function TripStarter({
         ))}
       </div>
 
-      <button onClick={() => onApply(picks)} className="btn-primary w-full py-3 text-[12.5px]">
+      <button onClick={() => onApply(picks)} className="btn-primary w-full py-3 text-[13px]">
         후보 3곳 담기 →
       </button>
     </section>
@@ -314,7 +314,7 @@ function Destinations({ data, update }: Props) {
         <button onClick={() => setCatalogOpen((open) => !open)} className="flex w-full items-center justify-between gap-4 border-y border-hair py-4 text-left">
           <span>
             <span className="section-title block">여행지 후보 더 찾아보기</span>
-            <span className="mt-1 block text-[11.5px] text-soft">시기·비행시간·비용으로 {HONEYMOON_CATALOG.length}곳을 비교합니다.</span>
+            <span className="mt-1 block text-[12px] text-soft leading-relaxed">시기·비행시간·비용으로 {HONEYMOON_CATALOG.length}곳을 비교합니다.</span>
           </span>
           <span className="text-[12px] text-soft underline underline-offset-4">{catalogOpen ? "접기" : "열기"}</span>
         </button>
@@ -357,7 +357,7 @@ function Destinations({ data, update }: Props) {
       <Modal open={showCatalog} onClose={() => setShowCatalog(false)} title="신혼여행지 상세 안내">
         <div className="space-y-4">
           {HONEYMOON_CATALOG.map((p) => (
-            <div key={p.id} className="border-b border-line pb-3 last:border-b-0">
+            <div key={p.id} className="border-b border-hair pb-3 last:border-b-0">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-xl">{p.emoji}</span>
                 <span className="font-medium">{p.region}</span>
@@ -376,7 +376,7 @@ function Destinations({ data, update }: Props) {
                   ))}
                 </ul>
               </div>
-              <div className="text-[11.5px] mt-3 pl-3 border-l-2 border-gold/50 text-soft leading-relaxed">{p.tip}</div>
+              <div className="text-[12px] mt-3 pl-3 border-l border-gold text-soft leading-relaxed">{p.tip}</div>
             </div>
           ))}
         </div>
@@ -404,7 +404,7 @@ function RegionCard({
       <div className="flex items-center gap-3">
         <button onClick={onToggle} className="flex-1 min-w-0 text-left py-1">
           <div className="flex items-center gap-2">
-            <div className="font-serif text-[17px] text-ink truncate">{region.name}</div>
+            <div className="font-serif text-[18px] text-ink truncate">{region.name}</div>
             <span className="text-[11px] text-soft">{open ? "접기" : "펼치기"}</span>
           </div>
           <div className="eyebrow mt-1">
@@ -447,7 +447,7 @@ function RegionCard({
             </div>
           </div>
 
-          <p className="text-[11.5px] text-soft leading-relaxed">
+          <p className="text-[12px] text-soft leading-relaxed">
             기간·예산은 후보 비교용입니다. 마이리얼트립·클룩·구글 같은 외부 사이트 검색에는 자동 필터로 반영되지 않습니다.
           </p>
 
@@ -537,7 +537,7 @@ function Flights({ data, update }: Props) {
       </section>
 
       {data.flights.length === 0 ? (
-        <p className="text-center text-[12.5px] text-soft py-4">아직 담아둔 항공편이 없어요.</p>
+        <p className="text-center text-[13px] text-soft py-4">아직 담아둔 항공편이 없어요.</p>
       ) : (
         <section>
           <h2 className="section-title mb-4">담아둔 옵션 · <span className="tabular-nums">{data.flights.length}</span></h2>
@@ -698,7 +698,7 @@ function Stays({ data, update }: Props) {
       </section>
 
       {data.hotels.length === 0 ? (
-        <p className="text-center text-[12.5px] text-soft py-4">아직 담아둔 숙소가 없어요.</p>
+        <p className="text-center text-[13px] text-soft py-4">아직 담아둔 숙소가 없어요.</p>
       ) : (
         <section>
           <h2 className="section-title mb-4">담아둔 숙소 · <span className="tabular-nums">{data.hotels.length}</span></h2>
@@ -715,11 +715,11 @@ function Stays({ data, update }: Props) {
                 <div className="mt-2">
                   <FreshnessBadge lastVerified={hotel.lastVerified} onClickCheck={() => openPriceBridge(hotel)} />
                 </div>
-                <button onClick={() => setEditing(hotel)} className="text-[11.5px] text-ink underline underline-offset-4 hover:text-gold mt-3">
+                <button onClick={() => setEditing(hotel)} className="text-[12px] text-ink underline underline-offset-4 hover:text-gold mt-3">
                   OTA 가격 보기/편집 ({hotel.otaPrices?.length ?? 0}) →
                 </button>
                 {hotel.otaPrices && hotel.otaPrices.length > 0 && (
-                  <div className="mt-3 space-y-1.5 text-[11.5px]">
+                  <div className="mt-3 space-y-1.5 text-[12px]">
                     {[...hotel.otaPrices]
                       .filter((o) => typeof o.price === "number")
                       .sort((a, b) => (a.price ?? 0) - (b.price ?? 0))
@@ -745,7 +745,7 @@ function Stays({ data, update }: Props) {
         + 직접 추가
       </button>
 
-      <p className="text-[11.5px] text-soft text-center leading-relaxed">
+      <p className="text-[12px] text-soft text-center leading-relaxed">
         본식 전후 부부 숙소, 하객 안내용 호텔도 여기에 함께 정리하면 좋아요.
       </p>
 

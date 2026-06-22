@@ -89,8 +89,8 @@ export default function AppShell({ data, children }: Props) {
                   ←
                 </button>
               )}
-              <Link to="/dashboard" className="font-serif text-base tracking-tight text-ink truncate min-h-11 flex items-center">
-                Wedding<span className="text-gold">·</span>OS
+              <Link to="/dashboard" className="font-serif text-base tracking-[-0.01em] text-ink truncate min-h-11 flex items-center">
+                Wedding OS
               </Link>
             </div>
             <div className="flex items-center gap-3 flex-shrink-0">
@@ -108,7 +108,7 @@ export default function AppShell({ data, children }: Props) {
 
       {/* 데모 띠 — 작은 안내. 세션 단위로 닫기 가능 (× 버튼) */}
       {isDemo && !isWelcome && !isGuestInvitation && !bannerDismissed && (
-        <div className="px-6 py-2.5 flex items-center justify-between gap-3 border-b border-hair">
+        <div className="anim-drop px-6 py-2.5 flex items-center justify-between gap-3 border-b border-hair">
           <div className="text-[11.5px] leading-tight flex-1 min-w-0 flex items-baseline gap-2">
             <span className="eyebrow-gold">예시</span>
             <span className="text-soft truncate">둘러본 뒤 내 정보로 시작할 수 있어요</span>
@@ -128,7 +128,7 @@ export default function AppShell({ data, children }: Props) {
 
       {/* 실시간 끊김 알림 — 모드 2 동시 편집 깨진 신호 */}
       {realtimeStatus === "disconnected" && !isGuestInvitation && (
-        <div className="px-6 py-3 border-b border-hair flex items-center justify-between gap-3">
+        <div className="anim-drop px-6 py-3 border-b border-hair flex items-center justify-between gap-3">
           <span className="text-[12px] text-soft">
             동기화 연결이 끊어졌어요. 네트워크 확인 후 새로고침하세요.
           </span>
@@ -143,7 +143,7 @@ export default function AppShell({ data, children }: Props) {
 
       {/* 동시 편집 충돌 — 다른 기기(신랑/신부 다른 폰)가 먼저 저장함. 사용자 동작 잃은 상태 */}
       {conflictStatus === "detected" && !isGuestInvitation && (
-        <div className="px-6 py-3 border-b border-hair flex items-center justify-between gap-3 bg-gold/5">
+        <div className="anim-drop px-6 py-3 border-b border-hair flex items-center justify-between gap-3 bg-gold/5">
           <span className="text-[12px] text-ink leading-relaxed">
             <strong>다른 기기에서 먼저 저장됐어요.</strong>
             <br />
@@ -165,7 +165,7 @@ export default function AppShell({ data, children }: Props) {
 
       {/* 백업 알림 — 가는 띠 */}
       {backupStale && !isGuestInvitation && (
-        <div className="px-6 py-3 border-b border-hair flex items-center justify-between gap-3">
+        <div className="anim-drop px-6 py-3 border-b border-hair flex items-center justify-between gap-3">
           <span className="text-[12px] text-soft">오래 백업을 안 했어요</span>
           <Link to="/settings#data-backup" className="text-[12px] underline underline-offset-4 text-ink min-h-11 flex items-center">
             내려받기
@@ -191,7 +191,7 @@ export default function AppShell({ data, children }: Props) {
                 {({ isActive }) => (
                   <>
                     {isActive && (
-                      <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-px bg-ink" />
+                      <span className="anim-fade absolute top-0 left-1/2 -translate-x-1/2 w-8 h-px bg-ink" />
                     )}
                     {item.label}
                   </>
@@ -227,7 +227,7 @@ function SaveBadge({ status, mode }: { status: "idle" | "saving" | "saved" | "er
     error: { text: "⚠ 저장 실패", cls: "text-gold" },
   } as const;
   const m = map[status as "saving" | "saved" | "error"];
-  return <span className={`eyebrow ${m.cls}`}>{m.text}</span>;
+  return <span className={`anim-pop eyebrow ${m.cls}`}>{m.text}</span>;
 }
 
 function isBackupStale(lastBackupAt?: string): boolean {

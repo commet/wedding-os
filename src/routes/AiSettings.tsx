@@ -80,15 +80,15 @@ export default function AiSettings(_: Props) {
     <div className="page pt-8 pb-10 space-y-9">
       <div>
         <div className="eyebrow-gold mb-2">도움 기능</div>
-        <h1 className="font-serif text-[2rem] leading-none">AI 연결</h1>
+        <h1 className="h-page">AI 연결</h1>
       </div>
 
-      <p className="text-[13px] text-soft leading-relaxed border-b border-hair pb-5">
+      <p className="text-[15px] text-soft leading-[1.85] border-b border-hair pb-5">
         AI는 선택 사항입니다. 연결하면 준비 순서, 청첩장 문안, 후보 비교처럼 막히기 쉬운 일을 앱 안에서 정리할 수 있어요.
       </p>
 
       <section>
-        <div className="eyebrow-gold mb-4">사용 방식</div>
+        <div className="eyebrow mb-4">사용 방식</div>
         <div className="border-y border-hair divide-y divide-hair">
           {PROVIDERS.map((p) => (
             <button
@@ -99,7 +99,7 @@ export default function AiSettings(_: Props) {
               <span className={`w-3 h-3 border ${provider === p.id ? "bg-ink border-ink" : "border-soft"} flex-shrink-0`} />
               <div className="flex-1 min-w-0">
                 <div className="font-serif text-[16px] text-ink">{p.label}</div>
-                <p className="text-[11.5px] text-soft leading-relaxed mt-1">{p.desc}</p>
+                <p className="text-[13px] text-soft leading-relaxed mt-1">{p.desc}</p>
               </div>
             </button>
           ))}
@@ -110,15 +110,15 @@ export default function AiSettings(_: Props) {
         <section className="border-y border-hair py-4 space-y-4">
           {managedSignedIn ? (
             <div>
-              <div className="eyebrow-gold mb-2">사용 가능</div>
-              <p className="text-[12.5px] text-soft leading-relaxed">
+              <div className="eyebrow mb-2">사용 가능</div>
+              <p className="text-[13px] text-soft leading-relaxed">
                 별도 API 키 없이 Wedding OS AI를 사용할 수 있습니다. 선택한 작업에 필요한 내용만 AI 제공자에게 전송되며,
                 결과는 확인한 뒤 직접 반영합니다.
               </p>
             </div>
           ) : (
-            <p className="text-[12.5px] text-gold leading-relaxed">
-              Wedding OS AI는 비용 오남용 방지를 위해 로그인이 필요합니다. <a href="/login" className="underline underline-offset-4">로그인하기 →</a>
+            <p className="text-[13px] text-soft leading-relaxed">
+              Wedding OS AI는 비용 오남용 방지를 위해 로그인이 필요합니다. <a href="/login" className="underline underline-offset-4 text-ink">로그인하기 →</a>
             </p>
           )}
         </section>
@@ -166,7 +166,7 @@ export default function AiSettings(_: Props) {
 
           <div className="flex gap-5 flex-wrap border-t border-hair pt-4">
             {selected.link && (
-              <a href={selected.link} target="_blank" rel="noopener noreferrer" className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
+              <a href={selected.link} target="_blank" rel="noopener noreferrer" className="text-[12px] underline underline-offset-4 text-soft hover:text-ink">
                 키 발급/설정 열기 ↗
               </a>
             )}
@@ -184,27 +184,27 @@ export default function AiSettings(_: Props) {
       )}
 
       <section className="space-y-3 border-t border-hair pt-6">
-        <button onClick={save} className="btn-primary w-full py-3.5 text-[12.5px]">
+        <button onClick={save} className="btn-primary w-full py-3.5 text-[13px]">
           설정 저장 →
         </button>
         {provider !== "bridge" && (
           <button
             onClick={test}
             disabled={!directReady || status === "testing"}
-            className="block w-full text-center text-[12px] underline underline-offset-4 text-soft hover:text-ink disabled:opacity-40"
+            className="block w-full text-center text-[13px] underline underline-offset-4 text-soft hover:text-ink disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {status === "testing" ? "테스트 중…" : "연결 테스트"}
           </button>
         )}
         {message && (
-          <p className={`text-center text-[11.5px] leading-relaxed ${status === "fail" ? "text-gold" : "text-soft"}`}>
+          <p className={`text-center text-[13px] leading-relaxed ${status === "fail" ? "text-ink" : "text-soft"}`}>
             {message}
           </p>
         )}
       </section>
 
       <section className="border-t border-hair pt-6">
-        <div className="eyebrow-gold mb-3">개인정보</div>
+        <div className="eyebrow mb-3">개인정보</div>
         <p className="text-[12px] text-soft leading-relaxed">
           AI를 실행하면 해당 작업에 필요한 내용이 선택한 AI 서비스로 전송됩니다.
           전화번호·계좌·축의금 같은 민감 정보는 AI 작업에 포함하지 않습니다.
