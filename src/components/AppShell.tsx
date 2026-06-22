@@ -183,7 +183,7 @@ export default function AppShell({ data, children }: Props) {
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
-                  `relative min-h-11 flex items-center justify-center py-4 text-[11px] tracking-wide transition ${
+                  `relative min-h-11 flex items-center justify-center py-4 text-[12px] tracking-wide transition ${
                     isActive ? "text-ink" : "text-soft"
                   }`
                 }

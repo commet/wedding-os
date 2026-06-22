@@ -309,7 +309,7 @@ export type WeddingData = {
     today?: { title: string; reason?: string; targetPath?: string }[];
     updatedAt?: string;
     profile?: {
-      priority?: "venue" | "budget" | "invitation" | "rings" | "trip";
+      priority?: "venue" | "invitation" | "rings" | "trip";
       budgetKRW?: number;
       region?: string;
       onboardedAt?: string;

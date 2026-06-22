@@ -40,7 +40,7 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
     brideName: existingInvitation?.brideName ?? "",
     date: existingInvitation?.date ?? "",
     region: savedRegion,
-    priority: savedPriority && savedPriority !== "budget" ? savedPriority : "venue",
+    priority: savedPriority ?? "venue",
     storage: "local",
   });
   const [otherOpen, setOtherOpen] = useState(Boolean(savedRegion) && !REGIONS.includes(savedRegion));
@@ -75,7 +75,7 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
       </div>
       {step > 0 && step < TOTAL_STEPS && (
         <div className="px-6 pt-3 text-right font-serif text-[13px] text-soft">
-          {String(step).padStart(2, "0")} <span className="text-mute">/ 05</span>
+          {String(step).padStart(2, "0")} <span className="text-soft/70">/ 05</span>
         </div>
       )}
 
@@ -128,6 +128,7 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
                 return (
                   <button
                     key={region}
+                    aria-pressed={selected}
                     onClick={() => {
                       if (isOther) { setOtherOpen(true); set("region", ""); }
                       else { setOtherOpen(false); set("region", region); next(); }
@@ -183,7 +184,7 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
             <div className="mt-9 grid grid-cols-2 gap-x-6 gap-y-5 border-y border-hair px-1 py-6">
               {summary.map((item) => (
                 <div key={item.label}>
-                  <span className="block mb-1.5 text-[10px] uppercase tracking-[0.2em] font-medium text-mute">{item.label}</span>
+                  <span className="block mb-1.5 text-[11px] uppercase tracking-[0.2em] font-medium text-soft">{item.label}</span>
                   <span className="text-[14px] leading-[1.5] text-ink">{item.value}</span>
                 </div>
               ))}
@@ -237,7 +238,7 @@ function AgentInput({ label, value, onChange, placeholder, autoComplete }: { lab
 
 function StorageChoice({ active, onClick, title, desc, badge, disabled = false }: { active: boolean; onClick: () => void; title: string; desc: string; badge: string; disabled?: boolean }) {
   return (
-    <button disabled={disabled} onClick={onClick} className="w-full px-1 py-5 text-left transition disabled:opacity-45">
+    <button disabled={disabled} aria-pressed={active} aria-disabled={disabled} onClick={onClick} className="w-full px-1 py-5 text-left transition disabled:opacity-45">
       <span className="flex items-baseline justify-between gap-3">
         <span className="text-[15px] font-medium text-ink">{title}</span>
         <span className={`border-b pb-0.5 text-[10px] uppercase tracking-[0.16em] ${active ? "border-gold text-gold" : "border-hair text-soft"}`}>{badge}</span>

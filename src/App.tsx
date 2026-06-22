@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useWeddingData } from "./lib/storage";
 import AppShell from "./components/AppShell";
+import ErrorBoundary from "./components/ErrorBoundary";
 // 첫 진입 셸 — 랜딩(/)·홈(/dashboard)만 즉시 떠야 하므로 eager.
 // 나머지는 메뉴/탭 누른 뒤에야 보이므로 라우트별 lazy 로 분할 — 초기 번들 ↓.
 import Welcome from "./routes/Welcome";
@@ -101,8 +102,9 @@ export default function App() {
 
   return (
     <AppShell data={data!} update={update}>
-      <Suspense fallback={<div className="px-5 py-20 text-center text-soft">불러오는 중…</div>}>
-        <Routes>
+      <ErrorBoundary key={location.pathname}>
+        <Suspense fallback={<div className="px-5 py-20 text-center text-soft">불러오는 중…</div>}>
+          <Routes>
           <Route path="/" element={<Welcome data={data!} update={update} />} />
           <Route path="/setup" element={<Setup data={data!} update={update} />} />
           <Route path="/dashboard" element={<Dashboard data={data!} update={update} />} />
@@ -129,8 +131,9 @@ export default function App() {
           <Route path="/trust" element={<Trust />} />
           <Route path="/start-hosted" element={<HostedStart data={data!} update={update} />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </Suspense>
+          </Routes>
+        </Suspense>
+      </ErrorBoundary>
     </AppShell>
   );
 }

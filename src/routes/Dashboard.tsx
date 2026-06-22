@@ -416,8 +416,8 @@ export default function Dashboard({ data, update }: Props) {
         {empty ? (
           <div className="border-y border-hair py-6">
             <div className="eyebrow-gold mb-3">처음 1분</div>
-            <h1 className="font-serif text-[1.75rem] leading-[1.18] text-ink tracking-tight mb-3">
-              예식 날짜가<br />정해졌나요?
+            <h1 className="display-sm mb-3">
+              예식 날짜가 정해졌나요?
             </h1>
             <p className="text-[12.5px] text-soft leading-relaxed mb-5">
               날짜를 넣으면 준비 일정을 맞춰드려요. 아직 미정이면 건너뛰고 바로 할 일부터 볼 수 있습니다.

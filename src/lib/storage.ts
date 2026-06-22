@@ -237,9 +237,13 @@ function migrate(raw: unknown): WeddingData {
     ai: (() => {
       const rawAi = isPlainObject(data.ai) ? data.ai : {};
       const rawProfile = isPlainObject(rawAi.profile) ? rawAi.profile : {};
-      const priority = ["venue", "budget", "invitation", "rings", "trip"].includes(String(rawProfile.priority))
-        ? rawProfile.priority as "venue" | "budget" | "invitation" | "rings" | "trip"
-        : undefined;
+      // 'budget' 우선순위는 폐기됨 — 옛 데이터는 'venue' 로 끌어올린다.
+      const rawPriority = String(rawProfile.priority);
+      const priority = rawPriority === "budget"
+        ? "venue" as const
+        : (["venue", "invitation", "rings", "trip"].includes(rawPriority)
+            ? rawPriority as "venue" | "invitation" | "rings" | "trip"
+            : undefined);
       return {
         starterSummary: typeof rawAi.starterSummary === "string" ? rawAi.starterSummary : undefined,
         today: Array.isArray(rawAi.today)
