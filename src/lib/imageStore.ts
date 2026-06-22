@@ -43,7 +43,12 @@ function openDB(): Promise<IDBDatabase> {
         db.createObjectStore(STORE);
       }
     };
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      const db = req.result;
+      // 다른 탭의 전체 삭제 요청을 막지 않도록 즉시 연결을 닫는다.
+      db.onversionchange = () => db.close();
+      resolve(db);
+    };
     req.onerror = () => reject(req.error ?? new Error("IndexedDB open 실패"));
   });
   return _dbPromise;
@@ -92,6 +97,21 @@ export async function delBlob(url: string): Promise<void> {
     tx.objectStore(STORE).delete(id);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
+  });
+}
+
+/** 개인정보 삭제용: 저장된 이미지 Blob 전체와 DB 자체를 제거한다. */
+export async function clearImageStore(): Promise<void> {
+  if (typeof indexedDB === "undefined") return;
+  if (_dbPromise) {
+    try { (await _dbPromise).close(); } catch { /* 이미 닫힌 DB */ }
+    _dbPromise = null;
+  }
+  await new Promise<void>((resolve, reject) => {
+    const req = indexedDB.deleteDatabase(DB_NAME);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error ?? new Error("이미지 저장소 삭제 실패"));
+    req.onblocked = () => reject(new Error("다른 탭이 이미지 저장소를 사용 중입니다. 다른 탭을 닫고 다시 시도해주세요."));
   });
 }
 

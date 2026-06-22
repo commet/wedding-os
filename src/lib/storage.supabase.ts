@@ -156,6 +156,7 @@ export async function insertRsvp(
   anonKey: string,
   rsvp: RsvpInput,
   configId: string = DEFAULT_CONFIG_ID,
+  rsvpToken?: string,
 ): Promise<{ ok: boolean; reason?: string }> {
   try {
     if (!url || !anonKey) return { ok: false, reason: "연결 정보 없음" };
@@ -183,15 +184,17 @@ export async function insertRsvp(
     } catch { /* localStorage 없으면 그냥 통과 */ }
 
     const client = createClient(url, anonKey);
-    const { error } = await client.from("rsvp").insert([{
-      config_id: configId,
-      name,
-      attending: rsvp.attending,
-      side: rsvp.side,
-      guests,
-      meal: meal || null,
-      message: message || null,
-    }]);
+    if (!rsvpToken) return { ok: false, reason: "RSVP 제출 권한이 없습니다." };
+    const { error } = await client.rpc("submit_rsvp", {
+      p_id: configId,
+      p_token: rsvpToken,
+      p_name: name,
+      p_attending: rsvp.attending,
+      p_side: rsvp.side ?? null,
+      p_guests: guests,
+      p_meal: meal || null,
+      p_message: message || null,
+    });
     if (error) return { ok: false, reason: error.message };
     try { localStorage.setItem(rsvpRateLimitKey(url), String(Date.now())); } catch { /* noop */ }
     return { ok: true };

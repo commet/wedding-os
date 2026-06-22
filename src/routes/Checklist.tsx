@@ -10,6 +10,9 @@ type View = "category" | "timeline";
 
 export default function Checklist({ data, update }: Props) {
   const [view, setView] = useState<View>("timeline");
+  const [query, setQuery] = useState("");
+  const [incompleteOnly, setIncompleteOnly] = useState(true);
+  const [deleted, setDeleted] = useState<{ sid: string; item: CheckItem; index: number } | null>(null);
   const sections = data.checklist;
   const weddingDate = data.invitation.date;
 
@@ -73,8 +76,35 @@ export default function Checklist({ data, update }: Props) {
     }));
   };
 
-  const deleteItem = (sid: string, iid: string) =>
-    mutate((secs) => secs.map((s) => s.id !== sid ? s : { ...s, items: s.items.filter((i) => i.id !== iid) }));
+  const deleteItem = (sid: string, iid: string) => {
+    const section = sections.find((item) => item.id === sid);
+    const index = section?.items.findIndex((item) => item.id === iid) ?? -1;
+    if (!section || index < 0) return;
+    setDeleted({ sid, item: section.items[index], index });
+    mutate((secs) => secs.map((item) => item.id !== sid ? item : {
+      ...item,
+      items: item.items.filter((candidate) => candidate.id !== iid),
+    }));
+  };
+
+  const undoDelete = () => {
+    if (!deleted) return;
+    mutate((secs) => secs.map((s) => {
+      if (s.id !== deleted.sid) return s;
+      const items = [...s.items];
+      items.splice(Math.min(deleted.index, items.length), 0, deleted.item);
+      return { ...s, items };
+    }));
+    setDeleted(null);
+  };
+
+  const visibleItems = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase("ko");
+    return allItems.filter((item) =>
+      (!incompleteOnly || !item.done) &&
+      (!needle || `${item.text} ${item.section}`.toLocaleLowerCase("ko").includes(needle)),
+    );
+  }, [allItems, incompleteOnly, query]);
 
   if (sections.length === 0) {
     return (
@@ -138,10 +168,44 @@ export default function Checklist({ data, update }: Props) {
         )}
       </div>
 
+      <div className="flex flex-col sm:flex-row gap-3">
+        <label className="flex-1">
+          <span className="sr-only">체크리스트 검색</span>
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="할 일 또는 카테고리 검색"
+            className="input-boxed min-h-11 text-[13px]"
+          />
+        </label>
+        <label className="min-h-11 flex items-center gap-2 text-[12px] text-ink cursor-pointer">
+          <input type="checkbox" checked={incompleteOnly} onChange={(e) => setIncompleteOnly(e.target.checked)} />
+          미완료만 보기
+        </label>
+      </div>
+
       {view === "timeline" ? (
-        <TimelineView items={allItems} onToggle={toggleItem} onSetDue={setDue} onDelete={deleteItem} />
+        <TimelineView items={visibleItems} onToggle={toggleItem} onSetDue={setDue} onDelete={deleteItem} />
       ) : (
-        <CategoryView sections={sections} onToggle={toggleItem} onSetDue={setDue} onAdd={addItem} onDelete={deleteItem} />
+        <CategoryView
+          sections={sections.map((section) => ({
+            ...section,
+            items: section.items.filter((item) => visibleItems.some((visible) => visible.sid === section.id && visible.id === item.id)),
+          }))}
+          onToggle={toggleItem} onSetDue={setDue} onAdd={addItem} onDelete={deleteItem}
+        />
+      )}
+
+      {visibleItems.length === 0 && (
+        <p className="py-10 text-center text-[13px] text-soft">조건에 맞는 할 일이 없어요.</p>
+      )}
+
+      {deleted && (
+        <div role="status" className="fixed left-1/2 bottom-24 z-40 -translate-x-1/2 w-[min(90vw,420px)] bg-ink text-paper px-4 py-3 flex items-center justify-between gap-4 shadow-xl">
+          <span className="text-[12px] truncate">‘{deleted.item.text}’ 삭제됨</span>
+          <button onClick={undoDelete} className="min-h-11 px-2 text-[12px] font-medium underline underline-offset-4">실행 취소</button>
+        </div>
       )}
 
       <GiftGuide />
@@ -310,7 +374,7 @@ function TimelineRow({
     <div className="flex items-start gap-3 py-4">
       <button
         onClick={() => onToggle(sid, item.id)}
-        className={`w-4 h-4 border flex-shrink-0 mt-0.5 transition ${item.done ? "bg-ink border-ink" : "border-mute hover:border-ink"}`}
+        className={`w-11 h-11 -m-3 mr-0 flex items-center justify-center flex-shrink-0 transition after:w-4 after:h-4 after:border ${item.done ? "after:bg-ink after:border-ink" : "after:border-mute hover:after:border-ink"}`}
         aria-label="완료 토글"
       >
         {item.done && <span className="block text-paper text-[10px] leading-4 text-center">✓</span>}
@@ -340,7 +404,7 @@ function TimelineRow({
           )}
         </div>
       </div>
-      <button onClick={() => onDelete(sid, item.id)} className="text-soft hover:text-ink text-sm">×</button>
+      <button onClick={() => onDelete(sid, item.id)} aria-label={`${item.text} 삭제`} className="text-soft hover:text-ink text-sm min-w-11 min-h-11">×</button>
     </div>
   );
 }
@@ -425,7 +489,7 @@ function SectionCard({
                 <li key={item.id} className="flex items-center gap-3 py-3.5 text-[14px]">
                   <button
                     onClick={() => onToggle(section.id, item.id)}
-                    className={`w-4 h-4 border flex-shrink-0 transition ${item.done ? "bg-ink border-ink" : "border-mute hover:border-ink"}`}
+                    className={`w-11 h-11 -m-3 mr-0 flex items-center justify-center flex-shrink-0 transition after:w-4 after:h-4 after:border ${item.done ? "after:bg-ink after:border-ink" : "after:border-mute hover:after:border-ink"}`}
                     aria-label="완료 토글"
                   >
                     {item.done && <span className="block text-paper text-[10px] leading-4 text-center">✓</span>}
@@ -450,7 +514,7 @@ function SectionCard({
                     className="text-[11px] text-soft w-7 opacity-60 bg-transparent"
                     title="마감일"
                   />
-                  <button onClick={() => onDelete(section.id, item.id)} className="text-soft hover:text-ink text-sm">×</button>
+                  <button onClick={() => onDelete(section.id, item.id)} aria-label={`${item.text} 삭제`} className="text-soft hover:text-ink text-sm min-w-11 min-h-11">×</button>
                 </li>
               );
             })}

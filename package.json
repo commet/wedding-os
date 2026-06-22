@@ -11,6 +11,7 @@
     "test:e2e": "playwright test",
     "verify:critical": "playwright test tests/critical-flows.spec.ts",
     "verify:screenshots": "playwright test tests/dashboard-visual.spec.ts",
+    "verify:release": "npm audit --omit=dev && npm run build && npm run test:e2e",
     "video:render": "remotion render src/video/index.ts WeddingVideo out/wedding-video.mp4 --props=./wedding-video-props.json",
     "video:studio": "remotion studio src/video/index.ts"
   },
@@ -21,7 +22,7 @@
     "@vercel/og": "^0.11.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.26.0",
+    "react-router-dom": "^6.30.4",
     "remotion": "^4.0.461"
   },
   "devDependencies": {

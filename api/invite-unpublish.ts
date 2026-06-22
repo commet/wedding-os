@@ -7,21 +7,11 @@
 //
 // 설계 원칙 #1(사용자가 자기 데이터를 통제) — 한 번 발행하면 못 내리던 구멍을 막는다.
 
-import { get, list, del } from "@vercel/blob";
+import { get } from "@vercel/blob";
+import { deleteAllBlobs } from "./_blob";
+import { json, rateLimit, sha256Hex } from "./_security";
 
 declare const process: { env: Record<string, string | undefined> };
-
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json; charset=utf-8" },
-  });
-}
-
-async function sha256Hex(s: string): Promise<string> {
-  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
-  return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
 
 async function readOwnerHash(code: string, token: string): Promise<string | null> {
   try {
@@ -36,6 +26,8 @@ async function readOwnerHash(code: string, token: string): Promise<string | null
 
 export default async function handler(req: Request): Promise<Response> {
   if (req.method !== "POST") return json({ error: "POST 요청만 허용됩니다." }, 405);
+  const limited = rateLimit(req, "invite-unpublish", 5, 60_000);
+  if (limited) return limited;
 
   const code = new URL(req.url).searchParams.get("code") ?? "";
   if (!/^[a-z0-9]{6,16}$/.test(code)) return json({ error: "잘못된 코드입니다." }, 400);
@@ -44,7 +36,7 @@ export default async function handler(req: Request): Promise<Response> {
   if (!token) return json({ error: "스토리지가 아직 연결되지 않았어요." }, 503);
 
   const ownerToken = req.headers.get("x-owner-token") ?? "";
-  if (!ownerToken) return json({ error: "권한 정보가 없습니다." }, 400);
+  if (ownerToken.length < 32 || ownerToken.length > 256) return json({ error: "권한 정보가 올바르지 않습니다." }, 400);
 
   const storedHash = await readOwnerHash(code, token);
   if (!storedHash) return json({ error: "청첩장을 찾을 수 없어요." }, 404);
@@ -54,9 +46,7 @@ export default async function handler(req: Request): Promise<Response> {
 
   // invite/<code>/ 아래 전부 삭제 — payload.enc · meta.json · rsvp/*.enc.
   try {
-    const { blobs } = await list({ prefix: `invite/${code}/`, token });
-    const urls = blobs.map((b) => b.url);
-    if (urls.length > 0) await del(urls, { token });
+    await deleteAllBlobs(`invite/${code}/`, token);
   } catch {
     return json({ error: "삭제에 실패했습니다. 잠시 후 다시 시도해주세요." }, 502);
   }

@@ -305,57 +305,6 @@ export default function Dashboard({ data, update }: Props) {
     venueCount,
   ]);
 
-  const timeline = useMemo(() => {
-    const rows = [
-      {
-        label: "기본 정보",
-        due: "지금",
-        done: !!data.invitation.date && checklistTotal > 0,
-        desc: "날짜와 체크리스트",
-      },
-      {
-        label: "큰 예약",
-        due: "D-240",
-        done: !!data.invitation.venue || venueCount > 0 || sdmCount > 0,
-        desc: "예식장·스드메",
-      },
-      {
-        label: "후보 비교",
-        due: "D-180",
-        done: data.rings.length > 0 || data.honeymoon.regions.length > 0,
-        desc: "반지·여행",
-      },
-      {
-        label: "공유 준비",
-        due: "D-90",
-        done: invitationReadyCount >= 4,
-        desc: "청첩장·하객",
-      },
-      {
-        label: "최종 점검",
-        due: "D-14",
-        done: guestCount > 0 && budgetCount > 0,
-        desc: "식수·결제",
-      },
-    ];
-    const activeIdx = rows.findIndex((r) => !r.done);
-    return rows.map((r, i) => ({
-      ...r,
-      active: activeIdx === -1 ? i === rows.length - 1 : i === activeIdx,
-    }));
-  }, [
-    budgetCount,
-    checklistTotal,
-    data.honeymoon.regions.length,
-    data.invitation.date,
-    data.invitation.venue,
-    data.rings.length,
-    guestCount,
-    invitationReadyCount,
-    sdmCount,
-    venueCount,
-  ]);
-
   const readiness: ReadinessItem[] = [
     {
       to: "/checklist",
@@ -437,52 +386,30 @@ export default function Dashboard({ data, update }: Props) {
       {/* ─── 히어로 — 박스 없이 풀폭 타이포 ─── */}
       <section className="page pt-6 pb-6">
         {empty ? (
-          <div className="overflow-hidden border border-line bg-white lift">
-            <div className="h-1.5 bg-ink" />
-            <div className="px-5 pt-5 pb-4">
-              <div className="flex items-baseline justify-between gap-4 mb-5">
-                <div className="eyebrow-gold">처음 시작</div>
-                <span className="text-[11px] text-soft whitespace-nowrap">날짜 없이도 가능</span>
-              </div>
-              <h1 className="font-serif text-[1.72rem] leading-[1.18] text-ink tracking-tight mb-3">
-                결혼 준비의 첫 장을<br />
-                정돈해드릴게요.
-              </h1>
-              <p className="text-[12.5px] text-soft leading-relaxed mb-5">
-                청첩장 정보, 체크리스트, 예산, 반지와 여행 후보까지. 지금 적을 수 있는 것만 바탕으로 시작점을 만듭니다.
-              </p>
-
-              <button
-                data-testid="dashboard-ai-starter"
-                onClick={openAiStarter}
-                className="btn-primary w-full py-3.5 text-[12.5px]"
-              >
-                내 준비판 만들기 →
-              </button>
-            </div>
-
-            <div className="border-y border-line bg-[#F5F7F2] px-5 py-4">
-              <div className="flex items-baseline justify-between gap-3 mb-3">
-                <div className="eyebrow">바로 생기는 것</div>
-                <span className="text-[11px] text-soft">수정 가능</span>
-              </div>
-              <div className="space-y-2.5">
-                <StarterPreview num="01" title="오늘 볼 일" desc="당장 정해야 할 것부터 앞에 둡니다." />
-                <StarterPreview num="02" title="비용의 큰 틀" desc="견적을 받기 전에 비교 기준을 만듭니다." />
-                <StarterPreview num="03" title="반지·여행 후보" desc="처음 고르기 좋은 풀에서 시작합니다." />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 divide-x divide-line text-center text-[12px]">
-              <a href="#wedding-day-input" className="px-2 py-3 text-soft hover:text-ink">
-                날짜
+          <div className="border-y border-hair py-6">
+            <div className="eyebrow-gold mb-3">처음 1분</div>
+            <h1 className="font-serif text-[1.75rem] leading-[1.18] text-ink tracking-tight mb-3">
+              예식 날짜가<br />정해졌나요?
+            </h1>
+            <p className="text-[12.5px] text-soft leading-relaxed mb-5">
+              날짜를 넣으면 준비 일정을 맞춰드려요. 아직 미정이면 건너뛰고 바로 할 일부터 볼 수 있습니다.
+            </p>
+            <label className="block mb-4">
+              <span className="label">예식 날짜</span>
+              <input
+                type="date"
+                className="input bg-paper"
+                value={data.invitation.date}
+                onChange={(e) => setWeddingDate(e.target.value)}
+              />
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <Link to="/invitation" className="btn-primary min-h-11 flex items-center justify-center px-3 text-[12px] text-center">
+                이름·장소 입력
+              </Link>
+              <a href="#today-focus" className="btn-secondary min-h-11 flex items-center justify-center px-3 text-[12px] text-center">
+                아직 미정
               </a>
-              <Link to="/invitation" className="px-2 py-3 text-soft hover:text-ink">
-                청첩장
-              </Link>
-              <Link to="/rings?starter=1" className="px-2 py-3 text-soft hover:text-ink">
-                반지
-              </Link>
             </div>
           </div>
         ) : (
@@ -544,11 +471,11 @@ export default function Dashboard({ data, update }: Props) {
       <div className="hairline" />
 
       {/* ─── 다음 행동 — 앱이 먼저 정리해주는 영역 ─── */}
-      <section className="page py-9">
+      <section id="today-focus" className="page py-9 scroll-mt-20">
         <div className="flex items-baseline justify-between mb-5">
           <div>
             <div className="eyebrow-gold mb-2">Next</div>
-            <h2 className="font-serif text-xl text-ink">오늘은 이것만</h2>
+            <h2 className="font-serif text-xl text-ink">먼저 할 일 3가지</h2>
           </div>
           <span className="text-[11px] text-soft">지금 필요한 순서</span>
         </div>
@@ -585,109 +512,43 @@ export default function Dashboard({ data, update }: Props) {
             </li>
           ))}
         </ul>
+        {empty && (
+          <button
+            data-testid="dashboard-ai-starter"
+            onClick={openAiStarter}
+            className="mt-5 text-[12px] text-soft underline underline-offset-4 hover:text-ink"
+          >
+            AI로 내 상황에 맞게 다시 정리
+          </button>
+        )}
       </section>
 
-      {empty && (
-        <section id="wedding-day-input" className="page pb-9">
-          <div className="text-left border-y border-hair py-4">
-            <div className="eyebrow-gold mb-2">Wedding day</div>
-            <label className="block">
-              <span className="text-[12px] text-soft">날짜를 알면 체크리스트 마감일이 더 정확해져요</span>
-              <input
-                type="date"
-                className="input mt-2 bg-paper"
-                value={data.invitation.date}
-                onChange={(e) => setWeddingDate(e.target.value)}
-              />
-            </label>
-            <div className="mt-4 flex items-end justify-between border-t border-hair pt-4">
-              <div>
-                <div className="eyebrow">오늘 기준</div>
-                <div className="text-[12px] text-soft mt-1">
-                  비워둬도 괜찮고, 정해지면 나중에 넣어도 됩니다.
-                </div>
-              </div>
-              <DdayMark dday={dday} />
-            </div>
-          </div>
-        </section>
-      )}
-
+      {!empty && <>
       <div className="hairline" />
-
-      {/* ─── 타임라인 — 큰 흐름을 한눈에 ─── */}
-      <section className="page py-9">
-        <div className="eyebrow-gold mb-5">Timeline</div>
-        <div className="space-y-4">
-          {timeline.map((m, i) => (
-            <div key={m.label} className="grid grid-cols-[3.5rem_1fr] gap-3 items-start">
-              <div className="text-right">
-                <div className={`font-serif text-sm tabular-nums ${m.active ? "text-gold" : m.done ? "text-ink" : "text-soft"}`}>
-                  {m.due}
+      <section className="page py-7">
+        <details>
+          <summary className="list-none cursor-pointer flex items-center justify-between gap-4 min-h-11">
+            <span>
+              <span className="eyebrow-gold block mb-1">전체 준비 현황</span>
+              <span className="font-serif text-lg text-ink">{coreProgress}% 진행 중</span>
+            </span>
+            <span className="text-[12px] text-soft underline underline-offset-4">펼쳐보기</span>
+          </summary>
+          <div className="grid grid-cols-2 gap-3 pt-5">
+            {readiness.map((item) => (
+              <Link key={item.label} to={item.to} className="border border-hair bg-paper p-3 active:opacity-70 transition">
+                <div className="flex items-baseline justify-between gap-2 mb-3">
+                  <span className="font-serif text-[15px] text-ink">{item.label}</span>
+                  <span className="text-[12px] text-soft tabular-nums">{item.percent}%</span>
                 </div>
-              </div>
-              <div className="relative pb-4">
-                {i < timeline.length - 1 && <div className="absolute left-[5px] top-5 bottom-0 w-px bg-hair" />}
-                <div className="flex items-start gap-3">
-                  <span className={`relative z-10 mt-1 w-3 h-3 border ${m.done ? "bg-ink border-ink" : m.active ? "bg-gold border-gold" : "bg-paper border-hair"}`} />
-                  <div>
-                    <div className={`font-serif text-[16px] ${m.active ? "text-ink" : m.done ? "text-ink" : "text-soft"}`}>
-                      {m.label}
-                    </div>
-                    <div className="text-[11.5px] text-soft mt-1">{m.desc}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <div className="hairline" />
-
-      {/* ─── 영역별 준비도 — 한눈에 보이는 운영판 ─── */}
-      <section className="page py-9">
-        <div className="flex items-baseline justify-between mb-5">
-          <div>
-            <div className="eyebrow-gold mb-2">Readiness</div>
-            <h2 className="font-serif text-xl text-ink">영역별 준비도</h2>
+                <ProgressLine value={item.percent} subtle />
+                <div className="text-[11px] text-soft mt-2 leading-tight">{item.detail}</div>
+              </Link>
+            ))}
           </div>
-          <Link to="/ai" className="text-[11px] text-soft underline underline-offset-4 hover:text-ink">
-            AI 연결
-          </Link>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          {readiness.map((item) => (
-            <Link key={item.label} to={item.to} className="border border-hair bg-paper p-3 active:opacity-70 transition">
-              <div className="flex items-baseline justify-between gap-2 mb-3">
-                <span className="font-serif text-[15px] text-ink">{item.label}</span>
-                <span className="text-[12px] text-soft tabular-nums">{item.percent}%</span>
-              </div>
-              <ProgressLine value={item.percent} subtle />
-              <div className="text-[11px] text-soft mt-2 leading-tight">{item.detail}</div>
-            </Link>
-          ))}
-        </div>
+        </details>
       </section>
-
-      <div className="hairline" />
-
-      <section className="page py-9">
-        <div className="flex items-baseline justify-between gap-4 mb-5">
-          <div>
-            <div className="eyebrow-gold mb-2">기본 후보</div>
-            <h2 className="font-serif text-xl text-ink">시작 후보 잡기</h2>
-          </div>
-          <Link to="/ai" className="text-[11px] text-soft underline underline-offset-4 hover:text-ink">
-            AI로 더 좁히기
-          </Link>
-        </div>
-        <div className="border-y border-hair divide-y divide-hair">
-          <AiStarter to="/rings?starter=1" title="반지 후보 풀 만들기" desc="예산·소재·다이아 여부로 먼저 비교할 후보를 3~5개 잡습니다." />
-          <AiStarter to="/trip?starter=1" title="신혼여행 지역 비교" desc="기간·예산·여행 톤을 기준으로 지역과 일정 메모를 시작합니다." />
-          <AiStarter to="/venues?starter=1" title="상담 후보 추리기" desc="지역·하객 수·식대 기준으로 먼저 문의할 식장을 정리합니다." />
-        </div>
-      </section>
+      </>}
 
       <div className="hairline" />
 
@@ -737,56 +598,11 @@ export default function Dashboard({ data, update }: Props) {
   );
 }
 
-function DdayMark({ dday }: { dday: number | null }) {
-  if (dday === null) {
-    return (
-      <div className="text-right">
-        <div className="font-serif text-2xl text-soft">D-?</div>
-        <div className="eyebrow mt-1">날짜 대기</div>
-      </div>
-    );
-  }
-  if (dday === 0) {
-    return (
-      <div className="text-right">
-        <div className="font-serif text-2xl text-gold">D-DAY</div>
-        <div className="eyebrow mt-1">오늘</div>
-      </div>
-    );
-  }
-  if (dday < 0) {
-    return (
-      <div className="text-right">
-        <div className="font-serif text-2xl text-soft tabular-nums">D+{Math.abs(dday)}</div>
-        <div className="eyebrow mt-1">예식 후</div>
-      </div>
-    );
-  }
-  return (
-    <div className="text-right">
-      <div className="font-serif text-3xl text-ink tabular-nums">D-{dday}</div>
-      <div className="eyebrow mt-1">남았습니다</div>
-    </div>
-  );
-}
-
 function ProgressLine({ value, subtle = false }: { value: number; subtle?: boolean }) {
   const width = `${Math.max(0, Math.min(100, value))}%`;
   return (
     <div className={`h-2 overflow-hidden ${subtle ? "bg-line" : "bg-hair"}`}>
       <div className={`h-full transition-all duration-500 ${subtle ? "bg-gold" : "bg-ink"}`} style={{ width }} />
-    </div>
-  );
-}
-
-function StarterPreview({ num, title, desc }: { num: string; title: string; desc: string }) {
-  return (
-    <div className="flex items-start gap-3 bg-white/70 px-3 py-3 border border-white">
-      <span className="font-serif text-[16px] leading-none text-gold tabular-nums pt-0.5">{num}</span>
-      <div className="min-w-0">
-        <div className="text-[13px] font-medium text-ink leading-snug">{title}</div>
-        <p className="text-[11.5px] text-soft leading-relaxed mt-0.5">{desc}</p>
-      </div>
     </div>
   );
 }
@@ -819,18 +635,6 @@ function StarterResultPanel({ result }: { result: StarterResult }) {
         )}
       </div>
     </div>
-  );
-}
-
-function AiStarter({ to, title, desc }: { to: string; title: string; desc: string }) {
-  return (
-    <Link to={to} className="flex items-start justify-between gap-4 py-4 active:opacity-70 transition">
-      <div className="min-w-0">
-        <div className="font-serif text-[16px] text-ink">{title}</div>
-        <p className="text-[12px] text-soft leading-relaxed mt-1">{desc}</p>
-      </div>
-      <span className="text-soft pt-1 flex-shrink-0">→</span>
-    </Link>
   );
 }
 

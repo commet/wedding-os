@@ -10,49 +10,80 @@ import type { WeddingData } from "../lib/schema";
 import { defaultData } from "../lib/schema";
 import { defaultChecklist } from "../data/checklistTemplate";
 import {
-  getHostedConfig, setHostedConfig, getOrCreateOwnerToken, markOwner,
+  bindHostedUser, clearHostedConfig, getHostedConfig, getOrCreateOwnerToken, getOwnerToken,
+  hostedUserMatches, setHostedConfig, markOwner,
 } from "../lib/security";
 import { generateWeddingId, generateWeddingKeyRaw, buildRecoveryLink } from "../lib/recovery";
-import { authAvailable } from "../lib/auth";
+import { authAvailable, currentAccessToken, currentUserId } from "../lib/auth";
+import { createHostedStorage } from "../lib/storage.hosted";
+import { migrateImagesIdbToDataUrl, stripUnresolvedIdb } from "../lib/imageStore";
 
 type Props = { data: WeddingData; update: (patch: any) => void };
 
 export default function HostedStart({ data, update }: Props) {
   const navigate = useNavigate();
-  const [phase, setPhase] = useState<"intro" | "done">(getHostedConfig() ? "done" : "intro");
+  const [phase, setPhase] = useState<"intro" | "done">(
+    data.preferences.mode === "hosted" && getHostedConfig() ? "done" : "intro",
+  );
   const [busy, setBusy] = useState(false);
   const [link, setLink] = useState(() => {
     const cfg = getHostedConfig();
     return cfg ? buildRecoveryLink({ weddingId: cfg.weddingId, ownerToken: getOrCreateOwnerToken(), weddingKey: cfg.weddingKey }) : "";
   });
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState("");
 
   const start = async () => {
     if (!authAvailable()) return; // 온라인 동기화 미설정 — 가장하지 않음
     setBusy(true);
+    setError("");
+    let stagedConfig = false;
     try {
-      // 1) 자격증명 생성·저장 (update 전에 — selectDriver 가 즉시 hosted 로 붙도록)
-      let cfg = getHostedConfig();
-      if (!cfg) {
-        const weddingId = generateWeddingId();
-        const weddingKey = await generateWeddingKeyRaw();
-        setHostedConfig({ weddingId, weddingKey });
-        cfg = { weddingId, weddingKey };
+      const accessToken = await currentAccessToken();
+      if (!accessToken) {
+        navigate(`/login?next=${encodeURIComponent("/start-hosted")}`);
+        return;
       }
+      const userId = await currentUserId();
+      if (!userId) throw new Error("로그인 세션을 확인하지 못했습니다. 다시 로그인해주세요.");
+      if (!hostedUserMatches(userId)) throw new Error("이 기기의 청첩장은 다른 로그인 계정에 연결되어 있습니다. 먼저 로그아웃 후 기기 데이터를 지워주세요.");
+
+      // 새 전환은 항상 새 자격증명을 만든다. 로컬에 임시 저장해 저장 가능 여부를 먼저 확인하고,
+      // 첫 원격 저장이 실패하면 catch 에서 제거한다.
+      const cfg = data.preferences.mode === "hosted" ? getHostedConfig() : undefined;
+      const nextConfig = cfg ?? { weddingId: generateWeddingId(), weddingKey: await generateWeddingKeyRaw() };
+      if (!setHostedConfig(nextConfig)) throw new Error("이 기기에 복구 권한을 저장할 수 없습니다. 브라우저 저장 공간을 확인해주세요.");
+      stagedConfig = !cfg;
+      if (!bindHostedUser(userId)) throw new Error("이 기기에 계정 소유권을 안전하게 저장하지 못했습니다.");
       const ownerToken = getOrCreateOwnerToken();
-      markOwner();
+      if (getOwnerToken() !== ownerToken) throw new Error("이 기기에 편집 권한을 저장할 수 없습니다. 브라우저 저장 공간을 확인해주세요.");
 
       // 2) mode='hosted' 로 전환 — 데모면 새로 시작, 아니면 기존 데이터 이어받음.
-      update((prev: WeddingData) => {
-        const base = prev.preferences.isDemo
-          ? { ...defaultData(), checklist: defaultChecklist() }
-          : { ...prev, checklist: prev.checklist.length ? prev.checklist : defaultChecklist(prev.invitation.date) };
-        return { ...base, preferences: { ...base.preferences, mode: "hosted", isDemo: false } };
-      });
+      const base = data.preferences.isDemo
+        ? { ...defaultData(), checklist: defaultChecklist() }
+        : { ...data, checklist: data.checklist.length ? data.checklist : defaultChecklist(data.invitation.date) };
+      const portable = await migrateImagesIdbToDataUrl(base);
+      const unresolved = stripUnresolvedIdb(portable);
+      if (unresolved.removed > 0) {
+        throw new Error(`사진 ${unresolved.removed}장을 온라인용으로 변환하지 못했습니다. 원본 사진을 확인한 뒤 다시 시도해주세요.`);
+      }
+      const next = { ...portable, preferences: { ...portable.preferences, mode: "hosted" as const, isDemo: false } };
+      const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+      if (!url || !anonKey) throw new Error("온라인 저장소 설정이 없습니다.");
+      const firstSave = await createHostedStorage(
+        url, anonKey, nextConfig.weddingId, nextConfig.weddingKey, ownerToken, accessToken,
+      ).save(next);
+      if (!firstSave.ok) throw new Error("온라인 저장소에 처음 저장하지 못했습니다. 잠시 후 다시 시도해주세요.");
+      markOwner();
+      update(() => next);
 
       // 3) 복구 링크
-      setLink(buildRecoveryLink({ weddingId: cfg.weddingId, ownerToken, weddingKey: cfg.weddingKey }));
+      setLink(buildRecoveryLink({ weddingId: nextConfig.weddingId, ownerToken, weddingKey: nextConfig.weddingKey }));
       setPhase("done");
+    } catch (e: any) {
+      if (stagedConfig) clearHostedConfig();
+      setError(e?.message ?? "함께 편집 링크를 만들지 못했습니다.");
     } finally {
       setBusy(false);
     }
@@ -98,8 +129,9 @@ export default function HostedStart({ data, update }: Props) {
           <li>· 내용은 이 기기에서 <b className="text-ink">암호화</b>되어 올라가, 운영자도 못 봐요. <button onClick={() => navigate("/trust")} className="underline underline-offset-2 hover:text-ink">확인</button></li>
         </ul>
         <button onClick={start} disabled={busy} className="btn-primary w-full py-4 text-[13px] disabled:opacity-50">
-          {busy ? "준비 중…" : "함께 편집할 링크 만들기 →"}
+          {busy ? "준비 중…" : "로그인하고 함께 시작 →"}
         </button>
+        {error && <p className="mt-3 text-[12px] text-gold leading-relaxed">{error}</p>}
         <button onClick={() => navigate("/dashboard")} className="block w-full mt-4 text-center text-[12px] text-soft underline underline-offset-4 hover:text-ink">
           나중에
         </button>

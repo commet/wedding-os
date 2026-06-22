@@ -6,14 +6,16 @@
 import type { WeddingData, InvitationContent } from "./schema";
 import { sealInvitation, openInvitation } from "./invitePublish";
 import { importInviteKey, encryptJSON, decryptJSON } from "./inviteCrypto";
-import { getOrCreateOwnerToken } from "./security";
+import { getOrCreateOwnerToken, getOwnerToken } from "./security";
+import { currentAccessToken } from "./auth";
+import { bytesToBase64Url } from "./inviteCrypto";
 
 const PUBLISH_ENDPOINT = "/api/invite-publish";
 const PAYLOAD_ENDPOINT = "/api/invite-payload";
 const MAX_PUBLISH_BYTES = 4 * 1024 * 1024;
 
 export type PublishResult =
-  | { ok: true; code: string; keyRaw: string; link: string; droppedPhotos: number }
+  | { ok: true; code: string; keyRaw: string; rsvpToken: string; link: string; droppedPhotos: number }
   | { ok: false; reason: string };
 
 export type OpenResult =
@@ -30,7 +32,7 @@ function toBase64Url(s: string): string {
 /** 청첩장 발행/재발행. existing 을 주면 같은 코드·키로 갱신(링크 유지). */
 export async function publishInvitation(
   data: WeddingData,
-  existing?: { code: string; keyRaw: string },
+  existing?: { code: string; keyRaw: string; rsvpToken?: string },
 ): Promise<PublishResult> {
   try {
     const sealed = await sealInvitation(data, existing?.keyRaw);
@@ -40,14 +42,28 @@ export async function publishInvitation(
         reason: "청첩장 용량이 커서 발행할 수 없어요. 사진 수를 줄이거나 큰 사진을 교체해주세요.",
       };
     }
+    const accessToken = await currentAccessToken();
+    if (!accessToken) return { ok: false, reason: "청첩장 발행은 로그인 후 사용할 수 있어요." };
+    const ownerToken = getOrCreateOwnerToken();
+    if (getOwnerToken() !== ownerToken) {
+      return { ok: false, reason: "이 기기에 발행 권한을 저장할 수 없습니다. 브라우저 저장 공간을 확인해주세요." };
+    }
+    const rsvpToken = existing?.rsvpToken
+      ? existing.rsvpToken
+      : bytesToBase64Url(crypto.getRandomValues(new Uint8Array(32)));
     const meta = {
       ogMeta: sealed.ogMeta,
-      ownerToken: getOrCreateOwnerToken(),
+      rsvpToken,
       ...(existing?.code ? { code: existing.code } : {}),
     };
-    const res = await fetch(`${PUBLISH_ENDPOINT}?meta=${toBase64Url(JSON.stringify(meta))}`, {
+    const res = await fetch(PUBLISH_ENDPOINT, {
       method: "POST",
-      headers: { "content-type": "application/octet-stream" },
+      headers: {
+        "content-type": "application/octet-stream",
+        "x-owner-token": ownerToken,
+        "x-publish-meta": toBase64Url(JSON.stringify(meta)),
+        Authorization: `Bearer ${accessToken}`,
+      },
       body: sealed.ciphertext,
     });
     const body = await res.json().catch(() => ({}));
@@ -55,8 +71,8 @@ export async function publishInvitation(
       return { ok: false, reason: body?.error ?? `발행에 실패했어요 (${res.status}).` };
     }
     const code: string = body.code;
-    const link = `${location.origin}/i/${code}#k=${sealed.keyRaw}`;
-    return { ok: true, code, keyRaw: sealed.keyRaw, link, droppedPhotos: sealed.droppedPhotos };
+    const link = `${location.origin}/i/${code}#k=${sealed.keyRaw}&r=${rsvpToken}`;
+    return { ok: true, code, keyRaw: sealed.keyRaw, rsvpToken, link, droppedPhotos: sealed.droppedPhotos };
   } catch (e: any) {
     return { ok: false, reason: e?.message ?? "발행 중 오류가 났어요." };
   }
@@ -74,6 +90,7 @@ export async function unpublishInvitation(
       method: "POST",
       headers: { "x-owner-token": getOrCreateOwnerToken() },
     });
+    if (res.status === 404) return { ok: true };
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
       return { ok: false, reason: body?.error ?? `발행 취소에 실패했어요 (${res.status}).` };
@@ -125,6 +142,7 @@ function base64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
 export async function submitHostedRsvp(
   code: string,
   keyRaw: string,
+  rsvpToken: string,
   input: HostedRsvpInput,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
   try {
@@ -160,9 +178,10 @@ export async function submitHostedRsvp(
       submittedAt: new Date().toISOString(),
     };
     const ciphertext = await encryptJSON(rsvp, key);
+    if (!rsvpToken) return { ok: false, reason: "청첩장 링크가 오래됐어요. 새 링크를 받아주세요." };
     const res = await fetch(`${RSVP_ENDPOINT}?code=${encodeURIComponent(code)}`, {
       method: "POST",
-      headers: { "content-type": "application/octet-stream" },
+      headers: { "content-type": "application/octet-stream", "x-rsvp-token": rsvpToken },
       body: ciphertext,
     });
     if (!res.ok) {

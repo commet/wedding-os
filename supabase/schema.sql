@@ -13,7 +13,10 @@
 --   - 본 도구의 제작자는 사용자의 Supabase 에 접근할 수 없습니다.
 -- ------------------------------------------------------------------
 
+begin;
+
 create extension if not exists pgcrypto;
+revoke create on schema public from public;
 
 -- 1. 메인 데이터 테이블
 create table if not exists public.wedding_data (
@@ -21,6 +24,7 @@ create table if not exists public.wedding_data (
   data jsonb not null default '{}'::jsonb,
   version int not null default 1,
   owner_token_hash text,
+  rsvp_token_hash text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -28,6 +32,7 @@ create table if not exists public.wedding_data (
 -- 옛 스키마 호환 — version 컬럼이 없으면 추가.
 alter table public.wedding_data add column if not exists version int not null default 1;
 alter table public.wedding_data add column if not exists owner_token_hash text;
+alter table public.wedding_data add column if not exists rsvp_token_hash text;
 
 -- 2. RSVP 테이블 (하객 응답)
 create table if not exists public.rsvp (
@@ -60,6 +65,7 @@ create table if not exists public.collab_comments (
 alter table public.wedding_data enable row level security;
 alter table public.rsvp enable row level security;
 alter table public.collab_comments enable row level security;
+revoke all on public.wedding_data, public.rsvp, public.collab_comments from anon, authenticated;
 
 -- 5. 정책
 --    wedding_data: 직접 SELECT/UPDATE 는 막고, 아래 SECURITY DEFINER RPC 로만 접근합니다.
@@ -73,12 +79,10 @@ drop policy if exists "wedding_data_write"  on public.wedding_data;
 --            (Supabase 대시보드의 Table Editor 에서도 직접 볼 수 있음).
 drop policy if exists "rsvp_all"        on public.rsvp;
 drop policy if exists "rsvp_insert_only" on public.rsvp;
-create policy "rsvp_insert_only" on public.rsvp for insert with check (true);
 
 --    collab_comments: 동일 — 코멘트 작성만 허용, 변조·열람 차단.
 drop policy if exists "collab_all"         on public.collab_comments;
 drop policy if exists "collab_insert_only" on public.collab_comments;
-create policy "collab_insert_only" on public.collab_comments for insert with check (true);
 
 -- 5-1. 공개/오너 RPC
 create or replace function public.ensure_wedding_owner(p_id text, p_token text)
@@ -90,13 +94,10 @@ as $$
 declare
   existing_hash text;
 begin
-  if p_token is null or length(p_token) < 32 then
+  if p_id is null or p_id !~ '^[A-Za-z0-9_-]{1,64}$'
+     or p_token is null or length(p_token) not between 32 and 256 then
     raise exception 'owner token required' using errcode = 'P0001';
   end if;
-
-  insert into public.wedding_data (id, data, owner_token_hash)
-  values (p_id, '{}'::jsonb, crypt(p_token, gen_salt('bf')))
-  on conflict (id) do nothing;
 
   select owner_token_hash into existing_hash
   from public.wedding_data
@@ -104,15 +105,51 @@ begin
   for update;
 
   if existing_hash is null then
-    update public.wedding_data
-    set owner_token_hash = crypt(p_token, gen_salt('bf'))
-    where id = p_id;
-    return;
+    raise exception 'wedding not provisioned' using errcode = 'P0001';
   end if;
 
   if existing_hash <> crypt(p_token, existing_hash) then
     raise exception 'owner token mismatch' using errcode = 'P0001';
   end if;
+end;
+$$;
+
+create or replace function public.submit_rsvp(
+  p_id text,
+  p_token text,
+  p_name text,
+  p_attending boolean,
+  p_side text default null,
+  p_guests int default 1,
+  p_meal text default null,
+  p_message text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  token_hash text;
+  new_id uuid;
+begin
+  if p_id is null or p_id !~ '^[A-Za-z0-9_-]{1,64}$'
+     or p_token is null or length(p_token) not between 32 and 256 then
+    raise exception 'invalid rsvp capability' using errcode = 'P0001';
+  end if;
+  select rsvp_token_hash into token_hash from public.wedding_data where id = p_id;
+  if token_hash is null or p_token is null or token_hash <> crypt(p_token, token_hash) then
+    raise exception 'invalid rsvp capability' using errcode = 'P0001';
+  end if;
+  if length(trim(p_name)) < 1 or length(p_name) > 40 or length(coalesce(p_meal, '')) > 80
+     or length(coalesce(p_message, '')) > 500 or p_guests < 0 or p_guests > 20
+     or (p_side is not null and p_side not in ('groom', 'bride')) then
+    raise exception 'invalid rsvp input' using errcode = 'P0001';
+  end if;
+  insert into public.rsvp(config_id, name, attending, side, guests, meal, message)
+  values (p_id, trim(p_name), p_attending, p_side, p_guests, p_meal, p_message)
+  returning id into new_id;
+  return new_id;
 end;
 $$;
 
@@ -177,7 +214,7 @@ set search_path = public
 as $$
   select coalesce(data->'invitation', '{}'::jsonb)
   from public.wedding_data
-  where id = p_id
+  where id = p_id and p_id ~ '^[A-Za-z0-9_-]{1,64}$'
 $$;
 
 create or replace function public.list_rsvp(p_id text default 'default', p_token text default null)
@@ -206,10 +243,17 @@ begin
 end;
 $$;
 
+revoke all on function public.ensure_wedding_owner(text, text) from public, anon, authenticated;
+revoke all on function public.load_wedding_data(text, text) from public, anon, authenticated;
+revoke all on function public.save_wedding_data(text, text, jsonb, int) from public, anon, authenticated;
+revoke all on function public.get_public_invitation(text) from public, anon, authenticated;
+revoke all on function public.list_rsvp(text, text) from public, anon, authenticated;
+revoke all on function public.submit_rsvp(text, text, text, boolean, text, int, text, text) from public, anon, authenticated;
 grant execute on function public.load_wedding_data(text, text) to anon, authenticated;
 grant execute on function public.save_wedding_data(text, text, jsonb, int) to anon, authenticated;
 grant execute on function public.get_public_invitation(text) to anon, authenticated;
 grant execute on function public.list_rsvp(text, text) to anon, authenticated;
+grant execute on function public.submit_rsvp(text, text, text, boolean, text, int, text, text) to anon, authenticated;
 
 -- 6. updated_at 자동 갱신 + version 자동 증가 (낙관적 동시성)
 create or replace function public.touch_updated_at()
@@ -252,7 +296,17 @@ before insert or update on public.wedding_data
 for each row execute function public.wedding_data_size_guard();
 
 -- 8. 기본 row 하나 (있으면 그대로 둠)
-insert into public.wedding_data (id, data) values ('default', '{}'::jsonb)
-on conflict (id) do nothing;
+insert into public.wedding_data (id, data, owner_token_hash, rsvp_token_hash)
+values (
+  'default',
+  '{}'::jsonb,
+  crypt('__WEDDING_OS_OWNER_TOKEN__', gen_salt('bf')),
+  crypt('__WEDDING_OS_RSVP_TOKEN__', gen_salt('bf'))
+)
+on conflict (id) do update
+set owner_token_hash = excluded.owner_token_hash,
+    rsvp_token_hash = excluded.rsvp_token_hash;
 
 -- 완료. 이 SQL이 정상적으로 실행되면 "Success. No rows returned" 가 보입니다.
+
+commit;

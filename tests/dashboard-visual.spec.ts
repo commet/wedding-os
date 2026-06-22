@@ -16,11 +16,12 @@ test.describe("dashboard visual smoke", () => {
     await page.goto("/dashboard");
     await page.waitForLoadState("networkidle");
 
-    await expect(page.getByText("오늘은 이것만")).toBeVisible();
+    await expect(page.getByText("먼저 할 일 3가지")).toBeVisible();
     await expect(page.getByTestId("dashboard-ai-starter")).toBeVisible();
-    await expect(page.getByText("Timeline")).toBeVisible();
-    await expect(page.getByText("영역별 준비도")).toBeVisible();
-    await expect(page.getByText("시작 후보 잡기")).toBeVisible();
+    await expect(page.getByLabel("예식 날짜")).toBeVisible();
+    await expect(page.getByText("Timeline")).toHaveCount(0);
+    await expect(page.getByText("영역별 준비도")).toHaveCount(0);
+    await expect(page.getByText("시작 후보 잡기")).toHaveCount(0);
 
     await assertLayoutHealth(page);
 
@@ -39,14 +40,39 @@ test.describe("dashboard visual smoke", () => {
     });
   });
 
+  test("explains the product before asking for setup choices", async ({ page }) => {
+    await page.addInitScript(() => { localStorage.clear(); sessionStorage.clear(); });
+    await page.goto("/");
+
+    await expect(page.getByRole("heading", { name: "결혼 준비, 오늘 무엇부터 할지 바로 보이도록." })).toBeVisible();
+    await expect(page.getByRole("button", { name: "가입 없이 바로 시작", exact: true })).toBeVisible();
+    await expect(page.getByText("오늘 할 일 3가지")).toBeVisible();
+    await expect(page.getByText("같은 기준으로 비교")).toBeVisible();
+    await expect(page.getByText("준비한 정보로 청첩장까지")).toBeVisible();
+    await expect(page.getByText("내 저장소로 직접 운영")).toHaveCount(0);
+    await assertLayoutHealth(page);
+  });
+
+  test("reveals the planning overview after basic information exists", async ({ page }) => {
+    await seedVisualData(page, true);
+    await page.goto("/dashboard");
+
+    await expect(page.getByText("전체 준비 현황")).toBeVisible();
+    await expect(page.getByText("Timeline")).toHaveCount(0);
+    await expect(page.getByText("영역별 준비도")).toHaveCount(0);
+    await expect(page.getByText("시작 후보 잡기")).toHaveCount(0);
+    await assertLayoutHealth(page);
+  });
+
   test("shows AI entry points in the actual UI", async ({ page }, testInfo) => {
     await seedVisualData(page);
     const projectName = testInfo.project.name.replace(/[^a-z0-9-]+/gi, "-").toLowerCase();
 
     await page.goto("/dashboard");
     await page.getByTestId("dashboard-ai-starter").click();
-    await expect(page.getByText("현재 입력된 정보만 바탕으로 초안을 만들고")).toBeVisible();
-    await expect(page.getByRole("button", { name: "초안 만들기 →", exact: true })).toBeVisible();
+    await expect(page.getByText("아래 요청을 평소 쓰는 AI에 보내고")).toBeVisible();
+    await expect(page.getByRole("link", { name: "로그인 →", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "초안 만들기 →", exact: true })).toHaveCount(0);
     await page.screenshot({
       path: join(screenshotDir, `dashboard-ai-modal-${projectName}.png`),
       fullPage: false,
@@ -64,9 +90,18 @@ test.describe("dashboard visual smoke", () => {
   });
 });
 
-async function seedVisualData(page: Page) {
+async function seedVisualData(page: Page, populated = false) {
   const data: WeddingData = defaultData();
   data.preferences = { ...data.preferences, mode: "local", isDemo: true };
+  if (populated) {
+    data.invitation = {
+      ...data.invitation,
+      groomName: "민준",
+      brideName: "서연",
+      date: "2026-11-07",
+      venue: "그랜드하우스 웨딩홀",
+    };
+  }
   await page.addInitScript(
     ({ key, value }) => {
       localStorage.setItem(key, JSON.stringify(value));

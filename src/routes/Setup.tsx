@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import type { WeddingData } from "../lib/schema";
 import { exportData } from "../lib/storage";
 import { createSupabaseStorage, pingSupabase } from "../lib/storage.supabase";
-import { isSupabaseHost, markOwner } from "../lib/security";
+import { isSupabaseHost, markOwner, getOrCreateOwnerToken, getOrCreateDirectRsvpToken } from "../lib/security";
 import { migrateImagesIdbToDataUrl } from "../lib/imageStore";
 import SchemaText from "../supabase-schema-text";
 
@@ -64,7 +64,10 @@ export default function Setup({ data, update }: Props) {
 
   const copySQL = async () => {
     try {
-      await navigator.clipboard.writeText(SchemaText);
+      const sql = SchemaText
+        .replaceAll("__WEDDING_OS_OWNER_TOKEN__", getOrCreateOwnerToken())
+        .replaceAll("__WEDDING_OS_RSVP_TOKEN__", getOrCreateDirectRsvpToken());
+      await navigator.clipboard.writeText(sql);
       setSqlCopied(true);
       setTimeout(() => setSqlCopied(false), 3000);
     } catch {
@@ -99,7 +102,12 @@ export default function Setup({ data, update }: Props) {
       alert("Supabase URL 형식이 잘못됐어요. xxxx.supabase.co 형태여야 합니다.");
       return;
     }
-    const supabaseConf = { url: cleanUrl, anonKey: cleanKey, configId: "default" };
+    const supabaseConf = {
+      url: cleanUrl,
+      anonKey: cleanKey,
+      configId: "default",
+      rsvpToken: getOrCreateDirectRsvpToken(),
+    };
     setFinishStatus("working");
     setFinishMsg("같이 쓰는 저장소를 확인하는 중...");
 

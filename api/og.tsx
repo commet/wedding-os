@@ -237,8 +237,8 @@ export default async function handler(req: Request) {
         ? [{ name: "Noto Sans KR", data: koreanFont, weight: 700, style: "normal" }]
         : undefined,
       headers: {
-        // 1분 캐시 — 너무 길면 청첩장 갱신 반영이 늦고, 너무 짧으면 매번 합성 비용
-        "Cache-Control": "public, s-maxage=60, stale-while-revalidate=86400",
+        // 발행 취소·수정 뒤 이름과 날짜가 오래 남지 않도록 stale 응답을 금지한다.
+        "Cache-Control": "private, no-store, max-age=0",
       },
     }
   );

@@ -4,11 +4,24 @@
 // (account.ts) 운영자는 못 푼다 — 로그인이 E2E 비밀을 깨지 않는다.
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { isSupabaseHost } from "./security";
+import { bindHostedUser, hostedUserMatches, isSupabaseHost } from "./security";
 import type { RecoveryBundle } from "./recovery";
 import { wrapBundle, unwrapBundle } from "./account";
 
 let _client: SupabaseClient | null | undefined;
+const ACCOUNT_LINK_MARKER = "wedding-os/account-linked/v1";
+
+function markLinkedAccount(linked: boolean): void {
+  try {
+    if (linked) localStorage.setItem(ACCOUNT_LINK_MARKER, "1");
+    else localStorage.removeItem(ACCOUNT_LINK_MARKER);
+  } catch { /* 계정 서버 상태가 진실이며 표식은 UX 보조일 뿐 */ }
+}
+
+export function linkedAccountKnownOnDevice(): boolean {
+  try { return localStorage.getItem(ACCOUNT_LINK_MARKER) === "1"; }
+  catch { return false; }
+}
 
 /** Auth 싱글톤. env(운영자 Supabase) 가 없으면 null → 로그인 비활성. */
 export function getAuthClient(): SupabaseClient | null {
@@ -24,13 +37,26 @@ export function getAuthClient(): SupabaseClient | null {
 
 export function authAvailable(): boolean { return !!getAuthClient(); }
 
+export async function currentAccessToken(): Promise<string | null> {
+  const c = getAuthClient();
+  if (!c) return null;
+  const { data } = await c.auth.getSession();
+  return data.session?.access_token ?? null;
+}
+
 /** 매직링크 발송. 클릭하면 /login 으로 돌아와 세션이 잡힌다. */
-export async function sendMagicLink(email: string): Promise<{ ok: boolean; error?: string }> {
+function loginRedirectUrl(returnTo?: string): string {
+  const safeReturnTo = returnTo === "/start-hosted" ? returnTo : undefined;
+  const suffix = safeReturnTo ? `?next=${encodeURIComponent(safeReturnTo)}` : "";
+  return `${window.location.origin}/login${suffix}`;
+}
+
+export async function sendMagicLink(email: string, returnTo?: string): Promise<{ ok: boolean; error?: string }> {
   const c = getAuthClient();
   if (!c) return { ok: false, error: "로그인을 사용할 수 없어요." };
   const { error } = await c.auth.signInWithOtp({
     email: email.trim(),
-    options: { emailRedirectTo: `${window.location.origin}/login` },
+    options: { emailRedirectTo: loginRedirectUrl(returnTo) },
   });
   return error ? { ok: false, error: error.message } : { ok: true };
 }
@@ -38,12 +64,13 @@ export async function sendMagicLink(email: string): Promise<{ ok: boolean; error
 /** 소셜 로그인 — 카카오/구글. 호출 시 해당 제공자로 페이지가 리다이렉트되고, 끝나면 /login 으로 복귀. */
 export async function signInWithProvider(
   provider: "kakao" | "google",
+  returnTo?: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const c = getAuthClient();
   if (!c) return { ok: false, error: "로그인을 사용할 수 없어요." };
   const { error } = await c.auth.signInWithOAuth({
     provider,
-    options: { redirectTo: `${window.location.origin}/login` },
+    options: { redirectTo: loginRedirectUrl(returnTo) },
   });
   return error ? { ok: false, error: error.message } : { ok: true };
 }
@@ -60,6 +87,11 @@ async function currentUid(c: SupabaseClient): Promise<string | null> {
   return data.session?.user?.id ?? null;
 }
 
+export async function currentUserId(): Promise<string | null> {
+  const c = getAuthClient();
+  return c ? currentUid(c) : null;
+}
+
 export async function signOut(): Promise<void> {
   const c = getAuthClient();
   if (c) await c.auth.signOut();
@@ -74,8 +106,11 @@ export async function linkAccount(
   if (!c) return { ok: false, error: "로그인을 사용할 수 없어요." };
   const uid = await currentUid(c);
   if (!uid) return { ok: false, error: "먼저 로그인해주세요." };
+  if (!hostedUserMatches(uid)) return { ok: false, error: "This device is bound to a different account." };
+  if (!bindHostedUser(uid)) return { ok: false, error: "Could not securely bind this device to the account." };
   const { blob, salt } = await wrapBundle(bundle, passphrase);
   const { error } = await c.from("wos_accounts").upsert({ user_id: uid, blob, salt });
+  if (!error) markLinkedAccount(true);
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
@@ -91,7 +126,9 @@ export async function recoverAccount(
   if (error) return { ok: false, error: error.message };
   if (!data) return { ok: false, error: "이 계정에 연결된 청첩장이 없어요." };
   try {
-    return { ok: true, bundle: await unwrapBundle(data.blob as string, data.salt as string, passphrase) };
+    const bundle = await unwrapBundle(data.blob as string, data.salt as string, passphrase);
+    markLinkedAccount(true);
+    return { ok: true, bundle };
   } catch {
     return { ok: false, error: "암호문구가 올바르지 않아요." };
   }
@@ -104,6 +141,7 @@ export async function deleteLinkedAccount(): Promise<{ ok: boolean; error?: stri
   const uid = await currentUid(c);
   if (!uid) return { ok: false, error: "먼저 로그인해주세요." };
   const { error } = await c.from("wos_accounts").delete().eq("user_id", uid);
+  if (!error) markLinkedAccount(false);
   return error ? { ok: false, error: error.message } : { ok: true };
 }
 
@@ -114,5 +152,7 @@ export async function hasLinkedAccount(): Promise<boolean> {
   const uid = await currentUid(c);
   if (!uid) return false;
   const { data } = await c.from("wos_accounts").select("user_id").eq("user_id", uid).maybeSingle();
-  return !!data;
+  const linked = !!data;
+  markLinkedAccount(linked);
+  return linked;
 }

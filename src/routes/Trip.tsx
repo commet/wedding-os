@@ -529,7 +529,7 @@ function Flights({ data, update }: Props) {
           links={flightSearchLinks(search.from, search.to, search.date, search.adults)}
         />
         <button onClick={onAISearch} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold disabled:opacity-40" disabled={!search.date || !search.to}>
-          AI에게 추천 받아 목록에 담기 →
+          AI 참고용 후보 만들기 →
         </button>
       </section>
 
@@ -765,7 +765,7 @@ function Stays({ data, update }: Props) {
               }}
               className="btn-primary w-full"
             >
-              🤖 AI에게 가격 비교 부탁
+              AI 참고용 가격 범위 추정
             </button>
             <p className="text-xs text-soft">또는 직접 입력 (1박 기준)</p>
             <div className="space-y-2">

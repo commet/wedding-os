@@ -19,6 +19,7 @@ export function bytesToBase64Url(bytes: Bytes): string {
 }
 
 export function base64UrlToBytes(s: string): Bytes {
+  if (!/^[A-Za-z0-9_-]*$/.test(s)) throw new Error("invalid base64url");
   const b64 = s.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(s.length / 4) * 4, "=");
   const bin = atob(b64);
   const out = new Uint8Array(bin.length);
@@ -39,6 +40,7 @@ export async function generateInviteKey(): Promise<{ key: CryptoKey; raw: string
 
 /** 공유 링크 '#' 의 base64url 키 문자열 → CryptoKey */
 export async function importInviteKey(raw: string): Promise<CryptoKey> {
+  if (!/^[A-Za-z0-9_-]{43}$/.test(raw)) throw new Error("invalid invitation key");
   return crypto.subtle.importKey(
     "raw",
     base64UrlToBytes(raw),
@@ -61,6 +63,7 @@ export async function encryptBytes(plain: Bytes, key: CryptoKey): Promise<Bytes>
 
 /** encryptBytes 의 역 — 앞 12바이트를 IV 로 떼어 복호화. 키·암호문이 어긋나면 throw. */
 export async function decryptBytes(payload: Bytes, key: CryptoKey): Promise<Bytes> {
+  if (payload.length < IV_BYTES + 16) throw new Error("invalid encrypted payload");
   const iv = payload.slice(0, IV_BYTES);
   const ct = payload.slice(IV_BYTES);
   return new Uint8Array(await crypto.subtle.decrypt({ name: ALGO, iv }, key, ct));

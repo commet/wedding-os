@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import type { WeddingData } from "../lib/schema";
-import { exportData, importData, purgeServerData } from "../lib/storage";
+import { clearLocalDeviceData, exportData, importData, purgeServerData, hasCorruptLocalBackup, downloadCorruptLocalBackup } from "../lib/storage";
 import { todayISO } from "../lib/freshness";
-import { clearSecrets, clearOwner, getOrCreateOwnerToken, getHostedConfig, isOwner } from "../lib/security";
+import { clearOwner, getOrCreateOwnerToken, getHostedConfig, isOwner } from "../lib/security";
 import { buildRecoveryLink } from "../lib/recovery";
-import { authAvailable, currentEmail, hasLinkedAccount, signOut, deleteLinkedAccount } from "../lib/auth";
+import { authAvailable, currentEmail, hasLinkedAccount, linkedAccountKnownOnDevice, signOut, deleteLinkedAccount } from "../lib/auth";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 
@@ -67,19 +67,37 @@ export default function Settings({ data, update }: Props) {
       "발행한 청첩장·받은 RSVP, 간편 모드 서버 데이터, 로그인 연결까지 함께 삭제되며 되돌릴 수 없어요.",
     )) return;
     setWiping(true);
-    // 1. 운영자 서버에 남는 내 데이터 정리 (발행 청첩장 + 간편 호스팅 행)
-    try { await purgeServerData(data); } catch { /* best-effort */ }
-    // 2. 로그인 계정 복구 blob 삭제 + 로그아웃 (로그인 상태일 때)
-    if (authAvailable()) {
-      try { await deleteLinkedAccount(); } catch { /* best-effort */ }
-      try { await signOut(); } catch { /* best-effort */ }
+    const email = authAvailable() ? await currentEmail() : null;
+    if (linkedAccountKnownOnDevice() && !email) {
+      setWiping(false);
+      alert("로그인 복구 정보까지 지우려면 먼저 로그인해주세요. 다른 데이터와 삭제 권한은 그대로 유지했습니다.");
+      return;
     }
-    // 3. 로컬 정리
-    localStorage.removeItem("wedding-os/v1");
-    localStorage.removeItem("wedding-os/published-invite");
-    localStorage.removeItem("wedding-os/setup-draft/v1");
-    clearSecrets();
-    clearOwner();
+    // 서버 삭제를 확인한 뒤에만 로컬 자격증명을 지운다. 실패 시 사용자가 재시도할 권한을 보존한다.
+    const purged = await purgeServerData(data);
+    if (!purged.ok) {
+      setWiping(false);
+      alert(`서버 데이터 삭제를 완료하지 못했어요. 로컬 데이터는 그대로 유지했습니다.\n\n${purged.errors.join("\n")}`);
+      return;
+    }
+    // 2. 로그인 계정 복구 blob 삭제 + 로그아웃 (로그인 상태일 때)
+    if (email) {
+      const accountDeleted = await deleteLinkedAccount();
+      if (!accountDeleted.ok) {
+        setWiping(false);
+        alert(`로그인 복구 정보 삭제에 실패했어요. 로컬 데이터는 그대로 유지했습니다.\n\n${accountDeleted.error ?? "다시 시도해주세요."}`);
+        return;
+      }
+      await signOut().catch(() => undefined);
+    }
+    // 3. IndexedDB 사진과 Wedding OS localStorage를 함께 제거한다.
+    try {
+      await clearLocalDeviceData();
+    } catch (e: any) {
+      setWiping(false);
+      alert(e?.message ?? "기기 사진 데이터를 삭제하지 못했어요. 다른 탭을 닫고 다시 시도해주세요.");
+      return;
+    }
     window.location.href = "/";
   };
 
@@ -151,6 +169,7 @@ export default function Settings({ data, update }: Props) {
         </p>
       </Section>
 
+      <div id="data-backup" className="scroll-mt-20">
       <Section title="데이터 백업">
         <p className="text-[12.5px] text-soft mb-4 leading-relaxed">
           모든 데이터를 한 파일(JSON)로 내보내거나, 다시 불러올 수 있어요.
@@ -179,7 +198,16 @@ export default function Settings({ data, update }: Props) {
             마지막 백업 · <span className="tabular-nums">{data.preferences.lastBackupAt}</span>
           </p>
         )}
+        {hasCorruptLocalBackup() && (
+          <div className="mt-4 border border-gold/30 bg-gold/5 p-3">
+            <p className="text-[11.5px] text-ink leading-relaxed mb-2">손상된 이전 로컬 데이터 원문을 보존하고 있습니다.</p>
+            <button onClick={downloadCorruptLocalBackup} className="text-[12px] underline underline-offset-4 text-ink">
+              손상 원문 내려받기 →
+            </button>
+          </div>
+        )}
       </Section>
+      </div>
 
       <Section title="공유 센터">
         <p className="text-[12.5px] text-soft mb-4 leading-relaxed">
@@ -192,9 +220,8 @@ export default function Settings({ data, update }: Props) {
 
       <Section title="AI 편집 방식">
         <p className="text-[12px] text-soft leading-relaxed">
-          앱이 AI 비용을 대신 청구하거나 서버로 내용을 보내지 않도록,
-          현재는 <b className="text-ink">챗봇 다리 방식</b>으로 동작합니다.
-          프롬프트를 ChatGPT / Claude / Gemini에 붙여넣고, 답변을 다시 붙여넣으면 영상 · 정보가 갱신됩니다.
+          챗봇 복붙, 본인 API 키, 로그인 후 Wedding OS AI 중에서 선택할 수 있습니다.
+          Wedding OS AI를 선택하면 프롬프트가 운영자 서버를 거쳐 Anthropic으로 전송됩니다.
         </p>
         <Link to="/ai" className="text-[12px] underline underline-offset-4 text-ink hover:text-gold inline-block mt-3">
           AI 연결 설정 →
@@ -290,11 +317,24 @@ function LoginStatus() {
     return () => { alive = false; };
   }, []);
 
-  const doSignOut = async () => { await signOut(); window.location.reload(); };
+  const doSignOut = async () => {
+    if (!confirm(
+      "로그아웃하면 공용 기기에서 다른 사람이 보지 못하도록 이 기기의 결혼 데이터와 사진을 모두 지웁니다.\n\n" +
+      "다시 사용하려면 로그인 복구 암호문구 또는 복구 링크가 필요합니다. 계속할까요?",
+    )) return;
+    try {
+      // 세션보다 로컬 평문을 먼저 제거한다. 중간 실패가 나도 로그아웃 상태에 데이터가 남지 않게 한다.
+      await clearLocalDeviceData();
+      await signOut();
+      window.location.replace("/");
+    } catch (error: any) {
+      alert(error?.message ?? "기기 데이터를 지우지 못해 로그아웃을 중단했습니다. 다른 탭을 닫고 다시 시도해주세요.");
+    }
+  };
   const doUnlink = async () => {
     if (!confirm("이 계정의 복구 정보를 삭제할까요?\n로그인으로는 더 이상 복구할 수 없게 돼요 (복구 링크는 그대로 사용 가능).")) return;
-    await deleteLinkedAccount();
-    await signOut();
+    const result = await deleteLinkedAccount();
+    if (!result.ok) { alert(result.error ?? "복구 연결을 삭제하지 못했습니다."); return; }
     window.location.reload();
   };
 

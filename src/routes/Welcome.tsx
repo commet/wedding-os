@@ -5,6 +5,8 @@ import { defaultData } from "../lib/schema";
 import { markOwner } from "../lib/security";
 import { defaultChecklist } from "../data/checklistTemplate";
 import { demoData } from "../data/demoData";
+import { authAvailable } from "../lib/auth";
+import { downloadCorruptLocalBackup, hasCorruptLocalBackup } from "../lib/storage";
 
 type Props = {
   data: WeddingData;
@@ -12,11 +14,9 @@ type Props = {
 };
 
 const FEATURES = [
-  { num: "01", title: "오늘 할 일", desc: "지금 필요한 일만 먼저 보여주고, 나머지는 접어둡니다" },
-  { num: "02", title: "후보 풀", desc: "반지·여행·예식장처럼 막막한 선택지를 비교 가능한 형태로 시작합니다" },
-  { num: "03", title: "청첩장", desc: "기본 정보와 문안을 다듬고, 하객에게 보낼 링크까지 이어집니다" },
-  { num: "04", title: "비용과 하객", desc: "예산·식수·응답을 한 데이터 위에서 조용히 관리합니다" },
-  { num: "05", title: "공유와 백업", desc: "혼자 시작한 기록도 나중에 같이 쓰는 방식으로 옮길 수 있습니다" },
+  { num: "01", title: "오늘 할 일 3가지", desc: "긴 체크리스트 대신 지금 결정할 일부터 보여줍니다" },
+  { num: "02", title: "같은 기준으로 비교", desc: "예식장·반지·여행 후보와 견적을 한곳에서 비교합니다" },
+  { num: "03", title: "준비한 정보로 청첩장까지", desc: "이름·날짜·장소를 다시 입력하지 않고 청첩장과 RSVP로 이어집니다" },
 ];
 
 // 프라이버시 ↔ 편의 스펙트럼. 간편(hosted)이 기본 추천.
@@ -56,6 +56,7 @@ export default function Welcome({ data, update }: Props) {
   const location = useLocation();
   const [step, setStep] = useState<"landing" | "modeSelect">("landing");
   const [showCompare, setShowCompare] = useState(false);
+  const hostedReady = authAvailable();
 
   // 데모 배너 '내 결혼식 시작' 등에서 들어오면 저장 방식을 고르는 화면으로 보낸다.
   useEffect(() => {
@@ -86,8 +87,6 @@ export default function Welcome({ data, update }: Props) {
     navigate("/dashboard");
   };
 
-  const startMine = () => setStep("modeSelect");
-
   const backToLanding = () => {
     setStep("landing");
     // URL state 의 goModeSelect 를 비워서, 이 화면에서 다른 곳으로 갔다 뒤로가기로 돌아와도 modeSelect 로 안 튀게.
@@ -101,6 +100,7 @@ export default function Welcome({ data, update }: Props) {
     }
     // 간편(hosted)은 전용 시작 화면이 자격증명 생성·복구링크까지 처리한다.
     if (id === "hosted") {
+      if (!hostedReady) return;
       navigate("/start-hosted");
       return;
     }
@@ -133,6 +133,8 @@ export default function Welcome({ data, update }: Props) {
     navigate(id === "local" ? "/dashboard" : "/setup");
   };
 
+  const startMine = () => selectMode("local");
+
   /* ──────── 모드 선택 단계 ──────── */
   if (step === "modeSelect") {
     return (
@@ -157,11 +159,15 @@ export default function Welcome({ data, update }: Props) {
         </div>
 
         <ul className="stack border-t border-hair border-b">
-          {MODES.map((m, idx) => (
+          {MODES.map((m, idx) => {
+            const recommended = hostedReady ? m.id === "hosted" : m.id === "local";
+            const unavailable = m.id === "hosted" && !hostedReady;
+            return (
             <li key={m.id}>
               <button
                 onClick={() => selectMode(m.id)}
-                className="w-full text-left flex items-start gap-5 active:opacity-60 transition"
+                disabled={unavailable}
+                className="w-full text-left flex items-start gap-5 active:opacity-60 transition disabled:opacity-45"
               >
                 <div className="font-serif text-soft text-lg tabular-nums pt-0.5 w-6 flex-shrink-0">
                   {String(idx + 1).padStart(2, "0")}
@@ -169,15 +175,15 @@ export default function Welcome({ data, update }: Props) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline gap-2 mb-1.5">
                     <h2 className="font-serif text-lg text-ink">{m.title}</h2>
-                    {m.highlight && <span className="eyebrow-gold">추천</span>}
+                    {recommended && <span className="eyebrow-gold">추천</span>}
                   </div>
                   <p className="text-[13px] text-soft leading-relaxed mb-2">{m.oneLiner}</p>
-                  <span className="eyebrow">{m.difficulty}</span>
+                  <span className="eyebrow">{unavailable ? "운영 준비 중" : m.difficulty.replace(" · 추천", "")}</span>
                 </div>
                 <span className="text-soft pt-1 flex-shrink-0">→</span>
               </button>
             </li>
-          ))}
+          );})}
         </ul>
 
         <div className="mt-10">
@@ -217,17 +223,25 @@ export default function Welcome({ data, update }: Props) {
   /* ──────── 랜딩 ──────── */
   return (
     <div className="max-w-app mx-auto bg-paper min-h-screen">
+      {hasCorruptLocalBackup() && (
+        <div role="alert" className="mx-6 mt-6 border border-gold/40 bg-gold/5 p-4">
+          <p className="text-[12px] text-ink leading-relaxed">이 기기의 이전 데이터가 손상되어 자동으로 열지 못했습니다. 원문은 덮어쓰지 않고 별도로 보존했습니다.</p>
+          <button onClick={downloadCorruptLocalBackup} className="mt-2 min-h-11 text-[12px] underline underline-offset-4 text-ink">
+            손상 원문 내려받기 →
+          </button>
+        </div>
+      )}
       {/* 1. 히어로 — 큰 세리프, hairline */}
       <section className="page pt-20 pb-16">
         <div className="eyebrow-gold mb-6">Wedding · OS</div>
         <h1 className="font-serif text-[2.5rem] leading-[1.08] tracking-tight text-ink mb-6">
-          결혼 준비가<br />
-          조금 더<br />
-          <span className="italic font-light text-gold">선명해지도록.</span>
+          결혼 준비,<br />
+          오늘 무엇부터 할지<br />
+          <span className="italic font-light text-gold">바로 보이도록.</span>
         </h1>
         <p className="text-[13.5px] text-soft leading-[1.7] max-w-[20rem]">
-          체크리스트, 후보 비교, 예산, 청첩장까지.<br />
-          흩어진 준비를 차분한 흐름으로 모읍니다.
+          할 일, 예산, 후보 비교, 청첩장을 한곳에 모으고<br />
+          둘이 같은 준비판을 보며 결정합니다.
         </p>
       </section>
 
@@ -237,15 +251,20 @@ export default function Welcome({ data, update }: Props) {
           onClick={startMine}
           className="btn-primary w-full py-4 text-[13px]"
         >
-          내 결혼식 준비 시작
+          가입 없이 바로 시작
         </button>
-        <div className="mt-4 text-center">
+        <div className="mt-4 flex items-center justify-center gap-5 text-center">
+          {hostedReady && (
+            <button onClick={() => selectMode("hosted")} className="text-[13px] text-ink underline underline-offset-4 hover:text-gold transition">
+              둘이 같이 시작
+            </button>
+          )}
           <button onClick={browseDemo} className="text-[13px] text-soft underline underline-offset-4 hover:text-ink transition">
             예시 먼저 보기
           </button>
         </div>
         <p className="mt-5 text-center text-[11.5px] text-soft leading-relaxed">
-          혼자 기록하고, 같이 편집하고, 하객에게 공유하는 흐름까지 이어집니다.
+          설치 없이 시작하고, 필요할 때 배우자와 공유할 수 있습니다.
         </p>
       </section>
 
@@ -277,10 +296,10 @@ export default function Welcome({ data, update }: Props) {
           처음부터 완벽하지 않아도 됩니다.
         </p>
         <button onClick={startMine} className="btn-primary px-10 py-4 text-[13px]">
-          저장 방식 고르기 →
+          가입 없이 바로 시작 →
         </button>
         <div className="mt-5">
-          <button onClick={() => setStep("modeSelect")} className="text-[12px] text-soft underline underline-offset-4 hover:text-ink transition">
+          <button onClick={() => setStep("modeSelect")} className="min-h-11 px-2 text-[12px] text-soft underline underline-offset-4 hover:text-ink transition">
             저장·공유 방식 직접 고르기 (고급)
           </button>
         </div>
@@ -298,9 +317,9 @@ export default function Welcome({ data, update }: Props) {
           </a>
         </p>
         <p className="text-[11px] text-soft mt-4 space-x-3">
-          <Link to="/trust" className="underline underline-offset-2">운영자도 못 봐요</Link>
+          <Link to="/trust" className="inline-flex min-h-11 items-center underline underline-offset-2">운영자도 못 봐요</Link>
           <span>·</span>
-          <a href="/privacy" className="underline underline-offset-2">개인정보 · 보안 안내</a>
+          <a href="/privacy" className="inline-flex min-h-11 items-center underline underline-offset-2">개인정보 · 보안 안내</a>
         </p>
       </footer>
     </div>

@@ -21,14 +21,22 @@ export function safeHref(url: unknown): string | undefined {
   }
 }
 
-/** 이미지/오디오 src 용 — http(s), 안전한 data:image/audio, blob: (same-origin ObjectURL) 허용.
+/** 이미지/오디오 src 용 — 동일 출처, 앱 스톡 이미지, 안전한 data URL, blob: 만 허용.
  *  idb:<id> 는 가짜 스킴(IndexedDB 참조) 이라 그대로는 못 그림 → useImageSrc 로 먼저 blob: 으로 해석한 뒤 호출. */
 export function safeMediaSrc(url: unknown): string | undefined {
   if (typeof url !== "string") return undefined;
   const trimmed = url.trim();
   if (!trimmed) return undefined;
   if (trimmed.startsWith("/") && !trimmed.startsWith("//")) return trimmed;
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const parsed = new URL(trimmed);
+      const sameOrigin = typeof window !== "undefined" && parsed.origin === window.location.origin;
+      // 기본 제공 사진만 예외로 허용한다. 사용자 지정 외부 서버는 하객 추적 채널이 될 수 있다.
+      if (sameOrigin || (parsed.protocol === "https:" && parsed.hostname === "images.unsplash.com")) return trimmed;
+    } catch { /* invalid URL */ }
+    return undefined;
+  }
   if (/^data:image\/(?:png|jpe?g|webp|gif);/i.test(trimmed)) return trimmed;
   if (/^data:audio\/[a-z0-9.+-]+;/i.test(trimmed)) return trimmed;
   if (/^blob:/i.test(trimmed)) return trimmed;
@@ -71,6 +79,8 @@ type Secrets = {
   // 운영자는 weddingKey 를 절대 못 받으므로 암호문을 못 푼다.
   weddingId?: string;
   weddingKey?: string;
+  hostedUserId?: string;
+  directRsvpToken?: string;
 };
 
 /** 간편(hosted) 모드 자격증명 — weddingId + weddingKey. */
@@ -94,14 +104,17 @@ export function getSecrets(): Secrets {
   }
 }
 
-export function setSecrets(patch: Secrets): void {
+export function setSecrets(patch: Secrets): boolean {
   try {
     const current = getSecrets();
     const next = { ...current, ...patch };
     // 빈 문자열은 삭제로 취급
     if (next.aiKey === "" || next.aiKey === undefined) delete next.aiKey;
     localStorage.setItem(SECRETS_KEY, JSON.stringify(next));
-  } catch { /* 저장 실패는 조용히 — 사용자가 다시 입력하면 됨 */ }
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function getAiConfig(): AiConfig {
@@ -132,7 +145,7 @@ export function clearSecrets(): void {
 
 export function getOrCreateOwnerToken(): string {
   const current = getSecrets().ownerToken;
-  if (current && current.length >= 32) return current;
+  if (current && current.length >= 32 && current.length <= 256) return current;
   const token = createToken();
   setSecrets({ ownerToken: token });
   return token;
@@ -140,13 +153,13 @@ export function getOrCreateOwnerToken(): string {
 
 export function getOwnerToken(): string | undefined {
   const token = getSecrets().ownerToken;
-  return token && token.length >= 32 ? token : undefined;
+  return token && token.length >= 32 && token.length <= 256 ? token : undefined;
 }
 
 export function setOwnerToken(token: string): boolean {
   const clean = token.trim();
-  if (clean.length < 32) return false;
-  setSecrets({ ownerToken: clean });
+  if (clean.length < 32 || clean.length > 256) return false;
+  if (!setSecrets({ ownerToken: clean }) || getOwnerToken() !== clean) return false;
   markOwner();
   return true;
 }
@@ -170,15 +183,51 @@ function createToken(): string {
 
 export function getHostedConfig(): HostedConfig | undefined {
   const { weddingId, weddingKey } = getSecrets();
-  if (!weddingId || !weddingKey) return undefined;
+  if (!weddingId || !/^w[a-z2-7]{24}$/.test(weddingId)) return undefined;
+  if (!weddingKey || !/^[A-Za-z0-9_-]{43}$/.test(weddingKey)) return undefined;
   return { weddingId, weddingKey };
 }
 
-export function setHostedConfig(cfg: HostedConfig): void {
+export function setHostedConfig(cfg: HostedConfig): boolean {
   const weddingId = cfg.weddingId.trim();
   const weddingKey = cfg.weddingKey.trim();
-  if (!weddingId || !weddingKey) return;
-  setSecrets({ weddingId, weddingKey });
+  if (!/^w[a-z2-7]{24}$/.test(weddingId) || !/^[A-Za-z0-9_-]{43}$/.test(weddingKey)) return false;
+  if (!setSecrets({ weddingId, weddingKey })) return false;
+  const saved = getHostedConfig();
+  return saved?.weddingId === weddingId && saved.weddingKey === weddingKey;
+}
+
+export function getHostedUserId(): string | undefined {
+  const userId = getSecrets().hostedUserId;
+  return userId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId) ? userId : undefined;
+}
+
+export function bindHostedUser(userId: string): boolean {
+  const clean = userId.trim();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(clean)) return false;
+  return setSecrets({ hostedUserId: clean }) && getHostedUserId() === clean;
+}
+
+export function hostedUserMatches(userId: string | null | undefined): boolean {
+  const bound = getHostedUserId();
+  return !bound || !userId || bound === userId;
+}
+
+/** 검증된 원격 데이터 복구 후 owner token과 복호화 키를 한 번의 localStorage 쓰기로 설치한다. */
+export function setHostedRecoveryCredentials(cfg: HostedConfig, ownerToken: string, userId?: string): boolean {
+  const weddingId = cfg.weddingId.trim();
+  const weddingKey = cfg.weddingKey.trim();
+  const cleanOwnerToken = ownerToken.trim();
+  if (!/^w[a-z2-7]{24}$/.test(weddingId) || !/^[A-Za-z0-9_-]{43}$/.test(weddingKey)) return false;
+  if (cleanOwnerToken.length < 32 || cleanOwnerToken.length > 256) return false;
+  const cleanUserId = userId?.trim();
+  if (cleanUserId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(cleanUserId)) return false;
+  if (!setSecrets({ weddingId, weddingKey, ownerToken: cleanOwnerToken, hostedUserId: cleanUserId })) return false;
+  const saved = getHostedConfig();
+  if (saved?.weddingId !== weddingId || saved.weddingKey !== weddingKey || getOwnerToken() !== cleanOwnerToken) return false;
+  if (cleanUserId && getHostedUserId() !== cleanUserId) return false;
+  markOwner();
+  return true;
 }
 
 export function clearHostedConfig(): void {
@@ -186,6 +235,7 @@ export function clearHostedConfig(): void {
     const cur = getSecrets();
     delete cur.weddingId;
     delete cur.weddingKey;
+    delete cur.hostedUserId;
     localStorage.setItem(SECRETS_KEY, JSON.stringify(cur));
   } catch { /* noop */ }
 }
@@ -207,4 +257,12 @@ export function markOwner(): void {
 
 export function clearOwner(): void {
   try { localStorage.removeItem(OWNER_KEY); } catch { /* noop */ }
+}
+
+export function getOrCreateDirectRsvpToken(): string {
+  const current = getSecrets().directRsvpToken;
+  if (current && current.length >= 32 && current.length <= 256) return current;
+  const token = createToken();
+  setSecrets({ directRsvpToken: token });
+  return token;
 }

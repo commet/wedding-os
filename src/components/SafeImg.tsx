@@ -14,5 +14,5 @@ export default function SafeImg({ src, fallback = null, alt = "", ...rest }: Pro
   const resolved = useImageSrc(src);
   const safe = safeMediaSrc(resolved);
   if (!safe) return <>{fallback}</>;
-  return <img src={safe} alt={alt} {...rest} />;
+  return <img src={safe} alt={alt} referrerPolicy="no-referrer" {...rest} />;
 }

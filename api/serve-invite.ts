@@ -119,8 +119,8 @@ async function handler(req: Request): Promise<Response> {
       status: 200,
       headers: {
         "content-type": "text/html; charset=utf-8",
-        // 5분 CDN 캐시 + 1일 SWR — 청첩장은 자주 안 바뀜.
-        "cache-control": "public, s-maxage=300, stale-while-revalidate=86400",
+        // 취소·수정 후 이름과 날짜가 오래 남지 않도록 짧게 캐시한다.
+        "cache-control": "private, no-store, max-age=0",
       },
     });
   } catch {

@@ -4,11 +4,11 @@
 // 기존엔 만료가 "읽기 시점 차단"일 뿐이라 암호문·RSVP·평문 메타가 영구 잔존했다 —
 // 프라이버시 우선 제품에 맞게 보존 기간이 끝난 데이터를 물리적으로 지운다.
 //
-// 보호: CRON_SECRET 환경변수가 있으면 Authorization: Bearer <secret> 을 요구.
-//       (Vercel Cron 은 이 헤더를 자동으로 붙인다.) 없으면 누구나 호출 가능하지만
-//       "이미 만료된 데이터만" 지우므로 위험은 낮다 — 그래도 secret 설정을 권장.
+// 보호: CRON_SECRET 및 Authorization: Bearer <secret> 을 필수로 요구한다.
+//       Vercel Cron 은 설정된 CRON_SECRET을 자동으로 헤더에 붙인다.
 
-import { list, get, del } from "@vercel/blob";
+import { get, del } from "@vercel/blob";
+import { listAllBlobs } from "./_blob";
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -24,10 +24,9 @@ export default async function handler(req: Request): Promise<Response> {
   if (!token) return json({ error: "스토리지가 연결되지 않았어요." }, 503);
 
   const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = req.headers.get("authorization") ?? "";
-    if (auth !== `Bearer ${secret}`) return json({ error: "unauthorized" }, 401);
-  }
+  if (!secret) return json({ error: "CRON_SECRET 설정이 필요합니다." }, 503);
+  const auth = req.headers.get("authorization") ?? "";
+  if (auth !== `Bearer ${secret}`) return json({ error: "unauthorized" }, 401);
 
   const now = Date.now();
   let removed = 0;
@@ -35,7 +34,7 @@ export default async function handler(req: Request): Promise<Response> {
 
   try {
     // 한 번에 invite/ 아래 전부 나열 — code 별로 그룹핑.
-    const { blobs } = await list({ prefix: "invite/", token });
+    const blobs = await listAllBlobs("invite/", token, 1_000_000);
     const byCode = new Map<string, string[]>(); // code → blob url[]
     for (const b of blobs) {
       const m = b.pathname.match(/^invite\/([a-z0-9]{6,16})\//);

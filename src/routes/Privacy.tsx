@@ -9,7 +9,7 @@ export default function Privacy() {
         <h1 className="font-serif text-[2rem] leading-none">개인정보 · 보안 안내</h1>
       </div>
       <p className="eyebrow mt-3 mb-8">
-        최종 갱신 · 2026-06-02
+        최종 갱신 · 2026-06-22
       </p>
 
       <Section num="01" title="한눈에">
@@ -17,8 +17,8 @@ export default function Privacy() {
           <li>본 도구는 <b>오픈소스</b>이며, 저장 방식을 직접 선택합니다 — ① <b>이 기기만</b>(로컬) ② <b>간편</b>(운영자 호스팅·종단간 암호화) ③ <b>직접 운영</b>(본인 외부 저장소) ④ <b>코드 직접 운영</b>.</li>
           <li><b>로컬·직접 운영</b>은 운영자 서버를 거치지 않습니다(본인 기기 또는 본인 인프라).</li>
           <li><b>간편</b>은 운영자 서버에 저장하되, 모든 내용이 <b>이 기기에서 종단간 암호화</b>되어 암호문으로만 올라갑니다. 복호화 키는 서버로 전송되지 않아 <b>운영자는 내용도 키도 알 수 없습니다</b> (03·08 항목).</li>
-          <li><b>운영자(yclee913)는 어느 모드에서도 사용자 데이터의 내용을 읽을 수 없습니다.</b> (간편 모드 로그인 시 이메일 등 신원은 알 수 있으나, 내용은 여전히 못 읽습니다 — 05 항목.)</li>
-          <li>AI 기능은 사용자가 직접 챗봇(ChatGPT/Claude/Gemini)에 복붙하거나, 본인 API 키로 실행합니다.</li>
+          <li><b>운영자 저장소의 결혼 준비 데이터는 운영자가 읽을 수 없는 암호문입니다.</b> 간편 모드 로그인 신원과, 사용자가 명시적으로 Wedding OS AI에 보낸 프롬프트는 별도로 처리됩니다.</li>
+          <li>AI 기능은 직접 복붙, 본인 API 키, 또는 로그인 후 운영자 제공 AI 중에서 선택합니다. 운영자 제공 AI를 쓰면 프롬프트가 운영자 서버를 거쳐 Anthropic으로 전송됩니다.</li>
         </ul>
       </Section>
 
@@ -28,8 +28,10 @@ export default function Privacy() {
           <li>본인 · 배우자 · 혼주의 이름, 영문 이름, 관계</li>
           <li>연락처(전화번호), 입금 계좌 정보</li>
           <li>예식 일정 · 장소 · 주소</li>
-          <li>업로드 또는 외부 링크로 추가한 사진 URL</li>
+          <li>업로드한 사진과 사진 설명</li>
           <li>체크리스트 · 신혼여행 · 반지 등 결혼 준비 메모</li>
+          <li>하객 이름·연락처·관계·참석 여부·식사 메모·축하 메시지 등 사용자가 입력하거나 하객이 제출한 정보</li>
+          <li>로그인 사용 시 이메일, 소셜 로그인 제공자가 전달한 계정 식별정보</li>
         </ul>
         <p className="text-[11.5px] text-soft mt-3">
           주민등록번호 등 고유식별정보는 수집하지 않습니다.
@@ -39,7 +41,7 @@ export default function Privacy() {
       <Section num="03" title="저장 위치">
         <ul className="list-disc list-outside pl-5 space-y-1.5 marker:text-soft">
           <li><b>이 기기만 (로컬)</b> · 입력값은 본인 브라우저의 localStorage/IndexedDB 에만 저장됩니다. 외부 전송 없음.</li>
-          <li><b>간편 (운영자 호스팅·E2E)</b> · 운영자 저장소에 저장하되, 전체 데이터가 <b>이 기기에서 암호화된 암호문</b>으로만 올라갑니다. 복호화 키는 공유·복구 링크의 <code className="bg-cream px-1">#</code> 에만 있고 서버로 전송되지 않아, 운영자는 내용을 못 읽습니다. 보관되는 평문은 없습니다.</li>
+          <li><b>간편 (운영자 호스팅·E2E)</b> · 결혼 준비 본문은 이 기기에서 암호화된 암호문으로 올라갑니다. 복호화 키는 공유·복구 링크의 <code className="bg-cream px-1">#</code> 에만 있고 서버로 전송되지 않아 운영자는 본문을 읽을 수 없습니다. 다만 로그인 계정 정보와 08 항목의 OG 메타는 별도 평문으로 처리됩니다.</li>
           <li><b>직접 운영 (내 외부 저장소)</b> · 본인이 가입한 외부 저장소(Supabase)에 직접 저장됩니다. 운영자를 거치지 않습니다.</li>
           <li><b>개발자 모드</b> · 코드를 받아 본인 인프라에서 직접 운영합니다.</li>
           <li><b>간편 발행 (선택)</b> · 청첩장을 운영자 서버에 <b>암호화</b>해 올려 공유 링크를 만듭니다. 08 항목 참고.</li>
@@ -51,11 +53,13 @@ export default function Privacy() {
         <ul className="list-disc list-outside pl-5 space-y-1.5 marker:text-soft">
           <li><b>외부 저장소(Supabase)</b> (사용자가 선택한 리전) — 데이터 저장</li>
           <li><b>Vercel</b> — 정적 호스팅·배포</li>
+          <li><b>Anthropic</b> — 로그인 사용자가 운영자 제공 AI를 선택한 경우 프롬프트 처리</li>
           <li><b>Unsplash / jsdelivr CDN</b> — 기본 사진·폰트 정적 자원 로드</li>
           <li>지도/검색 외부 링크 클릭 시 · 카카오맵·네이버지도·구글·인스타 등</li>
         </ul>
         <p className="text-[11.5px] text-soft mt-3">
-          외부 서비스 이용 시 해당 서비스의 정책이 적용됩니다.
+          외부 서비스 이용 시 해당 서비스의 정책이 적용됩니다. 실제 운영자는 배포 전에 각 업체의 처리 국가·리전,
+          이전 항목·목적·시점과 방법·보유기간을 확인하여 본 방침에 구체적으로 공개해야 합니다.
         </p>
       </Section>
 
@@ -117,11 +121,11 @@ export default function Privacy() {
 
       <Section num="09" title="문의" last>
         <p>
-          오류 · 보안 · 삭제 요청 등은{" "}
+          개인정보 보호 책임 및 보안 · 삭제 요청 창구는 Wedding OS 운영자입니다. 개인정보가 포함된 요청은{" "}
           <a className="underline underline-offset-2 text-ink" href="mailto:yclee913@gmail.com" rel="noopener noreferrer">yclee913@gmail.com</a>
-          {" "}또는{" "}
-          <a className="underline underline-offset-2 text-ink" href="https://github.com/commet/wedding-os/issues" target="_blank" rel="noopener noreferrer">GitHub Issues</a>
-          {" "}로 알려주세요.
+          {" "}으로 보내주세요. 공개될 수 있는 GitHub Issue에는 이름·연락처·계좌·복구 링크 등 개인정보를 적지 마세요.
+          일반 기능 오류만{" "}
+          <a className="underline underline-offset-2 text-ink" href="https://github.com/commet/wedding-os/issues" target="_blank" rel="noopener noreferrer">GitHub Issues</a>로 알려주세요.
         </p>
       </Section>
 

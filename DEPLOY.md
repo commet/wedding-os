@@ -18,10 +18,13 @@ Vercel 프로젝트 → Settings → Environment Variables (Production·Preview�
 | `VITE_SUPABASE_ANON_KEY` | (Supabase → Project Settings → API → anon public key) |
 | `BLOB_READ_WRITE_TOKEN` | (Vercel Blob 토큰 — 청첩장 발행/RSVP용, 이미 있으면 그대로) |
 | `CRON_SECRET` | 임의의 긴 문자열 (만료 청첩장 정리 cron 보호) |
+| `ANTHROPIC_API_KEY` | 로그인 사용자용 Wedding OS AI 서버 키 |
 
 > 로컬 개발은 이미 `.env.local`에 위 두 값이 들어가 있습니다(gitignore).
 
 ## 2. Supabase Auth 설정 (로그인)
+
+먼저 `supabase/hosted-schema.sql`을 운영자 프로젝트 SQL Editor에서 실행합니다. 이 마이그레이션이 적용되지 않으면 간편 모드와 로그인 복구를 열면 안 됩니다.
 
 Supabase 대시보드 → Authentication:
 
@@ -37,7 +40,7 @@ Supabase 대시보드 → Authentication:
 ## 3. 자동 정리 cron (이미 설정됨)
 
 `vercel.json`에 `/api/invite-cleanup` 일일 cron이 들어 있습니다 (만료된 발행 청첩장 물리 삭제).
-`CRON_SECRET`을 설정하면 인증됩니다. 배포 시 자동 등록.
+`CRON_SECRET`이 없으면 정리 함수는 503으로 거부됩니다. Production·Preview에 반드시 설정합니다.
 
 ---
 
@@ -48,6 +51,20 @@ Supabase 대시보드 → Authentication:
 3. **시크릿 창**에서 `/login` → 같은 계정 로그인 → 암호문구 입력 → 대시보드에 데이터 복구되는지
 4. 청첩장 → 편집 → "청첩장 발행" → 링크 생성 → 미리보기에서 "공유 →"가 그 **링크**를 주는지
 5. 발행된 `/i/<code>#k=...` 링크를 다른 브라우저에서 열어 청첩장이 보이는지 + RSVP 제출 → 발행자 화면에서 RSVP 보이는지
+
+## 4-1. 공개 배포 법무·운영 게이트 (코드로 대신할 수 없음)
+
+아래 항목이 비어 있으면 불특정 사용자를 받는 프로덕션 공개를 보류합니다.
+
+- [ ] `/privacy`에 실제 운영자 또는 사업자 명칭, 개인정보 보호 책임자, 유효한 연락처를 기재
+- [ ] Vercel·Supabase·Anthropic·인증 제공자의 실제 처리 국가/리전, 이전 항목·목적·방법·보유기간을 확인해 국외이전/처리위탁 고지를 구체화
+- [ ] 사용자가 배우자·혼주·하객 등 제3자의 정보를 적법하게 입력할 책임과 공개 청첩장 노출 범위를 이용 전 고지
+- [ ] 개인정보 침해 사고 대응 담당자, 로그 확인·차단·통지·신고 절차와 삭제 요청 처리 기록을 문서화
+- [ ] Supabase SQL Editor에서 `supabase/hosted-schema.sql` 적용 후 RLS/RPC 권한을 실제 anon·authenticated 세션으로 검증
+- [ ] Vercel Production 환경에서 `CRON_SECRET`을 넣고 `/api/invite-cleanup`이 200으로 실행되는지 확인
+- [ ] 운영 DB·Blob의 보존/삭제 정책과 복구 훈련을 실행하고 결과를 기록
+
+자동 검증은 `npm run verify:release`로 실행합니다. 성공하더라도 위 수동 항목을 대체하지 않습니다.
 
 ## 5. 저장 위치 요약 (사용자 안내용)
 
@@ -64,6 +81,6 @@ Supabase 대시보드 → Authentication:
 ## 알아둘 한계 / 후속
 
 - **간편 모드 실시간 동기화 없음** (RPC-only RLS) — 부부 편집은 새로고침/재진입 시 반영 + 충돌 안내 UI.
-- **레이트리밋**: 발행/RSVP/계정생성 엔드포인트는 익명 호출 가능 → 남용 시 Vercel **Firewall/BotID**로 방어 권장(코드 아닌 설정).
+- **남용 방지**: AI·발행은 로그인 세션, RSVP는 링크별 capability, API는 IP burst limit을 확인합니다. Vercel Firewall/BotID도 추가 방어로 켭니다.
 - **암호문구 분실 = 로그인 복구 불가** (영지식 E2E의 대가). 복구 링크를 백업으로 안내.
 - sayu-db는 RLS 전수 잠금 완료. 남은 공개-쓰기는 Sayu 앱의 append성 테이블(views·worldcup·feedback)뿐 — 비민감.

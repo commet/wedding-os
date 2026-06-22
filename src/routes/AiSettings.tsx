@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { defaultModel, hasDirectAi, runAiPrompt } from "../lib/aiClient";
 import { type AiConfig, type AiProvider, getAiConfig, setAiConfig } from "../lib/security";
+import { currentAccessToken } from "../lib/auth";
 
 type Props = { data?: unknown };
 
@@ -21,9 +22,16 @@ export default function AiSettings(_: Props) {
   const [baseUrl, setBaseUrl] = useState(initial.baseUrl ?? "http://localhost:11434");
   const [status, setStatus] = useState<"idle" | "saved" | "testing" | "ok" | "fail">("idle");
   const [message, setMessage] = useState("");
+  const [managedSignedIn, setManagedSignedIn] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void currentAccessToken().then((token) => { if (!cancelled) setManagedSignedIn(!!token); });
+    return () => { cancelled = true; };
+  }, []);
 
   const selected = useMemo(() => PROVIDERS.find((p) => p.id === provider) ?? PROVIDERS[0], [provider]);
-  const directReady = hasDirectAi({ provider, apiKey, model, baseUrl });
+  const directReady = provider === "managed" ? managedSignedIn : hasDirectAi({ provider, apiKey, model, baseUrl });
 
   const save = () => {
     const next: AiConfig = {
@@ -77,7 +85,7 @@ export default function AiSettings(_: Props) {
 
       <p className="text-[13px] text-soft leading-relaxed border-b border-hair pb-5">
         Wedding OS는 AI 없이도 저장·공유 도구로 작동합니다. 연결해두면 준비 초안 만들기,
-        청첩장 문안, 반지 가격 확인, 숙소·항공 검색처럼 막히기 쉬운 작업을 앱 안에서 바로 정리할 수 있습니다.
+        청첩장 문안, 준비 초안, 반지·숙소·항공 비교 기준처럼 막히기 쉬운 작업을 앱 안에서 바로 정리할 수 있습니다.
       </p>
 
       <section>
@@ -101,24 +109,19 @@ export default function AiSettings(_: Props) {
 
       {provider === "managed" && (
         <section className="border-y border-hair py-4 space-y-4">
-          <div>
-            <div className="eyebrow-gold mb-2">배포에서 켜는 방법</div>
-            <p className="text-[12.5px] text-soft leading-relaxed">
-              Vercel 프로젝트에 서버 환경변수
-              <code className="bg-cream px-1 mx-1">ANTHROPIC_API_KEY</code>
-              를 넣고 다시 배포하면, 사용자는 별도 키 없이 앱 안에서 바로 실행할 수 있습니다.
+          {managedSignedIn ? (
+            <div>
+              <div className="eyebrow-gold mb-2">사용 가능</div>
+              <p className="text-[12.5px] text-soft leading-relaxed">
+                별도 API 키 없이 Wedding OS AI를 사용할 수 있습니다. 선택한 작업에 필요한 내용만 AI 제공자에게 전송되며,
+                결과는 확인한 뒤 직접 반영합니다.
+              </p>
+            </div>
+          ) : (
+            <p className="text-[12.5px] text-gold leading-relaxed">
+              Wedding OS AI는 비용 오남용 방지를 위해 로그인이 필요합니다. <a href="/login" className="underline underline-offset-4">로그인하기 →</a>
             </p>
-          </div>
-          <ol className="list-decimal list-inside space-y-1.5 text-[12px] text-soft leading-relaxed">
-            <li>Anthropic Console에서 API 키를 새로 만듭니다.</li>
-            <li>Vercel 프로젝트의 Settings → Environment Variables로 갑니다.</li>
-            <li>이름은 <code className="bg-cream px-1">ANTHROPIC_API_KEY</code>, 값은 발급받은 키 전체를 넣습니다.</li>
-            <li>Production과 Preview에 적용하고 저장한 뒤, 새 배포를 실행합니다.</li>
-          </ol>
-          <p className="text-[11px] text-soft leading-relaxed">
-            이 키는 서버 함수에서만 읽습니다. <code className="bg-cream px-1">VITE_</code>를 붙이지 말고,
-            코드나 백업 파일에 저장하지 마세요.
-          </p>
+          )}
         </section>
       )}
 

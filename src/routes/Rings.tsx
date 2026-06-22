@@ -191,8 +191,9 @@ export default function Rings({ data, update }: Props) {
           : {
               ...r,
               priceKRW: typeof priceKRW === "number" ? priceKRW : r.priceKRW,
-              source: source ?? r.source,
-              lastVerified: todayISO(),
+              source: typeof source === "string" && source.trim()
+                ? `AI 참고 추정 · ${source.trim()}`
+                : "AI 참고 추정 · 공식 판매처에서 재확인 필요",
             }
       ),
     }));

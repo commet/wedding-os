@@ -26,25 +26,20 @@ async function handler(req: Request): Promise<Response> {
   try {
     const metaRes = await get(`invite/${code}/meta.json`, { access: "private", token });
     if (!metaRes || metaRes.statusCode !== 200) return err("청첩장을 찾을 수 없어요.", 404);
-    const meta = (await new Response(metaRes.stream).json()) as { expiresAt?: string };
+    const meta = (await new Response(metaRes.stream).json()) as { expiresAt?: string; payloadPath?: string };
     if (meta.expiresAt && new Date(meta.expiresAt).getTime() < Date.now()) {
       return err("만료된 청첩장이에요.", 410);
     }
+    const payloadPath = meta.payloadPath || `invite/${code}/payload.enc`;
+    const payloadRes = await get(payloadPath, { access: "private", token });
+    if (!payloadRes || payloadRes.statusCode !== 200) return err("청첩장을 찾을 수 없어요.", 404);
+    return new Response(payloadRes.stream, {
+      status: 200,
+      headers: { "content-type": "application/octet-stream", "cache-control": "private, no-store, max-age=0" },
+    });
   } catch {
     return err("청첩장 정보를 읽지 못했어요.", 502);
   }
-
-  // 암호문 본문 — 스트림으로 그대로 전달.
-  const payloadRes = await get(`invite/${code}/payload.enc`, { access: "private", token });
-  if (!payloadRes || payloadRes.statusCode !== 200) return err("청첩장을 찾을 수 없어요.", 404);
-
-  return new Response(payloadRes.stream, {
-    status: 200,
-    headers: {
-      "content-type": "application/octet-stream",
-      "cache-control": "public, max-age=60",
-    },
-  });
 }
 
 export default { fetch: handler };

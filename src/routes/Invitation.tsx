@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { cloneElement, isValidElement, useId, useState, useRef, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import type { WeddingData, InvitationContent, Mode } from "../lib/schema";
 import Modal from "../components/Modal";
@@ -99,7 +99,8 @@ export default function Invitation({ data, update }: Props) {
     }
     // 모드 2: 실제 청첩장 링크 — 게스트 전용 라우트 /i 공유
     if (data.preferences.mode === "supabase") {
-      const url = window.location.origin + "/i";
+      const rsvpToken = data.preferences.supabase?.rsvpToken;
+      const url = window.location.origin + "/i" + (rsvpToken ? `#r=${encodeURIComponent(rsvpToken)}` : "");
       const title = `${inv.groomName || "신랑"} · ${inv.brideName || "신부"} 결혼합니다`;
       const text = inv.date || inv.venue
         ? [formatShareDate(inv), inv.venue].filter(Boolean).join(" · ")
@@ -122,7 +123,7 @@ export default function Invitation({ data, update }: Props) {
     }
     // 모드 1(로컬)·간편(hosted): 발행된 진짜 링크가 있으면 그걸 공유.
     if (data.publish) {
-      const url = `${window.location.origin}/i/${data.publish.code}#k=${data.publish.keyRaw}`;
+      const url = hostedInviteLink(data.publish);
       const title = `${inv.groomName || "신랑"} · ${inv.brideName || "신부"} 결혼합니다`;
       const text = inv.date || inv.venue
         ? [formatShareDate(inv), inv.venue].filter(Boolean).join(" · ")
@@ -185,7 +186,7 @@ export default function Invitation({ data, update }: Props) {
               <div className="eyebrow-gold mb-1">Invitation</div>
               <h1 className="font-serif text-xl text-ink">모바일 청첩장</h1>
             </div>
-            <button onClick={share} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold transition">
+            <button onClick={share} className="min-h-11 px-2 text-[12px] underline underline-offset-4 text-ink hover:text-gold transition">
               {shareCopied ? "복사됨" : "공유 →"}
             </button>
           </div>
@@ -233,7 +234,8 @@ export default function Invitation({ data, update }: Props) {
           onSubmit={async (input) => {
             const sb = data.preferences.supabase;
             if (!sb) return { ok: false, reason: "아직 청첩장 셋업이 안 끝났어요" };
-            return insertRsvp(sb.url, sb.anonKey, input, sb.configId);
+            const fragmentToken = new URLSearchParams(window.location.hash.slice(1)).get("r") ?? sb.rsvpToken;
+            return insertRsvp(sb.url, sb.anonKey, input, sb.configId, fragmentToken);
           }}
         />
       )}
@@ -310,7 +312,7 @@ export function RsvpModal({
 
           <div>
             <label className="label">{t("성함", locale)}</label>
-            <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="홍길동" />
+            <input aria-label={t("성함", locale)} className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="홍길동" />
           </div>
 
           <div>
@@ -350,6 +352,7 @@ export function RsvpModal({
             <div>
               <label className="label">{t("참석 인원 (본인 포함)", locale)}</label>
               <input
+                aria-label={t("참석 인원 (본인 포함)", locale)}
                 type="number"
                 min={1}
                 max={20}
@@ -364,6 +367,7 @@ export function RsvpModal({
             <div>
               <label className="label">{t("식사 메모 (선택)", locale)}</label>
               <input
+                aria-label={t("식사 메모 (선택)", locale)}
                 className="input"
                 value={meal}
                 onChange={(e) => setMeal(e.target.value)}
@@ -375,6 +379,7 @@ export function RsvpModal({
           <div>
             <label className="label">{t("축하 메시지 (선택)", locale)}</label>
             <textarea
+              aria-label={t("축하 메시지 (선택)", locale)}
               className="input min-h-[70px]"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
@@ -401,7 +406,7 @@ function TabBtn({ active, onClick, children }: any) {
   return (
     <button
       onClick={onClick}
-      className={`text-[12px] tracking-wide pb-2 -mb-2 transition ${
+      className={`min-h-11 px-2 text-[12px] tracking-wide -mb-2 transition ${
         active ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
       }`}
     >
@@ -921,7 +926,12 @@ function MiniCalendar({ date, chipClass, fontClass = "font-serif" }: { date: Dat
 /* ════════════ 청첩장 발행 ════════════ */
 
 const PUBLISHED_KEY = "wedding-os/published-invite";
-type PublishedInvite = { code: string; keyRaw: string; publishedAt: string };
+type PublishedInvite = { code: string; keyRaw: string; rsvpToken?: string; publishedAt: string };
+
+function hostedInviteLink(published: PublishedInvite): string {
+  const rsvp = published.rsvpToken ? `&r=${encodeURIComponent(published.rsvpToken)}` : "";
+  return `${window.location.origin}/i/${published.code}#k=${published.keyRaw}${rsvp}`;
+}
 
 function loadPublished(): PublishedInvite | null {
   try {
@@ -968,7 +978,7 @@ function PublishSection({ data, update }: { data: WeddingData; update: (patch: a
 
   const inv = data.invitation;
   const link = published
-    ? `${window.location.origin}/i/${published.code}#k=${published.keyRaw}`
+    ? hostedInviteLink(published)
     : "";
 
   // 발행 정보를 세 곳 모두에 일관되게 반영: 컴포넌트 상태 · localStorage 미러 · WeddingData(백업).
@@ -989,13 +999,14 @@ function PublishSection({ data, update }: { data: WeddingData; update: (patch: a
     setIsError(false);
     const r = await publishInvitation(
       data,
-      published ? { code: published.code, keyRaw: published.keyRaw } : undefined,
+      published ? { code: published.code, keyRaw: published.keyRaw, rsvpToken: published.rsvpToken } : undefined,
     );
     setBusy(false);
     if (r.ok) {
       persistPublished({
         code: r.code,
         keyRaw: r.keyRaw,
+        rsvpToken: r.rsvpToken,
         publishedAt: new Date().toISOString(),
       });
       setIsError(false);
@@ -1076,7 +1087,7 @@ function PublishSection({ data, update }: { data: WeddingData; update: (patch: a
               {copied ? "복사됨" : "링크 복사"}
             </button>
             <a
-              href={`/i/${published.code}#k=${published.keyRaw}`}
+              href={hostedInviteLink(published)}
               target="_blank"
               rel="noopener noreferrer"
               className="flex-1 text-center border border-hair py-3 text-[12px] text-ink hover:border-ink transition"
@@ -1188,20 +1199,20 @@ function QuickStart({ inv, set, onPreview }: {
       <div className="grid grid-cols-2 gap-3 mb-3">
         <div>
           <label className="label">신랑 이름</label>
-          <input className="input" value={inv.groomName} onChange={(e) => set("groomName", e.target.value)} placeholder="도현" />
+          <input aria-label="신랑 이름" className="input" value={inv.groomName} onChange={(e) => set("groomName", e.target.value)} placeholder="도현" />
         </div>
         <div>
           <label className="label">신부 이름</label>
-          <input className="input" value={inv.brideName} onChange={(e) => set("brideName", e.target.value)} placeholder="지윤" />
+          <input aria-label="신부 이름" className="input" value={inv.brideName} onChange={(e) => set("brideName", e.target.value)} placeholder="지윤" />
         </div>
       </div>
       <div className="mb-3">
         <label className="label">예식 날짜</label>
-        <input type="date" className="input" value={inv.date} onChange={(e) => set("date", e.target.value)} />
+        <input aria-label="예식 날짜" type="date" className="input" value={inv.date} onChange={(e) => set("date", e.target.value)} />
       </div>
       <div className="mb-5">
         <label className="label">예식장 <span className="text-mute normal-case tracking-normal">· 나중에 넣어도 돼요</span></label>
-        <input className="input" value={inv.venue} onChange={(e) => set("venue", e.target.value)} placeholder="서울대학교 교수회관" />
+        <input aria-label="예식장" className="input" value={inv.venue} onChange={(e) => set("venue", e.target.value)} placeholder="서울대학교 교수회관" />
       </div>
       <button
         onClick={onPreview}
@@ -1232,6 +1243,7 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
   const theme = (inv.theme as Theme) ?? "cream";
   // 새 청첩장 여부 — 이름·날짜가 비면 QuickStart(30초 완성)를 앞세우고 발행 섹션은 접어둔다.
   const hasEssentials = !!inv.groomName && !!inv.brideName && !!inv.date;
+  const [showQuickStart] = useState(!hasEssentials);
   const saveStatus = useSaveStatus();
   const saveLabel =
     saveStatus === "saving" ? "저장 중" :
@@ -1247,7 +1259,7 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
         </div>
       </div>
 
-      <QuickStart inv={inv} set={set} onPreview={onPreview} />
+      {showQuickStart && <QuickStart inv={inv} set={set} onPreview={onPreview} />}
 
       <Section title="청첩장 발행 — 진짜 링크 만들기" defaultOpen={hasEssentials}>
         <PublishSection data={data} update={update} />
@@ -1264,19 +1276,9 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
         <button onClick={() => setPicker("hero")} className="btn-secondary w-full text-sm">
           추천 사진에서 고르기
         </button>
-        <label className="label">또는 사진 주소(URL) 직접 입력</label>
-        <input
-          className="input text-sm"
-          value={inv.heroImageUrl?.startsWith("data:") ? "" : (inv.heroImageUrl ?? "")}
-          onChange={(e) => {
-            const v = e.target.value;
-            // 빈값은 그대로 허용 (지우기), 입력값은 sanitize 후 저장.
-            if (!v) { set("heroImageUrl", ""); return; }
-            const clean = safeMediaSrc(v);
-            set("heroImageUrl", clean ?? v); // 잘못된 값도 일단 표시는 하되, 렌더 단계에서 걸러짐
-          }}
-          placeholder="https://...jpg (또는 위 [내 사진 업로드])"
-        />
+        <p className="text-[11px] text-soft leading-relaxed">
+          하객의 접속 정보가 외부 서버로 전달되지 않도록 임의 사진 URL은 받지 않습니다. 내 사진 업로드를 이용해주세요.
+        </p>
 
         <label className="label mt-3">청첩장 색감</label>
         <div className="grid grid-cols-4 gap-3">
@@ -1315,23 +1317,23 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
         </div>
       </Section>
 
-      <Section title="신랑 · 신부" defaultOpen>
+      {!showQuickStart && <Section title="신랑 · 신부" defaultOpen>
         <div className="grid grid-cols-2 gap-2">
           <Field label="신랑 이름"><input className="input" value={inv.groomName} onChange={(e) => set("groomName", e.target.value)} placeholder="도현" /></Field>
           <Field label="신부 이름"><input className="input" value={inv.brideName} onChange={(e) => set("brideName", e.target.value)} placeholder="지윤" /></Field>
         </div>
-      </Section>
+      </Section>}
 
-      <Section title="예식 일정" defaultOpen>
+      {!showQuickStart && <Section title="예식 일정" defaultOpen>
         <Field label="날짜"><input type="date" className="input" value={inv.date} onChange={(e) => set("date", e.target.value)} /></Field>
         <Field label="시간"><input className="input" value={inv.time ?? ""} onChange={(e) => set("time", e.target.value)} placeholder="오후 3시" /></Field>
         <Field label="예식장"><input className="input" value={inv.venue} onChange={(e) => set("venue", e.target.value)} placeholder="서울대학교 교수회관" /></Field>
         <Field label="홀/층"><input className="input" value={inv.venueHall ?? ""} onChange={(e) => set("venueHall", e.target.value)} placeholder="3층 그랜드볼룸" /></Field>
         <Field label="주소"><input className="input" value={inv.venueAddress ?? ""} onChange={(e) => set("venueAddress", e.target.value)} placeholder="서울특별시 관악구..." /></Field>
-      </Section>
+      </Section>}
 
       <Section title="모시는 글" defaultOpen>
-        <textarea className="input min-h-[140px]" value={inv.greeting} onChange={(e) => set("greeting", e.target.value)} />
+        <textarea aria-label="모시는 글" className="input min-h-[140px]" value={inv.greeting} onChange={(e) => set("greeting", e.target.value)} />
         <div className="grid grid-cols-3 gap-2">
           {[
             { label: "담백하게", tone: "담백하고 정중하게" },
@@ -1356,35 +1358,21 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
       <Section title="혼주" defaultOpen={false}>
         <div className="text-xs text-soft">신랑 측</div>
         <div className="grid grid-cols-2 gap-2">
-          <input className="input" placeholder="아버지" value={inv.groomParents?.father ?? ""} onChange={(e) => set("groomParents", { ...inv.groomParents, father: e.target.value })} />
-          <input className="input" placeholder="어머니" value={inv.groomParents?.mother ?? ""} onChange={(e) => set("groomParents", { ...inv.groomParents, mother: e.target.value })} />
+          <input aria-label="신랑 측 아버지 성함" className="input" placeholder="아버지" value={inv.groomParents?.father ?? ""} onChange={(e) => set("groomParents", { ...inv.groomParents, father: e.target.value })} />
+          <input aria-label="신랑 측 어머니 성함" className="input" placeholder="어머니" value={inv.groomParents?.mother ?? ""} onChange={(e) => set("groomParents", { ...inv.groomParents, mother: e.target.value })} />
         </div>
-        <input className="input" placeholder="관계 (예: 장남, 차남)" value={inv.groomOrder ?? ""} onChange={(e) => set("groomOrder", e.target.value)} />
+        <input aria-label="신랑 가족 관계" className="input" placeholder="관계 (예: 장남, 차남)" value={inv.groomOrder ?? ""} onChange={(e) => set("groomOrder", e.target.value)} />
         <div className="text-xs text-soft mt-2">신부 측</div>
         <div className="grid grid-cols-2 gap-2">
-          <input className="input" placeholder="아버지" value={inv.brideParents?.father ?? ""} onChange={(e) => set("brideParents", { ...inv.brideParents, father: e.target.value })} />
-          <input className="input" placeholder="어머니" value={inv.brideParents?.mother ?? ""} onChange={(e) => set("brideParents", { ...inv.brideParents, mother: e.target.value })} />
+          <input aria-label="신부 측 아버지 성함" className="input" placeholder="아버지" value={inv.brideParents?.father ?? ""} onChange={(e) => set("brideParents", { ...inv.brideParents, father: e.target.value })} />
+          <input aria-label="신부 측 어머니 성함" className="input" placeholder="어머니" value={inv.brideParents?.mother ?? ""} onChange={(e) => set("brideParents", { ...inv.brideParents, mother: e.target.value })} />
         </div>
-        <input className="input" placeholder="관계 (예: 장녀, 외동딸)" value={inv.brideOrder ?? ""} onChange={(e) => set("brideOrder", e.target.value)} />
+        <input aria-label="신부 가족 관계" className="input" placeholder="관계 (예: 장녀, 외동딸)" value={inv.brideOrder ?? ""} onChange={(e) => set("brideOrder", e.target.value)} />
       </Section>
 
       <Section title="배경 음악 (선택)" defaultOpen={false}>
-        <label className="label">음원 주소 (mp3 URL)</label>
-        <input
-          className="input text-sm"
-          value={inv.bgmUrl ?? ""}
-          onChange={(e) => {
-            const v = e.target.value;
-            if (!v) { set("bgmUrl", undefined); return; }
-            const clean = safeMediaSrc(v);
-            set("bgmUrl", clean ?? v);
-          }}
-          placeholder="https://...mp3"
-        />
         <p className="text-xs text-soft leading-relaxed">
-          저작권 무료 음원은 <a href="https://pixabay.com/music/" target="_blank" rel="noopener noreferrer" className="underline">Pixabay Music</a>·{" "}
-          <a href="https://incompetech.com/" target="_blank" rel="noopener noreferrer" className="underline">Incompetech</a>{" "}에서 받을 수 있어요.
-          파일 URL을 그대로 붙여넣으세요.
+          외부 음원 URL은 하객 접속 정보를 제3자에게 노출할 수 있어 지원하지 않습니다. 기존 외부 음원도 하객 화면에서 불러오지 않습니다.
         </p>
       </Section>
 
@@ -1641,7 +1629,6 @@ function GalleryUploadButton({ onUploaded, mode }: {
 }
 
 function GalleryEditor({ gallery, onChange }: { gallery: { url: string; caption?: string; }[]; onChange: (g: any[]) => void; }) {
-  const [url, setUrl] = useState("");
   return (
     <div className="space-y-2">
       {gallery.length > 0 && (
@@ -1656,6 +1643,7 @@ function GalleryEditor({ gallery, onChange }: { gallery: { url: string; caption?
                   <div className="w-14 h-14 rounded-md bg-cream border border-red-200 flex items-center justify-center text-[10px] text-red-500 text-center flex-shrink-0 leading-tight">잘못된<br />주소</div>
                 )}
                 <input
+                  aria-label={`${i + 1}번째 사진 설명`}
                   className="input flex-1 text-sm"
                   value={g.caption ?? ""}
                   onChange={(e) => onChange(gallery.map((x, j) => (j === i ? { ...x, caption: e.target.value } : x)))}
@@ -1671,18 +1659,7 @@ function GalleryEditor({ gallery, onChange }: { gallery: { url: string; caption?
           })}
         </div>
       )}
-      <div className="flex gap-2">
-        <input className="input flex-1 text-sm" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="사진 주소(URL) 붙여넣기 (https://…)" />
-        <button
-          className="btn-secondary text-sm"
-          onClick={() => {
-            const clean = safeMediaSrc(url);
-            if (!clean) { alert("https:// 로 시작하는 사진 주소만 추가할 수 있어요."); return; }
-            onChange([...gallery, { url: clean }]);
-            setUrl("");
-          }}
-        >추가</button>
-      </div>
+      <p className="text-[11px] text-soft leading-relaxed">새 사진은 위의 내 사진 업로드 또는 추천 사진에서 추가할 수 있어요.</p>
     </div>
   );
 }
@@ -1722,7 +1699,7 @@ function Section({ title, children, defaultOpen = true }: { title: string; child
         onClick={() => setOpen((v) => !v)}
         className="w-full py-5 flex items-baseline justify-between text-left"
       >
-        <h3 className="section-title">{title}</h3>
+        <h2 className="section-title">{title}</h2>
         <span className="text-[12px] text-soft">{open ? "접기" : "열기"}</span>
       </button>
       {open && <div className="space-y-3 pb-8">{children}</div>}
@@ -1730,7 +1707,11 @@ function Section({ title, children, defaultOpen = true }: { title: string; child
   );
 }
 function Field({ label, children }: { label: string; children: React.ReactNode; }) {
-  return <div><label className="label">{label}</label>{children}</div>;
+  const id = useId();
+  const control = isValidElement<Record<string, unknown>>(children)
+    ? cloneElement(children, { id, ...(!children.props["aria-label"] ? { "aria-label": label } : {}) })
+    : children;
+  return <div><label htmlFor={id} className="label">{label}</label>{control}</div>;
 }
 
 /* ════════════ i18n ════════════ */

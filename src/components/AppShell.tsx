@@ -28,6 +28,9 @@ export default function AppShell({ data, children }: Props) {
   const isSetup = location.pathname === "/setup";
   const isGuestInvitation = location.pathname === "/i";
   const isDashboard = location.pathname === "/dashboard";
+  const wideWorkspace = ["/checklist", "/budget", "/guests", "/venues", "/rings", "/sdm", "/trip"].some(
+    (path) => location.pathname.startsWith(path),
+  );
   const isDemo = !!data.preferences.isDemo;
   const showNav = !isWelcome && !isSetup && !isGuestInvitation && (data.preferences.mode || isDemo);
   const showChrome = !isWelcome && !isGuestInvitation;
@@ -40,7 +43,6 @@ export default function AppShell({ data, children }: Props) {
     data.invitation.brideName ||
     data.rings.length ||
     data.sdm.length ||
-    data.checklist.length ||
     (data.venues ?? []).length ||
     (data.budget ?? []).length ||
     (data.guests ?? []).length
@@ -73,7 +75,7 @@ export default function AppShell({ data, children }: Props) {
   const startMine = () => navigate("/", { state: { goModeSelect: true } });
 
   return (
-    <div className="min-h-screen max-w-app mx-auto flex flex-col bg-paper">
+    <div className={`min-h-screen w-full mx-auto flex flex-col bg-paper ${wideWorkspace ? "lg:max-w-6xl" : "max-w-app"}`}>
       {showChrome && (
         <header className="sticky top-0 z-30 bg-paper">
           <div className="px-6 h-14 flex items-center justify-between gap-3">
@@ -82,12 +84,12 @@ export default function AppShell({ data, children }: Props) {
                 <button
                   onClick={goBack}
                   aria-label="뒤로"
-                  className="-ml-2 px-2 text-soft hover:text-ink transition text-lg leading-none"
+                  className="-ml-2 px-2 min-w-11 min-h-11 text-soft hover:text-ink transition text-lg leading-none"
                 >
                   ←
                 </button>
               )}
-              <Link to="/dashboard" className="font-serif text-base tracking-tight text-ink truncate">
+              <Link to="/dashboard" className="font-serif text-base tracking-tight text-ink truncate min-h-11 flex items-center">
                 Wedding<span className="text-gold">·</span>OS
               </Link>
             </div>
@@ -165,7 +167,7 @@ export default function AppShell({ data, children }: Props) {
       {backupStale && !isGuestInvitation && (
         <div className="px-6 py-3 border-b border-hair flex items-center justify-between gap-3">
           <span className="text-[12px] text-soft">오래 백업을 안 했어요</span>
-          <Link to="/settings" className="text-[12px] underline underline-offset-4 text-ink">
+          <Link to="/settings#data-backup" className="text-[12px] underline underline-offset-4 text-ink min-h-11 flex items-center">
             내려받기
           </Link>
         </div>
@@ -174,14 +176,14 @@ export default function AppShell({ data, children }: Props) {
       <main className={`flex-1 page-enter ${showNav ? "pb-[calc(6rem+env(safe-area-inset-bottom))]" : ""}`}>{children}</main>
 
       {showNav && (
-        <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-app bg-paper z-30 border-t border-hair pb-[env(safe-area-inset-bottom)]">
+        <nav className={`fixed bottom-0 left-1/2 -translate-x-1/2 w-full bg-paper z-30 border-t border-hair pb-[env(safe-area-inset-bottom)] ${wideWorkspace ? "lg:max-w-6xl" : "max-w-app"}`}>
           <div className="grid grid-cols-5">
             {NAV.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
-                  `relative flex items-center justify-center py-4 text-[11px] tracking-wide transition ${
+                  `relative min-h-11 flex items-center justify-center py-4 text-[11px] tracking-wide transition ${
                     isActive ? "text-ink" : "text-soft"
                   }`
                 }

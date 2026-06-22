@@ -7,10 +7,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { defaultData } from "../lib/schema";
 import { parseRecoveryFragment } from "../lib/recovery";
-import { setHostedConfig, setOwnerToken, markOwner } from "../lib/security";
+import { setHostedRecoveryCredentials } from "../lib/security";
 import { localStorageDriver } from "../lib/storage";
+import { createHostedStorage } from "../lib/storage.hosted";
 
 export default function Recover() {
   const [status, setStatus] = useState<"working" | "error">("working");
@@ -22,17 +22,31 @@ export default function Recover() {
     (async () => {
       const bundle = parseRecoveryFragment(window.location.hash);
       if (!bundle) { setStatus("error"); return; }
-      if (!setOwnerToken(bundle.ownerToken)) { setStatus("error"); return; }
-      setHostedConfig({ weddingId: bundle.weddingId, weddingKey: bundle.weddingKey });
-      markOwner();
+      const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+      if (!url || !anonKey) { setStatus("error"); return; }
 
-      // mode='hosted' 로 로컬 seed — 새로고침 후 로드 경로가 hosted 드라이버를 고르게.
-      const seed = {
-        ...defaultData(),
-        preferences: { ...defaultData().preferences, mode: "hosted" as const },
+      // 기존 기기 데이터를 건드리기 전에 원격 자격증명과 복호화 키를 실제 데이터로 검증한다.
+      const remote = await createHostedStorage(
+        url, anonKey, bundle.weddingId, bundle.weddingKey, bundle.ownerToken,
+      ).load();
+      if (!remote) { setStatus("error"); return; }
+      const restored = {
+        ...remote.data,
+        preferences: { ...remote.data.preferences, mode: "hosted" as const, isDemo: false },
       };
-      await localStorageDriver.save(seed);
+      const previous = await localStorageDriver.load();
+      const saved = await localStorageDriver.save(restored);
+      if (!saved.ok) { setStatus("error"); return; }
 
+      if (!setHostedRecoveryCredentials(
+        { weddingId: bundle.weddingId, weddingKey: bundle.weddingKey },
+        bundle.ownerToken,
+      )) {
+        if (previous) await localStorageDriver.save(previous.data);
+        setStatus("error");
+        return;
+      }
       // URL/히스토리에서 키 제거 후 대시보드로 새로고침 진입.
       window.history.replaceState(null, "", "/recover");
       window.location.assign("/dashboard");

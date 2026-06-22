@@ -4,6 +4,7 @@ import Modal from "./Modal";
 import { BridgePrompt, CHAT_LINKS, extractJSON } from "../lib/chatbotBridge";
 import { hasDirectAi, runAiPrompt } from "../lib/aiClient";
 import { getAiConfig } from "../lib/security";
+import { currentAccessToken } from "../lib/auth";
 
 type Props = {
   open: boolean;
@@ -18,6 +19,7 @@ export default function ChatbotBridgeModal({ open, onClose, prompt, onApply }: P
   const [aiStatus, setAiStatus] = useState<"idle" | "running" | "fail">("idle");
   const [aiError, setAiError] = useState("");
   const [pending, setPending] = useState<unknown | null>(null);
+  const [managedSignedIn, setManagedSignedIn] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -28,9 +30,16 @@ export default function ChatbotBridgeModal({ open, onClose, prompt, onApply }: P
     setPending(null);
   }, [open, prompt?.title]);
 
+  useEffect(() => {
+    if (!open || getAiConfig().provider !== "managed") { setManagedSignedIn(false); return; }
+    let cancelled = false;
+    void currentAccessToken().then((token) => { if (!cancelled) setManagedSignedIn(!!token); });
+    return () => { cancelled = true; };
+  }, [open, prompt?.title]);
+
   if (!prompt) return null;
   const aiConfig = getAiConfig();
-  const directAiReady = hasDirectAi(aiConfig);
+  const directAiReady = aiConfig.provider === "managed" ? managedSignedIn : hasDirectAi(aiConfig);
   const pendingPreview = previewPending(pending, prompt.expectedShape);
   const actionLabel = prompt.expectedShape === "text" ? "문안 다듬기 →" : "초안 만들기 →";
 
@@ -125,8 +134,8 @@ export default function ChatbotBridgeModal({ open, onClose, prompt, onApply }: P
               <p className="text-[11.5px] text-soft leading-relaxed">
                 AI 연결을 켜면 이 단계를 앱 안에서 바로 실행할 수 있어요.
               </p>
-              <a href="/ai" className="text-[12px] underline underline-offset-4 text-ink hover:text-gold whitespace-nowrap">
-                설정 →
+              <a href={aiConfig.provider === "managed" ? "/login" : "/ai"} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold whitespace-nowrap">
+                {aiConfig.provider === "managed" ? "로그인 →" : "설정 →"}
               </a>
             </div>
           )}

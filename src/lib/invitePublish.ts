@@ -34,14 +34,56 @@ export type SealedInvitation = {
   droppedPhotos: number;
 };
 
+const MAX_REMOTE_IMAGE_BYTES = 5 * 1024 * 1024;
+
+async function readImageWithLimit(response: Response): Promise<Blob> {
+  const contentType = response.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase() ?? "";
+  if (!contentType.startsWith("image/")) throw new Error("invalid image type");
+  const declaredSize = Number(response.headers.get("content-length") ?? "0");
+  if (Number.isFinite(declaredSize) && declaredSize > MAX_REMOTE_IMAGE_BYTES) throw new Error("image too large");
+  if (!response.body) throw new Error("empty image response");
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array<ArrayBuffer>[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_REMOTE_IMAGE_BYTES) throw new Error("image too large");
+      chunks.push(new Uint8Array(value));
+    }
+  } catch (error) {
+    await reader.cancel().catch(() => undefined);
+    throw error;
+  }
+  return new Blob(chunks, { type: contentType });
+}
+
 // idb: 사진을 self-contained data URL 로 인라인. data:/https: 는 그대로 둔다.
 async function inlinePhoto(
   url: string | undefined,
   onDrop: () => void,
 ): Promise<string | undefined> {
   if (!url) return undefined;
-  if (!isIdbUrl(url)) return url;
-  const dataUrl = await idbToDataUrl(url);
+  if (!isIdbUrl(url) && !/^https?:\/\//i.test(url)) return url;
+  let dataUrl: string | null = null;
+  if (isIdbUrl(url)) {
+    dataUrl = await idbToDataUrl(url);
+  } else {
+    try {
+      const response = await fetch(url, { referrerPolicy: "no-referrer", signal: AbortSignal.timeout(10_000) });
+      if (!response.ok) throw new Error("image fetch failed");
+      const blob = await readImageWithLimit(response);
+      dataUrl = await new Promise<string | null>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : null);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    } catch { dataUrl = null; }
+  }
   if (!dataUrl) {
     onDrop();
     return undefined;
@@ -74,6 +116,8 @@ export async function buildPublishInvitation(data: WeddingData): Promise<{
   const invitation: InvitationContent = {
     ...inv,
     heroImageUrl,
+    // 외부 음원은 하객 IP를 제3자에게 노출할 수 있어 hosted 발행본에는 포함하지 않는다.
+    bgmUrl: inv.bgmUrl && !/^https?:\/\//i.test(inv.bgmUrl) ? inv.bgmUrl : undefined,
     ...(gallery ? { gallery } : {}),
   };
 

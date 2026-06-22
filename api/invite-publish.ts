@@ -1,8 +1,9 @@
-// POST /api/invite-publish?meta=<base64url(JSON)>
+// POST /api/invite-publish, header x-publish-meta=<base64url(JSON)>
 //
 // 청첩장 '간편 발행' — 암호화된 청첩장 본문을 Vercel Blob 에 저장한다.
 //   body  : 바이너리 = 암호문 (운영자는 복호화 불가 — 키는 클라이언트 링크의 # 에만)
-//   query : meta = base64url(JSON) { ogMeta:{groomName,brideName,date}, ownerToken, code? }
+//   header: x-publish-meta = base64url(JSON) { ogMeta, rsvpToken, code? }
+//           x-owner-token = ownerToken (자격증명과 개인정보를 URL 로그에 남기지 않는다)
 //           code 없음 → 새 발행(코드 생성).  code 있음 → 재발행(ownerToken 해시 검증).
 // 응답   : { code } 또는 { error }
 //
@@ -10,7 +11,8 @@
 // 함수(토큰 보유)만 가능. 운영자가 평문으로 보는 건 ogMeta(이름·날짜)뿐이며,
 // 그 외 청첩장 내용·전화·계좌·사진은 전부 암호문 안에 있어 운영자도 못 읽는다.
 
-import { put, get } from "@vercel/blob";
+import { put, get, del } from "@vercel/blob";
+import { json, rateLimit, requireAuthenticatedUser, sha256Hex } from "./_security";
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -19,15 +21,15 @@ declare const process: { env: Record<string, string | undefined> };
 const MAX_BYTES = 4 * 1024 * 1024;
 
 type OgMeta = { groomName: string; brideName: string; date: string };
-type PublishMeta = { ogMeta: OgMeta; ownerToken: string; code?: string };
-type StoredMeta = { ogMeta: OgMeta; ownerTokenHash: string; updatedAt: string; expiresAt: string };
-
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json; charset=utf-8" },
-  });
-}
+type PublishMeta = { ogMeta: OgMeta; rsvpToken: string; code?: string };
+type StoredMeta = {
+  ogMeta: OgMeta;
+  ownerTokenHash: string;
+  rsvpTokenHash: string;
+  payloadPath?: string;
+  updatedAt: string;
+  expiresAt: string;
+};
 
 function decodeBase64Url(s: string): string {
   const b64 = s.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(s.length / 4) * 4, "=");
@@ -35,11 +37,6 @@ function decodeBase64Url(s: string): string {
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return new TextDecoder().decode(bytes);
-}
-
-async function sha256Hex(s: string): Promise<string> {
-  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
-  return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 function genCode(): string {
@@ -70,12 +67,17 @@ async function readStoredMeta(code: string, token: string): Promise<StoredMeta |
 
 async function handler(req: Request): Promise<Response> {
   if (req.method !== "POST") return json({ error: "POST 요청만 허용됩니다." }, 405);
+  const limited = rateLimit(req, "invite-publish", 5, 60_000);
+  if (limited) return limited;
+  const unauthorized = await requireAuthenticatedUser(req);
+  if (unauthorized) return unauthorized;
 
   const token = process.env.BLOB_READ_WRITE_TOKEN;
   if (!token) return json({ error: "스토리지가 아직 연결되지 않았어요 (운영자 설정 필요)." }, 503);
 
-  const metaRaw = new URL(req.url).searchParams.get("meta");
+  const metaRaw = req.headers.get("x-publish-meta");
   if (!metaRaw) return json({ error: "발행 정보가 없습니다." }, 400);
+  if (metaRaw.length > 16_384) return json({ error: "발행 정보가 너무 큽니다." }, 431);
 
   let meta: PublishMeta;
   try {
@@ -83,11 +85,18 @@ async function handler(req: Request): Promise<Response> {
   } catch {
     return json({ error: "발행 정보가 손상됐습니다." }, 400);
   }
-  if (!meta?.ownerToken || meta.ownerToken.length < 16) {
+  const ownerToken = req.headers.get("x-owner-token") ?? "";
+  if (ownerToken.length < 32 || ownerToken.length > 256) {
     return json({ error: "소유자 토큰이 올바르지 않습니다." }, 400);
+  }
+  if (typeof meta?.rsvpToken !== "string" || meta.rsvpToken.length < 32 || meta.rsvpToken.length > 256) {
+    return json({ error: "RSVP 제출 토큰이 올바르지 않습니다." }, 400);
   }
   if (!meta.ogMeta || typeof meta.ogMeta.groomName !== "string") {
     return json({ error: "청첩장 기본 정보가 없습니다." }, 400);
+  }
+  if (meta.ogMeta.groomName.length > 80 || meta.ogMeta.brideName?.length > 80 || meta.ogMeta.date?.length > 32) {
+    return json({ error: "청첩장 기본 정보가 너무 깁니다." }, 400);
   }
 
   const ciphertext = await req.arrayBuffer();
@@ -96,28 +105,39 @@ async function handler(req: Request): Promise<Response> {
     return json({ error: "청첩장 용량이 너무 큽니다. 사진 수를 줄여주세요." }, 413);
   }
 
-  const ownerTokenHash = await sha256Hex(meta.ownerToken);
+  const ownerTokenHash = await sha256Hex(ownerToken);
+  const rsvpTokenHash = await sha256Hex(meta.rsvpToken);
   let code = typeof meta.code === "string" && /^[a-z0-9]{6,16}$/.test(meta.code) ? meta.code : undefined;
+  let existing: StoredMeta | null = null;
 
   if (code) {
-    const existing = await readStoredMeta(code, token);
+    existing = await readStoredMeta(code, token);
     if (!existing) return json({ error: "수정할 청첩장을 찾을 수 없습니다." }, 404);
     if (existing.ownerTokenHash !== ownerTokenHash) {
       return json({ error: "이 청첩장을 수정할 권한이 없습니다." }, 403);
     }
   } else {
-    code = genCode();
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const candidate = genCode();
+      if (!(await readStoredMeta(candidate, token))) { code = candidate; break; }
+    }
+    if (!code) return json({ error: "발행 코드를 만들지 못했습니다. 다시 시도해주세요." }, 503);
   }
+
+  const payloadPath = `invite/${code}/payload-${crypto.randomUUID()}.enc`;
 
   const stored: StoredMeta = {
     ogMeta: meta.ogMeta,
     ownerTokenHash,
+    rsvpTokenHash,
+    payloadPath,
     updatedAt: new Date().toISOString(),
     expiresAt: computeExpiry(meta.ogMeta.date ?? ""),
   };
 
   try {
-    await put(`invite/${code}/payload.enc`, ciphertext, {
+    // 새 payload를 먼저 쓰고 meta 포인터를 마지막에 전환한다. meta 저장 실패 시 기존 발행본은 유지된다.
+    await put(payloadPath, ciphertext, {
       access: "private",
       addRandomSuffix: false,
       allowOverwrite: true,
@@ -131,7 +151,11 @@ async function handler(req: Request): Promise<Response> {
       contentType: "application/json",
       token,
     });
+    if (existing?.payloadPath && existing.payloadPath !== payloadPath) {
+      await del(existing.payloadPath, { token }).catch(() => undefined);
+    }
   } catch {
+    await del(payloadPath, { token }).catch(() => undefined);
     return json({ error: "저장에 실패했습니다. 잠시 후 다시 시도해주세요." }, 502);
   }
 

@@ -114,8 +114,8 @@ ${JSON.stringify(summary, null, 2)}
 
 export function ringPriceCheckPrompt(brand: string, model: string, material?: string): BridgePrompt {
   return {
-    title: "반지 가격 확인",
-    prompt: `다음 결혼반지의 현재 한국 매장(공식 홈페이지/공식 매장) 가격을 알려주세요.
+    title: "반지 가격 참고 추정",
+    prompt: `다음 결혼반지의 한국 판매 가격대를 참고용으로 추정해주세요. 웹 검색 도구가 없다면 현재 가격을 확인했다고 말하거나 출처 URL을 만들어내지 마세요.
 
 브랜드: ${brand}
 모델: ${model}${material ? `\n소재: ${material}` : ""}
@@ -135,8 +135,8 @@ export function ringPriceCheckPrompt(brand: string, model: string, material?: st
 
 export function hotelPriceCheckPrompt(hotel: string, checkInDate?: string, nights?: number): BridgePrompt {
   return {
-    title: "호텔 가격 확인",
-    prompt: `다음 호텔의 가격을 여러 OTA(예약 사이트)에서 비교해주세요.
+    title: "호텔 가격 참고 추정",
+    prompt: `다음 호텔의 가격대를 참고용으로 추정해주세요. 웹 검색 도구가 없다면 OTA 실시간 가격을 확인했다고 말하거나 URL을 만들어내지 마세요.
 
 호텔: ${hotel}${checkInDate ? `\n체크인: ${checkInDate}` : ""}${nights ? `\n${nights}박` : ""}
 
@@ -157,8 +157,8 @@ OTA: 호텔스닷컴, 아고다, 익스피디아, 부킹닷컴, 트립닷컴
 
 export function flightSearchPrompt(from: string, to: string, date: string): BridgePrompt {
   return {
-    title: "항공편 찾기",
-    prompt: `다음 일정으로 항공편을 찾아주세요.
+    title: "항공편 후보 참고 추정",
+    prompt: `다음 일정에 맞는 항공편 후보를 참고용으로 제안해주세요. 웹 검색 도구가 없다면 실제 운항편이나 현재 가격을 확인했다고 말하지 마세요.
 
 출발: ${from}
 도착: ${to}

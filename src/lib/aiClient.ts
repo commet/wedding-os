@@ -1,5 +1,6 @@
 import type { BridgePrompt } from "./chatbotBridge";
 import { type AiConfig, getAiConfig } from "./security";
+import { currentAccessToken } from "./auth";
 
 export type AiRunResult = {
   ok: boolean;
@@ -7,28 +8,57 @@ export type AiRunResult = {
   reason?: string;
 };
 
+const MAX_PROMPT_CHARS = 30_000;
+const AI_TIMEOUT_MS = 60_000;
+
+async function fetchAi(input: RequestInfo | URL, init: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = globalThis.setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error: any) {
+    if (error?.name === "AbortError") throw new Error("AI 응답 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.");
+    throw error;
+  } finally {
+    globalThis.clearTimeout(timer);
+  }
+}
+
+function validOllamaUrl(value?: string): boolean {
+  try {
+    const url = new URL(value || "");
+    return (url.protocol === "http:" || url.protocol === "https:") &&
+      (url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "[::1]");
+  } catch {
+    return false;
+  }
+}
+
 export function hasDirectAi(config: AiConfig = getAiConfig()): boolean {
   if (config.provider === "managed") return true;
   if (config.provider === "bridge") return false;
-  if (config.provider === "ollama") return !!config.baseUrl && !!config.model;
+  if (config.provider === "ollama") return validOllamaUrl(config.baseUrl) && !!config.model;
   return !!config.apiKey && !!config.model;
 }
 
 export function defaultModel(provider: AiConfig["provider"]): string {
-  if (provider === "managed") return "claude-3-5-haiku-20241022";
-  if (provider === "gemini") return "gemini-1.5-flash";
-  if (provider === "openai") return "gpt-4o-mini";
-  if (provider === "anthropic") return "claude-3-5-haiku-20241022";
+  if (provider === "managed") return "claude-haiku-4-5-20251001";
+  if (provider === "gemini") return "gemini-2.5-flash";
+  if (provider === "openai") return "gpt-5.4-mini";
+  if (provider === "anthropic") return "claude-haiku-4-5-20251001";
   if (provider === "ollama") return "llama3.1";
   return "";
 }
 
 export async function runAiPrompt(prompt: BridgePrompt, config: AiConfig = getAiConfig()): Promise<AiRunResult> {
   try {
+    if (!prompt.prompt.trim() || prompt.prompt.length > MAX_PROMPT_CHARS) {
+      return { ok: false, reason: "AI 요청이 비어 있거나 너무 큽니다." };
+    }
     if (!hasDirectAi(config)) {
       return { ok: false, reason: "AI 설정이 아직 없어요. 복붙 모드를 쓰거나 API 키를 연결해주세요." };
     }
-    if (config.provider === "managed") return runManagedAI(prompt.prompt, config);
+    if (config.provider === "managed") return runManagedAI(prompt.prompt);
     if (config.provider === "gemini") return runGemini(prompt.prompt, config);
     if (config.provider === "openai") return runOpenAI(prompt.prompt, config);
     if (config.provider === "anthropic") return runAnthropic(prompt.prompt, config);
@@ -39,17 +69,19 @@ export async function runAiPrompt(prompt: BridgePrompt, config: AiConfig = getAi
   }
 }
 
-async function runManagedAI(input: string, config: AiConfig): Promise<AiRunResult> {
-  const res = await fetch("/api/ai", {
+async function runManagedAI(input: string): Promise<AiRunResult> {
+  const accessToken = await currentAccessToken();
+  if (!accessToken) return { ok: false, reason: "Wedding OS AI는 로그인 후 사용할 수 있어요." };
+  const res = await fetchAi("/api/ai", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
     body: JSON.stringify({ prompt: input }),
   });
   const json = await res.json().catch(() => ({}));
   if (res.status === 404) {
     return {
       ok: false,
-      reason: "로컬 Vite 서버에서는 Wedding OS AI 서버 함수가 실행되지 않을 수 있어요. 배포 환경에서는 ANTHROPIC_API_KEY를 설정하고, 로컬에서는 복붙 모드나 개인 API 키를 사용해주세요.",
+      reason: "Wedding OS AI를 지금 사용할 수 없습니다. 잠시 후 다시 시도하거나 다른 AI 사용 방식을 선택해주세요.",
     };
   }
   if (!res.ok) return { ok: false, reason: json?.error ?? `Wedding OS AI 오류 (${res.status})` };
@@ -59,12 +91,12 @@ async function runManagedAI(input: string, config: AiConfig): Promise<AiRunResul
 async function runGemini(input: string, config: AiConfig): Promise<AiRunResult> {
   const model = config.model || defaultModel("gemini");
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(config.apiKey ?? "")}`;
-  const res = await fetch(url, {
+  const res = await fetchAi(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       contents: [{ role: "user", parts: [{ text: input }] }],
-      generationConfig: { temperature: 0.2 },
+      generationConfig: { temperature: 0.2, maxOutputTokens: 4096 },
     }),
   });
   const json = await res.json().catch(() => ({}));
@@ -74,7 +106,7 @@ async function runGemini(input: string, config: AiConfig): Promise<AiRunResult> 
 }
 
 async function runOpenAI(input: string, config: AiConfig): Promise<AiRunResult> {
-  const res = await fetch("https://api.openai.com/v1/responses", {
+  const res = await fetchAi("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -83,7 +115,6 @@ async function runOpenAI(input: string, config: AiConfig): Promise<AiRunResult> 
     body: JSON.stringify({
       model: config.model || defaultModel("openai"),
       input,
-      temperature: 0.2,
     }),
   });
   const json = await res.json().catch(() => ({}));
@@ -95,7 +126,7 @@ async function runOpenAI(input: string, config: AiConfig): Promise<AiRunResult> 
 }
 
 async function runAnthropic(input: string, config: AiConfig): Promise<AiRunResult> {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await fetchAi("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -120,7 +151,8 @@ async function runAnthropic(input: string, config: AiConfig): Promise<AiRunResul
 
 async function runOllama(input: string, config: AiConfig): Promise<AiRunResult> {
   const baseUrl = (config.baseUrl || "http://localhost:11434").replace(/\/+$/, "");
-  const res = await fetch(`${baseUrl}/api/generate`, {
+  if (!validOllamaUrl(baseUrl)) return { ok: false, reason: "Ollama는 이 기기의 localhost 주소만 연결할 수 있습니다." };
+  const res = await fetchAi(`${baseUrl}/api/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

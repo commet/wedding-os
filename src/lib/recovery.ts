@@ -16,6 +16,16 @@ export type RecoveryBundle = {
   weddingKey: string;
 };
 
+export function isRecoveryBundle(value: unknown): value is RecoveryBundle {
+  if (!value || typeof value !== "object") return false;
+  const bundle = value as Partial<RecoveryBundle>;
+  return (
+    typeof bundle.weddingId === "string" && /^w[a-z2-7]{24}$/.test(bundle.weddingId) &&
+    typeof bundle.ownerToken === "string" && bundle.ownerToken.length >= 32 && bundle.ownerToken.length <= 256 &&
+    typeof bundle.weddingKey === "string" && /^[A-Za-z0-9_-]{43}$/.test(bundle.weddingKey)
+  );
+}
+
 const B32 = "abcdefghijklmnopqrstuvwxyz234567";
 
 /** 추측 불가능한 weddingId 생성 — 'w' + 24 base32 (≈120bit). 스키마 제약(8~64자) 충족. */
@@ -49,8 +59,6 @@ export function parseRecoveryFragment(hash: string): RecoveryBundle | null {
   const weddingId = (p.get("w") ?? "").trim();
   const ownerToken = (p.get("t") ?? "").trim();
   const weddingKey = (p.get("k") ?? "").trim();
-  // ownerToken 은 최소 32자(security.ts 와 동일 기준), weddingId 는 스키마 제약(8~64).
-  if (weddingId.length < 8 || weddingId.length > 64) return null;
-  if (ownerToken.length < 32 || !weddingKey) return null;
-  return { weddingId, ownerToken, weddingKey };
+  const bundle = { weddingId, ownerToken, weddingKey };
+  return isRecoveryBundle(bundle) ? bundle : null;
 }

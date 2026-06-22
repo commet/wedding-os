@@ -14,10 +14,12 @@ type State =
 
 export default function HostedInvitation() {
   const code = window.location.pathname.split("/")[2] ?? "";
-  const keyRaw = (() => {
+  const fragment = (() => {
     const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : "";
-    return new URLSearchParams(hash).get("k") ?? "";
+    const params = new URLSearchParams(hash);
+    return { keyRaw: params.get("k") ?? "", rsvpToken: params.get("r") ?? "" };
   })();
+  const { keyRaw, rsvpToken } = fragment;
 
   const [state, setState] = useState<State>({ phase: "loading" });
   const [showRsvp, setShowRsvp] = useState(false);
@@ -72,7 +74,7 @@ export default function HostedInvitation() {
       <Preview
         inv={state.invitation}
         locale="ko"
-        rsvpEnabled
+        rsvpEnabled={!!rsvpToken}
         onRsvpClick={() => setShowRsvp(true)}
         hideShareBox
       />
@@ -80,7 +82,7 @@ export default function HostedInvitation() {
         <RsvpModal
           locale="ko"
           onClose={() => setShowRsvp(false)}
-          onSubmit={(input) => submitHostedRsvp(code, keyRaw, input)}
+          onSubmit={(input) => submitHostedRsvp(code, keyRaw, rsvpToken, input)}
         />
       )}
     </div>

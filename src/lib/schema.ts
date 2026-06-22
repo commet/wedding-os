@@ -281,6 +281,7 @@ export type Preferences = {
     url: string;
     anonKey: string;
     configId?: string;
+    rsvpToken?: string;
   };
   lastBackupAt?: string;        // ISO date — 마지막 export 시점
   // aiKey 는 더 이상 여기 저장하지 않음 — 모드 2에선 공개 row 로 새어버리는 위험 때문에
@@ -295,6 +296,8 @@ export type Preferences = {
 export type PublishedInvite = {
   code: string;
   keyRaw: string;
+  /** 하객 RSVP 제출 capability. 복호화 키와 분리되어 서버는 청첩장 본문을 읽을 수 없다. */
+  rsvpToken?: string;
   publishedAt: string;
 };
 

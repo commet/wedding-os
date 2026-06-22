@@ -8,12 +8,21 @@ import { useCallback, useEffect, useState } from "react";
 import { defaultData, WeddingData, SCHEMA_VERSION } from "./schema";
 import { createSupabaseStorage } from "./storage.supabase";
 import { demoData } from "../data/demoData";
-import { setOwnerToken, setSecrets, isSupabaseHost, getHostedConfig, getOrCreateOwnerToken } from "./security";
+import {
+  setOwnerToken, setSecrets, isSupabaseHost, getHostedConfig, getHostedUserId,
+  getOrCreateOwnerToken, hostedUserMatches,
+} from "./security";
+import { currentUserId, getAuthClient } from "./auth";
 import { createHostedStorage, deleteHostedWedding } from "./storage.hosted";
 import { unpublishInvitation } from "./inviteHosting";
-import { inlineIdbForExport, stripUnresolvedIdb } from "./imageStore";
+import { clearImageStore, inlineIdbForExport, stripUnresolvedIdb } from "./imageStore";
 
 const LS_KEY = "wedding-os/v1";
+const LS_REVISION_KEY = "wedding-os/revision/v1";
+const CORRUPT_BACKUP_KEY = "wedding-os/corrupt-backup/v1";
+const DEVICE_WIPE_KEY = "wedding-os-control/device-wipe/v1";
+let _wipeGeneration = typeof localStorage !== "undefined" ? localStorage.getItem(DEVICE_WIPE_KEY) : null;
+let _deviceWiped = false;
 
 export type RealtimeStatus = "idle" | "connecting" | "subscribed" | "disconnected";
 
@@ -62,19 +71,38 @@ function notifyQuotaError() {
 
 export const localStorageDriver: StorageDriver = {
   async load() {
+    let raw: string | null = null;
     try {
-      const raw = localStorage.getItem(LS_KEY);
+      raw = localStorage.getItem(LS_KEY);
       if (!raw) return null;
-      const parsed = JSON.parse(raw) as WeddingData;
-      return { data: migrate(parsed) };
+      const parsed: unknown = JSON.parse(raw);
+      assertImportBounds(parsed);
+      assertImportFieldTypes(parsed);
+      const revision = Number(localStorage.getItem(LS_REVISION_KEY) ?? "0") || 0;
+      return { data: migrate(parsed), version: revision };
     } catch {
+      if (raw) {
+        try { localStorage.setItem(CORRUPT_BACKUP_KEY, raw); } catch { /* 저장소 자체가 막힌 경우 */ }
+      }
       return null;
     }
   },
-  async save(data) {
+  async save(data, expectedVersion) {
     try {
-      localStorage.setItem(LS_KEY, JSON.stringify(data));
-      return { ok: true };
+      const currentRevision = Number(localStorage.getItem(LS_REVISION_KEY) ?? "0") || 0;
+      if (expectedVersion !== undefined && expectedVersion !== currentRevision) {
+        return { ok: false, conflict: true, version: currentRevision };
+      }
+      const nextRevision = currentRevision + 1;
+      localStorage.setItem(LS_REVISION_KEY, String(nextRevision));
+      try {
+        localStorage.setItem(LS_KEY, JSON.stringify(data));
+      } catch (error) {
+        // 본문 쓰기 실패 시 revision만 앞서 나가면 이후 모든 저장이 충돌로 거절된다.
+        try { localStorage.setItem(LS_REVISION_KEY, String(currentRevision)); } catch { /* 원래 오류를 유지 */ }
+        throw error;
+      }
+      return { ok: true, version: nextRevision };
     } catch (e: any) {
       // QuotaExceededError 또는 비슷한 — 사용자에게 알림
       const name = e?.name ?? "";
@@ -85,6 +113,43 @@ export const localStorageDriver: StorageDriver = {
     }
   },
 };
+
+export function hasCorruptLocalBackup(): boolean {
+  try { return !!localStorage.getItem(CORRUPT_BACKUP_KEY); } catch { return false; }
+}
+
+export function downloadCorruptLocalBackup(): void {
+  const raw = localStorage.getItem(CORRUPT_BACKUP_KEY);
+  if (!raw) return;
+  const blob = new Blob([raw], { type: "application/octet-stream" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `wedding-os-corrupt-backup-${new Date().toISOString().slice(0, 10)}.txt`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+/** 공용 기기 로그아웃/전체 삭제용: Wedding OS의 복호화된 로컬 흔적을 모두 제거한다. */
+export async function clearLocalDeviceData(): Promise<void> {
+  await clearImageStore();
+  const keys: string[] = [];
+  for (let index = 0; index < localStorage.length; index++) {
+    const key = localStorage.key(index);
+    if (key?.startsWith("wedding-os/")) keys.push(key);
+  }
+  keys.forEach((key) => localStorage.removeItem(key));
+  const remains = Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index))
+    .some((key) => key?.startsWith("wedding-os/"));
+  if (remains) throw new Error("기기 데이터를 완전히 지우지 못했습니다.");
+  const generation = `${Date.now()}-${crypto.randomUUID()}`;
+  localStorage.setItem(DEVICE_WIPE_KEY, generation);
+  _wipeGeneration = generation;
+  _deviceWiped = true;
+  try { sessionStorage.removeItem("wedding-os/demo-banner-dismissed/v1"); } catch { /* 세션 저장소 접근 불가 */ }
+}
 
 // 객체 여부 — null/array 는 제외
 function isPlainObject(x: unknown): x is Record<string, unknown> {
@@ -128,12 +193,13 @@ function sanitizeSupabaseConfig(s: unknown): WeddingData["preferences"]["supabas
   const url = typeof s.url === "string" ? s.url : "";
   const anonKey = typeof s.anonKey === "string" ? s.anonKey : "";
   const configId = typeof s.configId === "string" ? s.configId : undefined;
+  const rsvpToken = typeof s.rsvpToken === "string" ? s.rsvpToken : undefined;
   if (!url || !anonKey) return undefined;
   if (!isSupabaseHost(url)) {
     // 변조 의심 — 통째로 무시 (UI 에선 mode=null + supabase=undefined 로 보임)
     return undefined;
   }
-  return { url, anonKey, ...(configId ? { configId } : {}) };
+  return { url, anonKey, ...(configId ? { configId } : {}), ...(rsvpToken ? { rsvpToken } : {}) };
 }
 
 function migrate(raw: unknown): WeddingData {
@@ -169,10 +235,10 @@ function migrate(raw: unknown): WeddingData {
       lastBackupAt: typeof prefsRaw.lastBackupAt === "string" ? prefsRaw.lastBackupAt : undefined,
     },
     invitation:  { ...base.invitation,  ...(isPlainObject(data.invitation) ? data.invitation : {}) },
-    rings:       Array.isArray(data.rings)    ? data.rings    : [],
-    sdm:         Array.isArray(data.sdm)      ? data.sdm      : [],
-    hotels:      Array.isArray(data.hotels)   ? data.hotels   : [],
-    flights:     Array.isArray(data.flights)  ? data.flights  : [],
+    rings:       (Array.isArray(data.rings)   ? data.rings.filter(isPlainObject)   : []) as WeddingData["rings"],
+    sdm:         (Array.isArray(data.sdm)     ? data.sdm.filter(isPlainObject)     : []) as WeddingData["sdm"],
+    hotels:      (Array.isArray(data.hotels)  ? data.hotels.filter(isPlainObject)  : []) as WeddingData["hotels"],
+    flights:     (Array.isArray(data.flights) ? data.flights.filter(isPlainObject) : []) as WeddingData["flights"],
     honeymoon: (() => {
       const h = isPlainObject(data.honeymoon) ? data.honeymoon : {};
       return {
@@ -181,10 +247,13 @@ function migrate(raw: unknown): WeddingData {
         regions: Array.isArray(h.regions) ? h.regions : [],
       };
     })(),
-    checklist:   Array.isArray(data.checklist) ? data.checklist : [],
-    venues:      Array.isArray(data.venues)    ? data.venues    : [],
-    budget:      Array.isArray(data.budget)    ? data.budget    : [],
-    guests:      Array.isArray(data.guests)    ? data.guests    : [],
+    checklist:   (Array.isArray(data.checklist) ? data.checklist.filter(isPlainObject).map((section) => ({
+      ...section,
+      items: Array.isArray(section.items) ? section.items.filter(isPlainObject) : [],
+    })) : []) as WeddingData["checklist"],
+    venues:      (Array.isArray(data.venues)   ? data.venues.filter(isPlainObject)   : []) as WeddingData["venues"],
+    budget:      (Array.isArray(data.budget)   ? data.budget.filter(isPlainObject)   : []) as WeddingData["budget"],
+    guests:      (Array.isArray(data.guests)   ? data.guests.filter(isPlainObject)   : []) as WeddingData["guests"],
     video: (() => {
       const v = isPlainObject(data.video) ? data.video : {};
       return {
@@ -203,10 +272,12 @@ function sanitizePublish(p: unknown): WeddingData["publish"] {
   if (!isPlainObject(p)) return undefined;
   const code = typeof p.code === "string" ? p.code : "";
   const keyRaw = typeof p.keyRaw === "string" ? p.keyRaw : "";
+  const rsvpToken = typeof p.rsvpToken === "string" ? p.rsvpToken : undefined;
   if (!/^[a-z0-9]{6,16}$/.test(code) || !keyRaw) return undefined;
   return {
     code,
     keyRaw,
+    ...(rsvpToken ? { rsvpToken } : {}),
     publishedAt: typeof p.publishedAt === "string" ? p.publishedAt : "",
   };
 }
@@ -238,6 +309,7 @@ function selectDriver(data: WeddingData | null): StorageDriver {
 // (configId 가 단일 'default' 이고 hook 도 App.tsx 단일 인스턴스라 module state OK)
 // ──────────────────────────────────────────────────────────────
 let _localVersion: number | undefined = undefined;
+let _localMirrorVersion: number | undefined = undefined;
 export type ConflictStatus = "none" | "detected";
 let _conflictStatus: ConflictStatus = "none";
 const _conflictListeners = new Set<(s: ConflictStatus) => void>();
@@ -260,6 +332,15 @@ export function useConflictStatus(): ConflictStatus {
 
 export function clearConflict() { _emitConflict("none"); }
 
+async function mirrorToLocal(data: WeddingData): Promise<void> {
+  const result = await localStorageDriver.save(data, _localMirrorVersion);
+  if (result.ok && typeof result.version === "number") {
+    _localMirrorVersion = result.version;
+  } else if (result.conflict) {
+    _emitConflict("detected");
+  }
+}
+
 /**
  * 최상위 훅. 페이지에선 이것만 쓴다.
  *
@@ -278,11 +359,32 @@ export function useWeddingData() {
       const fromLocal = await localStorageDriver.load();
       if (cancelled) return;
       if (fromLocal) {
+        if (fromLocal.data.preferences.mode === "hosted" && getHostedUserId()) {
+          const userId = await currentUserId();
+          if (cancelled) return;
+          if (userId && !hostedUserMatches(userId)) {
+            setData(demoData());
+            setLoading(false);
+            if (window.location.pathname !== "/login") window.location.replace("/login");
+            return;
+          }
+        }
+        _localMirrorVersion = fromLocal.version;
         const driver = selectDriver(fromLocal.data);
         const fromActual = (await driver.load()) ?? fromLocal;
         if (cancelled) return;
-        setData(fromActual.data);
+        let normalized: WeddingData;
+        try {
+          assertImportBounds(fromActual.data);
+          assertImportFieldTypes(fromActual.data);
+          normalized = migrate(fromActual.data);
+        } catch {
+          normalized = fromLocal.data;
+          _emitConflict("detected");
+        }
+        setData(normalized);
         _localVersion = fromActual.version;
+        if (driver !== localStorageDriver && normalized !== fromLocal.data) void mirrorToLocal(normalized);
         setLoading(false);
         return;
       }
@@ -296,6 +398,53 @@ export function useWeddingData() {
       setLoading(false);
     })();
     return () => { cancelled = true; };
+  }, []);
+
+  // A session can change in another tab without an explicit logout on this page.
+  // Never keep rendering a hosted wedding after the browser switches to a different account.
+  useEffect(() => {
+    const client = getAuthClient();
+    if (!client) return;
+    const { data: listener } = client.auth.onAuthStateChange((_event, session) => {
+      const userId = session?.user?.id;
+      if (getHostedConfig() && userId && !hostedUserMatches(userId)) {
+        window.location.replace("/login");
+      }
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  // 다른 탭의 로컬 편집을 수신한다. 저장 중이면 덮지 않고 충돌로 표시한다.
+  useEffect(() => {
+    if (data?.preferences.mode !== "local") return;
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== LS_KEY || !event.newValue) return;
+      if (_pending > 0) { _emitConflict("detected"); return; }
+      try {
+        const parsed: unknown = JSON.parse(event.newValue);
+        assertImportBounds(parsed);
+        assertImportFieldTypes(parsed);
+        const next = migrate(parsed);
+        _localMirrorVersion = Number(localStorage.getItem(LS_REVISION_KEY) ?? "0") || 0;
+        setData(next);
+      } catch {
+        _emitConflict("detected");
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [data?.preferences.mode]);
+
+  // 로그아웃/기기 삭제는 모든 모드와 탭에 전파한다. 이전 탭의 메모리 상태도 즉시 폐기한다.
+  useEffect(() => {
+    const onDeviceWipe = (event: StorageEvent) => {
+      if (event.key !== DEVICE_WIPE_KEY || !event.newValue || event.newValue === _wipeGeneration) return;
+      _wipeGeneration = event.newValue;
+      _deviceWiped = true;
+      window.location.replace("/");
+    };
+    window.addEventListener("storage", onDeviceWipe);
+    return () => window.removeEventListener("storage", onDeviceWipe);
   }, []);
 
   const update = useCallback(
@@ -335,13 +484,22 @@ export function useWeddingData() {
         // 상대 변경까지 날린다. 건너뛰면 내 save 가 옛 버전으로 충돌 감지되어
         // '새로고침' 안내로 안전하게 수렴한다. (저장 큐가 비면 다음 이벤트가 정상 적용.)
         if (_pending > 0) return;
+        let normalized: WeddingData;
+        try {
+          assertImportBounds(next);
+          assertImportFieldTypes(next);
+          normalized = migrate(next);
+        } catch {
+          _emitConflict("detected");
+          return;
+        }
         if (typeof version === "number") _localVersion = version;
         setData((prev) => {
-          if (!prev) return next;
-          if (JSON.stringify(prev) === JSON.stringify(next)) return prev;
-          return next;
+          if (!prev) return normalized;
+          if (JSON.stringify(prev) === JSON.stringify(normalized)) return prev;
+          return normalized;
         });
-        localStorageDriver.save(next).catch(() => {});
+        void mirrorToLocal(normalized);
       },
       (status) => _emitRealtimeStatus(status),
     );
@@ -413,24 +571,37 @@ export function useRealtimeStatus(): RealtimeStatus {
 }
 
 function enqueueSave(next: WeddingData) {
+  const queuedWipeGeneration = _wipeGeneration;
   const driver = selectDriver(next);
   _pending++;
   if (_savedClearTimer) { clearTimeout(_savedClearTimer); _savedClearTimer = null; }
   _emitSaveStatus("saving");
   saveChain = saveChain
     .then(async () => {
+      const currentWipeGeneration = localStorage.getItem(DEVICE_WIPE_KEY);
+      if (_deviceWiped || currentWipeGeneration !== queuedWipeGeneration) {
+        _deviceWiped = true;
+        _pending--;
+        if (_pending === 0) _emitSaveStatus("idle");
+        return;
+      }
       try {
-        const r = await driver.save(next, _localVersion);
+        const expectedVersion = driver === localStorageDriver ? _localMirrorVersion : _localVersion;
+        const r = await driver.save(next, expectedVersion);
         if (r.ok) {
-          if (typeof r.version === "number") _localVersion = r.version;
+          if (typeof r.version === "number") {
+            if (driver === localStorageDriver) _localMirrorVersion = r.version;
+            else _localVersion = r.version;
+          }
         } else {
           _lastError = true;
           if (r.conflict) _emitConflict("detected");
         }
       } catch { _lastError = true; }
-      if (driver !== localStorageDriver) {
+      if (!_deviceWiped && driver !== localStorageDriver) {
         // 모드 2여도 localStorage에 항상 미러 — 오프라인 fallback / 새 기기 import 시 출발점.
-        try { await localStorageDriver.save(next); } catch { /* localStorage 실패는 별도 notifyQuotaError 가 처리 */ }
+        try { await mirrorToLocal(next); }
+        catch { /* localStorage 실패는 별도 notifyQuotaError 가 처리 */ }
       }
       _pending--;
       if (_pending === 0) {
@@ -458,10 +629,14 @@ function enqueueSave(next: WeddingData) {
 //       (백업 파일이 다른 기기/세션에서도 그대로 열리도록 portable 보장.)
 // 운영자 서버에 남는 내 데이터를 정리 — 계정/데이터 완전 삭제 시 호출.
 // best-effort: 일부 실패해도 나머지는 진행(네트워크 등). 로컬 삭제는 호출부가 별도로 처리.
-export async function purgeServerData(data: WeddingData): Promise<void> {
+export async function purgeServerData(data: WeddingData): Promise<{ ok: boolean; errors: string[] }> {
+  const errors: string[] = [];
   // 1. 발행 청첩장(Blob): 암호문·메타·RSVP 삭제 (ownerToken 검증)
   if (data.publish?.code) {
-    try { await unpublishInvitation(data.publish.code); } catch { /* best-effort */ }
+    try {
+      const result = await unpublishInvitation(data.publish.code);
+      if (!result.ok) errors.push(result.reason);
+    } catch { errors.push("발행 청첩장을 삭제하지 못했습니다."); }
   }
   // 2. 간편(hosted) 데이터 행 삭제
   if (data.preferences.mode === "hosted") {
@@ -469,9 +644,15 @@ export async function purgeServerData(data: WeddingData): Promise<void> {
     const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
     const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
     if (cfg && url && key) {
-      try { await deleteHostedWedding(url, key, cfg.weddingId, getOrCreateOwnerToken()); } catch { /* best-effort */ }
+      try {
+        const deleted = await deleteHostedWedding(url, key, cfg.weddingId, getOrCreateOwnerToken());
+        if (!deleted) errors.push("간편 모드 서버 데이터를 삭제하지 못했습니다.");
+      } catch { errors.push("간편 모드 서버 데이터를 삭제하지 못했습니다."); }
+    } else {
+      errors.push("간편 모드 삭제 자격증명을 찾지 못했습니다.");
     }
   }
+  return { ok: errors.length === 0, errors };
 }
 
 export async function exportData(data: WeddingData): Promise<void> {
@@ -509,8 +690,12 @@ export async function exportData(data: WeddingData): Promise<void> {
 // import 시 환경설정(특히 preferences.supabase) 은 현재 값을 유지한다.
 // 그렇지 않으면 악의적으로 작성된 백업 파일이 사용자의 모드 2 연결을 공격자의 Supabase 로 바꿔치기할 수 있음.
 export async function importData(file: File, current: WeddingData): Promise<WeddingData> {
+  const MAX_IMPORT_BYTES = 20 * 1024 * 1024;
+  if (file.size > MAX_IMPORT_BYTES) throw new Error("백업 파일은 20MB 이하여야 합니다.");
   const text = await file.text();
   const parsed = JSON.parse(text) as unknown;
+  assertImportBounds(parsed);
+  assertImportFieldTypes(parsed);
   const migrated = migrate(parsed);
   return {
     ...migrated,
@@ -521,4 +706,123 @@ export async function importData(file: File, current: WeddingData): Promise<Wedd
       supabase: current.preferences.supabase,
     },
   };
+}
+
+function assertImportFieldTypes(value: unknown): void {
+  if (!isPlainObject(value)) throw new Error("백업 최상위 데이터가 객체가 아닙니다.");
+  const scalar = (record: Record<string, unknown>, strings: string[], numbers: string[] = [], booleans: string[] = []) => {
+    for (const key of strings) {
+      if (record[key] !== undefined && typeof record[key] !== "string") throw new Error(`백업 필드 ${key}의 형식이 올바르지 않습니다.`);
+      if (typeof record[key] === "string" && record[key].length > 20_000) throw new Error(`백업 필드 ${key}가 너무 깁니다.`);
+    }
+    for (const key of numbers) if (record[key] !== undefined && (typeof record[key] !== "number" || !Number.isFinite(record[key]))) throw new Error(`백업 필드 ${key}의 형식이 올바르지 않습니다.`);
+    for (const key of booleans) if (record[key] !== undefined && typeof record[key] !== "boolean") throw new Error(`백업 필드 ${key}의 형식이 올바르지 않습니다.`);
+  };
+  const records = (key: string) => {
+    const list = value[key];
+    if (list === undefined) return [];
+    if (!Array.isArray(list) || !list.every(isPlainObject)) throw new Error(`백업의 ${key} 목록 형식이 올바르지 않습니다.`);
+    return list;
+  };
+  const nestedRecords = (record: Record<string, unknown>, key: string) => {
+    const list = record[key];
+    if (list === undefined) return [];
+    if (!Array.isArray(list) || !list.every(isPlainObject)) throw new Error(`백업의 ${key} 목록 형식이 올바르지 않습니다.`);
+    return list;
+  };
+
+  records("rings").forEach((item) => {
+    scalar(item, ["id", "brand", "model", "material", "imageUrl", "imageFit", "notes", "link", "lastVerified", "source"], ["priceKRW"], ["hasDiamond"]);
+    for (const key of ["imageUrls", "starredBy", "likedBy"] as const) {
+      if (item[key] !== undefined && (!Array.isArray(item[key]) || !item[key].every((entry) => typeof entry === "string"))) {
+        throw new Error(`백업 필드 ${key}의 형식이 올바르지 않습니다.`);
+      }
+    }
+  });
+  records("sdm").forEach((item) => scalar(item, ["id", "category", "name", "priceRange", "region", "notes", "link", "status"]));
+  records("hotels").forEach((item) => {
+    scalar(item, ["id", "name", "location", "notes", "lastVerified", "source"]);
+    nestedRecords(item, "rooms").forEach((room) => scalar(room, ["type"], ["pricePerNight"], ["breakfast"]));
+    nestedRecords(item, "otaPrices").forEach((price) => scalar(price, ["ota", "url"], ["price"]));
+  });
+  records("flights").forEach((item) => scalar(item, ["id", "airline", "flightNumber", "from", "to", "departAt", "arriveAt", "notes", "link", "lastVerified", "source"], ["priceKRW"]));
+  records("venues").forEach((item) => scalar(item, ["id", "name", "region", "hallType", "foodType", "link", "notes", "status", "visitedAt", "lastVerified", "source"], ["capacityMin", "capacityMax", "mealPriceMin", "mealPriceMax"]));
+  records("budget").forEach((item) => scalar(item, ["id", "category", "notes"], ["planned", "actual", "avgKRW"], ["paid"]));
+  records("guests").forEach((item) => scalar(item, ["id", "name", "relation", "side", "phone", "email", "status", "notes", "invitedAt"], ["partyCount", "giftKRW"], ["meal"]));
+
+  records("checklist").forEach((section) => {
+    scalar(section, ["id", "icon", "title"]);
+    if (!Array.isArray(section.items) || !section.items.every(isPlainObject)) throw new Error("백업의 체크리스트 항목 형식이 올바르지 않습니다.");
+    section.items.forEach((item) => scalar(item, ["id", "text", "source", "dueDate", "priority"], ["ddayOffset"], ["done"]));
+  });
+
+  if (value.honeymoon !== undefined) {
+    if (!isPlainObject(value.honeymoon)) throw new Error("백업의 신혼여행 형식이 올바르지 않습니다.");
+    scalar(value.honeymoon, ["startDate", "endDate", "notes"]);
+    nestedRecords(value.honeymoon, "regions").forEach((region) =>
+      scalar(region, ["id", "name", "schedule", "notes"], ["durationDays", "budgetKRW"]));
+  }
+
+  if (value.video !== undefined) {
+    if (!isPlainObject(value.video)) throw new Error("백업의 영상 형식이 올바르지 않습니다.");
+    scalar(value.video, ["title", "templateId", "bgmUrl"], ["titleCardSec", "endingSec", "fps"]);
+    nestedRecords(value.video, "acts").forEach((act) => scalar(act, ["id", "title", "subtitle"]));
+    nestedRecords(value.video, "photos").forEach((photo) => {
+      scalar(photo, ["id", "caption", "effect", "transition", "filter", "actId"], ["durationSec"]);
+      if (typeof photo.url !== "string" || photo.url.length > 8 * 1024 * 1024) throw new Error("백업의 영상 사진 형식이 올바르지 않습니다.");
+    });
+    if (value.video.ending !== undefined) {
+      if (!isPlainObject(value.video.ending)) throw new Error("백업의 영상 엔딩 형식이 올바르지 않습니다.");
+      scalar(value.video.ending, ["message", "date", "time", "venue"]);
+    }
+  }
+
+  if (value.ai !== undefined) {
+    if (!isPlainObject(value.ai)) throw new Error("백업의 AI 메모 형식이 올바르지 않습니다.");
+    scalar(value.ai, ["starterSummary", "updatedAt"]);
+    nestedRecords(value.ai, "today").forEach((item) => scalar(item, ["title", "reason", "targetPath"]));
+  }
+
+  if (isPlainObject(value.invitation)) {
+    scalar(value.invitation, [
+      "groomName", "brideName", "groomEnglishName", "brideEnglishName", "date", "time", "venue", "venueHall",
+      "venueAddress", "venueMapUrl", "greeting", "groomOrder", "brideOrder", "groomPhone",
+      "bridePhone", "groomAccount", "brideAccount", "theme", "fontStyle",
+    ], [], ["rsvpEnabled"]);
+    for (const mediaKey of ["heroImageUrl", "bgmUrl"] as const) {
+      const media = value.invitation[mediaKey];
+      if (media !== undefined && (typeof media !== "string" || media.length > 8 * 1024 * 1024)) {
+        throw new Error(`백업 필드 ${mediaKey}의 형식이 올바르지 않습니다.`);
+      }
+    }
+    if (value.invitation.gallery !== undefined && (!Array.isArray(value.invitation.gallery) || !value.invitation.gallery.every((item) => {
+      if (!isPlainObject(item)) return false;
+      return typeof item.url === "string" && item.url.length <= 8 * 1024 * 1024 &&
+        (item.caption === undefined || (typeof item.caption === "string" && item.caption.length <= 20_000));
+    }))) throw new Error("백업의 갤러리 형식이 올바르지 않습니다.");
+    for (const parentKey of ["groomParents", "brideParents"] as const) {
+      const parents = value.invitation[parentKey];
+      if (parents !== undefined) {
+        if (!isPlainObject(parents)) throw new Error(`백업 필드 ${parentKey}의 형식이 올바르지 않습니다.`);
+        scalar(parents, ["father", "mother"]);
+      }
+    }
+  }
+}
+
+function assertImportBounds(value: unknown, depth = 0): void {
+  if (depth > 20) throw new Error("백업 데이터 구조가 너무 깊습니다.");
+  if (Array.isArray(value)) {
+    if (value.length > 10_000) throw new Error("백업 항목 수가 허용 범위를 넘었습니다.");
+    value.forEach((item) => assertImportBounds(item, depth + 1));
+    return;
+  }
+  if (isPlainObject(value)) {
+    const entries = Object.entries(value);
+    if (entries.length > 1_000) throw new Error("백업 객체의 필드 수가 허용 범위를 넘었습니다.");
+    entries.forEach(([, item]) => assertImportBounds(item, depth + 1));
+    return;
+  }
+  if (typeof value === "number" && !Number.isFinite(value)) throw new Error("백업에 올바르지 않은 숫자가 있습니다.");
+  if (typeof value === "string" && value.length > 8 * 1024 * 1024) throw new Error("백업 문자열이 허용 크기를 넘었습니다.");
 }

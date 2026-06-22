@@ -5,18 +5,13 @@
 // GET  : 부부(오너)가 받은 RSVP 를 가져간다. ?owner=<base64url ownerToken> 으로 권한 검증.
 //        암호화된 RSVP 들을 base64 배열로 돌려주고, 복호화는 오너 브라우저에서 한다.
 
-import { put, get, list } from "@vercel/blob";
+import { put, get } from "@vercel/blob";
+import { listAllBlobs } from "./_blob";
+import { json, rateLimit, sha256Hex } from "./_security";
 
 declare const process: { env: Record<string, string | undefined> };
 
 const MAX_RSVP_BYTES = 64 * 1024;
-
-function json(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json; charset=utf-8" },
-  });
-}
 
 function bytesToBase64(bytes: Uint8Array): string {
   let bin = "";
@@ -24,20 +19,16 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(bin);
 }
 
-async function sha256Hex(s: string): Promise<string> {
-  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
-  return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
 async function readMeta(
   code: string,
   token: string,
-): Promise<{ ownerTokenHash: string; expiresAt?: string } | null> {
+): Promise<{ ownerTokenHash: string; rsvpTokenHash?: string; expiresAt?: string } | null> {
   try {
     const res = await get(`invite/${code}/meta.json`, { access: "private", token });
     if (!res || res.statusCode !== 200) return null;
     return (await new Response(res.stream).json()) as {
       ownerTokenHash: string;
+      rsvpTokenHash?: string;
       expiresAt?: string;
     };
   } catch {
@@ -55,10 +46,16 @@ export default async function handler(req: Request): Promise<Response> {
 
   // ── 하객 RSVP 제출 ──
   if (req.method === "POST") {
+    const limited = rateLimit(req, `invite-rsvp:${code}`, 3, 60_000);
+    if (limited) return limited;
     const meta = await readMeta(code, token);
     if (!meta) return json({ error: "청첩장을 찾을 수 없어요." }, 404);
     if (meta.expiresAt && new Date(meta.expiresAt).getTime() < Date.now()) {
       return json({ error: "만료된 청첩장이에요." }, 410);
+    }
+    const rsvpToken = req.headers.get("x-rsvp-token") ?? "";
+    if (!meta.rsvpTokenHash || rsvpToken.length < 32 || rsvpToken.length > 256 || (await sha256Hex(rsvpToken)) !== meta.rsvpTokenHash) {
+      return json({ error: "유효한 청첩장 링크에서만 응답할 수 있어요." }, 403);
     }
     const body = await req.arrayBuffer();
     if (body.byteLength === 0) return json({ error: "응답 내용이 비어 있어요." }, 400);
@@ -80,14 +77,19 @@ export default async function handler(req: Request): Promise<Response> {
   if (req.method === "GET") {
     // 토큰은 헤더로 받는다 — 쿼리스트링은 서버 액세스 로그에 평문으로 남기 때문.
     const ownerToken = req.headers.get("x-owner-token") ?? "";
-    if (!ownerToken) return json({ error: "권한 정보가 없습니다." }, 400);
+    if (ownerToken.length < 32 || ownerToken.length > 256) return json({ error: "권한 정보가 올바르지 않습니다." }, 400);
     const meta = await readMeta(code, token);
     if (!meta) return json({ error: "청첩장을 찾을 수 없어요." }, 404);
     const providedHash = await sha256Hex(ownerToken);
     if (providedHash !== meta.ownerTokenHash) {
       return json({ error: "RSVP 를 볼 권한이 없습니다." }, 403);
     }
-    const { blobs } = await list({ prefix: `invite/${code}/rsvp/`, token });
+    let blobs;
+    try {
+      blobs = await listAllBlobs(`invite/${code}/rsvp/`, token, 5000);
+    } catch {
+      return json({ error: "RSVP가 너무 많아 한 번에 불러올 수 없습니다." }, 413);
+    }
     const items = await Promise.all(
       blobs.map(async (b) => {
         try {

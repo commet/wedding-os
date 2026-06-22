@@ -2,7 +2,12 @@ import { expect, test, type Page } from "@playwright/test";
 import fs from "node:fs";
 import { defaultChecklist } from "../src/data/checklistTemplate";
 import { buildPublishInvitation } from "../src/lib/invitePublish";
+import { wrapBundle, unwrapBundle } from "../src/lib/account";
+import { buildRecoveryLink, parseRecoveryFragment } from "../src/lib/recovery";
+import { decryptJSON, encryptJSON, generateInviteKey } from "../src/lib/inviteCrypto";
 import { defaultData, type WeddingData } from "../src/lib/schema";
+import aiApi from "../api/ai";
+import publishApi from "../api/invite-publish";
 
 const DATA_KEY = "wedding-os/v1";
 const DRAFT_KEY = "wedding-os/setup-draft/v1";
@@ -13,11 +18,11 @@ test.describe("critical product flows", () => {
     await resetBrowserStorage(page);
     await page.goto("/");
 
-    await page.getByRole("button", { name: "내 결혼식 준비 시작" }).click();
-    await page.getByText("혼자 이 기기에 저장").click();
+    await page.getByRole("button", { name: "가입 없이 바로 시작", exact: true }).first().click();
 
     await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(page.getByText("Wedding day")).toBeVisible();
+    await expect(page.getByLabel("예식 날짜")).toBeVisible();
+    await expect(page.getByText("먼저 할 일 3가지")).toBeVisible();
 
     const stored = await readStoredData(page);
     expect(stored.preferences.mode).toBe("local");
@@ -36,7 +41,7 @@ test.describe("critical product flows", () => {
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "저장 방식 다시 선택 →" }).click();
 
-    await page.getByRole("button", { name: "내 결혼식 준비 시작" }).click();
+    await page.getByRole("button", { name: "저장·공유 방식 직접 고르기 (고급)" }).click();
     await page.getByText("내 저장소로 직접 운영").click();
 
     await expect(page).toHaveURL(/\/setup$/);
@@ -114,7 +119,7 @@ test.describe("critical product flows", () => {
 
     await page.goto("/dashboard");
     await page.getByTestId("dashboard-ai-starter").click();
-    await expect(page.getByRole("button", { name: "초안 만들기 →" })).toBeVisible();
+    await expect(page.getByPlaceholder("챗봇이 준 답변을 그대로 복사해서 붙여넣기…")).toBeVisible();
 
     await page.getByPlaceholder("챗봇이 준 답변을 그대로 복사해서 붙여넣기…").fill(JSON.stringify({
       summary: "예산과 여행 후보를 먼저 잡으면 다음 결정이 쉬워집니다.",
@@ -135,7 +140,7 @@ test.describe("critical product flows", () => {
       invitationGreeting: "서로의 계절을 함께 건너온 두 사람이\n소중한 분들을 모시고 결혼식을 올립니다.",
     }));
     await page.getByRole("button", { name: "검토하기 →" }).click();
-    await expect(page.getByText("적용 전 확인")).toBeVisible();
+    await expect(page.getByText("적용 전 확인", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "이대로 반영 →" }).click();
 
     await expect.poll(() => readStoredData(page).then((stored) => {
@@ -169,15 +174,43 @@ test.describe("critical product flows", () => {
     await page.goto("/invitation");
     await page.getByRole("button", { name: "편집" }).click();
     await page.getByRole("button", { name: "담백하게" }).click();
-    await expect(page.getByRole("button", { name: "문안 다듬기 →" })).toBeVisible();
+    await expect(page.getByRole("dialog")).toHaveAttribute("aria-modal", "true");
+    await expect(page.getByPlaceholder("챗봇이 준 답변을 그대로 복사해서 붙여넣기…")).toBeVisible();
 
     const greeting = "오랜 시간 서로의 일상을 아껴온 두 사람이\n소중한 분들을 모시고 결혼식을 올립니다.\n따뜻한 마음으로 함께 축복해주시면 감사하겠습니다.";
     await page.getByPlaceholder("챗봇이 준 답변을 그대로 복사해서 붙여넣기…").fill(greeting);
     await page.getByRole("button", { name: "검토하기 →" }).click();
-    await expect(page.getByText("적용 전 확인")).toBeVisible();
+    await expect(page.getByText("적용 전 확인", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "이대로 반영 →" }).click();
 
     await expect.poll(() => readStoredData(page).then((stored) => stored.invitation.greeting)).toBe(greeting);
+  });
+
+  test("keeps the invitation quick start singular and restores a deleted checklist item", async ({ page }) => {
+    const seeded = defaultData();
+    seeded.preferences = { ...seeded.preferences, mode: "local", isDemo: false };
+    seeded.checklist = [{
+      id: "essentials",
+      title: "필수 준비",
+      icon: "check",
+      items: [{ id: "venue-call", text: "예식장에 전화하기", done: false }],
+    }];
+    await seedBrowserStorage(page, seeded);
+
+    await page.goto("/invitation");
+    await page.getByRole("button", { name: "편집" }).click();
+    await expect(page.getByLabel("신랑 이름")).toHaveCount(1);
+    await page.getByLabel("신랑 이름").fill("민준");
+    await page.getByLabel("신부 이름").fill("서연");
+    await page.getByLabel("예식 날짜").fill("2026-11-07");
+    await expect(page.getByLabel("신랑 이름")).toHaveCount(1);
+
+    await page.goto("/checklist");
+    await expect(page.getByText("예식장에 전화하기")).toBeVisible();
+    await page.getByRole("button", { name: "예식장에 전화하기 삭제" }).click();
+    await expect(page.getByText("‘예식장에 전화하기’ 삭제됨")).toBeVisible();
+    await page.getByRole("button", { name: "실행 취소" }).click();
+    await expect(page.getByText("예식장에 전화하기")).toBeVisible();
   });
 
   test("renders recovered local ring catalog images", async ({ page }) => {
@@ -252,6 +285,220 @@ test.describe("critical product flows", () => {
     const embedded = source.match(/const SchemaText = `([\s\S]*)`;\s*export default SchemaText;/)?.[1];
 
     expect(embedded?.replace(/\r\n/g, "\n").trimEnd()).toBe(sql);
+  });
+
+  test("validates recovery capabilities and rejects oversized remote invitation images", async () => {
+    const bundle = {
+      weddingId: `w${"a".repeat(24)}`,
+      ownerToken: "owner-" + "b".repeat(64),
+      weddingKey: "c".repeat(43),
+    };
+    const link = buildRecoveryLink(bundle, "https://wedding.test");
+    expect(parseRecoveryFragment(new URL(link).hash)).toEqual(bundle);
+    expect(parseRecoveryFragment(`#w=${bundle.weddingId}&t=short&k=${bundle.weddingKey}`)).toBeNull();
+    expect(parseRecoveryFragment(`#w=${bundle.weddingId}&t=${bundle.ownerToken}&k=not-a-key`)).toBeNull();
+
+    const wrapped = await wrapBundle(bundle, "twelve-letters-or-more");
+    await expect(unwrapBundle(wrapped.blob, wrapped.salt, "twelve-letters-or-more")).resolves.toEqual(bundle);
+    await expect(unwrapBundle("a".repeat(5000), wrapped.salt, "twelve-letters-or-more")).rejects.toThrow();
+
+    const seeded = seededWeddingData();
+    seeded.invitation.heroImageUrl = "https://legacy.example/huge.jpg";
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => new Response(new ReadableStream({
+      start(controller) {
+        for (let i = 0; i < 6; i++) controller.enqueue(new Uint8Array(1024 * 1024));
+        controller.close();
+      },
+    }), { headers: { "content-type": "image/jpeg" } });
+    try {
+      const built = await buildPublishInvitation(seeded);
+      expect(built.invitation.heroImageUrl).toBeUndefined();
+      expect(built.droppedPhotos).toBe(1);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("keeps ciphertext and shared-device data isolated between users", async ({ page }) => {
+    const first = await generateInviteKey();
+    const second = await generateInviteKey();
+    const ciphertext = await encryptJSON({ owner: "first-user", private: "secret" }, first.key);
+    await expect(decryptJSON(ciphertext, second.key)).rejects.toThrow();
+    await expect(decryptJSON(ciphertext, first.key)).resolves.toEqual({ owner: "first-user", private: "secret" });
+
+    await page.goto("/");
+    await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
+    const result = await page.evaluate(async () => {
+      localStorage.setItem("wedding-os/v1", JSON.stringify({ private: "first-user" }));
+      localStorage.setItem("wedding-os/secrets/v1", JSON.stringify({ ownerToken: "sensitive" }));
+      localStorage.setItem("unrelated-app/key", "keep-me");
+      const securityModulePath = "/src/lib/security.ts";
+      const security = await import(securityModulePath);
+      const firstUserId = "11111111-1111-4111-8111-111111111111";
+      const secondUserId = "22222222-2222-4222-8222-222222222222";
+      const accountBound = security.setHostedRecoveryCredentials(
+        { weddingId: `w${"a".repeat(24)}`, weddingKey: "a".repeat(43) },
+        "a".repeat(64),
+        firstUserId,
+      );
+      const sameAccountAllowed = security.hostedUserMatches(firstUserId);
+      const differentAccountBlocked = !security.hostedUserMatches(secondUserId);
+      const imageModulePath = "/src/lib/imageStore.ts";
+      const images = await import(imageModulePath);
+      await images.putBlob(new Blob(["private-photo"], { type: "image/jpeg" }));
+      const storageModulePath = "/src/lib/storage.ts";
+      const storage = await import(storageModulePath);
+      await storage.clearLocalDeviceData();
+      const databases = "databases" in indexedDB ? await indexedDB.databases() : [];
+      return {
+        weddingKeys: Object.keys(localStorage).filter((key) => key.startsWith("wedding-os/")),
+        unrelated: localStorage.getItem("unrelated-app/key"),
+        imageDatabaseExists: databases.some((database) => database.name === "wedding-os-images"),
+        accountBound,
+        sameAccountAllowed,
+        differentAccountBlocked,
+      };
+    });
+    expect(result).toEqual({
+      weddingKeys: [],
+      unrelated: "keep-me",
+      imageDatabaseExists: false,
+      accountBound: true,
+      sameAccountAllowed: true,
+      differentAccountBlocked: true,
+    });
+
+    const seeded = seededWeddingData();
+    await page.evaluate(({ key, value }) => localStorage.setItem(key, JSON.stringify(value)), { key: DATA_KEY, value: seeded });
+    await page.goto("/dashboard");
+    const secondTab = await page.context().newPage();
+    await secondTab.goto("/dashboard");
+    await expect(secondTab.getByText(seeded.invitation.groomName)).toBeVisible();
+
+    await page.evaluate(async () => {
+      const storageModulePath = "/src/lib/storage.ts";
+      const storage = await import(storageModulePath);
+      await storage.clearLocalDeviceData();
+    });
+    await expect(secondTab).toHaveURL(/\/$/);
+    await expect(secondTab.getByRole("button", { name: "가입 없이 바로 시작", exact: true })).toBeVisible();
+    expect(await secondTab.evaluate(() => localStorage.getItem("wedding-os/v1"))).toBeNull();
+    await secondTab.close();
+  });
+
+  test("preserves current local data when a recovery link cannot be verified", async ({ page }) => {
+    const seeded = seededWeddingData();
+    await seedBrowserStorage(page, seeded);
+    const weddingId = `w${"a".repeat(24)}`;
+    const ownerToken = "t".repeat(64);
+    const weddingKey = "a".repeat(43);
+
+    await page.goto(`/recover#w=${weddingId}&t=${ownerToken}&k=${weddingKey}`);
+    await expect(page.getByText("복구 실패")).toBeVisible();
+
+    const stored = await readStoredData(page);
+    expect(stored.invitation.groomName).toBe(seeded.invitation.groomName);
+    expect(stored.guests?.[0]?.name).toBe(seeded.guests?.[0]?.name);
+  });
+
+  test("rejects unauthenticated managed AI and invitation publishing", async () => {
+    const aiResponse = await aiApi.fetch(new Request("https://wedding.test/api/ai", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ prompt: "test" }),
+    }));
+    expect(aiResponse.status).toBe(401);
+
+    const publishResponse = await publishApi.fetch(new Request("https://wedding.test/api/invite-publish", {
+      method: "POST",
+      headers: { "content-type": "application/octet-stream" },
+      body: new Uint8Array([1, 2, 3]),
+    }));
+    expect(publishResponse.status).toBe(401);
+    const publishClient = fs.readFileSync("src/lib/inviteHosting.ts", "utf8");
+    expect(publishClient).not.toContain("?meta=");
+    expect(publishClient).toContain('"x-owner-token"');
+    expect(publishClient).toContain('"x-publish-meta"');
+    const publishApiSource = fs.readFileSync("api/invite-publish.ts", "utf8");
+    expect(publishApiSource).toContain("metaRaw.length > 16_384");
+    expect(publishApiSource).toContain("ownerToken.length > 256");
+    expect(publishApiSource).toContain("meta.rsvpToken.length > 256");
+    for (const dynamicInvitePath of ["api/invite-payload.ts", "api/serve-invite.ts", "api/og.tsx"]) {
+      expect(fs.readFileSync(dynamicInvitePath, "utf8")).toContain("no-store");
+    }
+  });
+
+  test("uses current AI provider contracts and parses their responses", async ({ page }) => {
+    await page.goto("/");
+    const result = await page.evaluate(async () => {
+      const requests: Array<{ url: string; body: any }> = [];
+      const originalFetch = window.fetch;
+      window.fetch = async (input, init) => {
+        const url = String(input);
+        const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+        requests.push({ url, body });
+        if (url.includes("generativelanguage.googleapis.com")) {
+          return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "gemini-ok" }] } }] }), { status: 200 });
+        }
+        if (url.includes("api.openai.com")) {
+          return new Response(JSON.stringify({ output: [{ content: [{ type: "output_text", text: "openai-ok" }] }] }), { status: 200 });
+        }
+        if (url.includes("api.anthropic.com")) {
+          return new Response(JSON.stringify({ content: [{ type: "text", text: "anthropic-ok" }] }), { status: 200 });
+        }
+        throw new Error(`Unexpected URL: ${url}`);
+      };
+      try {
+        const modulePath = "/src/lib/aiClient.ts";
+        const ai = await import(modulePath);
+        const prompt = { title: "contract", expectedShape: "text" as const, prompt: "hello" };
+        const gemini = await ai.runAiPrompt(prompt, { provider: "gemini", apiKey: "test", model: ai.defaultModel("gemini") });
+        const openai = await ai.runAiPrompt(prompt, { provider: "openai", apiKey: "test", model: ai.defaultModel("openai") });
+        const anthropic = await ai.runAiPrompt(prompt, { provider: "anthropic", apiKey: "test", model: ai.defaultModel("anthropic") });
+        return {
+          texts: [gemini.text, openai.text, anthropic.text],
+          models: requests.map((request) => request.body?.model),
+          openAiHasTemperature: "temperature" in requests[1].body,
+          geminiMaxOutputTokens: requests[0].body?.generationConfig?.maxOutputTokens,
+          remoteOllamaAllowed: ai.hasDirectAi({ provider: "ollama", model: "llama3.1", baseUrl: "http://192.168.0.1:11434" }),
+        };
+      } finally {
+        window.fetch = originalFetch;
+      }
+    });
+    expect(result).toEqual({
+      texts: ["gemini-ok", "openai-ok", "anthropic-ok"],
+      models: [undefined, "gpt-5.4-mini", "claude-haiku-4-5-20251001"],
+      openAiHasTemperature: false,
+      geminiMaxOutputTokens: 4096,
+      remoteOllamaAllowed: false,
+    });
+    const managedAiSource = fs.readFileSync("api/ai.ts", "utf8");
+    expect(managedAiSource).toContain('DEFAULT_MODEL = "claude-haiku-4-5-20251001"');
+    expect(managedAiSource).toContain("AbortSignal.timeout(55_000)");
+  });
+
+  test("provisions direct Supabase ownership explicitly and ships hosted migrations", async () => {
+    const directSql = fs.readFileSync("supabase/schema.sql", "utf8");
+    const hostedSql = fs.readFileSync("supabase/hosted-schema.sql", "utf8");
+    const vercelConfig = fs.readFileSync("vercel.json", "utf8");
+
+    expect(directSql).toContain("__WEDDING_OS_OWNER_TOKEN__");
+    expect(directSql).toContain("__WEDDING_OS_RSVP_TOKEN__");
+    expect(directSql).not.toContain('create policy "rsvp_insert_only"');
+    expect(directSql).not.toContain("on conflict (id) do nothing");
+    expect(directSql).toContain("revoke create on schema public from public");
+    expect(directSql).toContain("revoke all on public.wedding_data, public.rsvp, public.collab_comments from anon, authenticated");
+    expect(hostedSql).toContain("create or replace function public.wos_save");
+    expect(hostedSql).toContain("authentication required to provision wedding");
+    expect(hostedSql).toContain("wedding quota exceeded");
+    expect(hostedSql).toContain("pg_advisory_xact_lock");
+    expect(hostedSql).toContain("revoke all on schema weddingos from public, anon, authenticated");
+    expect(hostedSql).toContain('create policy "wos_accounts_own"');
+    expect(vercelConfig).toContain("img-src 'self' https://images.unsplash.com data: blob:");
+    expect(vercelConfig).toContain("media-src 'self' data: blob:");
+    expect(vercelConfig).not.toContain("img-src 'self' https: data:");
   });
 });
 

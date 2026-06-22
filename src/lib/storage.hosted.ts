@@ -53,6 +53,7 @@ export function createHostedStorage(
   weddingId: string,
   weddingKeyRaw: string,
   ownerToken: string,
+  accessToken?: string,
 ): StorageDriver {
   if (!url || !anonKey || !weddingId || !weddingKeyRaw || !ownerToken) return noopDriver;
   // 도메인 화이트리스트 — 변조된 env 로 anon key 가 새지 않도록.
@@ -63,6 +64,7 @@ export function createHostedStorage(
   // RPC 전용 클라이언트 — Auth 세션을 건드리지 않게(auth.ts 싱글톤과 충돌 방지).
   const client = createClient(url, anonKey, {
     auth: { persistSession: false, autoRefreshToken: false },
+    ...(accessToken ? { global: { headers: { Authorization: `Bearer ${accessToken}` } } } : {}),
   });
   // weddingKey 는 1회만 import 해서 재사용.
   let keyPromise: Promise<CryptoKey> | null = null;
