@@ -196,7 +196,7 @@ export default function Setup({ data, update }: Props) {
     <div className="page pt-8 pb-10 space-y-8 max-w-app mx-auto">
       <div className="flex items-baseline justify-between">
         <div>
-          <div className="eyebrow-gold mb-2">Setup Guide</div>
+          <div className="eyebrow-gold mb-2">직접 저장소</div>
           <h1 className="font-serif text-[2rem] leading-none">직접 저장소 셋업</h1>
         </div>
         <a

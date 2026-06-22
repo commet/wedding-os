@@ -140,8 +140,8 @@ export default function Settings({ data, update }: Props) {
   return (
     <div className="page pt-8 pb-10 space-y-10">
       <div>
-        <div className="eyebrow-gold mb-2">More</div>
-        <h1 className="font-serif text-[2rem] leading-none">더보기</h1>
+        <div className="eyebrow-gold mb-2">Wedding OS</div>
+        <h1 className="font-serif text-[2rem] leading-none">설정</h1>
       </div>
 
       <Section title="저장 방식">
@@ -158,25 +158,24 @@ export default function Settings({ data, update }: Props) {
         </button>
       </Section>
 
-      <Section title="PDF로 저장 (인쇄)">
-        <p className="text-[12.5px] text-soft leading-relaxed">
-          청첩장이나 체크리스트를 PDF로 저장하고 싶을 때 —
-          각 페이지에서 <b className="text-ink">Cmd/Ctrl + P</b> 로 인쇄 → <b className="text-ink">"PDF로 저장"</b> 을 선택하세요.
-          인쇄 친화 스타일이 자동 적용됩니다.
-        </p>
-        <p className="text-[11px] text-soft mt-2">
-          모바일은 일반적으로 브라우저 메뉴 → 공유 → 프린트 흐름.
-        </p>
+      <Section title="PDF로 저장">
+        <details>
+          <summary className="min-h-11 cursor-pointer text-[12.5px] text-ink underline underline-offset-4">기기별 저장 방법 보기</summary>
+          <div className="mt-3 border-l border-hair pl-4 text-[12px] leading-[1.75] text-soft">
+            <p>컴퓨터: 각 페이지에서 <b className="text-ink">Cmd/Ctrl + P</b>를 누른 뒤 ‘PDF로 저장’을 선택하세요.</p>
+            <p className="mt-2">휴대폰: 브라우저의 공유 메뉴에서 ‘프린트’를 선택하세요.</p>
+          </div>
+        </details>
       </Section>
 
       <div id="data-backup" className="scroll-mt-20">
       <Section title="데이터 백업">
         <p className="text-[12.5px] text-soft mb-4 leading-relaxed">
-          모든 데이터를 한 파일(JSON)로 내보내거나, 다시 불러올 수 있어요.
+          준비 데이터를 파일로 보관하거나 다른 기기에서 다시 불러옵니다.
         </p>
         <div className="flex gap-6">
           <button onClick={handleExport} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
-            내려받기 (백업) →
+          백업 파일 내려받기 →
           </button>
           <input
             ref={fileRef}
@@ -211,7 +210,7 @@ export default function Settings({ data, update }: Props) {
 
       <Section title="공유 센터">
         <p className="text-[12.5px] text-soft mb-4 leading-relaxed">
-          하객 명단, 예산, 체크리스트, 청첩장 문안을 Excel/CSV/이미지/인쇄용 파일로 꺼낼 수 있어요.
+          청첩장 공유, 편집 초대, Excel·CSV 내보내기를 한곳에서 관리합니다.
         </p>
         <Link to="/share" className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
           공유 센터 열기 →
@@ -220,8 +219,7 @@ export default function Settings({ data, update }: Props) {
 
       <Section title="AI 편집 방식">
         <p className="text-[12px] text-soft leading-relaxed">
-          챗봇 복붙, 본인 API 키, 로그인 후 Wedding OS AI 중에서 선택할 수 있습니다.
-          Wedding OS AI를 선택하면 프롬프트가 운영자 서버를 거쳐 Anthropic으로 전송됩니다.
+          앱에서 바로 쓰는 AI, 외부 챗봇 복사, 개인 API 연결 중에서 선택합니다.
         </p>
         <Link to="/ai" className="text-[12px] underline underline-offset-4 text-ink hover:text-gold inline-block mt-3">
           AI 연결 설정 →
@@ -375,7 +373,7 @@ function LoginStatus() {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="py-2">
-      <h3 className="section-title mb-3">{title}</h3>
+      <h2 className="section-title mb-3">{title}</h2>
       {children}
       <div className="hairline mt-8" />
     </section>

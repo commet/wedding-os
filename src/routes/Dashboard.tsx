@@ -7,6 +7,7 @@ import ChatbotBridgeModal from "../components/ChatbotBridgeModal";
 import { type BridgePrompt, weddingPlanStarterPrompt } from "../lib/chatbotBridge";
 import { defaultData } from "../lib/schema";
 import { AGENT_PRIORITIES, type AgentPriority } from "../lib/agentDraft";
+import { AgentIdentity } from "../components/AgentIdentity";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 
@@ -266,7 +267,7 @@ export default function Dashboard({ data, update }: Props) {
       items.push({
         to: "/budget",
         title: "예산표 시작하기",
-        desc: "평균 항목을 넣어두면 견적을 받을 때 초과 위험이 바로 보입니다.",
+        desc: "비용 항목을 먼저 펼쳐두면 견적을 받을 때 빠진 항목과 초과 금액을 바로 확인할 수 있어요.",
         tag: "돈 관리",
       });
     }
@@ -441,10 +442,10 @@ export default function Dashboard({ data, update }: Props) {
           </div>
         ) : (
           <>
-            <div className="eyebrow-gold mb-6">Our Wedding</div>
-            <p className="font-serif text-xl text-ink mb-8 tracking-wide">
+            <div className="eyebrow-gold mb-6">두 분의 준비판</div>
+            <h1 className="font-serif text-xl text-ink mb-8 tracking-wide">
               {coupleDisplay}
-            </p>
+            </h1>
 
             {dday !== null && (
               <div className="mb-8">
@@ -482,49 +483,36 @@ export default function Dashboard({ data, update }: Props) {
               </div>
               <ProgressLine value={coreProgress} />
             </div>
-            <button
-              onClick={openAiStarter}
-              className="mt-7 text-[12.5px] text-ink underline underline-offset-4 hover:text-gold"
-            >
-              다음 할 일 정리하기 →
-            </button>
           </>
         )}
       </section>
 
       <div className="hairline" />
 
-      {/* ─── Wedding OS Agent — 한 번에 한 가지 제안 ─── */}
+      {/* ─── Agent briefing — 지금 할 일 하나와 다음 순서 ─── */}
       <section id="today-focus" className="page py-9 scroll-mt-20">
-        <div className="flex items-center gap-3 mb-5">
-          <span aria-hidden="true" className="w-10 h-10 flex-shrink-0 rounded-full bg-[radial-gradient(circle_at_32%_28%,#DCC49A,#9B7443_70%)] text-white flex items-center justify-center font-serif shadow-[0_8px_22px_rgba(155,116,67,0.20)]">W</span>
-          <div>
-            <div className="text-[13px] font-semibold tracking-wide text-ink">Wedding OS Agent</div>
-            <div className="text-[10.5px] text-sage mt-0.5">{coupleDisplay}의 준비를 함께 보고 있어요</div>
-          </div>
+        <div className="mb-7 flex items-end justify-between gap-4">
+          <AgentIdentity />
+          <span className="eyebrow text-right">{coupleDisplay}<br />오늘의 브리핑</span>
         </div>
         {aiMessage && (
-          <p className="text-[11.5px] text-soft leading-relaxed mb-4">
+          <p className="mb-5 border-l border-gold pl-4 text-[12px] leading-[1.75] text-soft">
             {aiMessage}
           </p>
         )}
         {starterResult && <StarterResultPanel result={starterResult} />}
-        {data.ai?.starterSummary && (
-          <div className="rounded-[4px_18px_18px_18px] bg-cream px-4 py-3 mb-4">
-            <div className="eyebrow-gold mb-1">Agent memo</div>
-            <p className="text-[12px] text-soft leading-relaxed">
-              {data.ai.starterSummary}
-            </p>
-          </div>
-        )}
         {agentChoosing ? (
           <div className="page-enter">
-            <h2 className="font-serif text-xl text-ink mb-2">무엇을 먼저 해볼까요?</h2>
-            <p className="text-[12px] text-soft mb-4">고르면 준비판 순서를 바로 바꿔둘게요.</p>
+            <div className="eyebrow-gold mb-3">우선순위 바꾸기</div>
+            <h2 className="mb-2 font-serif text-[1.55rem] leading-[1.35] text-ink">지금 더 마음이 가는 일은<br />무엇인가요?</h2>
+            <p className="mb-6 text-[12.5px] leading-relaxed text-soft">고른 일을 첫 번째로 옮기고 다음 순서도 다시 맞출게요.</p>
             <div className="space-y-2.5">
               {(Object.entries(AGENT_PRIORITIES) as Array<[AgentPriority, (typeof AGENT_PRIORITIES)[AgentPriority]]>).map(([id, item]) => (
-                <button key={id} onClick={() => chooseAgentPriority(id)} className="w-full min-h-[56px] rounded-[16px] border border-hair bg-white/60 px-4 py-3 text-left flex items-center justify-between gap-3 hover:border-gold transition">
-                  <span className="text-[13px] text-ink">{item.label}</span>
+                <button key={id} onClick={() => chooseAgentPriority(id)} className="flex min-h-[62px] w-full items-center justify-between gap-3 border-b border-hair px-1 py-3 text-left transition hover:border-gold">
+                  <span>
+                    <span className="block text-[13px] font-medium text-ink">{item.label}</span>
+                    <span className="mt-1 block text-[11px] leading-relaxed text-soft">{item.reason}</span>
+                  </span>
                   <span className="text-gold">→</span>
                 </button>
               ))}
@@ -532,35 +520,40 @@ export default function Dashboard({ data, update }: Props) {
             <button onClick={() => setAgentChoosing(false)} className="mt-4 min-h-11 text-[12px] text-soft underline underline-offset-4">지금 제안으로 돌아가기</button>
           </div>
         ) : (
-          <div className="rounded-[22px] border border-hair bg-white/65 p-5 shadow-[0_16px_40px_rgba(104,82,50,0.07)]">
-            <div className="eyebrow-gold mb-2">제가 보기엔, 지금은</div>
-            <h2 className="font-serif text-[1.35rem] leading-snug text-ink">{primaryFocus.title}</h2>
-            <p className="text-[12.5px] text-soft leading-relaxed mt-3">{primaryFocus.desc}</p>
-            <Link to={primaryFocus.to} className="mt-5 min-h-[50px] rounded-full bg-ink text-paper flex items-center justify-center px-5 text-[12.5px] font-medium tracking-wide">
-              이것부터 시작하기 →
-            </Link>
-            <button onClick={() => setAgentChoosing(true)} className="mt-3 w-full min-h-11 text-[12px] text-soft underline underline-offset-4">
-              다른 걸 먼저 하고 싶어요
-            </button>
-          </div>
-        )}
-        {!agentChoosing && focusItems.length > 1 && (
-          <div className="mt-5">
-            <div className="eyebrow mb-2">그 다음에 이어갈 일</div>
-            <div className="flex flex-wrap gap-x-5 gap-y-1">
-              {focusItems.slice(1, 3).map((item) => (
-                <Link key={`${item.to}-${item.title}`} to={item.to} className="min-h-11 inline-flex items-center text-[12px] text-soft underline underline-offset-4 hover:text-ink">{item.title}</Link>
-              ))}
+          <div className="page-enter">
+            <p className="mb-7 max-w-[21rem] text-[12.5px] leading-[1.8] text-soft">
+              {data.ai?.starterSummary || `현재 준비 상태를 보고, 다음 결정이 쉬워지는 순서로 정리했어요.`}
+            </p>
+            <div className="agent-briefing">
+              <div className="agent-briefing-number">01</div>
+              <div className="min-w-0">
+                <div className="eyebrow-gold mb-2">오늘의 첫 단계</div>
+                <h2 className="font-serif text-[1.45rem] leading-[1.35] text-ink">{primaryFocus.title}</h2>
+                <p className="mt-3 text-[12.5px] leading-[1.75] text-soft">{primaryFocus.desc}</p>
+                <Link to={primaryFocus.to} className="mt-5 inline-flex min-h-11 items-center border-b border-ink text-[12.5px] font-medium text-ink">
+                  Agent와 이 일 시작하기&nbsp; →
+                </Link>
+              </div>
             </div>
           </div>
         )}
-        <button
-          data-testid="dashboard-ai-starter"
-          onClick={openAiStarter}
-          className="mt-4 min-h-11 text-[12px] text-soft underline underline-offset-4 hover:text-ink"
-        >
-          AI와 우선순위 다시 대화하기
-        </button>
+        {!agentChoosing && focusItems.length > 1 && (
+          <div className="mt-7 border-t border-hair">
+            {focusItems.slice(1, 3).map((item, index) => (
+              <Link key={`${item.to}-${item.title}`} to={item.to} className="grid min-h-[66px] grid-cols-[2rem_1fr_auto] items-center gap-3 border-b border-hair py-3 transition hover:text-gold">
+                <span className="font-serif text-[13px] text-gold">0{index + 2}</span>
+                <span className="text-[12.5px] leading-relaxed text-ink">{item.title}</span>
+                <span className="text-soft">→</span>
+              </Link>
+            ))}
+          </div>
+        )}
+        {!agentChoosing && (
+          <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-1">
+            <button onClick={() => setAgentChoosing(true)} className="min-h-11 text-[12px] text-soft underline underline-offset-4 hover:text-ink">먼저 할 일 바꾸기</button>
+            <button data-testid="dashboard-ai-starter" onClick={openAiStarter} className="min-h-11 text-[12px] text-soft underline underline-offset-4 hover:text-ink">Agent에게 계획 다시 부탁하기</button>
+          </div>
+        )}
       </section>
 
       {!empty && <>
@@ -597,8 +590,8 @@ export default function Dashboard({ data, update }: Props) {
         <details>
           <summary className="list-none cursor-pointer flex items-baseline justify-between gap-4">
             <span>
-              <span className="eyebrow-gold block mb-1">All sections</span>
-              <span className="font-serif text-lg text-ink">전체 메뉴</span>
+              <span className="eyebrow-gold block mb-1">준비 도구</span>
+              <span className="font-serif text-lg text-ink">다른 메뉴 보기</span>
             </span>
             <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
           </summary>

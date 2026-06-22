@@ -255,6 +255,7 @@ function migrate(raw: unknown): WeddingData {
           budgetKRW: typeof rawProfile.budgetKRW === "number" && rawProfile.budgetKRW > 0
             ? Math.min(rawProfile.budgetKRW, 10_000_000_000)
             : undefined,
+          region: typeof rawProfile.region === "string" ? rawProfile.region.slice(0, 80) : undefined,
           onboardedAt: typeof rawProfile.onboardedAt === "string" ? rawProfile.onboardedAt : undefined,
         },
       };

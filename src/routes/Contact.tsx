@@ -51,7 +51,7 @@ export default function Contact({ data }: Props) {
   return (
     <div className="page pt-8 pb-10 space-y-8">
       <div>
-        <div className="eyebrow-gold mb-2">Contact</div>
+        <div className="eyebrow-gold mb-2">도움 요청</div>
         <h1 className="font-serif text-[2rem] leading-none">문의 · 오류 신고</h1>
       </div>
 
@@ -63,17 +63,18 @@ export default function Contact({ data }: Props) {
       <div className="space-y-5">
         <div>
           <label className="label">분류</label>
-          <select className="input-boxed text-[13px]" value={category} onChange={(e) => setCategory(e.target.value as any)}>
+          <select aria-label="문의 분류" className="input-boxed text-[13px]" value={category} onChange={(e) => setCategory(e.target.value as any)}>
             {CATEGORIES.map(c => <option key={c}>{c}</option>)}
           </select>
         </div>
         <div>
           <label className="label">성함 (선택)</label>
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="익명도 괜찮아요" />
+          <input aria-label="성함 (선택)" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="익명도 괜찮아요" />
         </div>
         <div>
           <label className="label">내용</label>
           <textarea
+            aria-label="문의 내용"
             className="input-boxed min-h-[160px] text-[13px]"
             value={body}
             onChange={(e) => setBody(e.target.value)}

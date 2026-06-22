@@ -192,9 +192,44 @@
   height: 180px;
   right: -92px;
   top: 140px;
-  border: 1px solid rgba(168, 133, 87, 0.12);
-  border-radius: 999px;
+  border-left: 1px solid rgba(168, 133, 87, 0.12);
+  transform: rotate(24deg);
   pointer-events: none;
+}
+
+.agent-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #9b7443;
+}
+.agent-mark svg {
+  width: 100%;
+  height: 100%;
+}
+.agent-mark path {
+  stroke: currentColor;
+  stroke-width: 1.45;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.agent-mark circle {
+  fill: currentColor;
+}
+.agent-briefing {
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr);
+  gap: 1rem;
+  border-top: 1px solid theme('colors.ink');
+  border-bottom: 1px solid theme('colors.hair');
+  padding: 1.4rem 0 1.55rem;
+}
+.agent-briefing-number {
+  padding-top: 0.1rem;
+  font-family: theme('fontFamily.serif');
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: theme('colors.gold');
 }
 
 /* 가로 스크롤 탭에서 스크롤바 숨김 */

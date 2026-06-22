@@ -116,7 +116,7 @@ export default function Venues({ data, update }: Props) {
   return (
     <div className="page pt-8 pb-10 space-y-8">
       <div>
-        <div className="eyebrow-gold mb-2">Venues</div>
+        <div className="eyebrow-gold mb-2">장소 찾기</div>
         <h1 className="font-serif text-[2rem] leading-none">예식장</h1>
       </div>
 

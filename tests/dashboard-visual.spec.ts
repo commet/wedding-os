@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { defaultData, type WeddingData } from "../src/lib/schema";
+import { defaultChecklist } from "../src/data/checklistTemplate";
 
 const screenshotDir = join(process.cwd(), "artifacts", "screenshots");
 const DATA_KEY = "wedding-os/v1";
@@ -16,8 +17,10 @@ test.describe("dashboard visual smoke", () => {
     await page.goto("/dashboard");
     await page.waitForLoadState("networkidle");
 
-    await expect(page.getByText("Wedding OS Agent")).toBeVisible();
-    await expect(page.getByText("제가 보기엔, 지금은")).toBeVisible();
+    await expect(page.getByText("Planning Agent")).toBeVisible();
+    await expect(page.getByText("오늘의 첫 단계")).toBeVisible();
+    await expect(page.getByText("private briefing")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "다음 할 일 정리하기 →" })).toHaveCount(0);
     await expect(page.getByTestId("dashboard-ai-starter")).toBeVisible();
     await expect(page.getByLabel("예식 날짜")).toBeVisible();
     await expect(page.getByText("Timeline")).toHaveCount(0);
@@ -65,8 +68,25 @@ test.describe("dashboard visual smoke", () => {
     await assertLayoutHealth(page);
   });
 
+  test("keeps long lists secondary and opens the invitation publisher directly", async ({ page }) => {
+    await seedVisualData(page, true);
+
+    await page.goto("/checklist");
+    await expect(page.getByRole("heading", { name: /다가오는 일정/ })).toBeVisible();
+    await expect(page.getByText("종이 청첩장 인쇄", { exact: true })).not.toBeVisible();
+
+    await page.goto("/trip");
+    await expect(page.getByRole("button", { name: /여행지 후보 더 찾아보기/ })).toBeVisible();
+    await expect(page.getByText("인기 신혼여행지")).toHaveCount(0);
+
+    await page.goto("/share");
+    await page.getByRole("button", { name: /청첩장 발행 화면 열기/ }).click();
+    await expect(page).toHaveURL(/\/invitation\?edit=publish#publish-invitation$/);
+    await expect(page.getByRole("heading", { name: "하객용 링크 발행" })).toBeVisible();
+  });
+
   test("shows AI entry points in the actual UI", async ({ page }, testInfo) => {
-    await seedVisualData(page);
+    await seedVisualData(page, true);
     const projectName = testInfo.project.name.replace(/[^a-z0-9-]+/gi, "-").toLowerCase();
 
     await page.goto("/dashboard");
@@ -102,6 +122,8 @@ async function seedVisualData(page: Page, populated = false) {
       date: "2026-11-07",
       venue: "그랜드하우스 웨딩홀",
     };
+    data.checklist = defaultChecklist(data.invitation.date);
+    data.honeymoon = { ...data.honeymoon, regions: [{ id: "trip-1", name: "발리", durationDays: 6 }] };
   }
   await page.addInitScript(
     ({ key, value }) => {

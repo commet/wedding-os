@@ -311,6 +311,7 @@ export type WeddingData = {
     profile?: {
       priority?: "venue" | "budget" | "invitation" | "rings" | "trip";
       budgetKRW?: number;
+      region?: string;
       onboardedAt?: string;
     };
   };

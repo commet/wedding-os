@@ -41,6 +41,7 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
   const [cat, setCat] = useState<SdmCategory>(initialCategory);
   const [region, setRegion] = useState<string>("all");
   const [query, setQuery] = useState("");
+  const [catalogOpen, setCatalogOpen] = useState(() => data.sdm.every((vendor) => vendor.category !== initialCategory));
   const [showAdd, setShowAdd] = useState(false);
   const [showChannels, setShowChannels] = useState(false);
 
@@ -100,7 +101,7 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
   return (
     <div className="page pt-8 pb-10 space-y-8">
       <div>
-        <div className="eyebrow-gold mb-2">{snapOnly ? "Wedding Day Snap" : "Studio · Dress · Makeup"}</div>
+        <div className="eyebrow-gold mb-2">{snapOnly ? "본식 촬영" : "스튜디오 · 드레스 · 메이크업"}</div>
         <h1 className="font-serif text-[2rem] leading-none">{snapOnly ? "본식 스냅" : "스드메"}</h1>
       </div>
 
@@ -110,7 +111,7 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
         {categories.map((c) => (
           <button
             key={c}
-            onClick={() => setCat(c)}
+            onClick={() => { setCat(c); setCatalogOpen(data.sdm.every((vendor) => vendor.category !== c)); }}
             className={`text-[12px] tracking-wide whitespace-nowrap pb-1 transition ${
               cat === c ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
             }`}
@@ -162,13 +163,20 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
 
       {/* 검색 + 지역 필터 */}
       <section className="space-y-5">
-        <div className="flex items-baseline justify-between">
-          <h2 className="section-title">자주 언급되는 곳들</h2>
-          {inCat.length === 0 && (
-            <button onClick={() => setShowAdd(true)} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">+ 직접 추가</button>
-          )}
+        <div className="border-y border-hair py-4">
+          <button onClick={() => setCatalogOpen((open) => !open)} className="flex w-full items-center justify-between gap-4 text-left">
+            <span>
+              <span className="section-title block">업체 후보 더 찾아보기</span>
+              <span className="mt-1 block text-[11.5px] text-soft">지역과 분위기로 목록을 검색합니다.</span>
+            </span>
+            <span className="text-[12px] text-soft underline underline-offset-4">{catalogOpen ? "접기" : "열기"}</span>
+          </button>
         </div>
 
+        {catalogOpen && <>
+        {inCat.length === 0 && (
+          <div className="flex justify-end"><button onClick={() => setShowAdd(true)} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">+ 직접 추가</button></div>
+        )}
         <input
           className="input text-[13px]"
           placeholder="이름·컨셉으로 검색 (예: 자연광, 빈티지)"
@@ -205,10 +213,11 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
         <p className="eyebrow text-center">
           총 <span className="tabular-nums">{filteredCatalog.length}</span>곳 표시 · 전체 <span className="tabular-nums">{SDM_CATALOG.filter((e) => e.category === cat).length}</span>
         </p>
+        </>}
       </section>
 
       {/* 지방 안내 */}
-      {!SEOUL.some((s) => region === s || region === "all") && region !== "all" && region !== "nationwide" && (
+      {catalogOpen && !SEOUL.some((s) => region === s || region === "all") && region !== "all" && region !== "nationwide" && (
         <div className="py-5 border-t border-b border-hair text-[12px] text-soft leading-relaxed space-y-2">
           <p><b className="text-ink">지방은 이 목록보다 카카오맵 + 결혼 카페가 훨씬 정확해요.</b></p>
           <p>각 카드의 [지도] 버튼으로 지역명·후기를 함께 검색하시고,
@@ -217,7 +226,7 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
       )}
 
       {/* 가격대 + 면책 */}
-      <div className="py-5 border-t border-hair text-[11.5px] text-soft leading-relaxed space-y-3">
+      {catalogOpen && <div className="py-5 border-t border-hair text-[11.5px] text-soft leading-relaxed space-y-3">
         <p>{SDM_PRICE_RANGE_NOTE}</p>
         <p>
           이 목록은 결혼 준비 단계에서의 출발점일 뿐이에요. 완전한 리스트도, 순위도, 추천도 아닙니다.
@@ -229,16 +238,16 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
           <a href="mailto:yclee913@gmail.com" rel="noopener noreferrer" className="underline underline-offset-2 text-ink">yclee913@gmail.com</a>
           {" "}으로 — 24시간 내 처리해드립니다.
         </p>
-      </div>
+      </div>}
 
       {/* 더 알아보기 */}
-      <button
+      {catalogOpen && <button
         onClick={() => setShowChannels(true)}
         className="block w-full text-left py-5 border-t border-b border-hair active:opacity-60 transition"
       >
         <div className="font-serif text-[15px] text-ink">더 자세히 알아보려면 →</div>
         <p className="text-[12px] text-soft mt-1">결혼 카페 · 인스타 · 유튜브 — 사람들이 실제 정보 얻는 곳</p>
-      </button>
+      </button>}
 
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title={`${CAT_LABEL[cat]} 직접 추가`}>
         <CustomAdd category={cat} onAdd={addCustom} />

@@ -20,32 +20,33 @@ test.describe("critical product flows", () => {
     await page.reload();
 
     await page.getByRole("button", { name: "Agent와 준비 시작하기 →" }).click();
-    await page.getByPlaceholder("예: 민준").fill("민준");
-    await page.getByPlaceholder("예: 서연").fill("서연");
+    await page.getByPlaceholder("예: 김민준").fill("김민준");
+    await page.getByPlaceholder("예: 이서연").fill("이서연");
     await page.getByRole("button", { name: "계속 →" }).click();
     await page.getByRole("button", { name: "아직 미정이에요 →" }).click();
-    await page.getByRole("button", { name: "후보부터 찾아볼게요 →" }).click();
-    await page.getByRole("button", { name: "5천만원 안팎" }).click();
-    await page.getByRole("button", { name: "예산부터" }).click();
+    await page.getByPlaceholder("예: 서울 강남구").fill("서울 강남구");
+    await page.getByRole("button", { name: "이 지역을 기준으로 보기 →" }).click();
+    await page.getByRole("button", { name: "비용 기준을 잡고 싶어요" }).click();
     await page.getByRole("button", { name: "우선 이 기기에서 시작" }).click();
-    await page.getByRole("button", { name: "내 준비판 열기 →" }).click();
+    await page.getByRole("button", { name: "이 순서로 준비 시작하기 →" }).click();
 
     await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(page.getByText("Wedding OS Agent")).toBeVisible();
-    await expect(page.getByText("둘이 쓸 수 있는 총예산 정하기")).toBeVisible();
+    await expect(page.getByText("Planning Agent")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "둘만의 비용 기준 세우기" })).toBeVisible();
 
     const stored = await readStoredData(page);
     expect(stored.preferences.mode).toBe("local");
     expect(stored.preferences.isDemo).toBe(false);
-    expect(stored.invitation.groomName).toBe("민준");
-    expect(stored.invitation.brideName).toBe("서연");
+    expect(stored.invitation.groomName).toBe("김민준");
+    expect(stored.invitation.brideName).toBe("이서연");
     expect(stored.checklist.length).toBeGreaterThan(0);
-    expect(stored.budget?.length).toBe(5);
+    expect(stored.budget?.length).toBe(0);
     expect(stored.ai?.profile?.priority).toBe("budget");
+    expect(stored.ai?.profile?.region).toBe("서울 강남구");
     expect(stored.ai?.profile?.onboardedAt).toBeTruthy();
     expect(await page.evaluate((key) => localStorage.getItem(key), OWNER_KEY)).toBe("1");
     await page.reload();
-    await expect(page.getByText("둘이 쓸 수 있는 총예산 정하기")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "둘만의 비용 기준 세우기" })).toBeVisible();
     expect((await readStoredData(page)).ai?.profile?.priority).toBe("budget");
   });
 

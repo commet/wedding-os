@@ -5,7 +5,7 @@ export default function Privacy() {
   return (
     <div className="page pt-8 pb-10 max-w-app mx-auto text-[13px] leading-relaxed">
       <div className="mb-2">
-        <div className="eyebrow-gold mb-2">Privacy · Security</div>
+        <div className="eyebrow-gold mb-2">개인정보와 보안</div>
         <h1 className="font-serif text-[2rem] leading-none">개인정보 · 보안 안내</h1>
       </div>
       <p className="eyebrow mt-3 mb-8">

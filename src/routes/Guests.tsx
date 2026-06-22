@@ -142,14 +142,10 @@ export default function Guests({ data, update }: Props) {
     return (
       <div className="page pt-20 pb-10 text-center space-y-8">
         <div>
-          <div className="eyebrow-gold mb-4">Guests</div>
-          <h2 className="display-sm mb-4">
-            누구를 모실까?<br />
-            <span className="italic font-light text-gold">한 명씩 적어가요.</span>
-          </h2>
+          <div className="eyebrow-gold mb-4">하객 명단</div>
+          <h1 className="display-sm mb-4">떠오르는 분부터<br /><span className="italic font-light text-gold">한 명씩 적어보세요.</span></h1>
           <p className="text-[13px] text-soft leading-relaxed">
-            이름 · 관계 · 신랑/신부 측 · 축의금 · 식수까지<br />
-            한 번에 관리되고 자동으로 집계됩니다.
+            이름과 어느 쪽 하객인지 먼저 적어두면<br />참석 여부와 식수는 자동으로 모입니다.
           </p>
         </div>
         <GuestAddBlock
@@ -181,7 +177,7 @@ export default function Guests({ data, update }: Props) {
   return (
     <div className="page pt-8 pb-10 space-y-8">
       <div>
-        <div className="eyebrow-gold mb-2">Guests</div>
+        <div className="eyebrow-gold mb-2">초대와 참석</div>
         <h1 className="font-serif text-[2rem] leading-none">하객 명단</h1>
       </div>
 

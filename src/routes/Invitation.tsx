@@ -51,7 +51,7 @@ export default function Invitation({ data, update }: Props) {
   const canRsvp = data.preferences.mode === "supabase" && !!data.preferences.supabase;
   // 새 청첩장(이름 비어있고 오너)이면 빈 미리보기 대신 편집 탭(QuickStart)으로 시작.
   const [tab, setTab] = useState<Tab>(
-    () => (!guest && !isGuestRoute && !data.invitation.groomName && !data.invitation.brideName) ? "edit" : "preview",
+    () => location.search.includes("edit=publish") || (!guest && !isGuestRoute && !data.invitation.groomName && !data.invitation.brideName) ? "edit" : "preview",
   );
   const [showRsvp, setShowRsvp] = useState(false);
   const inv = data.invitation;
@@ -183,11 +183,11 @@ export default function Invitation({ data, update }: Props) {
         <div className="sticky top-[57px] z-20 bg-paper/95 backdrop-blur border-b border-hair">
           <div className="page py-4 flex items-baseline justify-between">
             <div>
-              <div className="eyebrow-gold mb-1">Invitation</div>
+              <div className="eyebrow-gold mb-1">청첩장 만들기</div>
               <h1 className="font-serif text-xl text-ink">모바일 청첩장</h1>
             </div>
             <button onClick={share} className="min-h-11 px-2 text-[12px] underline underline-offset-4 text-ink hover:text-gold transition">
-              {shareCopied ? "복사됨" : "공유 →"}
+              {shareCopied ? "복사됨" : data.publish || data.preferences.mode === "supabase" ? "공유 →" : "발행 →"}
             </button>
           </div>
           <div className="page pb-3 flex items-center gap-6">
@@ -216,7 +216,7 @@ export default function Invitation({ data, update }: Props) {
           locale={locale}
           rsvpEnabled={canRsvp}
           onRsvpClick={() => setShowRsvp(true)}
-          hideShareBox={isGuestRoute}
+          hideShareBox={!isGuestRoute}
           onShare={share}
           shareCopied={shareCopied}
           shareHint={
@@ -701,7 +701,7 @@ export function Preview({
 function SectionTitle({ children, accent }: { children: React.ReactNode; accent: string }) {
   return (
     <div className={`flex flex-col items-center mb-5 ${accent}`}>
-      <h3 className="text-[12px] tracking-[0.2em] uppercase font-medium">{children}</h3>
+      <h2 className="text-[12px] tracking-[0.2em] uppercase font-medium">{children}</h2>
       <span className="block w-6 h-px mt-3 bg-current opacity-30" />
     </div>
   );
@@ -1163,9 +1163,8 @@ function PublishSection({ data, update }: { data: WeddingData; update: (patch: a
       )}
 
       <p className="text-[11px] text-soft leading-relaxed border-t border-hair pt-3">
-        발행 링크는 <b className="text-ink">데이터 백업 파일에 함께 저장</b>돼요 — 기기를 바꿔도
-        [더보기 → 데이터 백업]으로 복구할 수 있어요. 단, 다른 기기에서 재발행·취소·RSVP 확인까지
-        하려면 [더보기 → 편집 초대 링크]도 같이 보관하세요. 발행된 청첩장은 결혼식 6개월 뒤 자동 삭제됩니다.
+        발행 링크는 백업 파일에도 저장됩니다. 다른 기기에서 수정·발행 취소·RSVP 확인까지 하려면 편집 초대 링크도 필요해요.
+        청첩장은 예식 6개월 뒤 자동 삭제됩니다.
       </p>
     </div>
   );
@@ -1261,9 +1260,12 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
 
       {showQuickStart && <QuickStart inv={inv} set={set} onPreview={onPreview} />}
 
-      <Section title="청첩장 발행 — 진짜 링크 만들기" defaultOpen={hasEssentials}>
-        <PublishSection data={data} update={update} />
-      </Section>
+      {!showQuickStart && <>
+      <div id="publish-invitation" className="scroll-mt-36">
+        <Section title="하객용 링크 발행" defaultOpen={hasEssentials || location.search.includes("edit=publish")}>
+          <PublishSection data={data} update={update} />
+        </Section>
+      </div>
 
       <Section title="대표 사진 & 색감" defaultOpen>
         {inv.heroImageUrl && (
@@ -1399,8 +1401,7 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
       </Section>
 
       <p className="text-[11px] text-soft text-center leading-relaxed pt-6">
-        카톡 문안은 미리보기의 [공유]에서 만들고,<br />
-        하객이 여는 웹 링크와 RSVP는 위의 [청첩장 링크 만들기]에서 발행합니다.
+        카톡 문안은 공유 센터에서 복사할 수 있어요.<br />하객용 웹 링크와 RSVP는 위에서 발행합니다.
       </p>
 
       <Section title="다른 청첩장 서비스도 알아보기" defaultOpen={false}>
@@ -1431,6 +1432,7 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
           {" "}으로 — 24시간 내 처리.
         </p>
       </Section>
+      </>}
 
       {picker && (
         <PhotoPickerModal

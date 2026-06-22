@@ -203,7 +203,7 @@ export default function Rings({ data, update }: Props) {
   return (
     <div className="page pt-8 pb-10 space-y-8">
       <div>
-        <div className="eyebrow-gold mb-2">Rings</div>
+        <div className="eyebrow-gold mb-2">반지 후보</div>
         <div className="flex items-baseline justify-between">
           <h1 className="font-serif text-[2rem] leading-none">결혼반지</h1>
           <button onClick={() => setShowAdd(true)} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">

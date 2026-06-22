@@ -79,13 +79,12 @@ export default function AiSettings(_: Props) {
   return (
     <div className="page pt-8 pb-10 space-y-9">
       <div>
-        <div className="eyebrow-gold mb-2">AI Settings</div>
+        <div className="eyebrow-gold mb-2">도움 기능</div>
         <h1 className="font-serif text-[2rem] leading-none">AI 연결</h1>
       </div>
 
       <p className="text-[13px] text-soft leading-relaxed border-b border-hair pb-5">
-        Wedding OS는 AI 없이도 저장·공유 도구로 작동합니다. 연결해두면 준비 초안 만들기,
-        청첩장 문안, 준비 초안, 반지·숙소·항공 비교 기준처럼 막히기 쉬운 작업을 앱 안에서 바로 정리할 수 있습니다.
+        AI는 선택 사항입니다. 연결하면 준비 순서, 청첩장 문안, 후보 비교처럼 막히기 쉬운 일을 앱 안에서 정리할 수 있어요.
       </p>
 
       <section>
@@ -136,7 +135,7 @@ export default function AiSettings(_: Props) {
               placeholder={defaultModel(provider)}
             />
             <p className="text-[11px] text-soft mt-2 leading-relaxed">
-              모델 이름은 각 provider 콘솔에서 현재 사용 가능한 이름으로 바꿀 수 있어요.
+              모델 이름은 선택한 AI 서비스에서 사용할 수 있는 이름으로 바꿀 수 있어요.
             </p>
           </div>
 
@@ -205,10 +204,10 @@ export default function AiSettings(_: Props) {
       </section>
 
       <section className="border-t border-hair pt-6">
-        <div className="eyebrow-gold mb-3">Privacy</div>
+        <div className="eyebrow-gold mb-3">개인정보</div>
         <p className="text-[12px] text-soft leading-relaxed">
-          API 모드를 쓰면 선택한 작업의 프롬프트가 해당 AI provider로 전송됩니다.
-          Wedding OS는 전화번호·계좌·축의금 같은 민감 정보가 필요한 작업이 아니라면 보내지 않도록 기능을 작게 쪼개는 방향으로 설계합니다.
+          AI를 실행하면 해당 작업에 필요한 내용이 선택한 AI 서비스로 전송됩니다.
+          전화번호·계좌·축의금 같은 민감 정보는 AI 작업에 포함하지 않습니다.
         </p>
       </section>
     </div>

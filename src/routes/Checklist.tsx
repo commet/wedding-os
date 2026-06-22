@@ -110,14 +110,10 @@ export default function Checklist({ data, update }: Props) {
     return (
       <div className="page pt-20 pb-10 text-center space-y-8">
         <div>
-          <div className="eyebrow-gold mb-4">Checklist</div>
-          <h2 className="display-sm mb-4">
-            놓치는 것 없이,<br />
-            <span className="italic font-light text-gold">한눈에.</span>
-          </h2>
+          <div className="eyebrow-gold mb-4">준비 일정</div>
+          <h1 className="display-sm mb-4">할 일을 날짜에 맞춰<br /><span className="italic font-light text-gold">정리해드릴게요.</span></h1>
           <p className="text-[13px] text-soft leading-relaxed">
-            표준 타임라인을 불러오면 결혼식 날짜에 맞춰<br />
-            할 일마다 마감일이 자동으로 잡혀요.
+            기본 목록을 불러오면 예식 날짜에 맞춰<br />할 일과 마감일이 정리됩니다.
           </p>
         </div>
         {!weddingDate && (
@@ -135,7 +131,7 @@ export default function Checklist({ data, update }: Props) {
   return (
     <div className="page pt-8 pb-6 space-y-6">
       <div>
-        <div className="eyebrow-gold mb-2">Checklist</div>
+        <div className="eyebrow-gold mb-2">준비 일정</div>
         <div className="flex items-baseline justify-between">
           <h1 className="font-serif text-[2rem] leading-none">체크리스트</h1>
           <span className="font-serif text-lg text-soft tabular-nums">{doneCount}<span className="text-soft/60"> / {allItems.length}</span></span>
@@ -186,7 +182,7 @@ export default function Checklist({ data, update }: Props) {
       </div>
 
       {view === "timeline" ? (
-        <TimelineView items={visibleItems} onToggle={toggleItem} onSetDue={setDue} onDelete={deleteItem} />
+        <TimelineView items={visibleItems} onToggle={toggleItem} onSetDue={setDue} onDelete={deleteItem} expandAll={query.trim().length > 0} />
       ) : (
         <CategoryView
           sections={sections.map((section) => ({
@@ -311,12 +307,13 @@ const BUCKET_META: Record<string, { label: string; color: string }> = {
 const BUCKET_ORDER = ["overdue", "week", "month", "later", "nodate", "done"] as const;
 
 function TimelineView({
-  items, onToggle, onSetDue, onDelete,
+  items, onToggle, onSetDue, onDelete, expandAll,
 }: {
   items: FlatItem[];
   onToggle: (sid: string, iid: string) => void;
   onSetDue: (sid: string, iid: string, d: string) => void;
   onDelete: (sid: string, iid: string) => void;
+  expandAll: boolean;
 }) {
   const grouped = useMemo(() => {
     const g: Record<string, FlatItem[]> = {};
@@ -335,24 +332,50 @@ function TimelineView({
       {BUCKET_ORDER.map((bucket) => {
         const list = grouped[bucket];
         if (!list || list.length === 0) return null;
-        const meta = BUCKET_META[bucket];
-        return (
-          <section key={bucket}>
-            <div className="flex items-baseline justify-between mb-2">
-              <h2 className={`section-title ${meta.color === "text-soft" ? "!text-soft" : ""}`}>
-                {meta.label}
-              </h2>
-              <span className="eyebrow tabular-nums">{list.length}</span>
-            </div>
-            <div className="divide-y divide-hair">
-              {list.map((it) => (
-                <TimelineRow key={it.id} item={it} onToggle={onToggle} onSetDue={onSetDue} onDelete={onDelete} />
-              ))}
-            </div>
-          </section>
-        );
+        return <TimelineGroup key={bucket} bucket={bucket} list={list} expandAll={expandAll} onToggle={onToggle} onSetDue={onSetDue} onDelete={onDelete} />;
       })}
     </div>
+  );
+}
+
+function TimelineGroup({ bucket, list, expandAll, onToggle, onSetDue, onDelete }: {
+  bucket: typeof BUCKET_ORDER[number];
+  list: FlatItem[];
+  expandAll: boolean;
+  onToggle: (sid: string, iid: string) => void;
+  onSetDue: (sid: string, iid: string, d: string) => void;
+  onDelete: (sid: string, iid: string) => void;
+}) {
+  const collapsible = bucket === "later" || bucket === "done" || (bucket === "nodate" && list.length > 8);
+  const [open, setOpen] = useState(!collapsible);
+  useEffect(() => { if (expandAll) setOpen(true); }, [expandAll]);
+  const meta = BUCKET_META[bucket];
+  const rows = (
+    <div className="divide-y divide-hair">
+      {list.map((item) => <TimelineRow key={item.id} item={item} onToggle={onToggle} onSetDue={onSetDue} onDelete={onDelete} />)}
+    </div>
+  );
+
+  if (!collapsible) {
+    return (
+      <section>
+        <div className="mb-2 flex items-baseline justify-between">
+          <h2 className="section-title">{meta.label}</h2>
+          <span className="eyebrow tabular-nums">{list.length}</span>
+        </div>
+        {rows}
+      </section>
+    );
+  }
+
+  return (
+    <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between border-b border-hair py-2">
+        <h2 className="section-title !text-soft">{meta.label} <span className="ml-1 font-normal tabular-nums">{list.length}</span></h2>
+        <span className="text-[12px] text-soft">{open ? "접기" : "보기"}</span>
+      </summary>
+      <div className="pt-2">{rows}</div>
+    </details>
   );
 }
 

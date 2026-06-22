@@ -332,7 +332,7 @@ export default function Video({ data, update }: Props) {
   return (
     <div className="page pt-8 pb-10 space-y-8">
       <div>
-        <div className="eyebrow-gold mb-2">Ceremony Video</div>
+        <div className="eyebrow-gold mb-2">영상 만들기</div>
         <h1 className="font-serif text-[2rem] leading-none">식전영상</h1>
       </div>
 

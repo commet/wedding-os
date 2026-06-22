@@ -54,7 +54,7 @@ export default function Trip({ data, update }: Props) {
   return (
     <div className="page pt-8 pb-10 space-y-6">
       <div>
-        <div className="eyebrow-gold mb-2">Honeymoon</div>
+        <div className="eyebrow-gold mb-2">여행 계획</div>
         <h1 className="font-serif text-[2rem] leading-none">신혼여행</h1>
       </div>
 
@@ -247,6 +247,7 @@ function starterTripNotes(pick: HoneymoonPick): string {
 
 function Destinations({ data, update }: Props) {
   const [showCatalog, setShowCatalog] = useState(false);
+  const [catalogOpen, setCatalogOpen] = useState(() => data.honeymoon.regions.length === 0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const regions = data.honeymoon.regions;
 
@@ -310,13 +311,14 @@ function Destinations({ data, update }: Props) {
 
       {/* 추천 카탈로그 */}
       <section>
-        <div className="flex items-baseline justify-between mb-2">
-          <h2 className="section-title">인기 신혼여행지</h2>
-          <span className="eyebrow tabular-nums">{HONEYMOON_CATALOG.length}곳</span>
-        </div>
-        <p className="text-[12.5px] text-soft mb-5 leading-relaxed">
-          가장 많이 가는 곳들을 미리 정리해뒀어요. 마음에 드는 곳을 후보로 담아두면 비교가 쉬워요.
-        </p>
+        <button onClick={() => setCatalogOpen((open) => !open)} className="flex w-full items-center justify-between gap-4 border-y border-hair py-4 text-left">
+          <span>
+            <span className="section-title block">여행지 후보 더 찾아보기</span>
+            <span className="mt-1 block text-[11.5px] text-soft">시기·비행시간·비용으로 {HONEYMOON_CATALOG.length}곳을 비교합니다.</span>
+          </span>
+          <span className="text-[12px] text-soft underline underline-offset-4">{catalogOpen ? "접기" : "열기"}</span>
+        </button>
+        {catalogOpen && <div className="pt-5">
         <div className="group-card px-4">
           {HONEYMOON_CATALOG.map((p) => {
             const added = regions.some((r) => r.name === p.region);
@@ -347,8 +349,9 @@ function Destinations({ data, update }: Props) {
           })}
         </div>
         <button onClick={() => setShowCatalog(true)} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold mt-5">
-          여행지 상세 안내 (시기 · 하이라이트 · 팁) →
+          여행지 상세 정보 보기 →
         </button>
+        </div>}
       </section>
 
       <Modal open={showCatalog} onClose={() => setShowCatalog(false)} title="신혼여행지 상세 안내">

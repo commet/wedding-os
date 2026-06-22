@@ -81,21 +81,17 @@ export default function Budget({ data, update }: Props) {
     return (
       <div className="page pt-20 pb-10 text-center space-y-8">
         <div>
-          <div className="eyebrow-gold mb-4">Money</div>
-          <h2 className="display-sm mb-4">
-            비용은 추정이 아니라,<br />
-            <span className="italic font-light text-gold">관리해야 합니다.</span>
-          </h2>
+          <div className="eyebrow-gold mb-4">비용 관리</div>
+          <h1 className="display-sm mb-4">무엇에 얼마가 드는지<br /><span className="italic font-light text-gold">먼저 펼쳐볼까요?</span></h1>
           <p className="text-[13px] text-soft leading-relaxed">
-            예식장·스드메·신혼여행까지 빠뜨리기 쉬운 항목을<br />
-            기준값과 함께 불러와 우리 예산을 잡아보세요.
+            기본 항목을 불러온 뒤 필요한 것만 남기고<br />두 분의 금액을 채워보세요.
           </p>
         </div>
         <p className="text-[12.5px] text-soft leading-relaxed border-y border-hair py-4">
           {BUDGET_TOTAL_NOTE}
         </p>
         <button onClick={loadDefault} className="btn-primary px-8 py-3.5 text-[12.5px]">
-          기본 비용 카테고리 불러오기 →
+          기본 비용 항목 불러오기 →
         </button>
       </div>
     );
@@ -104,7 +100,7 @@ export default function Budget({ data, update }: Props) {
   return (
     <div className="page pt-8 pb-10 space-y-8">
       <div>
-        <div className="eyebrow-gold mb-2">Money</div>
+        <div className="eyebrow-gold mb-2">예산과 지출</div>
         <h1 className="font-serif text-[2rem] leading-none">비용 관리</h1>
       </div>
 

@@ -12,7 +12,7 @@ export default function Trust() {
   return (
     <div className="page pt-8 pb-12 max-w-app mx-auto text-[13px] leading-relaxed">
       <div className="mb-2">
-        <div className="eyebrow-gold mb-2">Trust · 직접 확인</div>
+        <div className="eyebrow-gold mb-2">보안 직접 확인</div>
         <h1 className="font-serif text-[2rem] leading-[1.1]">
           내용은 운영자도<br />못 읽습니다.
         </h1>
