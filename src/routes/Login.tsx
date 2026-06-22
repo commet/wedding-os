@@ -252,7 +252,7 @@ export default function Login() {
     <Frame msg={msg}>
       <h1 className="font-serif text-[1.9rem] leading-tight mb-3">연결된 청첩장이 없어요</h1>
       <p className="text-[13px] text-soft leading-relaxed">
-        <b className="text-ink">{email}</b> 에 연결된 청첩장이 아직 없어요. 기존 기기에서 [더보기 → 로그인 연결]을 먼저 해주세요.
+        <b className="text-ink">{email}</b> 에 연결된 청첩장이 아직 없어요. 기존 기기에서 [설정 → 로그인 연결]을 먼저 해주세요.
         처음이라면 <Link to="/start-hosted" className="underline underline-offset-4 text-ink">간편 모드로 시작 →</Link>
       </p>
     </Frame>

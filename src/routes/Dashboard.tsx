@@ -8,6 +8,7 @@ import { type BridgePrompt, weddingPlanStarterPrompt } from "../lib/chatbotBridg
 import { defaultData } from "../lib/schema";
 import { AGENT_PRIORITIES, type AgentPriority } from "../lib/agentDraft";
 import { AgentIdentity } from "../components/AgentIdentity";
+import { buildMenuGroups } from "../lib/menu";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 
@@ -365,42 +366,8 @@ export default function Dashboard({ data, update }: Props) {
     },
   ];
 
-  // 메뉴 순서는 실제 결혼 준비 흐름을 따른다 — 먼저 큰 예약을 잡고(결정·예약),
-  // 청첩장·영상을 만들고(함께 만들기), 그 뒤 꾸준히 관리. 공유·AI는 도구로 분리.
-  const MENU_GROUPS: { title: string; items: { to: string; label: string; sub: string }[] }[] = [
-    {
-      title: "결정 · 예약",
-      items: [
-        { to: "/venues", label: "예식장", sub: venueCount > 0 ? `${venueCount}곳 담음` : "후보 비교 · 답사" },
-        { to: "/sdm", label: "스드메", sub: sdmCount > 0 ? `${sdmCount}곳 담음` : "스튜디오 · 드레스 · 메이크업" },
-        { to: "/snap", label: "본식 스냅", sub: snapCount > 0 ? `${snapCount}곳 담음` : "당일 촬영 · 원판 · 앨범" },
-        { to: "/rings", label: "결혼반지", sub: `${data.rings.length}개 후보` },
-        { to: "/trip", label: "신혼여행", sub: `${data.honeymoon.regions.length}곳 · 항공 ${data.flights.length} · 숙소 ${data.hotels.length}` },
-      ],
-    },
-    {
-      title: "함께 만들기",
-      items: [
-        { to: "/invitation", label: "모바일 청첩장", sub: "정보 입력 · 하객용 링크" },
-        { to: "/video", label: "식전영상", sub: "사진 · BGM · 자연어 편집" },
-      ],
-    },
-    {
-      title: "꾸준히 관리",
-      items: [
-        { to: "/checklist", label: "체크리스트", sub: checklistTotal > 0 ? `${checklistDone}/${checklistTotal} 완료 · ${progress}%` : "일정 · 할 일" },
-        { to: "/budget", label: "비용 관리", sub: budgetCount > 0 ? `${budgetCount}개 항목` : "예산 · 결제 · 초과 비용" },
-        { to: "/guests", label: "하객 명단", sub: guestCount > 0 ? `${guestCount}명 · 참석 ${guestAttending}` : "이름 · 축의금 · 식수" },
-      ],
-    },
-    {
-      title: "도구",
-      items: [
-        { to: "/share", label: "공유 센터", sub: "청첩장 · 초대 링크 · 백업" },
-        { to: "/ai", label: "AI 연결", sub: "복붙 모드 · API 키 · 로컬 LLM" },
-      ],
-    },
-  ];
+  // 전역 메뉴 — AppShell "더보기" 시트와 동일한 단일 소스(lib/menu.ts)를 공유.
+  const MENU_GROUPS = buildMenuGroups(data);
   const primaryFocus = focusItems[0] ?? {
     to: "/checklist",
     title: "오늘 할 일 확인하기",

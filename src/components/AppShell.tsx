@@ -3,6 +3,7 @@ import { NavLink, useLocation, Link, useNavigate } from "react-router-dom";
 import type { WeddingData, Mode } from "../lib/schema";
 import { daysSince } from "../lib/freshness";
 import { useSaveStatus, useRealtimeStatus, useConflictStatus, clearConflict } from "../lib/storage";
+import MenuSheet from "./MenuSheet";
 
 type Props = {
   data: WeddingData;
@@ -10,13 +11,15 @@ type Props = {
   children: React.ReactNode;
 };
 
+// 하단 탭 — 4개 핵심 라우트 + 5번째 "더보기"는 전체 기능 시트를 여는 버튼.
 const NAV = [
   { to: "/dashboard", label: "홈" },
   { to: "/invitation", label: "청첩장" },
   { to: "/checklist", label: "체크리스트" },
   { to: "/budget", label: "예산" },
-  { to: "/settings", label: "더보기" },
 ];
+// 4개 탭에 해당하지 않는 경로 — 이때 "더보기"를 현재 위치로 강조.
+const TAB_PATHS = NAV.map((n) => n.to);
 
 // 데모 배너 dismiss 는 세션 단위 — 새 탭/새로고침 시 다시 보임(영영 안 보이는 사고 방지).
 const DEMO_BANNER_DISMISSED_KEY = "wedding-os/demo-banner-dismissed/v1";
@@ -54,6 +57,11 @@ export default function AppShell({ data, children }: Props) {
   const saveStatus = useSaveStatus();
   const realtimeStatus = useRealtimeStatus();
   const conflictStatus = useConflictStatus();
+
+  // "더보기" 전체 기능 시트 — 라우트가 바뀌면 닫는다.
+  const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => { setMenuOpen(false); }, [location.pathname]);
+  const isMoreActive = !TAB_PATHS.includes(location.pathname);
 
   // 데모 배너 dismiss 상태 (세션 단위)
   const [bannerDismissed, setBannerDismissed] = useState(false);
@@ -198,9 +206,24 @@ export default function AppShell({ data, children }: Props) {
                 )}
               </NavLink>
             ))}
+            <button
+              onClick={() => setMenuOpen(true)}
+              aria-haspopup="dialog"
+              aria-expanded={menuOpen}
+              className={`relative min-h-11 flex items-center justify-center py-4 text-[12px] tracking-wide transition ${
+                isMoreActive || menuOpen ? "text-ink" : "text-soft"
+              }`}
+            >
+              {isMoreActive && (
+                <span className="anim-fade absolute top-0 left-1/2 -translate-x-1/2 w-8 h-px bg-ink" />
+              )}
+              더보기
+            </button>
           </div>
         </nav>
       )}
+
+      <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} data={data} />
     </div>
   );
 }

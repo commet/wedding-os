@@ -75,10 +75,10 @@ export default function Privacy() {
       <Section num="06" title="데이터 삭제 · 내려받기">
         <p className="mb-3">모든 데이터는 본인이 직접 통제합니다.</p>
         <ul className="list-disc list-outside pl-5 space-y-1.5 marker:text-soft">
-          <li>로컬 · 더보기 → "모든 데이터 지우기"</li>
-          <li>간편 · 더보기 → "모든 데이터 지우기"를 누르면 운영자 서버의 암호문과 복구 연결도 함께 삭제됩니다.</li>
+          <li>로컬 · 설정 → "모든 데이터 지우기"</li>
+          <li>간편 · 설정 → "모든 데이터 지우기"를 누르면 운영자 서버의 암호문과 복구 연결도 함께 삭제됩니다.</li>
           <li>직접 운영 · 본인의 외부 저장소 대시보드에서 row/table 삭제</li>
-          <li>백업 · 더보기 → "내려받기" 로 JSON 다운로드 가능 (보안상 anon key 등 시크릿은 제외됨)</li>
+          <li>백업 · 설정 → "내려받기" 로 JSON 다운로드 가능 (보안상 anon key 등 시크릿은 제외됨)</li>
         </ul>
       </Section>
 
@@ -113,7 +113,7 @@ export default function Privacy() {
         </ul>
         <p className="text-[11.5px] text-soft mt-4 leading-relaxed">
           <b className="text-ink">이용 조건</b> · 간편 발행은 무료 편의 기능으로 제공되며 가용성·보존을
-          보장하지 않습니다. 중요한 데이터는 [더보기 → 백업]으로 따로 보관하세요. 불법이거나 타인의 권리를
+          보장하지 않습니다. 중요한 데이터는 [설정 → 백업]으로 따로 보관하세요. 불법이거나 타인의 권리를
           침해하는 콘텐츠의 발행은 금지되며, 신고가 접수되면 운영자가 삭제할 수 있습니다 (운영자는 암호문을
           못 읽으므로 신고에 의존합니다). 더 강한 통제가 필요하면 직접 운영 모드(본인 외부 저장소) 또는 코드 직접 운영을 사용하세요.
         </p>

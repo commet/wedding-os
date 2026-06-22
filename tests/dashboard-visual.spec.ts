@@ -44,6 +44,19 @@ test.describe("dashboard visual smoke", () => {
     });
   });
 
+  test("reaches a buried feature in two taps via the 더보기 sheet from any page", async ({ page }) => {
+    await seedVisualData(page);
+    // 횡단 이동: 예산 화면에서 곧장 하객 명단으로 (홈을 경유하지 않고).
+    await page.goto("/budget");
+    await page.getByRole("button", { name: "더보기" }).click();
+    const sheet = page.getByRole("dialog", { name: "전체 메뉴" });
+    await expect(sheet).toBeVisible();
+    await sheet.getByRole("link", { name: /하객 명단/ }).click();
+    await expect(page).toHaveURL(/\/guests$/);
+    // 시트는 이동 후 닫힌다.
+    await expect(page.getByRole("dialog", { name: "전체 메뉴" })).toHaveCount(0);
+  });
+
   test("explains the product before asking for setup choices", async ({ page }) => {
     await page.addInitScript(() => { localStorage.clear(); sessionStorage.clear(); });
     await page.goto("/");
