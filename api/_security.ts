@@ -19,6 +19,15 @@ function clientIp(req: Request): string {
     .trim();
 }
 
+function isSupabaseHost(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" && /^[A-Za-z0-9-]+\.supabase\.(co|in)$/.test(u.host);
+  } catch {
+    return false;
+  }
+}
+
 /** Best-effort burst protection. Authentication/capability checks remain the primary boundary. */
 export function rateLimit(req: Request, scope: string, limit: number, windowMs: number): Response | null {
   const now = Date.now();
@@ -43,6 +52,7 @@ export async function requireAuthenticatedUser(req: Request): Promise<Response |
   const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
   if (!url || !anonKey) return json({ error: "로그인 서버가 연결되지 않았습니다." }, 503);
+  if (!isSupabaseHost(url)) return json({ error: "로그인 서버 설정이 올바르지 않습니다." }, 503);
 
   try {
     const res = await fetch(`${url.replace(/\/+$/, "")}/auth/v1/user`, {

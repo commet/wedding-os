@@ -83,6 +83,7 @@ export default function Login() {
     const r = await linkAccount(
       { weddingId: cfg.weddingId, ownerToken: getOrCreateOwnerToken(), weddingKey: cfg.weddingKey },
       pass.trim(),
+      { replaceExisting: allowReplace },
     );
     setBusy(false);
     r.ok ? setPhase("linked") : setMsg(r.error ?? "연결에 실패했어요.");

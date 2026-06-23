@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import type { WeddingData } from "../lib/schema";
 import { buildMenuGroups } from "../lib/menu";
@@ -15,9 +15,38 @@ type Props = {
  * (탭 → 항목). 전역 메뉴는 buildMenuGroups 단일 소스를 따른다.
  */
 export default function MenuSheet({ open, onClose, data }: Props) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const previousFocus = useRef<HTMLElement | null>(null);
+
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    window.setTimeout(() => panelRef.current?.focus(), 0);
+    const focusable = () => Array.from(panelRef.current?.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])',
+    ) ?? []);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const items = focusable();
+      if (items.length === 0) {
+        e.preventDefault();
+        panelRef.current?.focus();
+        return;
+      }
+      const first = items[0];
+      const last = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
     document.addEventListener("keydown", onKey);
     // 시트 열린 동안 본문 스크롤 잠금
     const prev = document.body.style.overflow;
@@ -25,6 +54,7 @@ export default function MenuSheet({ open, onClose, data }: Props) {
     return () => {
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
+      previousFocus.current?.focus();
     };
   }, [open, onClose]);
 
@@ -38,7 +68,11 @@ export default function MenuSheet({ open, onClose, data }: Props) {
         onClick={onClose}
         className="anim-fade absolute inset-0 w-full bg-ink/25"
       />
-      <div className="anim-sheet absolute inset-x-0 bottom-0 mx-auto max-w-app bg-paper max-h-[88vh] flex flex-col">
+      <div
+        ref={panelRef}
+        tabIndex={-1}
+        className="anim-sheet absolute inset-x-0 bottom-0 mx-auto max-w-app bg-paper max-h-[88vh] flex flex-col outline-none"
+      >
         <div className="flex items-center justify-between px-6 pt-6 pb-4">
           <div>
             <div className="eyebrow-gold mb-1">전체 메뉴</div>

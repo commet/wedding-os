@@ -445,9 +445,18 @@ test.describe("critical product flows", () => {
     expect(publishApiSource).toContain("metaRaw.length > 16_384");
     expect(publishApiSource).toContain("ownerToken.length > 256");
     expect(publishApiSource).toContain("meta.rsvpToken.length > 256");
+    const securitySource = fs.readFileSync("api/_security.ts", "utf8");
+    expect(securitySource).toContain("isSupabaseHost(url)");
+    expect(securitySource).toContain("로그인 서버 설정이 올바르지 않습니다.");
+    const authSource = fs.readFileSync("src/lib/auth.ts", "utf8");
+    expect(authSource).toContain("replaceExisting?: boolean");
+    expect(authSource).toContain("이미 연결된 청첩장이 있어요");
     for (const dynamicInvitePath of ["api/invite-payload.ts", "api/serve-invite.ts", "api/og.tsx"]) {
       expect(fs.readFileSync(dynamicInvitePath, "utf8")).toContain("no-store");
     }
+    const ogSource = fs.readFileSync("api/og.tsx", "utf8");
+    expect(ogSource).toContain("/rest/v1/rpc/get_public_invitation");
+    expect(ogSource).not.toContain("/rest/v1/wedding_data");
   });
 
   test("does not load private wedding data on public or auth-only routes", async () => {
@@ -470,6 +479,11 @@ test.describe("critical product flows", () => {
 
     const supabaseStorageSource = fs.readFileSync("src/lib/storage.supabase.ts", "utf8");
     expect(supabaseStorageSource).toContain("if (!isSupabaseHost(url)) return");
+
+    const menuSheetSource = fs.readFileSync("src/components/MenuSheet.tsx", "utf8");
+    expect(menuSheetSource).toContain("previousFocus.current?.focus()");
+    expect(menuSheetSource).toContain('e.key !== "Tab"');
+    expect(menuSheetSource).toContain("panelRef.current?.focus()");
   });
 
   test("uses current AI provider contracts and parses their responses", async ({ page }) => {
@@ -542,6 +556,9 @@ test.describe("critical product flows", () => {
     expect(vercelConfig).toContain("img-src 'self' https://images.unsplash.com data: blob:");
     expect(vercelConfig).toContain("media-src 'self' data: blob:");
     expect(vercelConfig).not.toContain("img-src 'self' https: data:");
+
+    const viteConfig = fs.readFileSync("vite.config.ts", "utf8");
+    expect(viteConfig).toContain("navigateFallbackDenylist: [/^\\/api\\//, /^\\/i\\//]");
   });
 });
 
