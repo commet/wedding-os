@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import type { WeddingData, Guest, GuestSide, GuestStatus } from "../lib/schema";
 import { listRsvps, type RsvpRow } from "../lib/storage.supabase";
 import { koBreak } from "../lib/typography";
+import { contractedVenue, expectedHeadcount, venueCapacityFit } from "../lib/derived";
 
 type Props = { data: WeddingData; update: (patch: any) => void };
 type Filter = "all" | "groom" | "bride" | "attending" | "pending";
@@ -193,6 +195,22 @@ export default function Guests({ data, update }: Props) {
         <Stat label="응답 대기" value={stats.pending} muted />
         <Stat label="불참" value={stats.declined} muted />
       </div>
+
+      {(() => {
+        const venue = contractedVenue(data);
+        const head = expectedHeadcount(data);
+        const fit = venueCapacityFit(venue, head);
+        if (!venue || fit === "unknown") return null;
+        const tone = fit === "over" || fit === "under" ? "text-gold font-semibold" : "text-soft";
+        const label = fit === "over" ? "수용 인원 초과" : fit === "under" ? "최소 보증인원 미달" : fit === "tight" ? "수용 인원에 근접" : "수용 범위 안";
+        const range = `${venue.capacityMin ?? "?"}~${venue.capacityMax ?? "?"}명`;
+        return (
+          <Link to="/venues" className="row-tap -mt-2 flex items-baseline justify-between gap-3 border-b border-hair px-1 py-3">
+            <span className="eyebrow break-keep">{venue.name} · 예식장 여유도</span>
+            <span className={`text-[12px] break-keep ${tone}`}>초대 {head}명 / 수용 {range} · {label}</span>
+          </Link>
+        );
+      })()}
 
       {/* 검색 + 추가 */}
       <div className="space-y-4">

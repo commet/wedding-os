@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import type { WeddingData, BudgetItem } from "../lib/schema";
 import { defaultBudget, BUDGET_TEMPLATE, BUDGET_TOTAL_NOTE } from "../data/budgetTemplate";
+import { expectedHeadcount, formatKRW } from "../lib/derived";
 import { koBreak } from "../lib/typography";
 
 type Props = { data: WeddingData; update: (patch: any) => void };
@@ -8,6 +10,7 @@ type View = "all" | "current" | "unpaid" | "over";
 
 export default function Budget({ data, update }: Props) {
   const items = data.budget ?? [];
+  const headcount = expectedHeadcount(data); // 하객 명단과 연결된 예상 식수
   const [view, setView] = useState<View>("all");
   const [customName, setCustomName] = useState("");
 
@@ -137,6 +140,12 @@ export default function Budget({ data, update }: Props) {
                 />
               </div>
             </div>
+          )}
+          {totals.planned > 0 && headcount > 0 && (
+            <Link to="/guests" className="row-tap mt-3 flex items-baseline justify-between gap-3 border-t border-hair pt-3">
+              <span className="eyebrow break-keep">예상 하객 {headcount}명 기준</span>
+              <span className="text-[12px] text-soft break-keep">1인당 약 <b className="font-semibold tabular-nums text-ink">{formatKRW(Math.round(totals.planned / headcount))}</b></span>
+            </Link>
           )}
         </div>
       </div>

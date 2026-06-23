@@ -16,6 +16,7 @@ import { daysUntilISODate, parseISODateLocal } from "../lib/date";
 import { publishInvitation, unpublishInvitation, fetchHostedRsvps, type HostedRsvp } from "../lib/inviteHosting";
 import { type BridgePrompt, invitationGreetingPrompt } from "../lib/chatbotBridge";
 import { koBreak } from "../lib/typography";
+import { invitationReadiness } from "../lib/derived";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type Tab = "edit" | "preview";
@@ -191,11 +192,25 @@ export default function Invitation({ data, update }: Props) {
               {shareCopied ? "복사됨" : data.publish || data.preferences.mode === "supabase" ? "공유 →" : "발행 →"}
             </button>
           </div>
-          <div className="page pb-3 flex items-center gap-6">
-            <TabBtn active={tab === "preview"} onClick={() => setTab("preview")}>미리보기</TabBtn>
-            {!guest && (
-              <TabBtn active={tab === "edit"} onClick={() => setTab("edit")}>편집</TabBtn>
-            )}
+          <div className="page pb-3 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-6">
+              <TabBtn active={tab === "preview"} onClick={() => setTab("preview")}>미리보기</TabBtn>
+              {!guest && (
+                <TabBtn active={tab === "edit"} onClick={() => setTab("edit")}>편집</TabBtn>
+              )}
+            </div>
+            {!guest && (() => {
+              const r = invitationReadiness(data);
+              const done = r.filled === r.total;
+              return (
+                <span
+                  className={`text-[11px] tracking-wide break-keep ${done ? "text-soft" : "text-gold font-medium"}`}
+                  title={done ? undefined : `남은 항목: ${r.missing.join(", ")}`}
+                >
+                  {done ? "✓ 공유 준비 완료" : `공유 준비 ${r.filled}/${r.total}`}
+                </span>
+              );
+            })()}
           </div>
         </div>
       )}
