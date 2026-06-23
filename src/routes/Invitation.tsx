@@ -16,7 +16,7 @@ import { daysUntilISODate, parseISODateLocal } from "../lib/date";
 import { publishInvitation, unpublishInvitation, fetchHostedRsvps, type HostedRsvp } from "../lib/inviteHosting";
 import { type BridgePrompt, invitationGreetingPrompt } from "../lib/chatbotBridge";
 import { koBreak } from "../lib/typography";
-import { invitationReadiness } from "../lib/derived";
+import { invitationReadiness, contractedVenue } from "../lib/derived";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type Tab = "edit" | "preview";
@@ -1191,10 +1191,11 @@ function PublishSection({ data, update }: { data: WeddingData; update: (patch: a
 // 30초 완성 — 새 청첩장의 마찰 제거. 이름·날짜·식장만 받으면 모시는 글·디자인은
 // 이미 채워져 있어 즉시 완성된 청첩장이 된다. 필수가 채워지면 카드는 사라지고
 // 상세 섹션만 남는다(편집은 같은 inv 를 가리키므로 중복 입력이 아님).
-function QuickStart({ inv, set, onPreview }: {
+function QuickStart({ inv, set, onPreview, contractedVenueName }: {
   inv: InvitationContent;
   set: (k: any, v: any) => void;
   onPreview?: () => void;
+  contractedVenueName?: string;
 }) {
   const ready = !!inv.groomName && !!inv.brideName && !!inv.date;
   // 마운트 시점에 이미 필수가 있으면 노출 안 함. 채우는 중 완성돼도 카드는 유지해
@@ -1228,6 +1229,11 @@ function QuickStart({ inv, set, onPreview }: {
       <div className="mb-5">
         <label className="label">예식장 <span className="text-mute normal-case tracking-normal">· 나중에 넣어도 돼요</span></label>
         <input aria-label="예식장" className="input" value={inv.venue} onChange={(e) => set("venue", e.target.value)} placeholder="서울대학교 교수회관" />
+        {!inv.venue.trim() && contractedVenueName && (
+          <button type="button" onClick={() => set("venue", contractedVenueName)} className="mt-2 text-[12px] text-gold underline underline-offset-4 break-keep">
+            계약한 ‘{contractedVenueName}’ 불러오기 →
+          </button>
+        )}
       </div>
       <button
         onClick={onPreview}
@@ -1274,7 +1280,7 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
         </div>
       </div>
 
-      {showQuickStart && <QuickStart inv={inv} set={set} onPreview={onPreview} />}
+      {showQuickStart && <QuickStart inv={inv} set={set} onPreview={onPreview} contractedVenueName={contractedVenue(data)?.name} />}
 
       {!showQuickStart && <>
       <div id="publish-invitation" className="scroll-mt-36">

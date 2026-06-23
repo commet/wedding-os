@@ -201,6 +201,7 @@ export default function Venues({ data, update }: Props) {
                         <MyVenueRow
                           key={v.id}
                           v={v}
+                          registered={!!v.name.trim() && v.name.trim() === (data.invitation.venue ?? "").trim()}
                           onUpdate={(patch) => updateVenue(v.id, patch)}
                           onRemove={() => removeVenue(v.id)}
                           onApply={() => applyToInvitation(v)}
@@ -522,9 +523,10 @@ function CatalogRow({ v, added, onAdd }: { v: WeddingVenue; added: boolean; onAd
 }
 
 function MyVenueRow({
-  v, onUpdate, onRemove, onApply,
+  v, registered, onUpdate, onRemove, onApply,
 }: {
   v: WeddingVenue;
+  registered?: boolean;
   onUpdate: (patch: Partial<WeddingVenue>) => void;
   onRemove: () => void;
   onApply: () => void;
@@ -539,6 +541,7 @@ function MyVenueRow({
             {v.region && <span>{v.region}</span>}
             {v.hallType && <span>· {HALL_TYPE_LABEL[v.hallType]}</span>}
             {v.status && <span className="text-gold">· {v.status}</span>}
+            {registered && <span className="text-sage">· ✓ 청첩장 등록</span>}
           </div>
         </button>
         <button onClick={onRemove} className="text-soft hover:text-ink text-sm flex-shrink-0">×</button>
