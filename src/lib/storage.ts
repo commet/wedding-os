@@ -394,7 +394,7 @@ export function useWeddingData() {
         if (fromLocal.data.preferences.mode === "hosted" && getHostedUserId()) {
           const userId = await currentUserId();
           if (cancelled) return;
-          if (userId && !hostedUserMatches(userId)) {
+          if (!userId || !hostedUserMatches(userId)) {
             setData(demoData());
             setLoading(false);
             if (window.location.pathname !== "/login") window.location.replace("/login");
@@ -439,7 +439,7 @@ export function useWeddingData() {
     if (!client) return;
     const { data: listener } = client.auth.onAuthStateChange((_event, session) => {
       const userId = session?.user?.id;
-      if (getHostedConfig() && userId && !hostedUserMatches(userId)) {
+      if (getHostedConfig() && getHostedUserId() && (!userId || !hostedUserMatches(userId))) {
         window.location.replace("/login");
       }
     });

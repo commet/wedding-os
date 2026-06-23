@@ -225,6 +225,7 @@ export async function listRsvps(
 /** 사용자 Supabase에 ping — 셋업 위저드 검증용 */
 export async function pingSupabase(url: string, anonKey: string): Promise<{ ok: boolean; reason?: string; }> {
   try {
+    if (!isSupabaseHost(url)) return { ok: false, reason: "안전하지 않은 저장소 주소입니다." };
     const client = createClient(url, anonKey);
     const { error } = await client.rpc("get_public_invitation", { p_id: DEFAULT_CONFIG_ID });
     if (error) {

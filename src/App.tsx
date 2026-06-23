@@ -32,7 +32,6 @@ const Video = lazy(() => import("./routes/Video"));
 const HostedInvitation = lazy(() => import("./routes/HostedInvitation"));
 
 export default function App() {
-  const { data, loading, update } = useWeddingData();
   const location = useLocation();
 
   // 호스팅 발행 청첩장(/i/<code>) — 게스트 전용. 앱 셸·데이터 없이 단독 렌더.
@@ -61,6 +60,12 @@ export default function App() {
       </Suspense>
     );
   }
+
+  return <WeddingAppRoutes location={location} />;
+}
+
+function WeddingAppRoutes({ location }: { location: ReturnType<typeof useLocation> }) {
+  const { data, loading, update } = useWeddingData();
 
   if (loading) {
     return (

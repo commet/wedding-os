@@ -19,7 +19,7 @@ test.describe("critical product flows", () => {
     await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
     await page.reload();
 
-    await page.getByRole("button", { name: "Agent와 시작하기 →" }).click();
+    await page.getByRole("button", { name: "에이전트와 시작하기 →" }).click();
     await page.getByPlaceholder("예: 김민준").fill("김민준");
     await page.getByPlaceholder("예: 이서연").fill("이서연");
     await page.getByRole("button", { name: "계속 →" }).click();
@@ -32,7 +32,7 @@ test.describe("critical product flows", () => {
     await page.getByRole("button", { name: "이 순서로 준비 시작하기 →" }).click();
 
     await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(page.getByText("Planning Agent")).toBeVisible();
+    await expect(page.getByText("준비 에이전트")).toBeVisible();
     await expect(page.getByRole("heading", { name: "서울 강남구 예식장 후보 추리기" })).toBeVisible();
 
     const stored = await readStoredData(page);
@@ -403,7 +403,7 @@ test.describe("critical product flows", () => {
       await storage.clearLocalDeviceData();
     });
     await expect(secondTab).toHaveURL(/\/$/);
-    await expect(secondTab.getByRole("button", { name: "Agent와 시작하기 →" })).toBeVisible();
+    await expect(secondTab.getByRole("button", { name: "에이전트와 시작하기 →" })).toBeVisible();
     expect(await secondTab.evaluate(() => localStorage.getItem("wedding-os/v1"))).toBeNull();
     await secondTab.close();
   });
@@ -448,6 +448,28 @@ test.describe("critical product flows", () => {
     for (const dynamicInvitePath of ["api/invite-payload.ts", "api/serve-invite.ts", "api/og.tsx"]) {
       expect(fs.readFileSync(dynamicInvitePath, "utf8")).toContain("no-store");
     }
+  });
+
+  test("does not load private wedding data on public or auth-only routes", async () => {
+    const appSource = fs.readFileSync("src/App.tsx", "utf8");
+    const hookIndex = appSource.indexOf("useWeddingData()");
+    expect(hookIndex).toBeGreaterThan(0);
+    for (const routeGuard of [
+      'location.pathname.startsWith("/i/")',
+      'location.pathname === "/recover"',
+      'location.pathname === "/login"',
+    ]) {
+      const guardIndex = appSource.indexOf(routeGuard);
+      expect(guardIndex).toBeGreaterThan(0);
+      expect(guardIndex).toBeLessThan(hookIndex);
+    }
+
+    const storageSource = fs.readFileSync("src/lib/storage.ts", "utf8");
+    expect(storageSource).toContain("if (!userId || !hostedUserMatches(userId))");
+    expect(storageSource).toContain("getHostedConfig() && getHostedUserId() && (!userId || !hostedUserMatches(userId))");
+
+    const supabaseStorageSource = fs.readFileSync("src/lib/storage.supabase.ts", "utf8");
+    expect(supabaseStorageSource).toContain("if (!isSupabaseHost(url)) return");
   });
 
   test("uses current AI provider contracts and parses their responses", async ({ page }) => {
