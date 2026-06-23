@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import type { WeddingData } from "../lib/schema";
+import { koBreak } from "../lib/typography";
 import { AgentIdentity } from "./AgentIdentity";
 import {
   AGENT_PRIORITIES,
@@ -100,7 +101,7 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
         )}
 
         {step === 1 && (
-          <AgentStep eyebrow="01 · 두 사람" title="두 분의 성함을 알려주세요." message="신랑·신부를 구분해 청첩장 기본 정보에도 그대로 반영할게요.">
+          <AgentStep eyebrow="01 · 두 사람" title={koBreak("두 분의 성함을 알려주세요.")} message="신랑·신부를 구분해 청첩장 기본 정보에도 그대로 반영할게요.">
             <div className="mt-9 space-y-5">
               <AgentInput label="신랑 성함" value={answers.groomName} onChange={(value) => set("groomName", value)} placeholder="예: 김민준" autoComplete="name" />
               <AgentInput label="신부 성함" value={answers.brideName} onChange={(value) => set("brideName", value)} placeholder="예: 이서연" autoComplete="name" />
@@ -110,7 +111,7 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
         )}
 
         {step === 2 && (
-          <AgentStep eyebrow="02 · 일정" title="예식 날짜가 정해졌나요?" message="날짜를 알면 체크리스트 마감일을 자동으로 맞춰드려요.">
+          <AgentStep eyebrow="02 · 일정" title={koBreak("예식 날짜가 정해졌나요?")} message="날짜를 알면 체크리스트 마감일을 자동으로 맞춰드려요.">
             <div className="mt-9 border-y border-hair px-1 py-4">
               <label className="label">예식 날짜</label>
               <input type="date" className="input" value={answers.date} onChange={(event) => set("date", event.target.value)} />
@@ -120,7 +121,7 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
         )}
 
         {step === 3 && (
-          <AgentStep eyebrow="03 · 지역" title="어느 지역을 생각하고 계세요?" message="정확한 예식장이 아니라, 대략의 지역만 알려주세요. 후보를 좁힐 기준으로 쓸게요.">
+          <AgentStep eyebrow="03 · 지역" title={koBreak("어느 지역을 생각하고 계세요?")} message="정확한 예식장이 아니라, 대략의 지역만 알려주세요. 후보를 좁힐 기준으로 쓸게요.">
             <div className="mt-9 flex flex-wrap gap-2">
               {REGIONS.map((region) => {
                 const isOther = region.startsWith("기타");
@@ -151,7 +152,7 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
         )}
 
         {step === 4 && (
-          <AgentStep eyebrow="04 · 우선순위" title="가장 먼저 함께 풀고 싶은 일은요?" message="한 가지만 골라주세요. 그 일부터 시작하기 좋게 순서를 잡아드릴게요.">
+          <AgentStep eyebrow="04 · 우선순위" title={koBreak("가장 먼저 함께 풀고 싶은 일은요?")} message="한 가지만 골라주세요. 그 일부터 시작하기 좋게 순서를 잡아드릴게요.">
             <div className="mt-9">
               {(Object.entries(AGENT_PRIORITIES) as Array<[AgentPriority, typeof selectedPriority]>).map(([id, item], index) => (
                 <button key={id} onClick={() => { set("priority", id); next(); }} className="flex min-h-[68px] w-full items-start justify-between gap-4 border-b border-hair py-4 text-left transition last:border-b-0 hover:border-gold">
@@ -170,7 +171,7 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
         )}
 
         {step === 5 && (
-          <AgentStep eyebrow="05 · 보관" title="준비 내용을 어디에 보관할까요?" message="지금 바로 시작할 수도, 로그인해 두 사람이 함께 쓸 수도 있어요.">
+          <AgentStep eyebrow="05 · 보관" title={koBreak("준비 내용을 어디에 보관할까요?")} message="지금 바로 시작할 수도, 로그인해 두 사람이 함께 쓸 수도 있어요.">
             <div className="mt-9 border-y border-hair divide-y divide-hair">
               <StorageChoice active={answers.storage === "local"} onClick={() => { set("storage", "local"); next(); }} title="우선 이 기기에서 시작" desc="가입 없이 바로 열고, 나중에 둘이 쓰기로 바꿀 수 있어요." badge="가장 빠름" />
               <StorageChoice active={answers.storage === "hosted"} onClick={() => { if (hostedReady) { set("storage", "hosted"); next(); } }} title="처음부터 둘이 같이" desc={hostedReady ? "로그인 후 암호화된 준비판을 함께 편집해요." : "현재 배포에서 로그인 연결이 필요해요."} badge="추천" disabled={!hostedReady} />
@@ -180,7 +181,7 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
         )}
 
         {step === 6 && (
-          <AgentStep eyebrow="첫 브리핑" title={`${coupleLabel} 두 분을 위한 시작 순서예요.`} message="한꺼번에 다 하지 않아도 돼요. 첫 번째 일부터 함께 이어가요.">
+          <AgentStep eyebrow="첫 브리핑" title={koBreak(`${coupleLabel} 두 분을 위한 시작 순서예요.`)} message="한꺼번에 다 하지 않아도 돼요. 첫 번째 일부터 함께 이어가요.">
             <div className="mt-9 grid grid-cols-2 gap-x-6 gap-y-5 border-y border-hair px-1 py-6">
               {summary.map((item) => (
                 <div key={item.label}>

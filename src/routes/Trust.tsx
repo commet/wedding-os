@@ -5,6 +5,7 @@
 
 import { Link } from "react-router-dom";
 import CipherPeek from "../components/CipherPeek";
+import { koBreak } from "../lib/typography";
 
 const REPO = "https://github.com/commet/wedding-os/blob/master";
 
@@ -14,7 +15,7 @@ export default function Trust() {
       <div className="mb-2">
         <div className="eyebrow-gold mb-2">보안 직접 확인</div>
         <h1 className="font-serif text-[2rem] leading-[1.1]">
-          내용은 운영자도<br />못 읽습니다.
+          {koBreak("내용은 운영자도")}<br />{koBreak("못 읽습니다.")}
         </h1>
       </div>
       <p className="text-soft mt-3 mb-2">
@@ -159,7 +160,7 @@ function Tier({ name, line, who, star }: { name: string; line: string; who: stri
   return (
     <div className="border-l-2 border-hair pl-4">
       <div className="flex items-baseline gap-2 mb-1">
-        <h3 className="font-serif text-[16px] text-ink">{name}</h3>
+        <h3 className="font-serif text-[16px] text-ink">{koBreak(name)}</h3>
         {star && <span className="eyebrow-gold">추천</span>}
       </div>
       <p className="text-[13px] text-ink mb-1">{line}</p>
@@ -173,7 +174,7 @@ function Section({ num, title, children, last }: { num: string; title: string; c
     <section className={`py-7 ${last ? "" : "border-b border-hair"}`}>
       <div className="flex items-baseline gap-4 mb-4">
         <span className="font-serif text-soft text-base tabular-nums w-6 flex-shrink-0">{num}</span>
-        <h2 className="font-serif text-[17px] text-ink">{title}</h2>
+        <h2 className="font-serif text-[17px] text-ink">{koBreak(title)}</h2>
       </div>
       <div className="pl-10">{children}</div>
     </section>

@@ -13,6 +13,7 @@ import {
   downloadPrintableHtml,
 } from "../lib/exporters";
 import { getOrCreateOwnerToken } from "../lib/security";
+import { koBreak } from "../lib/typography";
 
 type Props = { data: WeddingData; update: (patch: any) => void };
 
@@ -89,12 +90,29 @@ export default function Share({ data, update }: Props) {
     <div className="page pt-8 pb-10 space-y-9">
       <div>
         <div className="eyebrow-gold mb-2">링크와 파일</div>
-        <h1 className="h-page">공유 센터</h1>
+        <h1 className="h-page">{koBreak("공유 센터")}</h1>
       </div>
 
-      <p className="text-[15px] text-soft leading-[1.85] border-b border-hair pb-5">
-        하객용 청첩장과 함께 편집할 초대 링크는 권한이 다릅니다. 받을 사람에 맞는 메뉴를 골라주세요.
-      </p>
+      <div className="border-b border-hair pb-5 space-y-4">
+        <p className="text-[15px] text-soft leading-[1.85]">
+          준비한 내용을 밖으로 내보내는 곳이에요. 하객에게 보낼 청첩장 링크, 둘이 함께 편집할 초대 링크,
+          그리고 데이터를 안전하게 보관할 백업까지 한자리에 모았습니다. 받을 사람에 맞는 메뉴를 골라주세요.
+        </p>
+        <ul className="space-y-2 text-[13px] text-soft leading-relaxed">
+          <li className="flex gap-2.5">
+            <span className="text-gold">·</span>
+            <span><span className="text-ink">하객용 청첩장 링크</span> — 손님이 보는 화면. 준비 데이터 전체가 열리지 않습니다.</span>
+          </li>
+          <li className="flex gap-2.5">
+            <span className="text-gold">·</span>
+            <span><span className="text-ink">함께 편집 링크</span> — 배우자와 같은 준비판을 같이 봅니다. 하객에게는 보내지 마세요.</span>
+          </li>
+          <li className="flex gap-2.5">
+            <span className="text-gold">·</span>
+            <span><span className="text-ink">파일과 백업</span> — Excel·인쇄·CSV로 꺼내거나 다른 기기에서 복원할 원본을 받습니다.</span>
+          </li>
+        </ul>
+      </div>
 
       {status !== "idle" && (
         <div className={`border-y border-hair py-3 text-[12px] ${status === "fail" ? "text-ink" : "text-soft"}`}>
@@ -104,7 +122,7 @@ export default function Share({ data, update }: Props) {
 
       <Section
         num="01"
-        title="하객에게 보내기"
+        title={koBreak("하객에게 보내기")}
         desc="하객이 보는 청첩장과 RSVP용 링크입니다. 준비 데이터 전체가 공개되는 링크가 아닙니다."
       >
         <Action
@@ -130,7 +148,7 @@ export default function Share({ data, update }: Props) {
 
       <Section
         num="02"
-        title="함께 관리하기"
+        title={koBreak("함께 관리하기")}
         desc={
           data.preferences.mode === "supabase"
             ? "준비 데이터를 같이 수정할 수 있는 편집 링크입니다. 하객용 청첩장 링크와 다릅니다."
@@ -167,21 +185,21 @@ export default function Share({ data, update }: Props) {
         <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-2">
           <span>
             <span className="eyebrow block mb-1">필요할 때</span>
-            <span className="font-serif text-lg text-ink">파일로 내보내기와 백업</span>
+            <span className="font-serif text-lg text-ink">{koBreak("파일로 내보내기와 백업")}</span>
           </span>
           <span className="text-[12px] text-soft">펼쳐보기</span>
         </summary>
         <div className="space-y-9 pb-5 pt-6">
-          <Section num="03" title="한 파일로 정리" desc="전체 준비 내용을 Excel이나 인쇄용 문서로 만듭니다.">
+          <Section num="03" title={koBreak("한 파일로 정리")} desc="전체 준비 내용을 Excel이나 인쇄용 문서로 만듭니다.">
             <Action title="Excel 파일" desc="엑셀, Numbers, 구글시트에서 열 수 있어요." onClick={() => run("공유용 Excel 파일", () => downloadExcelWorkbook(data))} primary />
             <Action title="인쇄용 문서" desc="PDF로 저장하거나 종이로 출력할 때 사용합니다." onClick={() => run("인쇄용 HTML", () => downloadPrintableHtml(data))} />
           </Section>
-          <Section num="04" title="항목별 표" desc="필요한 영역만 CSV 파일로 꺼냅니다.">
+          <Section num="04" title={koBreak("항목별 표")} desc="필요한 영역만 CSV 파일로 꺼냅니다.">
             <Action title="하객 명단 CSV" desc={`${data.guests?.length ?? 0}명`} onClick={() => run("하객 명단 CSV", () => downloadGuestCsv(data))} />
             <Action title="예산 CSV" desc={`${data.budget?.length ?? 0}개 항목`} onClick={() => run("예산 CSV", () => downloadBudgetCsv(data))} />
             <Action title="체크리스트 CSV" desc={`${data.checklist.reduce((n, s) => n + s.items.length, 0)}개 할 일`} onClick={() => run("체크리스트 CSV", () => downloadChecklistCsv(data))} />
           </Section>
-          <Section num="05" title="데이터 백업" desc="다른 기기에서 복원할 수 있는 원본 파일입니다.">
+          <Section num="05" title={koBreak("데이터 백업")} desc="다른 기기에서 복원할 수 있는 원본 파일입니다.">
             <Action title="백업 파일 내려받기" desc="사진은 가능한 한 포함하고 연결 키는 제외합니다." onClick={() => run("전체 데이터 백업", backup)} primary />
           </Section>
         </div>

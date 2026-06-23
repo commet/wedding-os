@@ -9,6 +9,7 @@ import { authAvailable } from "../lib/auth";
 import { downloadCorruptLocalBackup, hasCorruptLocalBackup } from "../lib/storage";
 import AgentOnboarding from "../components/AgentOnboarding";
 import { buildAgentDraft, type AgentAnswers } from "../lib/agentDraft";
+import { koBreak } from "../lib/typography";
 
 type Props = {
   data: WeddingData;
@@ -146,8 +147,8 @@ export default function Welcome({ data, update }: Props) {
         <div className="mb-9">
           <div className="eyebrow-gold mb-4">01 · 저장 방식</div>
           <h1 className="display-sm mb-3">
-            어떻게 이어서 쓸지<br />
-            먼저 정해둘게요.
+            {koBreak("어떻게 이어서 쓸지")}<br />
+            {koBreak("먼저 정해둘게요.")}
           </h1>
           <p className="text-soft text-[13px] leading-relaxed">
             대부분은 첫 번째를 고르면 됩니다. 혼자 먼저 정리해도 나중에 링크로 같이 쓸 수 있고,

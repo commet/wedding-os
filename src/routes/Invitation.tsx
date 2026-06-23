@@ -15,6 +15,7 @@ import { useSaveStatus } from "../lib/storage";
 import { daysUntilISODate, parseISODateLocal } from "../lib/date";
 import { publishInvitation, unpublishInvitation, fetchHostedRsvps, type HostedRsvp } from "../lib/inviteHosting";
 import { type BridgePrompt, invitationGreetingPrompt } from "../lib/chatbotBridge";
+import { koBreak } from "../lib/typography";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type Tab = "edit" | "preview";
@@ -165,7 +166,7 @@ export default function Invitation({ data, update }: Props) {
         <div className="text-center max-w-xs">
           <div className="eyebrow-gold mb-4">Wedding · Invitation</div>
           <h1 className="display-sm text-ink mb-3">
-            아직 준비 중이에요
+            {koBreak("아직 준비 중이에요")}
           </h1>
           <p className="text-[13px] text-soft leading-relaxed">
             청첩장이 곧 도착할 거예요.<br />
@@ -184,7 +185,7 @@ export default function Invitation({ data, update }: Props) {
           <div className="page py-4 flex items-baseline justify-between">
             <div>
               <div className="eyebrow-gold mb-1">청첩장 만들기</div>
-              <h1 className="font-serif text-xl text-ink">모바일 청첩장</h1>
+              <h1 className="font-serif text-xl text-ink">{koBreak("모바일 청첩장")}</h1>
             </div>
             <button onClick={share} className="min-h-11 px-2 text-[12px] underline underline-offset-4 text-ink hover:text-gold transition">
               {shareCopied ? "복사됨" : data.publish || data.preferences.mode === "supabase" ? "공유 →" : "발행 →"}
@@ -1189,7 +1190,7 @@ function QuickStart({ inv, set, onPreview }: {
     <div className="border border-hair bg-cream/40 px-5 py-6 mb-2">
       <div className="eyebrow-gold mb-2">30초 만에 시작</div>
       <h3 className="font-serif text-2xl text-ink leading-tight mb-2">
-        {ready ? "기본 정보가 채워졌어요" : "이 세 가지면, 청첩장이 완성돼요"}
+        {koBreak(ready ? "기본 정보가 채워졌어요" : "이 세 가지면, 청첩장이 완성돼요")}
       </h3>
       <p className="text-[12.5px] text-soft leading-relaxed mb-5">
         모시는 글과 디자인은 이미 채워 두었어요. 두 분 이름과 날짜만 넣으면

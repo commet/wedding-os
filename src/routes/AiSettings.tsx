@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { defaultModel, hasDirectAi, runAiPrompt } from "../lib/aiClient";
 import { type AiConfig, type AiProvider, getAiConfig, setAiConfig } from "../lib/security";
 import { currentAccessToken } from "../lib/auth";
+import { koBreak } from "../lib/typography";
 
 type Props = { data?: unknown };
 
@@ -80,7 +81,7 @@ export default function AiSettings(_: Props) {
     <div className="page pt-8 pb-10 space-y-9">
       <div>
         <div className="eyebrow-gold mb-2">도움 기능</div>
-        <h1 className="h-page">AI 연결</h1>
+        <h1 className="h-page">{koBreak("AI 연결")}</h1>
       </div>
 
       <p className="text-[15px] text-soft leading-[1.85] border-b border-hair pb-5">

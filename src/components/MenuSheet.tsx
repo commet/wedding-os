@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import type { WeddingData } from "../lib/schema";
 import { buildMenuGroups } from "../lib/menu";
+import { koBreak } from "../lib/typography";
 
 type Props = {
   open: boolean;
@@ -41,7 +42,7 @@ export default function MenuSheet({ open, onClose, data }: Props) {
         <div className="flex items-center justify-between px-6 pt-6 pb-4">
           <div>
             <div className="eyebrow-gold mb-1">전체 메뉴</div>
-            <div className="font-serif text-[20px] leading-none tracking-tight text-ink">준비 도구</div>
+            <div className="font-serif text-[20px] leading-none tracking-tight text-ink">{koBreak("준비 도구")}</div>
           </div>
           <button
             onClick={onClose}

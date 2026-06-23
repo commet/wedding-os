@@ -9,6 +9,8 @@ import { defaultData } from "../lib/schema";
 import { AGENT_PRIORITIES, type AgentPriority } from "../lib/agentDraft";
 import { AgentIdentity } from "../components/AgentIdentity";
 import { buildMenuGroups } from "../lib/menu";
+import { budgetTotals, overdueChecklistCount, formatKRW } from "../lib/derived";
+import { koBreak } from "../lib/typography";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 
@@ -75,6 +77,10 @@ export default function Dashboard({ data, update }: Props) {
       data.honeymoon.regions.length + data.flights.length + data.hotels.length > 0,
     ].filter(Boolean).length / 8) * 100
   );
+
+  // 영역 간 위험 신호 — 서브페이지를 안 열어도 홈에서 한눈에.
+  const { overCount: overBudgetCount, overSum: overBudgetSum } = budgetTotals(data);
+  const overdueCount = overdueChecklistCount(data);
 
   const setWeddingDate = (date: string) => {
     update((prev: WeddingData) => {
@@ -384,7 +390,7 @@ export default function Dashboard({ data, update }: Props) {
           <div className="border-y border-hair py-6">
             <div className="eyebrow mb-3">처음 1분</div>
             <h1 className="display-sm mb-3">
-              예식 날짜가 정해졌나요?
+              {koBreak("예식 날짜가 정해졌나요?")}
             </h1>
             <p className="text-[15px] text-soft leading-relaxed mb-5">
               날짜를 넣으면 준비 일정을 맞춰드려요. 아직 미정이면 건너뛰고 바로 할 일부터 볼 수 있습니다.
@@ -411,7 +417,7 @@ export default function Dashboard({ data, update }: Props) {
           <>
             <div className="eyebrow mb-6">두 분의 준비판</div>
             <h1 className="font-serif text-[1.625rem] leading-[1.4] text-ink mb-8 tracking-wide break-keep">
-              {coupleDisplay}
+              {koBreak(coupleDisplay)}
             </h1>
 
             {dday !== null && (
@@ -470,7 +476,7 @@ export default function Dashboard({ data, update }: Props) {
         {agentChoosing ? (
           <div className="page-enter">
             <div className="eyebrow mb-3">우선순위 바꾸기</div>
-            <h2 className="mb-2 max-w-[19rem] font-serif text-[1.625rem] leading-[1.4] text-ink break-keep [text-wrap:balance]">지금 더 마음이 가는 일은 무엇인가요?</h2>
+            <h2 className="mb-2 max-w-[19rem] font-serif text-[1.625rem] leading-[1.4] text-ink break-keep [text-wrap:balance]">{koBreak("지금 더 마음이 가는 일은 무엇인가요?")}</h2>
             <p className="mb-6 text-[15px] leading-relaxed text-soft">고른 일을 첫 번째로 옮기고 다음 순서도 다시 맞출게요.</p>
             <div className="space-y-2.5">
               {(Object.entries(AGENT_PRIORITIES) as Array<[AgentPriority, (typeof AGENT_PRIORITIES)[AgentPriority]]>).map(([id, item]) => (
@@ -490,6 +496,22 @@ export default function Dashboard({ data, update }: Props) {
             <p className="mb-7 max-w-[21rem] text-[15px] leading-[1.8] text-soft">
               {data.ai?.starterSummary || `현재 준비 상태를 보고, 다음 결정이 쉬워지는 순서로 정리했어요.`}
             </p>
+            {(overdueCount > 0 || overBudgetCount > 0) && (
+              <div className="mb-7 border-y border-hair">
+                {overdueCount > 0 && (
+                  <Link to="/checklist" className="row-tap flex items-center justify-between gap-3 border-b border-hair px-1 py-3 last:border-b-0">
+                    <span className="text-[13px] text-ink break-keep">지난 마감 <b className="font-semibold">{overdueCount}건</b>이 남아 있어요</span>
+                    <span className="flex-shrink-0 text-gold">→</span>
+                  </Link>
+                )}
+                {overBudgetCount > 0 && (
+                  <Link to="/budget" className="row-tap flex items-center justify-between gap-3 border-b border-hair px-1 py-3 last:border-b-0">
+                    <span className="text-[13px] text-ink break-keep">예산을 <b className="font-semibold">{overBudgetCount}건</b> 초과했어요 · +{formatKRW(overBudgetSum)}</span>
+                    <span className="flex-shrink-0 text-gold">→</span>
+                  </Link>
+                )}
+              </div>
+            )}
             <div className="agent-briefing">
               <div className="agent-briefing-number">01</div>
               <div className="min-w-0">
@@ -529,7 +551,7 @@ export default function Dashboard({ data, update }: Props) {
           <summary className="list-none cursor-pointer flex items-center justify-between gap-4 min-h-11">
             <span>
               <span className="eyebrow block mb-1">전체 준비 현황</span>
-              <span className="font-serif text-2xl text-ink">{coreProgress}% 진행 중</span>
+              <span className="font-serif text-2xl text-ink">{coreProgress}% {koBreak("진행 중")}</span>
             </span>
             <span className="text-[12px] text-soft underline underline-offset-4">펼쳐보기</span>
           </summary>
@@ -557,7 +579,7 @@ export default function Dashboard({ data, update }: Props) {
           <summary className="list-none cursor-pointer flex items-baseline justify-between gap-4">
             <span>
               <span className="eyebrow block mb-1">준비 도구</span>
-              <span className="font-serif text-lg text-ink">다른 메뉴 보기</span>
+              <span className="font-serif text-lg text-ink">{koBreak("다른 메뉴 보기")}</span>
             </span>
             <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
           </summary>

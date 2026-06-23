@@ -9,6 +9,7 @@ import {
 } from "../data/sdmCatalog";
 import Modal from "../components/Modal";
 import VendorActions from "../components/VendorActions";
+import { koBreak } from "../lib/typography";
 
 type Props = { data: WeddingData; update: (patch: any) => void; initialCategory?: SdmCategory };
 
@@ -102,7 +103,7 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
     <div className="page pt-8 pb-10 space-y-8">
       <div>
         <div className="eyebrow-gold mb-2">{snapOnly ? "본식 촬영" : "스튜디오 · 드레스 · 메이크업"}</div>
-        <h1 className="font-serif text-[2rem] leading-none">{snapOnly ? "본식 스냅" : "스드메"}</h1>
+        <h1 className="font-serif text-[2rem] leading-none">{koBreak(snapOnly ? "본식 스냅" : "스드메")}</h1>
       </div>
 
       {/* 카테고리 — underline 탭 */}
@@ -145,7 +146,7 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
       {inCat.length > 0 && (
         <section>
           <div className="flex items-baseline justify-between mb-4">
-            <h2 className="section-title">내 후보 · <span className="tabular-nums">{inCat.length}</span></h2>
+            <h2 className="section-title">{koBreak("내 후보 · ")}<span className="tabular-nums">{inCat.length}</span></h2>
             <button onClick={() => setShowAdd(true)} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">+ 직접 추가</button>
           </div>
           <div className="group-card px-4">

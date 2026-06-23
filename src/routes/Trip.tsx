@@ -18,6 +18,7 @@ import {
   type BridgePrompt,
 } from "../lib/chatbotBridge";
 import { todayISO } from "../lib/freshness";
+import { koBreak } from "../lib/typography";
 
 type Props = { data: WeddingData; update: (patch: any) => void };
 type Tab = "destinations" | "flights" | "stays";
@@ -55,7 +56,7 @@ export default function Trip({ data, update }: Props) {
     <div className="page pt-8 pb-10 space-y-6">
       <div>
         <div className="eyebrow-gold mb-2">여행 계획</div>
-        <h1 className="h-page">신혼여행</h1>
+        <h1 className="h-page">{koBreak("신혼여행")}</h1>
       </div>
 
       {showStarter ? (
@@ -293,7 +294,7 @@ function Destinations({ data, update }: Props) {
       {/* 내 후보 */}
       {regions.length > 0 && (
         <section>
-          <h2 className="section-title mb-4">내 후보 · <span className="tabular-nums">{regions.length}</span></h2>
+          <h2 className="section-title mb-4">{koBreak("내 후보 ·")} <span className="tabular-nums">{regions.length}</span></h2>
           <div className="group-card px-4">
             {regions.map((r) => (
               <RegionCard
@@ -404,7 +405,7 @@ function RegionCard({
       <div className="flex items-center gap-3">
         <button onClick={onToggle} className="flex-1 min-w-0 text-left py-1">
           <div className="flex items-center gap-2">
-            <div className="font-serif text-[18px] text-ink truncate">{region.name}</div>
+            <div className="font-serif text-[18px] text-ink truncate">{koBreak(region.name)}</div>
             <span className="text-[11px] text-soft">{open ? "접기" : "펼치기"}</span>
           </div>
           <div className="eyebrow mt-1">
@@ -508,7 +509,7 @@ function Flights({ data, update }: Props) {
   return (
     <div className="space-y-10">
       <section className="space-y-4">
-        <h2 className="section-title">항공편 검색</h2>
+        <h2 className="section-title">{koBreak("항공편 검색")}</h2>
         <div className="grid grid-cols-2 gap-x-6 gap-y-4">
           <div>
             <label className="label">출발</label>
@@ -540,7 +541,7 @@ function Flights({ data, update }: Props) {
         <p className="text-center text-[13px] text-soft py-4">아직 담아둔 항공편이 없어요.</p>
       ) : (
         <section>
-          <h2 className="section-title mb-4">담아둔 옵션 · <span className="tabular-nums">{data.flights.length}</span></h2>
+          <h2 className="section-title mb-4">{koBreak("담아둔 옵션 ·")} <span className="tabular-nums">{data.flights.length}</span></h2>
           <div className="group-card px-4">
             {data.flights.map((f) => (
               <div key={f.id} className="py-4">
@@ -670,7 +671,7 @@ function Stays({ data, update }: Props) {
   return (
     <div className="space-y-10">
       <section className="space-y-4">
-        <h2 className="section-title">숙소 검색</h2>
+        <h2 className="section-title">{koBreak("숙소 검색")}</h2>
         <input
           className="input"
           placeholder="지역·호텔명 (예: 발리 우붓, 강남)"
@@ -701,7 +702,7 @@ function Stays({ data, update }: Props) {
         <p className="text-center text-[13px] text-soft py-4">아직 담아둔 숙소가 없어요.</p>
       ) : (
         <section>
-          <h2 className="section-title mb-4">담아둔 숙소 · <span className="tabular-nums">{data.hotels.length}</span></h2>
+          <h2 className="section-title mb-4">{koBreak("담아둔 숙소 ·")} <span className="tabular-nums">{data.hotels.length}</span></h2>
           <div className="group-card px-4">
             {data.hotels.map((hotel) => (
               <div key={hotel.id} className="py-4">

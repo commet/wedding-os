@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { WeddingData, BudgetItem } from "../lib/schema";
 import { defaultBudget, BUDGET_TEMPLATE, BUDGET_TOTAL_NOTE } from "../data/budgetTemplate";
+import { koBreak } from "../lib/typography";
 
 type Props = { data: WeddingData; update: (patch: any) => void };
 type View = "all" | "current" | "unpaid" | "over";
@@ -82,7 +83,7 @@ export default function Budget({ data, update }: Props) {
       <div className="page pt-20 pb-10 text-center space-y-8">
         <div>
           <div className="eyebrow-gold mb-4">비용 관리</div>
-          <h1 className="display-sm mb-4">무엇에 얼마가 드는지<br /><span className="italic font-light text-gold">먼저 펼쳐볼까요?</span></h1>
+          <h1 className="display-sm mb-4">{koBreak("무엇에 얼마가 드는지")}<br /><span className="italic font-light text-gold">{koBreak("먼저 펼쳐볼까요?")}</span></h1>
           <p className="text-[13px] text-soft leading-relaxed">
             기본 항목을 불러온 뒤 필요한 것만 남기고<br />두 분의 금액을 채워보세요.
           </p>
@@ -101,7 +102,7 @@ export default function Budget({ data, update }: Props) {
     <div className="page pt-8 pb-10 space-y-8">
       <div>
         <div className="eyebrow-gold mb-2">예산과 지출</div>
-        <h1 className="h-page">비용 관리</h1>
+        <h1 className="h-page">{koBreak("비용 관리")}</h1>
       </div>
 
       {/* 합계 요약 */}
@@ -205,7 +206,7 @@ export default function Budget({ data, update }: Props) {
           return (
             <section key={group}>
               <div className="flex items-baseline justify-between mb-2">
-                <h2 className="section-title">{group}</h2>
+                <h2 className="section-title">{koBreak(group)}</h2>
                 <span className="text-[11.5px] text-soft tabular-nums">
                   {groupPlanned > 0 ? `${fmtMan(groupPlanned)}만원 예산` : ""}
                   {groupActual > 0 && groupPlanned > 0 && " · "}

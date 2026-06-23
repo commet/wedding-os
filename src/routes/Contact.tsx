@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import type { WeddingData } from "../lib/schema";
+import { koBreak } from "../lib/typography";
 
 type Props = { data: WeddingData; };
 
@@ -52,7 +53,7 @@ export default function Contact({ data }: Props) {
     <div className="page pt-8 pb-10 space-y-8">
       <div>
         <div className="eyebrow-gold mb-2">도움 요청</div>
-        <h1 className="font-serif text-[2rem] leading-none">문의 · 오류 신고</h1>
+        <h1 className="font-serif text-[2rem] leading-none">{koBreak("문의 · 오류 신고")}</h1>
       </div>
 
       <p className="text-[13px] text-soft leading-relaxed border-b border-hair pb-6">

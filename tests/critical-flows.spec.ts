@@ -94,7 +94,7 @@ test.describe("critical product flows", () => {
     const download = await downloadPromise;
     await download.delete().catch(() => undefined);
 
-    await expect(page.getByText("같이 쓰는 저장소에 저장하지 못했어요.")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/저장소에 저장하지 못했어요/)).toBeVisible({ timeout: 15_000 });
 
     const stored = await readStoredData(page);
     expect(stored.preferences.mode).toBe("local");

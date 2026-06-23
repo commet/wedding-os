@@ -4,6 +4,7 @@ import type { WeddingData, CheckItem, ChecklistSection } from "../lib/schema";
 import { defaultChecklist, recalcDueDates } from "../data/checklistTemplate";
 import { daysSince } from "../lib/freshness";
 import { GIFT_TIER_LABEL, GIFT_IDEAS, GIFT_TIP } from "../data/giftCatalog";
+import { koBreak } from "../lib/typography";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type View = "category" | "timeline";
@@ -111,7 +112,7 @@ export default function Checklist({ data, update }: Props) {
       <div className="page pt-20 pb-10 text-center space-y-8">
         <div>
           <div className="eyebrow-gold mb-4">준비 일정</div>
-          <h1 className="display-sm mb-4 [text-wrap:balance] max-w-[18rem] mx-auto">할 일을 날짜에 맞춰 <span className="font-light">정리해드릴게요.</span></h1>
+          <h1 className="display-sm mb-4 [text-wrap:balance] max-w-[18rem] mx-auto">{koBreak("할 일을 날짜에 맞춰")} <span className="font-light">{koBreak("정리해드릴게요.")}</span></h1>
           <p className="text-[15px] text-soft leading-[1.85]">
             기본 목록을 불러오면 예식 날짜에 맞춰<br />할 일과 마감일이 정리됩니다.
           </p>
@@ -133,7 +134,7 @@ export default function Checklist({ data, update }: Props) {
       <div>
         <div className="eyebrow-gold mb-2">준비 일정</div>
         <div className="flex items-baseline justify-between">
-          <h1 className="font-serif text-[2rem] leading-none">체크리스트</h1>
+          <h1 className="font-serif text-[2rem] leading-none">{koBreak("체크리스트")}</h1>
           <span className="font-serif text-lg text-soft tabular-nums">{doneCount}<span className="text-soft/60"> / {allItems.length}</span></span>
         </div>
       </div>

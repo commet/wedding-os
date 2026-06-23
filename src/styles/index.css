@@ -47,6 +47,22 @@
     background: theme('colors.gold');
     color: white;
   }
+
+  /* ───── 한글 줄바꿈 원칙 ─────
+     keep-all: 어절(띄어쓰기 단위) 중간은 절대 끊지 않는다.
+     제목 balance: 줄들을 균등 길이로 재배치 → "한 명씩" 의 "한" 만 윗줄에
+       외톨이로 남는 현상을 없앤다(끝줄 짧은 음절 방지).
+     본문 pretty: 마지막 줄에 단어 하나만 떨어지는 orphan 을 방지.
+     :where() 로 특이도 0 → 필요한 곳은 유틸/인라인으로 쉽게 덮어쓸 수 있다.
+     미지원 브라우저는 자동으로 일반 줄바꿈으로 안전하게 폴백한다. */
+  :where(h1, h2, h3, h4, h5, h6) {
+    word-break: keep-all;
+    text-wrap: balance;
+  }
+  :where(p, li, dd, dt, blockquote, figcaption) {
+    word-break: keep-all;
+    text-wrap: pretty;
+  }
 }
 
 @media print {
@@ -98,15 +114,19 @@
   }
   .display {
     @apply font-serif text-[2.625rem] leading-[1.1] tracking-tight text-ink break-keep;
+    text-wrap: balance;
   }
   .display-sm {
     @apply font-serif text-[1.75rem] leading-[1.2] tracking-tight text-ink break-keep;
+    text-wrap: balance;
   }
   .h-page {
     @apply font-serif text-[26px] leading-[1.4] tracking-tight text-ink break-keep;
+    text-wrap: balance;
   }
   .h-section {
     @apply font-serif text-2xl leading-snug text-ink break-keep;
+    text-wrap: balance;
   }
   .h-meta {
     @apply text-[11px] tracking-eyebrow uppercase text-soft;

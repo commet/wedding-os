@@ -39,17 +39,18 @@ export default function AppShell({ data, children }: Props) {
   const showChrome = !isWelcome && !isGuestInvitation;
   // 서브 라우트엔 헤더에 ← 뒤로가기 — /dashboard(홈)·/setup(자체 흐름)·/(랜딩) 제외.
   const showBack = showChrome && !isDashboard;
-  // 백업 알림 — 모드 1(localStorage 만 존재)인 사용자에게만, 의미 있는 데이터가 있을 때만.
-  // 빈 상태 새 사용자에게 "백업하세요" 띄우는 건 노이즈.
-  const hasMeaningfulData = !!(
-    data.invitation.groomName ||
-    data.invitation.brideName ||
+  // 백업 알림 — 모드 1(localStorage 만 존재)인 사용자에게만, 챙길 게 쌓였을 때만.
+  // 첫날 이름만 적은 사용자에게 "백업하세요"는 노이즈 →
+  // 이름 + 실제 준비 항목(반지·스드메·예식장·예산·하객) 하나 이상이 있을 때만 알린다.
+  const hasNames = !!(data.invitation.groomName || data.invitation.brideName);
+  const hasCategory = !!(
     data.rings.length ||
     data.sdm.length ||
     (data.venues ?? []).length ||
     (data.budget ?? []).length ||
     (data.guests ?? []).length
   );
+  const hasMeaningfulData = hasNames && hasCategory;
   const backupStale =
     data.preferences.mode === "local" &&
     hasMeaningfulData &&
@@ -137,8 +138,9 @@ export default function AppShell({ data, children }: Props) {
       {/* 실시간 끊김 알림 — 모드 2 동시 편집 깨진 신호 */}
       {realtimeStatus === "disconnected" && !isGuestInvitation && (
         <div className="anim-drop px-6 py-3 border-b border-hair flex items-center justify-between gap-3">
-          <span className="text-[12px] text-soft">
-            동기화 연결이 끊어졌어요. 네트워크 확인 후 새로고침하세요.
+          <span className="text-[12px] text-soft leading-relaxed">
+            실시간 동기화가 잠깐 끊겼어요. 작업한 내용은 그대로 있으니,
+            네트워크가 돌아오면 새로고침해 주세요.
           </span>
           <button
             onClick={() => window.location.reload()}
@@ -153,9 +155,9 @@ export default function AppShell({ data, children }: Props) {
       {conflictStatus === "detected" && !isGuestInvitation && (
         <div className="anim-drop px-6 py-3 border-b border-hair flex items-center justify-between gap-3 bg-gold/5">
           <span className="text-[12px] text-ink leading-relaxed">
-            <strong>다른 기기에서 먼저 저장됐어요.</strong>
+            <strong>다른 기기에서 먼저 저장했어요.</strong>
             <br />
-            <span className="text-soft">방금 변경한 내용은 적용되지 않았어요. 새로고침해서 최신 데이터를 불러오세요.</span>
+            <span className="text-soft">신랑·신부가 같은 정보를 동시에 고치면 이런 일이 생겨요. 방금 변경한 내용이 덮어쓰이지 않도록 잠시 멈춰뒀어요. <strong className="text-ink font-normal">새로고침</strong>하면 최신 내용을 불러오고, <strong className="text-ink font-normal">나중에</strong>를 누르면 이 알림만 닫아요.</span>
           </span>
           <div className="flex flex-col gap-2 flex-shrink-0">
             <button
@@ -174,8 +176,10 @@ export default function AppShell({ data, children }: Props) {
       {/* 백업 알림 — 가는 띠 */}
       {backupStale && !isGuestInvitation && (
         <div className="anim-drop px-6 py-3 border-b border-hair flex items-center justify-between gap-3">
-          <span className="text-[12px] text-soft">오래 백업을 안 했어요</span>
-          <Link to="/settings#data-backup" className="text-[12px] underline underline-offset-4 text-ink min-h-11 flex items-center">
+          <span className="text-[12px] text-soft leading-relaxed">
+            준비 내용이 이 휴대폰에만 있어요. 한 번 내려받아 두면 기기를 바꿔도 안심이에요.
+          </span>
+          <Link to="/settings#data-backup" className="text-[12px] underline underline-offset-4 text-ink min-h-11 flex items-center flex-shrink-0">
             내려받기
           </Link>
         </div>
@@ -258,5 +262,5 @@ function isBackupStale(lastBackupAt?: string): boolean {
   // lastBackupAt 없음 = 한 번도 백업한 적 없는 데이터. 그래도 즉시 알림은 노이즈 →
   // 호출부에서 "의미있는 데이터가 있을 때만" 조건으로 한 번 더 거른다.
   if (d === null) return true;
-  return d >= 7;
+  return d >= 14;
 }

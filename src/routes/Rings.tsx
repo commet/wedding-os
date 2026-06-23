@@ -9,6 +9,7 @@ import VendorActions from "../components/VendorActions";
 import SafeImg from "../components/SafeImg";
 import { ringPriceCheckPrompt, BridgePrompt } from "../lib/chatbotBridge";
 import { todayISO } from "../lib/freshness";
+import { koBreak } from "../lib/typography";
 
 // 브랜드별 공식 사이트 — 모델 페이지는 변동이 잦아 메인 도메인만.
 // (curl 403도 실제 브라우저에서는 정상 동작)
@@ -34,6 +35,7 @@ type StarterRingPick = { ring: Ring; reason: string };
 
 // 카탈로그 자동 시드를 기기당 한 번만 — 사용자가 목록을 비운 뒤 재진입해도 되살아나지 않게.
 const RINGS_SEEDED_KEY = "wedding-os/rings-seeded";
+const RINGS_INTRO_DISMISSED_KEY = "wedding-os/rings-intro-dismissed/v1";
 const CATALOG_BY_ID = new Map(RING_CATALOG.map((ring) => [ring.id, ring]));
 const OLD_RING_CATALOG_ID_MAP: Record<string, string> = {
   "ring-1": "ring-3",
@@ -76,6 +78,14 @@ export default function Rings({ data, update }: Props) {
   const [brandFilter, setBrandFilter] = useState<string>("전체");
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [showStarter, setShowStarter] = useState(() => searchParams.get("starter") === "1");
+  const [introDismissed, setIntroDismissed] = useState(() => {
+    try { return !!localStorage.getItem(RINGS_INTRO_DISMISSED_KEY); } catch { return false; }
+  });
+
+  function dismissIntro() {
+    setIntroDismissed(true);
+    try { localStorage.setItem(RINGS_INTRO_DISMISSED_KEY, "1"); } catch { /* noop */ }
+  }
 
   // 처음 진입 시 카탈로그 25개 자동 노출 — 단 '한 번만'.
   // 사용자가 반지를 모두 지운 뒤 다시 들어와도 카탈로그가 되살아나지 않도록
@@ -205,12 +215,28 @@ export default function Rings({ data, update }: Props) {
       <div>
         <div className="eyebrow-gold mb-3">반지 후보</div>
         <div className="flex items-baseline justify-between">
-          <h1 className="h-page">결혼반지</h1>
+          <h1 className="h-page">{koBreak("결혼반지")}</h1>
           <button onClick={() => setShowAdd(true)} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
             + 직접 추가
           </button>
         </div>
       </div>
+
+      {/* 첫 진입 안내 — 카탈로그가 미리 채워진 이유를 한 번만 설명 */}
+      {!introDismissed && rings.length > 0 && (
+        <div className="anim-drop border-y border-hair py-4 flex items-start gap-3">
+          <p className="flex-1 text-[12.5px] leading-[1.85] text-soft break-keep">
+            <span className="text-ink">둘러보기예요</span> — 마음에 드는 디자인은 <span className="text-gold">♥</span>, 아닌 건 넘기면 후보가 좁혀져요.
+          </p>
+          <button
+            onClick={dismissIntro}
+            className="text-[11px] tracking-wide text-mute hover:text-ink shrink-0 pt-0.5"
+            aria-label="안내 닫기"
+          >
+            닫기
+          </button>
+        </div>
+      )}
 
       {/* 신랑/신부 — underline 탭 */}
       <div className="flex items-baseline justify-between border-b border-hair pb-3">
@@ -378,7 +404,7 @@ function RingCard({
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <div className="eyebrow text-soft mb-1">{ring.brand}</div>
-              <div className="font-serif text-[18px] text-ink truncate">{ring.model}</div>
+              <div className="font-serif text-[18px] text-ink truncate">{koBreak(ring.model)}</div>
               {ring.material && <div className="text-[11px] text-soft mt-1">{ring.material}</div>}
             </div>
             <button onClick={onRemove} className="text-soft hover:text-ink text-sm px-1">×</button>

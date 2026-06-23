@@ -12,6 +12,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { koBreak } from "../lib/typography";
 import { clearLocalDeviceData, localStorageDriver } from "../lib/storage";
 import { createHostedStorage } from "../lib/storage.hosted";
 import {
@@ -128,14 +129,14 @@ export default function Login() {
 
   if (phase === "error") return (
     <Frame msg={msg}>
-      <h1 className="font-serif text-[1.8rem] mb-3">로그인 준비 중</h1>
+      <h1 className="font-serif text-[1.8rem] mb-3">{koBreak("로그인 준비 중")}</h1>
       <p className="text-[13px] text-soft leading-relaxed">아직 로그인이 설정되지 않았어요. <Link to="/" className="underline underline-offset-4 text-ink">처음으로 →</Link></p>
     </Frame>
   );
 
   if (phase === "email") return (
     <Frame msg={msg}>
-      <h1 className="font-serif text-[1.9rem] leading-tight mb-3">로그인</h1>
+      <h1 className="font-serif text-[1.9rem] leading-tight mb-3">{koBreak("로그인")}</h1>
       <p className="text-[13px] text-soft leading-relaxed mb-6">
         비밀번호 없이 — 카카오·구글 또는 이메일 링크로. 기기를 바꿔도 로그인으로 이어받아요.
       </p>
@@ -167,7 +168,7 @@ export default function Login() {
 
   if (phase === "sent") return (
     <Frame msg={msg}>
-      <h1 className="font-serif text-[1.9rem] leading-tight mb-3">메일을 확인하세요</h1>
+      <h1 className="font-serif text-[1.9rem] leading-tight mb-3">{koBreak("메일을 확인하세요")}</h1>
       <p className="text-[13px] text-soft leading-relaxed">
         <b className="text-ink">{email}</b> 으로 로그인 링크를 보냈어요. 메일의 링크를 누르면 이 화면으로 돌아와 이어집니다.
         (안 오면 스팸함도 확인해주세요.)
@@ -177,7 +178,7 @@ export default function Login() {
 
   if (phase === "foreign") return (
     <Frame msg={msg}>
-      <h1 className="font-serif text-[1.9rem] leading-tight mb-3">다른 계정의 데이터가 있어요</h1>
+      <h1 className="font-serif text-[1.9rem] leading-tight mb-3">{koBreak("다른 계정의 데이터가 있어요")}</h1>
       <p className="text-[13px] text-soft leading-relaxed mb-6">
         이 기기에 남은 청첩장은 <b className="text-ink">{email}</b> 계정과 일치하지 않아 열거나 연결하지 않았어요.
         이 계정으로 계속하려면 기기의 기존 청첩장과 사진을 안전하게 지운 뒤 다시 로그인해야 합니다.
@@ -204,7 +205,7 @@ export default function Login() {
 
   if (phase === "link") return (
     <Frame msg={msg}>
-      <h1 className="font-serif text-[1.9rem] leading-tight mb-3">암호문구 정하기</h1>
+      <h1 className="font-serif text-[1.9rem] leading-tight mb-3">{koBreak("암호문구 정하기")}</h1>
       <p className="text-[13px] text-soft leading-relaxed mb-5">
         <b className="text-ink">{email}</b> 에 이 청첩장을 연결해요. 새 기기에서 <b className="text-ink">로그인 + 암호문구</b>면 복구돼요.
         운영자는 암호문구를 몰라 내용을 못 봐요. <b className="text-gold">잊으면 이 방법으론 복구가 안 되니</b> 기억하기 쉬운 걸로.
@@ -233,7 +234,7 @@ export default function Login() {
 
   if (phase === "recover") return (
     <Frame msg={msg}>
-      <h1 className="font-serif text-[1.9rem] leading-tight mb-3">암호문구 입력</h1>
+      <h1 className="font-serif text-[1.9rem] leading-tight mb-3">{koBreak("암호문구 입력")}</h1>
       <p className="text-[13px] text-soft leading-relaxed mb-5">
         <b className="text-ink">{email}</b> 계정에 연결된 청첩장을 찾았어요. 연결할 때 정한 <b className="text-ink">암호문구</b>를 입력하면 그대로 이어받아요.
       </p>
@@ -250,7 +251,7 @@ export default function Login() {
 
   if (phase === "none") return (
     <Frame msg={msg}>
-      <h1 className="font-serif text-[1.9rem] leading-tight mb-3">연결된 청첩장이 없어요</h1>
+      <h1 className="font-serif text-[1.9rem] leading-tight mb-3">{koBreak("연결된 청첩장이 없어요")}</h1>
       <p className="text-[13px] text-soft leading-relaxed">
         <b className="text-ink">{email}</b> 에 연결된 청첩장이 아직 없어요. 기존 기기에서 [설정 → 로그인 연결]을 먼저 해주세요.
         처음이라면 <Link to="/start-hosted" className="underline underline-offset-4 text-ink">간편 모드로 시작 →</Link>
@@ -261,7 +262,7 @@ export default function Login() {
   // linked
   return (
     <Frame msg={msg}>
-      <h1 className="font-serif text-[1.9rem] leading-tight mb-3">연결됐어요 ✓</h1>
+      <h1 className="font-serif text-[1.9rem] leading-tight mb-3">{koBreak("연결됐어요 ✓")}</h1>
       <p className="text-[13px] text-soft leading-relaxed mb-6">
         이제 기기를 바꿔도 <b className="text-ink">{email}</b> 로 로그인하고 암호문구를 넣으면 그대로 복구돼요.
       </p>
