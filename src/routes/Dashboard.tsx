@@ -65,19 +65,6 @@ export default function Dashboard({ data, update }: Props) {
     data.invitation.venue,
     data.invitation.greeting,
   ].filter(Boolean).length;
-  const coreProgress = Math.round(
-    ([
-      !!data.invitation.date,
-      !!data.invitation.venue || venueCount > 0,
-      checklistTotal > 0,
-      budgetCount > 0,
-      guestCount > 0,
-      invitationReadyCount >= 4,
-      data.rings.length > 0,
-      data.honeymoon.regions.length + data.flights.length + data.hotels.length > 0,
-    ].filter(Boolean).length / 8) * 100
-  );
-
   // 영역 간 위험 신호 — 서브페이지를 안 열어도 홈에서 한눈에.
   const { overCount: overBudgetCount, overSum: overBudgetSum } = budgetTotals(data);
   const overdueCount = overdueChecklistCount(data);
@@ -372,6 +359,11 @@ export default function Dashboard({ data, update }: Props) {
     },
   ];
 
+  // 헤드라인 준비도 — 영역별 부분 진행률(readiness)의 평균. 한 곳만 채워도 지표가 움직인다.
+  const readinessPercent = readiness.length
+    ? Math.round(readiness.reduce((sum, r) => sum + r.percent, 0) / readiness.length)
+    : 0;
+
   // 전역 메뉴 — AppShell "더보기" 시트와 동일한 단일 소스(lib/menu.ts)를 공유.
   const MENU_GROUPS = buildMenuGroups(data);
   const primaryFocus = focusItems[0] ?? {
@@ -451,9 +443,9 @@ export default function Dashboard({ data, update }: Props) {
             <div className="mt-8 max-w-[18rem] mx-auto">
               <div className="flex items-end justify-between mb-2">
                 <span className="eyebrow">전체 준비도</span>
-                <span className="font-serif text-2xl text-ink tabular-nums">{coreProgress}%</span>
+                <span className="font-serif text-2xl text-ink tabular-nums">{readinessPercent}%</span>
               </div>
-              <ProgressLine value={coreProgress} />
+              <ProgressLine value={readinessPercent} />
             </div>
           </>
         )}
@@ -551,7 +543,7 @@ export default function Dashboard({ data, update }: Props) {
           <summary className="list-none cursor-pointer flex items-center justify-between gap-4 min-h-11">
             <span>
               <span className="eyebrow block mb-1">전체 준비 현황</span>
-              <span className="font-serif text-2xl text-ink">{coreProgress}% {koBreak("진행 중")}</span>
+              <span className="font-serif text-2xl text-ink">{readinessPercent}% {koBreak("진행 중")}</span>
             </span>
             <span className="text-[12px] text-soft underline underline-offset-4">펼쳐보기</span>
           </summary>

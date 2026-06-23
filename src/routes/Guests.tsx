@@ -55,6 +55,32 @@ export default function Guests({ data, update }: Props) {
     return { total, attending: attending.length, declined: declined.length, pending, partySum, giftSum, mealCount, groom, bride };
   }, [guests]);
 
+  const exportCsv = () => {
+    if (guests.length === 0) return;
+    const header = ["이름", "구분", "관계", "상태", "동반인원", "축의금"];
+    const rows = guests.map((g) => [
+      g.name,
+      SIDE_LABEL[g.side],
+      g.relation ?? "",
+      STATUS_LABEL[g.status],
+      String(g.partyCount ?? 1),
+      g.giftKRW != null ? String(g.giftKRW) : "",
+    ]);
+    const body = [header, ...rows]
+      .map((cols) => cols.map(csvCell).join(","))
+      .join("\r\n");
+    // UTF-8 BOM — Excel에서 한글이 깨지지 않도록.
+    const blob = new Blob(["﻿" + body], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "wedding-guests.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const addGuest = (name: string, side: GuestSide) => {
     const cleanName = name.trim();
     if (!cleanName) return;
@@ -212,6 +238,23 @@ export default function Guests({ data, update }: Props) {
         );
       })()}
 
+      {(() => {
+        const { groom, bride } = stats;
+        if (groom === 0 || bride === 0) return null;
+        const larger = Math.max(groom, bride);
+        const smaller = Math.min(groom, bride);
+        const diff = larger - smaller;
+        // 한쪽이 1.6배 이상이면서 차이가 20명 이상일 때만 — 가볍게 한 번 짚어줍니다.
+        if (larger < smaller * 1.6 || diff < 20) return null;
+        const moreSide = groom > bride ? "신랑" : "신부";
+        const lessSide = groom > bride ? "신부" : "신랑";
+        return (
+          <p className="-mt-2 border-b border-hair px-1 py-3 text-[12px] text-soft leading-relaxed break-keep">
+            {moreSide} 측이 {lessSide} 측보다 {diff}명 많아요 — 양가 균형을 한 번 확인해 보세요.
+          </p>
+        );
+      })()}
+
       {/* 검색 + 추가 */}
       <div className="space-y-4">
         {data.preferences.mode === "supabase" && (
@@ -237,7 +280,7 @@ export default function Guests({ data, update }: Props) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <div className="flex gap-5 overflow-x-auto -mx-6 px-6 scrollbar-hide">
             {(["all", "groom", "bride", "attending", "pending"] as const).map((f) => (
               <button
@@ -249,6 +292,15 @@ export default function Guests({ data, update }: Props) {
               </button>
             ))}
           </div>
+          {guests.length > 0 && (
+            <button
+              type="button"
+              onClick={exportCsv}
+              className="text-[12px] underline underline-offset-4 text-soft hover:text-ink whitespace-nowrap flex-shrink-0"
+            >
+              내보내기 →
+            </button>
+          )}
         </div>
         <GuestAddBlock
           side={addSide}
@@ -398,6 +450,14 @@ function GuestAddBlock({
       )}
     </div>
   );
+}
+
+// CSV 셀 이스케이프 — 쉼표·따옴표·줄바꿈이 있으면 큰따옴표로 감싸고 내부 따옴표는 두 번 반복.
+function csvCell(value: string): string {
+  if (/[",\r\n]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
 }
 
 function guestMatchKey(name: string, side: GuestSide) {
