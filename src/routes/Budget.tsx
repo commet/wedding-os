@@ -116,6 +116,17 @@ export default function Budget({ data, update }: Props) {
         <SummaryRow label="우리 예산 합계" value={totals.planned} accent />
         <SummaryRow label="실제 지출" value={totals.actual} muted />
         <SummaryRow label="참고 기준값" value={totals.avg} muted />
+        <details className="text-[11.5px] text-soft">
+          <summary className="cursor-pointer list-none underline underline-offset-2 hover:text-ink">
+            ‘참고 기준값’은 어디서 온 값인가요?
+          </summary>
+          <p className="mt-2 leading-relaxed break-keep">
+            국가가 발표한 공식 통계가 아니라, 공개된 결혼 비용 자료와 업계의 일반적인 견적
+            범위를 묶어 만든 <b className="text-ink font-medium">대략적인 참고치</b>예요. 지역·시즌·요일·보증인원·계약
+            조건에 따라 실제 금액은 크게 달라집니다. 실제 견적을 받으면 그 값으로 바꿔
+            비교하시길 권해요. 어떤 업체와도 제휴·후원 관계가 없습니다.
+          </p>
+        </details>
         <div className="pt-3 border-t border-hair">
           <SummaryRow label="결제 완료" value={totals.paid} muted small />
           <div className="grid grid-cols-2 gap-4 pt-3 text-[11.5px]">

@@ -307,7 +307,19 @@ export default function Dashboard({ data, update }: Props) {
         tag: "함께 편집",
       });
     }
-    return dedupeFocusItems(items).slice(0, 3);
+    const deduped = dedupeFocusItems(items);
+    let top = deduped.slice(0, 4);
+    // 반지는 중요한 시작 '킥' — 후보가 비어 있으면 첫 네 단계 안에 반드시 노출한다.
+    if (data.rings.length === 0 && !top.some((i) => i.to === "/rings")) {
+      const ringItem = deduped.find((i) => i.to === "/rings") ?? {
+        to: "/rings",
+        title: "반지 후보 풀 만들기",
+        desc: "브랜드·예산·소재 기준으로 볼 만한 후보를 빠르게 좁힙니다.",
+        tag: "후보 정리",
+      };
+      top = [...top.slice(0, 3), ringItem];
+    }
+    return top;
   }, [
     data.ai?.today,
     budgetCount,
@@ -409,13 +421,15 @@ export default function Dashboard({ data, update }: Props) {
           </div>
         ) : (
           <>
-            <div className="eyebrow mb-6">두 분의 준비판</div>
-            <h1 className="font-serif text-[1.625rem] leading-[1.4] text-ink mb-8 tracking-wide break-keep">
+            {/* 1) 정체성 — 누구의 준비판인가 */}
+            <div className="eyebrow-gold mb-4">두 분의 준비판</div>
+            <h1 className="font-serif text-[1.625rem] leading-[1.4] text-ink tracking-wide break-keep">
               {koBreak(coupleDisplay)}
             </h1>
 
+            {/* 2) 큰 숫자 — D-day */}
             {dday !== null && (
-              <div className="mb-8">
+              <div className="mt-6">
                 {dday > 0 ? (
                   <div className="font-serif text-[5rem] leading-none text-ink tracking-tight">
                     D−<span className="tabular-nums">{dday}</span>
@@ -432,8 +446,9 @@ export default function Dashboard({ data, update }: Props) {
               </div>
             )}
 
-            <div className="space-y-1.5">
-              <p className="text-[13px] text-ink tracking-wide">
+            {/* 3) 사실 밴드 — 날짜·장소, 한 단 낮은 위계로 hairline 구분 */}
+            <div className="mt-7 border-t border-hair pt-4 space-y-1">
+              <p className="text-[13px] text-ink tracking-wide break-keep">
                 {formatWeddingDate(data.invitation.date) || "날짜 미정"}
                 {data.invitation.time && ` · ${data.invitation.time}`}
               </p>
@@ -442,12 +457,15 @@ export default function Dashboard({ data, update }: Props) {
               </p>
             </div>
 
-            <div className="mt-8 max-w-[18rem] mx-auto">
-              <div className="flex items-end justify-between mb-2">
+            {/* 4) 준비도 — 또 한 단 분리, 정제된 미터 */}
+            <div className="mt-6 border-t border-hair pt-5">
+              <div className="flex items-end justify-between mb-2.5">
                 <span className="eyebrow">전체 준비도</span>
-                <span className="font-serif text-2xl text-ink tabular-nums">{readinessPercent}%</span>
+                <span className="font-serif text-2xl text-ink tabular-nums leading-none">
+                  {readinessPercent}<span className="text-[14px] text-soft ml-0.5">%</span>
+                </span>
               </div>
-              <ProgressLine value={readinessPercent} />
+              <ReadinessMeter value={readinessPercent} />
             </div>
           </>
         )}
@@ -527,7 +545,7 @@ export default function Dashboard({ data, update }: Props) {
         )}
         {!agentChoosing && focusItems.length > 1 && (
           <div className="mt-7 border-t border-hair">
-            {focusItems.slice(1, 3).map((item, index) => (
+            {focusItems.slice(1, 4).map((item, index) => (
               <Link key={`${item.to}-${item.title}`} to={item.to} className="row-tap grid min-h-[70px] grid-cols-[2rem_1fr_auto] items-center gap-3 border-b border-hair py-3">
                 <span className="font-serif text-[14px] text-gold">0{index + 2}</span>
                 <span className="text-[13px] leading-relaxed text-ink">{item.title}</span>
@@ -550,8 +568,8 @@ export default function Dashboard({ data, update }: Props) {
         <details>
           <summary className="list-none cursor-pointer flex items-center justify-between gap-4 min-h-11">
             <span>
-              <span className="eyebrow block mb-1">전체 준비 현황</span>
-              <span className="font-serif text-2xl text-ink">{readinessPercent}% {koBreak("진행 중")}</span>
+              <span className="eyebrow block mb-1">영역별 현황</span>
+              <span className="font-serif text-2xl text-ink">{koBreak("어디까지 왔는지 보기")}</span>
             </span>
             <span className="text-[12px] text-soft underline underline-offset-4">펼쳐보기</span>
           </summary>
@@ -645,6 +663,30 @@ export default function Dashboard({ data, update }: Props) {
         prompt={aiPrompt}
         onApply={applyAiStarter}
       />
+    </div>
+  );
+}
+
+// 헤드라인 준비도 미터 — 막대 그 자체보다 한 톤 정제. 금색 그라데이션 채움 +
+// 사분위 눈금 + 진행 머리의 다이아 마커(식순 타임라인과 같은 모티프). 슬림하게.
+function ReadinessMeter({ value }: { value: number }) {
+  const pct = Math.max(0, Math.min(100, value));
+  return (
+    <div className="relative h-[6px] bg-hair">
+      <div
+        className="absolute inset-y-0 left-0 bg-gradient-to-r from-gold/55 to-gold transition-all duration-500"
+        style={{ width: `${pct}%` }}
+      />
+      {[25, 50, 75].map((q) => (
+        <span key={q} aria-hidden="true" className="absolute inset-y-0 w-px bg-paper/70" style={{ left: `${q}%` }} />
+      ))}
+      {pct > 1 && pct < 99 && (
+        <span
+          aria-hidden="true"
+          className="absolute top-1/2 w-2.5 h-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 bg-gold border border-paper"
+          style={{ left: `${pct}%` }}
+        />
+      )}
     </div>
   );
 }

@@ -258,10 +258,16 @@ export default function Venues({ data, update }: Props) {
 
           {tab === "catalog" && (
             <>
-              {/* 안내 */}
-              <p className="text-[12px] text-soft leading-relaxed border-b border-hair pb-4">
-                {VENUE_PRICE_NOTE}
-              </p>
+              {/* 골라 담기 안내 — 카탈로그가 '고르는 곳'임을 또렷이 */}
+              <div className="border-y border-hair py-4">
+                <div className="eyebrow-gold mb-1.5">골라 담기</div>
+                <p className="font-serif text-[17px] text-ink leading-snug break-keep">
+                  마음에 드는 곳을 담으면 <span className="text-gold">‘내 후보’</span>에서 비교돼요
+                </p>
+                <p className="mt-2 text-[12px] text-soft leading-relaxed">
+                  {VENUE_PRICE_NOTE}
+                </p>
+              </div>
 
               {/* 홀 형식 필터 */}
               <div className="flex gap-5 overflow-x-auto pb-2 -mx-6 px-6 scrollbar-hide">
@@ -547,7 +553,7 @@ function CatalogRow({ v, added, onAdd }: { v: WeddingVenue; added: boolean; onAd
         <button
           onClick={onAdd}
           disabled={added}
-          className={`text-[12px] tracking-wide whitespace-nowrap flex-shrink-0 underline underline-offset-4 ${added ? "text-soft" : "text-gold hover:text-ink"}`}
+          className={`min-h-9 px-3 text-[12px] tracking-wide whitespace-nowrap flex-shrink-0 border transition ${added ? "border-hair text-soft" : "border-gold text-gold hover:bg-gold hover:text-paper"}`}
         >
           {added ? "✓ 담음" : "+ 담기"}
         </button>

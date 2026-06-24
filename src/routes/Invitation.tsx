@@ -1222,7 +1222,9 @@ function QuickStart({ inv, set, onPreview, contractedVenueName }: {
   onPreview?: () => void;
   contractedVenueName?: string;
 }) {
-  const ready = !!inv.groomName && !!inv.brideName && !!inv.date;
+  // 미리보기는 이름만 있으면 열어준다 — 날짜·장소는 미리보기를 보며 더해도 되고,
+  // 미리보기 자체가 '날짜 미정'도 정상 렌더한다. (예전엔 날짜까지 강제해 버튼이 막혔음)
+  const ready = !!inv.groomName && !!inv.brideName;
   // 마운트 시점에 이미 필수가 있으면 노출 안 함. 채우는 중 완성돼도 카드는 유지해
   // CTA 버튼이 사라지지 않게 하고, 미리보기 다녀와 EditForm 이 재마운트되면 그때 사라진다.
   const [neededAtMount] = useState(!ready);
@@ -1248,8 +1250,14 @@ function QuickStart({ inv, set, onPreview, contractedVenueName }: {
         </div>
       </div>
       <div className="mb-3">
-        <label className="label">예식 날짜</label>
-        <input aria-label="예식 날짜" type="date" className="input" value={inv.date} onChange={(e) => set("date", e.target.value)} />
+        <label className="label">예식 날짜 <span className="text-mute normal-case tracking-normal">· 미정이면 비워두세요</span></label>
+        <input
+          aria-label="예식 날짜"
+          type="date"
+          className={`input ${inv.date ? "text-ink" : "text-soft"}`}
+          value={inv.date}
+          onChange={(e) => set("date", e.target.value)}
+        />
       </div>
       <div className="mb-5">
         <label className="label">예식장 <span className="text-mute normal-case tracking-normal">· 나중에 넣어도 돼요</span></label>
@@ -1267,11 +1275,50 @@ function QuickStart({ inv, set, onPreview, contractedVenueName }: {
       >
         미리보기로 결과 보기 →
       </button>
-      {!ready && (
-        <p className="text-[11px] text-soft text-center mt-2.5">
-          이름과 날짜를 채우면 완성된 청첩장을 볼 수 있어요.
-        </p>
-      )}
+      <p className="text-[11px] text-soft text-center mt-2.5">
+        {ready
+          ? "날짜·장소는 미리보기를 보며 천천히 더해도 돼요."
+          : "두 분 이름만 채우면 완성된 청첩장을 볼 수 있어요."}
+      </p>
+    </div>
+  );
+}
+
+// 편집 화면 상단의 '도우미' 띠 — 빈 폼이 한꺼번에 쏟아지는 느낌을 줄이고,
+// 지금 무엇이 남았는지 + 다른 화면의 정보로 한 번에 채울 수 있는 것을 먼저 안내한다.
+function EditAssist({ inv, set, data, onPreview }: {
+  inv: InvitationContent;
+  set: (k: any, v: any) => void;
+  data: WeddingData;
+  onPreview?: () => void;
+}) {
+  const r = invitationReadiness(data);
+  const venueName = contractedVenue(data)?.name;
+  const canFillVenue = !inv.venue.trim() && !!venueName;
+  const done = r.filled >= r.total;
+  return (
+    <div className="border border-hair bg-cream/30 px-5 py-5 mb-7">
+      <div className="flex items-stretch gap-2.5 mb-2.5">
+        <span aria-hidden="true" className="w-px self-stretch bg-gold/70" />
+        <span className="eyebrow-gold leading-none pt-0.5">청첩장 도우미</span>
+      </div>
+      <p className="text-[13px] text-soft leading-[1.7] break-keep">
+        {done
+          ? "기본 정보가 모두 준비됐어요. 사진·색감을 더하거나 바로 미리보기로 확인해 보세요."
+          : koBreak(`공유까지 ${r.total - r.filled}가지만 더 채우면 돼요 — ${r.missing.join(", ")}.`)}
+      </p>
+      <div className="mt-3.5 flex flex-wrap gap-x-5 gap-y-2.5">
+        {canFillVenue && (
+          <button type="button" onClick={() => set("venue", venueName)} className="seg break-keep">
+            계약한 ‘{venueName}’ 넣기
+          </button>
+        )}
+        {onPreview && (
+          <button type="button" onClick={onPreview} className="seg">
+            미리보기로 확인
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -1308,6 +1355,8 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
       {showQuickStart && <QuickStart inv={inv} set={set} onPreview={onPreview} contractedVenueName={contractedVenue(data)?.name} />}
 
       {!showQuickStart && <>
+      <EditAssist inv={inv} set={set} data={data} onPreview={onPreview} />
+
       <div id="publish-invitation" className="scroll-mt-36">
         <Section title="하객용 링크 발행" defaultOpen={hasEssentials || location.search.includes("edit=publish")}>
           <PublishSection data={data} update={update} />
@@ -1374,7 +1423,7 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
       </Section>}
 
       {!showQuickStart && <Section title="예식 일정" defaultOpen>
-        <Field label="날짜"><input type="date" className="input" value={inv.date} onChange={(e) => set("date", e.target.value)} /></Field>
+        <Field label="날짜"><input type="date" className={`input ${inv.date ? "text-ink" : "text-soft"}`} value={inv.date} onChange={(e) => set("date", e.target.value)} /></Field>
         <Field label="시간"><input className="input" value={inv.time ?? ""} onChange={(e) => set("time", e.target.value)} placeholder="오후 3시" /></Field>
         <Field label="예식장"><input className="input" value={inv.venue} onChange={(e) => set("venue", e.target.value)} placeholder="서울대학교 교수회관" /></Field>
         <Field label="홀/층"><input className="input" value={inv.venueHall ?? ""} onChange={(e) => set("venueHall", e.target.value)} placeholder="3층 그랜드볼룸" /></Field>

@@ -97,7 +97,7 @@ test.describe("dashboard visual smoke", () => {
     await seedVisualData(page, true);
     await page.goto("/dashboard");
 
-    await expect(page.getByText("전체 준비 현황")).toBeVisible();
+    await expect(page.getByText("영역별 현황")).toBeVisible();
     await expect(page.getByText("Timeline")).toHaveCount(0);
     await expect(page.getByText("영역별 준비도")).toHaveCount(0);
     await expect(page.getByText("시작 후보 잡기")).toHaveCount(0);

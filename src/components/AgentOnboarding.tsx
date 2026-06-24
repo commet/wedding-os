@@ -181,7 +181,11 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
         )}
 
         {step === 6 && (
-          <AgentStep eyebrow="첫 브리핑" title={koBreak(`${coupleLabel} 두 분을 위한 시작 순서예요.`)} message="한꺼번에 다 하지 않아도 돼요. 첫 번째 일부터 함께 이어가요.">
+          <AgentStep
+            eyebrow="첫 브리핑"
+            title={koBreak(coupleLabel === "두 분" ? "두 분을 위한 시작 순서예요." : `${coupleLabel} 두 분을 위한 시작 순서예요.`)}
+            message={<>한꺼번에 다 하지 않아도 돼요. <span className="whitespace-nowrap">첫 번째 일부터 함께 이어가요.</span></>}
+          >
             <div className="mt-9 grid grid-cols-2 gap-x-6 gap-y-5 border-y border-hair px-1 py-6">
               {summary.map((item) => (
                 <div key={item.label}>
@@ -209,7 +213,7 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
   );
 }
 
-function AgentStep({ eyebrow, title, message, children }: { eyebrow: string; title: React.ReactNode; message?: string; children: React.ReactNode }) {
+function AgentStep({ eyebrow, title, message, children }: { eyebrow: string; title: React.ReactNode; message?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className="page-enter">
       <div className="eyebrow-gold mb-4">{eyebrow}</div>
