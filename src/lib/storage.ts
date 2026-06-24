@@ -286,6 +286,7 @@ function migrate(raw: unknown): WeddingData {
     venues:      (Array.isArray(data.venues)   ? data.venues.filter(isPlainObject)   : []) as WeddingData["venues"],
     budget:      (Array.isArray(data.budget)   ? data.budget.filter(isPlainObject)   : []) as WeddingData["budget"],
     guests:      (Array.isArray(data.guests)   ? data.guests.filter(isPlainObject)   : []) as WeddingData["guests"],
+    headcount:   sanitizeHeadcount(data.headcount),
     ceremony:    (Array.isArray(data.ceremony) ? data.ceremony.filter(isPlainObject) : undefined) as WeddingData["ceremony"],
     video: (() => {
       const v = isPlainObject(data.video) ? data.video : {};
@@ -298,6 +299,22 @@ function migrate(raw: unknown): WeddingData {
     })(),
     publish: sanitizePublish(data.publish),
   };
+}
+
+// 예상 인원 검증 — side·category 가 유효하고 expected 가 정상 수일 때만 통과.
+function sanitizeHeadcount(h: unknown): WeddingData["headcount"] {
+  if (!isPlainObject(h) || !Array.isArray(h.estimates)) return undefined;
+  const cats = new Set(["family", "relative", "work", "school", "friend", "acquaintance"]);
+  const estimates = h.estimates
+    .filter(isPlainObject)
+    .filter((e) => (e.side === "groom" || e.side === "bride") && cats.has(String(e.category)))
+    .map((e) => ({
+      side: e.side,
+      category: e.category,
+      expected: typeof e.expected === "number" && e.expected > 0 ? Math.min(Math.round(e.expected), 9999) : 0,
+    }))
+    .filter((e) => e.expected > 0);
+  return (estimates.length ? { estimates } : undefined) as WeddingData["headcount"];
 }
 
 // 발행 자격증명 검증 — code·keyRaw 가 문자열일 때만 통과. 손상 시 undefined(미발행 취급).

@@ -11,7 +11,7 @@ import { AgentIdentity } from "../components/AgentIdentity";
 import { buildMenuGroups } from "../lib/menu";
 import {
   budgetTotals, overdueChecklistCount, formatKRW, upcomingBalances, upcomingEvents,
-  weddingPhase, rsvpReadiness, mealBudgetCheck, contractedVenue, expectedHeadcount, venueCapacityFit,
+  weddingPhase, rsvpReadiness, mealBudgetCheck, contractedVenue, planningHeadcount, venueCapacityFit,
 } from "../lib/derived";
 import { koBreak } from "../lib/typography";
 
@@ -77,7 +77,7 @@ export default function Dashboard({ data, update }: Props) {
   // 에이전트 '상황 읽기' — D-day 국면 + 부부 데이터에서 직접 추론한 신호들(읽기 전용, AI 비용 없음).
   const phase = weddingPhase(dday);
   const contractVenueForFit = contractedVenue(data);
-  const headcountForFit = expectedHeadcount(data);
+  const headcountForFit = planningHeadcount(data);
   const capFit = venueCapacityFit(contractVenueForFit, headcountForFit);
   const rsvp = rsvpReadiness(data);
   const mealCheck = mealBudgetCheck(data);

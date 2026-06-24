@@ -1,9 +1,12 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import type { WeddingData, Guest, GuestSide, GuestStatus } from "../lib/schema";
+import type { WeddingData, Guest, GuestSide, GuestStatus, GuestCategory } from "../lib/schema";
 import { listRsvps, type RsvpRow } from "../lib/storage.supabase";
 import { koBreak } from "../lib/typography";
-import { contractedVenue, expectedHeadcount, venueCapacityFit } from "../lib/derived";
+import {
+  contractedVenue, expectedHeadcount, venueCapacityFit, planningHeadcount,
+  headcountSummary, mealCostRange, formatKRW, GUEST_CATEGORIES, GUEST_CATEGORY_LABEL,
+} from "../lib/derived";
 
 type Props = { data: WeddingData; update: (patch: any) => void };
 type Filter = "all" | "groom" | "bride" | "attending" | "pending";
@@ -198,6 +201,9 @@ export default function Guests({ data, update }: Props) {
             이름과 어느 쪽 하객인지 먼저 적어두면 참석 여부와 식수는 자동으로 모입니다.
           </p>
         </div>
+        <div className="text-left">
+          <HeadcountEstimator data={data} update={update} />
+        </div>
         <GuestAddBlock
           side={addSide}
           onSideChange={setAddSide}
@@ -231,6 +237,8 @@ export default function Guests({ data, update }: Props) {
         <h1 className="h-page">하객 명단</h1>
       </div>
 
+      <HeadcountEstimator data={data} update={update} />
+
       {/* 통계 — hairline 그리드 */}
       <div className="grid grid-cols-2 gap-x-6 gap-y-5 border-y border-hair py-6">
         <Stat label="초대 총 인원" value={stats.total} accent />
@@ -245,7 +253,7 @@ export default function Guests({ data, update }: Props) {
 
       {(() => {
         const venue = contractedVenue(data);
-        const head = expectedHeadcount(data);
+        const head = planningHeadcount(data);
         const fit = venueCapacityFit(venue, head);
         if (!venue || fit === "unknown") return null;
         const tone = fit === "over" || fit === "under" ? "text-gold font-semibold" : "text-soft";
@@ -369,6 +377,128 @@ export default function Guests({ data, update }: Props) {
         축의금 · 식수 합계는 자동 계산. 혼자 쓰는 동안에는 이 기기에만 저장됩니다.
       </p>
     </div>
+  );
+}
+
+// 예상 인원 계산기 — 명단을 다 적기 전에도 측·분류별로 몇 명 올지 가늠하고,
+// 보증인원·식대·균형을 즉시 계산해 알려준다. 명단·회신이 들어오면 자동으로 reconcile.
+function HeadcountEstimator({ data, update }: { data: WeddingData; update: (patch: any) => void }) {
+  const sum = headcountSummary(data);
+  const hasEst = sum.estTotal > 0;
+  const [editing, setEditing] = useState(false);
+  const open = !hasEst || editing;
+
+  const venue = contractedVenue(data);
+  const planning = planningHeadcount(data);
+  const fit = venueCapacityFit(venue, planning);
+  const meal = mealCostRange(venue, planning);
+  const { groom, bride } = sum.estBySide;
+
+  const setEstimate = (side: "groom" | "bride", category: GuestCategory, raw: string) => {
+    const v = Math.max(0, Math.min(9999, Math.round(Number(raw) || 0)));
+    update((prev: WeddingData) => {
+      const list = (prev.headcount?.estimates ?? []).filter((e) => !(e.side === side && e.category === category));
+      if (v > 0) list.push({ side, category, expected: v });
+      return { ...prev, headcount: { estimates: list } };
+    });
+  };
+
+  // 에이전트의 상황 읽기 — 추정치에서 바로 reconcile.
+  const reads: string[] = [];
+  if (venue && fit === "over" && venue.capacityMax) {
+    reads.push(`계약한 ${venue.name} 보증 ${venue.capacityMax}명을 ${planning - venue.capacityMax}명 넘을 수 있어요 — 인원 조정이나 식장 재확인이 필요해요.`);
+  } else if (venue && fit === "under" && venue.capacityMin) {
+    reads.push(`최소 보증인원 ${venue.capacityMin}명보다 ${venue.capacityMin - planning}명 적어요 — 보증금 손해 가능성을 확인하세요.`);
+  }
+  if (meal) {
+    const m = meal.max ?? meal.min;
+    const per = venue?.mealPriceMax ?? venue?.mealPriceMin;
+    if (m && per) reads.push(`예상 식대 약 ${formatKRW(m)} (1인 ${Math.round(per / 10000)}만 기준).`);
+  }
+  if (groom > 0 && bride > 0) {
+    const diff = Math.abs(groom - bride);
+    if (Math.max(groom, bride) >= Math.min(groom, bride) * 1.5 && diff >= 20) {
+      reads.push(`${groom > bride ? "신랑" : "신부"} 측이 ${diff}명 많아요 — 양가 균형을 한 번 살펴보세요.`);
+    }
+  }
+  if (sum.listed > 0) {
+    reads.push(`명단엔 ${sum.listed}명 입력 · 참석 회신 ${sum.confirmed}명 — 회신이 들어오면 추정이 자동으로 좁혀져요.`);
+  } else if (hasEst) {
+    reads.push("아직 명단 전이에요. 이름·회신을 채우면 이 추정이 점점 정확해져요.");
+  }
+
+  return (
+    <section className="border border-hair bg-cream/30 px-5 py-5">
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <div className="eyebrow-gold mb-1.5">예상 인원</div>
+          <div className="font-serif text-[2rem] leading-none text-ink tabular-nums">
+            {planning}<span className="text-[14px] text-soft ml-1">명</span>
+          </div>
+        </div>
+        <div className="text-right text-[12px] text-soft tabular-nums leading-relaxed">
+          <div>신랑 {groom} · 신부 {bride}</div>
+          {sum.confirmed > 0 && <div className="text-gold">참석 확정 {sum.confirmed}</div>}
+        </div>
+      </div>
+
+      {!hasEst && (
+        <p className="mt-3 text-[12.5px] text-soft leading-relaxed break-keep">
+          명단을 다 적기 전에도, 분류별로 몇 명 올지 어림수로 잡아보세요. 보증인원·식대·균형을 바로 계산해 드려요.
+        </p>
+      )}
+
+      {reads.length > 0 && (
+        <ul className="mt-3.5 space-y-1.5 border-l-2 border-gold/60 pl-3">
+          {reads.map((r, i) => (
+            <li key={i} className="text-[12.5px] text-soft leading-relaxed break-keep">{r}</li>
+          ))}
+        </ul>
+      )}
+
+      {hasEst && (
+        <button onClick={() => setEditing((v) => !v)} className="mt-4 text-[12px] underline underline-offset-4 text-ink hover:text-gold">
+          {editing ? "분류별 입력 접기" : "분류별 예상 수정 →"}
+        </button>
+      )}
+
+      {open && (
+        <div className="mt-4 border-t border-hair pt-4">
+          <div className="grid grid-cols-[1fr_4.25rem_4.25rem] gap-x-3 gap-y-2 items-center">
+            <span className="eyebrow">분류</span>
+            <span className="eyebrow text-center">신랑</span>
+            <span className="eyebrow text-center">신부</span>
+            {sum.rows.map((row) => (
+              <Fragment key={row.category}>
+                <span className="text-[13px] text-ink break-keep">
+                  {row.label}
+                  {row.listed > 0 && <span className="text-[10px] text-soft tabular-nums ml-1.5">명단 {row.listed}</span>}
+                </span>
+                <input
+                  type="number" min={0} inputMode="numeric"
+                  aria-label={`${row.label} 신랑 측 예상`}
+                  className="input text-[13px] tabular-nums text-center py-1.5"
+                  value={row.groomEst || ""}
+                  onChange={(e) => setEstimate("groom", row.category, e.target.value)}
+                  placeholder="0"
+                />
+                <input
+                  type="number" min={0} inputMode="numeric"
+                  aria-label={`${row.label} 신부 측 예상`}
+                  className="input text-[13px] tabular-nums text-center py-1.5"
+                  value={row.brideEst || ""}
+                  onChange={(e) => setEstimate("bride", row.category, e.target.value)}
+                  placeholder="0"
+                />
+              </Fragment>
+            ))}
+          </div>
+          <p className="mt-3 text-[11px] text-soft leading-relaxed break-keep">
+            가족·친척·직장·학교·친구·지인으로 나눠 어림수로 적으면 돼요. 숫자는 언제든 고칠 수 있어요.
+          </p>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -559,7 +689,8 @@ function GuestRow({ g, onChange, onRemove }: { g: Guest; onChange: (p: Partial<G
             <span className="eyebrow">{SIDE_LABEL[g.side]}</span>
           </div>
           <div className="text-[12px] text-soft mt-1 space-x-2">
-            {g.relation && <span>{g.relation}</span>}
+            {g.category && <span>{GUEST_CATEGORY_LABEL[g.category]}</span>}
+            {g.relation && <span>{g.category ? "· " : ""}{g.relation}</span>}
             <span className={g.status === "참석" ? "text-ink" : ""}>· {STATUS_LABEL[g.status]}</span>
             {g.giftKRW != null && g.giftKRW > 0 && (
               <span className="tabular-nums">· {g.giftKRW.toLocaleString()}원</span>
@@ -594,6 +725,21 @@ function GuestRow({ g, onChange, onRemove }: { g: Guest; onChange: (p: Partial<G
                   className={g.side === s ? "seg-active" : "seg"}
                 >
                   {SIDE_LABEL[s]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="label">분류 <span className="text-mute normal-case tracking-normal">· 예상 인원에 반영</span></label>
+            <div className="flex flex-wrap gap-x-5 gap-y-2">
+              {GUEST_CATEGORIES.map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => onChange({ category: g.category === key ? undefined : key })}
+                  className={g.category === key ? "seg-active" : "seg"}
+                >
+                  {label}
                 </button>
               ))}
             </div>

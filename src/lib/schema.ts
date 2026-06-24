@@ -133,11 +133,15 @@ export type BudgetItem = {
 export type GuestSide = "groom" | "bride" | "shared";
 export type GuestStatus = "초대 예정" | "초대 완료" | "참석" | "불참" | "미정";
 
+// 하객 분류 — 예상 인원 계산기와 명단을 같은 축으로 묶는다.
+export type GuestCategory = "family" | "relative" | "work" | "school" | "friend" | "acquaintance";
+
 export type Guest = {
   id: string;
   name: string;
   relation?: string;        // "회사 동료", "고등학교 친구" 등 자유
   side: GuestSide;
+  category?: GuestCategory;  // 가족·친척·직장·학교·친구·지인
   phone?: string;
   email?: string;
   status: GuestStatus;
@@ -146,6 +150,14 @@ export type Guest = {
   meal?: boolean;           // 식권 사용 여부
   notes?: string;
   invitedAt?: string;       // 청첩장 발송 일자
+};
+
+// 예상 인원 — 명단을 다 적기 전에도 측·분류별로 "몇 명 올지" 가늠하는 계산기.
+// 계약 식장 보증인원·식대·양가 균형 경고가 이 추정치에서도 작동한다(명단이 비어도).
+export type HeadcountEstimate = {
+  side: "groom" | "bride";
+  category: GuestCategory;
+  expected: number;
 };
 
 // 스드메와 본식 스냅은 별도 메뉴로 보여주되 같은 vendor 모델을 공유한다.
@@ -346,6 +358,8 @@ export type WeddingData = {
   venues?: WeddingVenue[];
   budget?: BudgetItem[];
   guests?: Guest[];
+  /** 예상 인원 계산기 — 측·분류별 추정치. 명단(guests)과 함께 reconcile 된다. */
+  headcount?: { estimates: HeadcountEstimate[] };
   ceremony?: CeremonyStep[];   // 당일 식순 진행표
   /** 발행한 청첩장의 code·keyRaw. 미발행이면 undefined. */
   publish?: PublishedInvite;

@@ -1,6 +1,19 @@
 // 영역 간 파생값 — 한 곳의 데이터로 다른 곳을 똑똑하게 채운다.
 // 모든 화면이 같은 계산을 공유하도록 단일 소스로 모은다(읽기 전용, 사용자 데이터를 덮어쓰지 않음).
-import type { WeddingData, WeddingVenue } from "./schema";
+import type { WeddingData, WeddingVenue, GuestCategory } from "./schema";
+
+// 하객 분류 — 계산기/명단 공통 라벨과 표시 순서.
+export const GUEST_CATEGORIES: { key: GuestCategory; label: string }[] = [
+  { key: "family", label: "가족" },
+  { key: "relative", label: "친척" },
+  { key: "work", label: "직장" },
+  { key: "school", label: "학교" },
+  { key: "friend", label: "친구" },
+  { key: "acquaintance", label: "지인" },
+];
+export const GUEST_CATEGORY_LABEL: Record<GuestCategory, string> = {
+  family: "가족", relative: "친척", work: "직장", school: "학교", friend: "친구", acquaintance: "지인",
+};
 
 export function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -21,6 +34,50 @@ export function mealTicketCount(data: WeddingData): number {
   return (data.guests ?? [])
     .filter((g) => g.status === "참석" && g.meal !== false)
     .reduce((s, g) => s + (g.partyCount ?? 1), 0);
+}
+
+/** 계산기에 입력한 예상 인원 합계 (측 무관) */
+export function estimateTotal(data: WeddingData): number {
+  return (data.headcount?.estimates ?? []).reduce((s, e) => s + (e.expected || 0), 0);
+}
+
+/**
+ * 계획 인원 — 계약/예산/보증인원 판단에 쓰는 '현재 최선 추정'.
+ * 명단이 비었어도 계산기 추정으로 동작하고, 명단이 추정을 넘어서면 명단을 따른다.
+ */
+export function planningHeadcount(data: WeddingData): number {
+  return Math.max(estimateTotal(data), expectedHeadcount(data));
+}
+
+export type HeadcountSummary = {
+  estTotal: number;
+  estBySide: { groom: number; bride: number };
+  listed: number;            // 명단에 적힌 인원(불참 제외)
+  confirmed: number;         // 참석 회신
+  rows: { category: GuestCategory; label: string; groomEst: number; brideEst: number; listed: number }[];
+};
+/** 예상 인원 계산기의 reconcile 요약 — 분류별 추정 vs 명단, 측별 합계. */
+export function headcountSummary(data: WeddingData): HeadcountSummary {
+  const estimates = data.headcount?.estimates ?? [];
+  const guests = (data.guests ?? []).filter((g) => g.status !== "불참");
+  const estOf = (side: "groom" | "bride", cat: GuestCategory) =>
+    estimates.find((e) => e.side === side && e.category === cat)?.expected ?? 0;
+  const rows = GUEST_CATEGORIES.map(({ key, label }) => ({
+    category: key,
+    label,
+    groomEst: estOf("groom", key),
+    brideEst: estOf("bride", key),
+    listed: guests.filter((g) => g.category === key).length,
+  }));
+  const groom = estimates.filter((e) => e.side === "groom").reduce((s, e) => s + e.expected, 0);
+  const bride = estimates.filter((e) => e.side === "bride").reduce((s, e) => s + e.expected, 0);
+  return {
+    estTotal: groom + bride,
+    estBySide: { groom, bride },
+    listed: guests.length,
+    confirmed: attendingCount(data),
+    rows,
+  };
 }
 
 /** 계약 확정한 예식장 (없으면 undefined) */
@@ -182,7 +239,7 @@ export function rsvpReadiness(data: WeddingData, today: string = todayISO()): Rs
 export type MealBudgetCheck = { kind: "missing" | "low"; expected: number; planned?: number };
 /** 예상 식대(계약 식장 단가 × 인원) 대비 예산표의 식대 항목 점검 — 빠졌거나 크게 모자라면 알림. */
 export function mealBudgetCheck(data: WeddingData): MealBudgetCheck | null {
-  const range = mealCostRange(contractedVenue(data), expectedHeadcount(data));
+  const range = mealCostRange(contractedVenue(data), planningHeadcount(data));
   if (!range) return null;
   const expected = range.max ?? range.min ?? 0;
   if (expected <= 0) return null;

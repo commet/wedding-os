@@ -100,6 +100,28 @@ test.describe("dashboard visual smoke", () => {
     await assertLayoutHealth(page);
   });
 
+  test("headcount estimator projects capacity and meal cost before the list is filled", async ({ page }) => {
+    const data = defaultData();
+    data.preferences = { ...data.preferences, mode: "local", isDemo: false };
+    data.invitation = { ...data.invitation, groomName: "민준", brideName: "서연", date: "2026-11-07", venue: "그랜드하우스" };
+    data.venues = [{ id: "v1", name: "그랜드하우스", status: "계약", capacityMin: 100, capacityMax: 200, mealPriceMin: 65000, mealPriceMax: 70000 }] as WeddingData["venues"];
+    data.headcount = { estimates: [
+      { side: "groom", category: "work", expected: 150 },
+      { side: "bride", category: "friend", expected: 100 },
+    ] };
+    // 명단은 아직 비어 있음 — 추정만으로 경고가 나와야 한다.
+    await page.addInitScript((v) => {
+      localStorage.clear(); sessionStorage.clear();
+      localStorage.setItem("wedding-os/v1", JSON.stringify(v));
+      localStorage.setItem("wedding-os/owner/v1", "1");
+    }, data);
+    await page.goto("/guests");
+    await expect(page.getByText("예상 인원")).toBeVisible();
+    await expect(page.getByText(/보증 200명을 50명 넘/)).toBeVisible();
+    await expect(page.getByText(/예상 식대/)).toBeVisible();
+    await assertLayoutHealth(page);
+  });
+
   test("explains the product before asking for setup choices", async ({ page }) => {
     await page.addInitScript(() => { localStorage.clear(); sessionStorage.clear(); });
     await page.goto("/");
