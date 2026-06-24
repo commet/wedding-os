@@ -57,6 +57,7 @@ src/
     Venues.tsx               예식장 (후보 비교 · 답사)
     Trip.tsx                 신혼여행 통합 (옛 Hotel/Flights/Honeymoon 흡수)
     Checklist.tsx            체크리스트
+    Ceremony.tsx             식순 (당일 진행표 · 시간·담당·음악)
     Budget.tsx               예산 · 비용
     Guests.tsx               하객 명단 · 축의금 · 식수
     Invitation.tsx           모바일 청첩장 빌더 (/invitation, /i 둘 다)

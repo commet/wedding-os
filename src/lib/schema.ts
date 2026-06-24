@@ -167,6 +167,18 @@ export type SdmVendor = {
   balanceDueAt?: string;    // 잔금 납부일 (ISO)
 };
 
+// ── 식순 (당일 진행표) ──
+// 예식 당일 단계별 큐시트 — 시간·담당(사회/주례/축가)·구간 음악을 한 화면에서.
+export type CeremonyStep = {
+  id: string;
+  time?: string;       // "13:00" 또는 자유 메모성 ("입장 직전")
+  title: string;       // "신랑 입장"
+  role?: string;       // 담당 — 사회 / 주례 / 축가자 등
+  music?: string;      // 구간 음악·축가 곡
+  notes?: string;
+  done?: boolean;      // 리허설·당일 체크용
+};
+
 export type CheckItem = {
   id: string;
   text: string;
@@ -334,6 +346,7 @@ export type WeddingData = {
   venues?: WeddingVenue[];
   budget?: BudgetItem[];
   guests?: Guest[];
+  ceremony?: CeremonyStep[];   // 당일 식순 진행표
   /** 발행한 청첩장의 code·keyRaw. 미발행이면 undefined. */
   publish?: PublishedInvite;
 };

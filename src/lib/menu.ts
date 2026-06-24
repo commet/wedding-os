@@ -36,6 +36,7 @@ export function buildMenuGroups(data: WeddingData): MenuGroup[] {
       title: "함께 만들기",
       items: [
         { to: "/invitation", label: "모바일 청첩장", sub: "정보 입력 · 하객용 링크" },
+        { to: "/ceremony", label: "식순", sub: `당일 진행표 · 음악 · 담당${(data.ceremony?.length ?? 0) > 0 ? ` · ${data.ceremony!.length}단계` : ""}` },
         { to: "/video", label: "식전영상", sub: "사진 · BGM · 자연어 편집" },
       ],
     },

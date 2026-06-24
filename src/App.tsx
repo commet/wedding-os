@@ -13,6 +13,7 @@ const Rings = lazy(() => import("./routes/Rings"));
 const Trip = lazy(() => import("./routes/Trip"));
 const Sdm = lazy(() => import("./routes/Sdm"));
 const Checklist = lazy(() => import("./routes/Checklist"));
+const Ceremony = lazy(() => import("./routes/Ceremony"));
 const Venues = lazy(() => import("./routes/Venues"));
 const Budget = lazy(() => import("./routes/Budget"));
 const Guests = lazy(() => import("./routes/Guests"));
@@ -122,6 +123,7 @@ function WeddingAppRoutes({ location }: { location: ReturnType<typeof useLocatio
           <Route path="/flights" element={<Navigate to="/trip" replace />} />
           <Route path="/honeymoon" element={<Navigate to="/trip" replace />} />
           <Route path="/checklist" element={<Checklist data={data!} update={update} />} />
+          <Route path="/ceremony" element={<Ceremony data={data!} update={update} />} />
           <Route path="/invitation" element={<Invitation data={data!} update={update} />} />
           <Route path="/i" element={<Invitation data={data!} update={update} />} />
           <Route path="/venues" element={<Venues data={data!} update={update} />} />

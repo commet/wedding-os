@@ -57,6 +57,15 @@ test.describe("dashboard visual smoke", () => {
     await expect(page.getByRole("dialog", { name: "전체 메뉴" })).toHaveCount(0);
   });
 
+  test("builds the day-of run sheet from the standard template", async ({ page }) => {
+    await seedVisualData(page);
+    await page.goto("/ceremony");
+    await page.getByRole("button", { name: /기본 식순 불러오기/ }).click();
+    await expect(page.getByText("개식 선언")).toBeVisible();
+    await expect(page.getByText("혼인 서약")).toBeVisible();
+    await expect(page.getByText("성혼 선언문 낭독")).toBeVisible();
+  });
+
   test("explains the product before asking for setup choices", async ({ page }) => {
     await page.addInitScript(() => { localStorage.clear(); sessionStorage.clear(); });
     await page.goto("/");
