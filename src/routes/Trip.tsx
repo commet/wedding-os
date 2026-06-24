@@ -11,6 +11,7 @@ import {
 import SearchLinks from "../components/SearchLinks";
 import FreshnessBadge from "../components/FreshnessBadge";
 import Modal from "../components/Modal";
+import MapEmbed from "../components/MapEmbed";
 import ChatbotBridgeModal from "../components/ChatbotBridgeModal";
 import {
   flightSearchPrompt,
@@ -447,6 +448,8 @@ function RegionCard({
               />
             </div>
           </div>
+
+          <MapEmbed query={region.name} heightClass="h-40" label={`${region.name} 지도`} />
 
           <p className="text-[12px] text-soft leading-relaxed">
             기간·예산은 후보 비교용입니다. 마이리얼트립·클룩·구글 같은 외부 사이트 검색에는 자동 필터로 반영되지 않습니다.

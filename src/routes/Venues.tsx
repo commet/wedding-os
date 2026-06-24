@@ -9,6 +9,7 @@ import {
   VENUE_PRICE_NOTE,
 } from "../data/venueCatalog";
 import VendorActions from "../components/VendorActions";
+import MapEmbed from "../components/MapEmbed";
 import Modal from "../components/Modal";
 import {
   upcomingBalances,
@@ -694,6 +695,8 @@ function MyVenueRow({
               />
             </div>
           </div>
+
+          <MapEmbed query={[v.name, v.region].filter(Boolean).join(" ")} label={`${v.name} 지도`} />
 
           <VendorActions name={v.name} region={v.region} officialUrl={v.link} />
 

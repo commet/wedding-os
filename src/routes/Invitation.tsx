@@ -17,6 +17,7 @@ import { publishInvitation, unpublishInvitation, fetchHostedRsvps, type HostedRs
 import { type BridgePrompt, invitationGreetingPrompt } from "../lib/chatbotBridge";
 import { koBreak } from "../lib/typography";
 import { invitationReadiness, contractedVenue } from "../lib/derived";
+import MapEmbed from "../components/MapEmbed";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type Tab = "edit" | "preview";
@@ -597,6 +598,11 @@ export function Preview({
                     label={t("주소 복사", locale)}
                     className="text-[10.5px] border border-line bg-white px-1.5 py-0.5 hover:border-ink active:opacity-70 transition whitespace-nowrap"
                   />
+                </div>
+              )}
+              {mapQuery && (
+                <div className="mt-4">
+                  <MapEmbed query={mapQuery} heightClass="h-48" label={`${inv.venue || "예식장"} 지도`} />
                 </div>
               )}
               <div className="flex gap-2 justify-center mt-4 flex-wrap">
