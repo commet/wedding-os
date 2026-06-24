@@ -79,7 +79,7 @@ export default function Agent({ data }: Props) {
       <section>
         <details open>
           <summary className="list-none cursor-pointer flex items-baseline justify-between gap-4 min-h-11">
-            <span className="section-title">전체 자동 점검 14개</span>
+            <span className="section-title">전체 자동 점검 {report.findings.length}개</span>
             <span className="text-[12px] text-soft underline underline-offset-4">펼쳐보기</span>
           </summary>
           <div className="mt-4 border-y border-hair divide-y divide-hair">

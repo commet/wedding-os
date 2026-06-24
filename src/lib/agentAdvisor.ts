@@ -49,17 +49,33 @@ export const AGENT_REFERENCE_LINKS = [
 export function buildAgentReport(data: WeddingData): AgentReport {
   const findings: AgentFinding[] = [
     invitationReadiness(data),
+    weddingDateWindow(data),
+    ceremonyTimeCompleteness(data),
+    venueDirectionsCompleteness(data),
     publicContactExposure(data),
+    accountFormatRisk(data),
+    greetingSensitiveText(data),
     recoveryLinkRisk(data),
     guestPrivacy(data),
+    guestHeadcountReadiness(data),
+    mealHeadcountReadiness(data),
     rsvpScope(data),
     bgmCopyright(data),
     photoRights(data),
+    imageVolumeRisk(data),
+    videoReadiness(data),
     vendorFreshness(data),
+    vendorDecisionProgress(data),
+    venueCapacityFit(data),
     budgetOverrun(data),
+    unpaidBudgetItems(data),
     overdueChecklist(data),
+    honeymoonDocumentReadiness(data),
     backupHealth(data),
     aiPromptPrivacy(data),
+    translationCompleteness(data),
+    externalLinkSafety(data),
+    publishFreshness(data),
     internationalTransferNotice(data),
     contractEvidence(data),
   ];
@@ -118,6 +134,177 @@ function publicContactExposure(data: WeddingData): AgentFinding {
   };
 }
 
+function weddingDateWindow(data: WeddingData): AgentFinding {
+  const dday = daysUntilISODate(data.invitation.date);
+  if (dday === null) {
+    return {
+      id: "wedding-date-window",
+      category: "schedule",
+      severity: "warn",
+      title: "예식일 기준 일정 없음",
+      summary: "예식 날짜가 없어 자동 일정 점검이 약해져요.",
+      detail: "예식일을 넣으면 체크리스트 마감, 청첩장 발송, RSVP 회수, 영상 제출 시점을 더 정확히 볼 수 있습니다.",
+      to: "/invitation",
+      action: "예식일 입력",
+    };
+  }
+  if (dday < 0) {
+    return {
+      id: "wedding-date-window",
+      category: "schedule",
+      severity: "info",
+      title: "예식일이 지난 상태",
+      summary: `예식일이 ${Math.abs(dday)}일 지났어요.`,
+      detail: "공개 청첩장, RSVP, 계좌, 하객 개인정보를 계속 보관할 필요가 있는지 정리하세요.",
+      to: "/settings",
+      action: "데이터 정리",
+    };
+  }
+  if (dday <= 14) {
+    return {
+      id: "wedding-date-window",
+      category: "schedule",
+      severity: "danger",
+      title: "예식 2주 전 최종 점검",
+      summary: `예식까지 ${dday}일 남았어요.`,
+      detail: "식순, 식대 보증 인원, 영상 파일, 혼주 연락망, 잔금, 청첩장 오탈자를 오늘 기준으로 확정해야 합니다.",
+      to: "/checklist",
+      action: "최종 체크",
+    };
+  }
+  if (dday <= 60) {
+    return {
+      id: "wedding-date-window",
+      category: "schedule",
+      severity: "warn",
+      title: "예식 60일 이내",
+      summary: `예식까지 ${dday}일 남았어요.`,
+      detail: "청첩장 발송, RSVP 회수, 식전영상 제출, 식수 확정, 잔금 일정을 빠르게 잠가야 합니다.",
+      to: "/checklist",
+      action: "마감 일정 확인",
+    };
+  }
+  return good("schedule", "예식일 여유", `예식까지 ${dday}일 남았어요.`, "큰 예약과 계약 조건부터 확정하면 이후 일정이 안정됩니다.", "/checklist");
+}
+
+function ceremonyTimeCompleteness(data: WeddingData): AgentFinding {
+  if (!data.invitation.date) {
+    return {
+      id: "ceremony-time-completeness",
+      category: "content",
+      severity: "info",
+      title: "예식 시간 점검 대기",
+      summary: "예식 날짜가 먼저 필요해요.",
+      detail: "날짜와 시간을 같이 입력해야 청첩장·캘린더·식전영상 엔딩의 오해를 줄일 수 있습니다.",
+      to: "/invitation",
+      action: "날짜 입력",
+    };
+  }
+  if (!data.invitation.time?.trim()) {
+    return {
+      id: "ceremony-time-completeness",
+      category: "content",
+      severity: "warn",
+      title: "예식 시간 누락",
+      summary: "청첩장에 시간이 빠져 있어요.",
+      detail: "오후/오전, 본식 시작 시간, 하객 도착 권장 시간을 식장 계약서와 맞춰 입력하세요.",
+      to: "/invitation",
+      action: "시간 입력",
+    };
+  }
+  return good("content", "예식 시간", "예식 시간이 입력돼 있어요.", "공유 전에는 식장 계약서와 분 단위까지 다시 확인하세요.", "/invitation");
+}
+
+function venueDirectionsCompleteness(data: WeddingData): AgentFinding {
+  const hasVenue = !!data.invitation.venue?.trim();
+  if (!hasVenue) {
+    return {
+      id: "venue-directions",
+      category: "content",
+      severity: "info",
+      title: "오시는 길 점검 대기",
+      summary: "예식장이 아직 비어 있어요.",
+      detail: "장소가 정해지면 주소, 층/홀명, 지도 링크까지 같이 넣어야 하객 문의가 줄어듭니다.",
+      to: "/venues",
+      action: "예식장 정리",
+    };
+  }
+  const missing = [
+    !data.invitation.venueAddress?.trim() && "주소",
+    !data.invitation.venueHall?.trim() && "홀명/층",
+    !data.invitation.venueMapUrl?.trim() && "지도 링크",
+  ].filter(Boolean) as string[];
+  if (missing.length === 0) {
+    return good("content", "오시는 길", "주소·홀명·지도 링크가 준비돼 있어요.", "주차, 셔틀, 지하철 출구는 인사말 아래 안내 문구로 보강하면 좋습니다.", "/invitation");
+  }
+  return {
+    id: "venue-directions",
+    category: "content",
+    severity: "warn",
+    title: "오시는 길 정보 부족",
+    summary: `${missing.join(", ")}가 비어 있어요.`,
+    detail: "주소만으로는 같은 건물의 홀·층·입구가 헷갈릴 수 있습니다. 지도 링크와 홀명을 같이 넣으세요.",
+    to: "/invitation",
+    action: "오시는 길 보완",
+    count: missing.length,
+  };
+}
+
+function accountFormatRisk(data: WeddingData): AgentFinding {
+  const accounts = [
+    ["신랑 계좌", data.invitation.groomAccount],
+    ["신부 계좌", data.invitation.brideAccount],
+  ].filter(([, value]) => String(value ?? "").trim());
+  if (accounts.length === 0) {
+    return good("privacy", "계좌 공개", "공개 계좌가 아직 없습니다.", "계좌를 공개할 때는 예금주·은행·번호 오탈자를 별도로 검수하세요.", "/invitation");
+  }
+  const weak = accounts.filter(([, value]) => {
+    const text = String(value ?? "");
+    const digits = text.replace(/\D/g, "");
+    return digits.length < 8 || !/(은행|뱅크|Bank|bank|카카오|토스|국민|신한|우리|하나|농협|기업|SC|씨티|새마을|수협|대구|부산|경남|광주|전북|제주)/.test(text);
+  });
+  if (weak.length === 0) {
+    return good("privacy", "계좌 형식", "공개 계좌에 은행명과 번호가 들어 있어요.", "실제 송금 테스트나 가족 교차 확인으로 오탈자를 한 번 더 잡으세요.", "/invitation");
+  }
+  return {
+    id: "account-format-risk",
+    category: "privacy",
+    severity: "warn",
+    title: "계좌 표기 형식 확인",
+    summary: `${weak.map(([label]) => label).join(", ")} 표기가 불완전해 보여요.`,
+    detail: "하객 송금 오류를 줄이려면 은행명, 계좌번호, 예금주를 한 줄에 명확히 적고 공개 동의를 확인하세요.",
+    to: "/invitation",
+    action: "계좌 표기 확인",
+    count: weak.length,
+  };
+}
+
+function greetingSensitiveText(data: WeddingData): AgentFinding {
+  const greeting = data.invitation.greeting ?? "";
+  const hasPhone = /0\d{1,2}[-.\s]?\d{3,4}[-.\s]?\d{4}/.test(greeting);
+  const hasAccount = /(계좌|은행|입금|축의금).{0,20}\d{6,}/.test(greeting);
+  const tooLong = greeting.length > 900;
+  const flags = [
+    hasPhone && "전화번호",
+    hasAccount && "계좌/입금 정보",
+    tooLong && "긴 문안",
+  ].filter(Boolean) as string[];
+  if (flags.length === 0) {
+    return good("content", "청첩장 문안 안전성", "인사말에 민감 정보나 과도하게 긴 문안이 보이지 않아요.", "문학 작품, 노래 가사, 상업 문구를 그대로 쓰지 않는지만 최종 확인하세요.", "/invitation");
+  }
+  return {
+    id: "greeting-sensitive-text",
+    category: "content",
+    severity: "warn",
+    title: "인사말 민감 정보 확인",
+    summary: `${flags.join(", ")}가 인사말에 섞였을 수 있어요.`,
+    detail: "인사말은 공개 범위가 넓습니다. 연락처·계좌는 전용 영역에 두고, 저작권 있는 문구를 긴 분량으로 붙여넣지 마세요.",
+    to: "/invitation",
+    action: "문안 정리",
+    count: flags.length,
+  };
+}
+
 function recoveryLinkRisk(data: WeddingData): AgentFinding {
   if (data.preferences.mode === "hosted") {
     return {
@@ -162,6 +349,82 @@ function guestPrivacy(data: WeddingData): AgentFinding {
     to: "/guests",
     action: "하객 정보 정리",
     count: pii.length,
+  };
+}
+
+function guestHeadcountReadiness(data: WeddingData): AgentFinding {
+  const guests = data.guests ?? [];
+  if (guests.length === 0) {
+    return {
+      id: "guest-headcount-readiness",
+      category: "schedule",
+      severity: "warn",
+      title: "하객 명단 없음",
+      summary: "식수와 좌석을 계산할 기준이 없어요.",
+      detail: "최소한 가족·친척·친구·회사 그룹별 예상 인원이라도 넣어야 보증 인원과 예산을 잡을 수 있습니다.",
+      to: "/guests",
+      action: "하객 명단 시작",
+    };
+  }
+  const attending = guests.filter((g) => g.status === "참석");
+  const pending = guests.filter((g) => g.status !== "참석" && g.status !== "불참");
+  if (attending.length === 0) {
+    return {
+      id: "guest-headcount-readiness",
+      category: "schedule",
+      severity: "warn",
+      title: "참석 확정 인원 없음",
+      summary: `${guests.length}명 중 참석 확정이 없어요.`,
+      detail: "보증 인원과 식대는 참석 확정 기준으로 움직입니다. 초대 예정과 미정을 참석/불참으로 빨리 분류하세요.",
+      to: "/guests",
+      action: "참석 상태 정리",
+      count: guests.length,
+    };
+  }
+  if (pending.length > Math.max(5, guests.length * 0.3)) {
+    return {
+      id: "guest-headcount-readiness",
+      category: "schedule",
+      severity: "warn",
+      title: "미정 하객이 많음",
+      summary: `${pending.length}명이 아직 확정 전입니다.`,
+      detail: "식수 확정일 전에 미정 인원을 줄여야 식대와 좌석 오차가 줄어듭니다.",
+      to: "/guests",
+      action: "미정 정리",
+      count: pending.length,
+    };
+  }
+  return good("schedule", "하객 참석 상태", "참석 확정 기준이 잡혀 있어요.", "식장 보증 인원 확정일 전에는 한 번 더 RSVP를 회수하세요.", "/guests");
+}
+
+function mealHeadcountReadiness(data: WeddingData): AgentFinding {
+  const attending = (data.guests ?? []).filter((g) => g.status === "참석");
+  if (attending.length === 0) {
+    return {
+      id: "meal-headcount-readiness",
+      category: "money",
+      severity: "info",
+      title: "식수 계산 대기",
+      summary: "참석 확정 하객이 아직 없어요.",
+      detail: "참석 상태가 정리되면 식사 여부와 동반 인원 기준으로 식수 리스크를 계산합니다.",
+      to: "/guests",
+      action: "참석 확정",
+    };
+  }
+  const unclear = attending.filter((g) => g.meal === undefined || !g.partyCount || g.partyCount < 1);
+  if (unclear.length === 0) {
+    return good("money", "식수 계산", "참석 하객의 식사 여부와 인원이 정리돼 있어요.", "어린이·답례품만 수령하는 하객은 별도 메모로 표시하세요.", "/guests");
+  }
+  return {
+    id: "meal-headcount-readiness",
+    category: "money",
+    severity: "warn",
+    title: "식수 계산 정보 부족",
+    summary: `${unclear.length}명의 식사 여부 또는 동반 인원이 애매해요.`,
+    detail: "식대는 인원 오차가 바로 비용으로 이어집니다. 참석자별 식사 여부와 본인 포함 인원을 확정하세요.",
+    to: "/guests",
+    action: "식수 정보 정리",
+    count: unclear.length,
   };
 }
 
@@ -228,6 +491,74 @@ function photoRights(data: WeddingData): AgentFinding {
   };
 }
 
+function imageVolumeRisk(data: WeddingData): AgentFinding {
+  const count =
+    (data.invitation.heroImageUrl ? 1 : 0) +
+    (data.invitation.gallery?.length ?? 0) +
+    (data.video?.photos?.length ?? 0);
+  if (count < 30) {
+    return good("security", "사진 저장량", `사진 자산 ${count}개로 관리 가능한 수준입니다.`, "스튜디오 원본처럼 큰 파일은 별도 드라이브에도 보관하세요.", "/settings#data-backup");
+  }
+  const severity: AgentSeverity = data.preferences.mode === "local" ? "warn" : "info";
+  return {
+    id: "image-volume-risk",
+    category: "security",
+    severity,
+    title: "사진 백업 용량 점검",
+    summary: `사진 자산이 ${count}개입니다.`,
+    detail: data.preferences.mode === "local"
+      ? "로컬 브라우저 저장소는 용량 제한이 있습니다. 사진을 많이 넣었다면 JSON 백업과 원본 사진 백업을 따로 챙기세요."
+      : "사진이 많으면 발행·백업·렌더링 시간이 늘어납니다. 원본은 앱 밖에도 따로 보관하세요.",
+    to: "/settings#data-backup",
+    action: "백업 확인",
+    count,
+  };
+}
+
+function videoReadiness(data: WeddingData): AgentFinding {
+  const photos = data.video?.photos?.length ?? 0;
+  const acts = data.video?.acts?.length ?? 0;
+  if (photos === 0 && acts === 0) {
+    return {
+      id: "video-readiness",
+      category: "content",
+      severity: "info",
+      title: "식전영상 준비 전",
+      summary: "영상 사진과 챕터가 아직 없습니다.",
+      detail: "식장 제출 마감이 가까워지기 전에 사진 30~60장, BGM 권리, MP4 제출 형식을 먼저 확인하세요.",
+      to: "/video",
+      action: "영상 시작",
+    };
+  }
+  if (photos > 0 && photos < 20) {
+    return {
+      id: "video-readiness",
+      category: "content",
+      severity: "warn",
+      title: "식전영상 사진 부족",
+      summary: `현재 사진 ${photos}장입니다.`,
+      detail: "3~5분 식전영상은 보통 30장 이상이 안정적입니다. 어린 시절, 연애, 가족, 친구 사진을 균형 있게 채우세요.",
+      to: "/video",
+      action: "사진 추가",
+      count: photos,
+    };
+  }
+  if (photos > 80) {
+    return {
+      id: "video-readiness",
+      category: "content",
+      severity: "warn",
+      title: "식전영상 사진 과다",
+      summary: `현재 사진 ${photos}장입니다.`,
+      detail: "사진이 너무 많으면 영상이 길어지고 하객 집중도가 떨어집니다. 식장 제출 길이와 템포를 확인하세요.",
+      to: "/video",
+      action: "사진 줄이기",
+      count: photos,
+    };
+  }
+  return good("content", "식전영상 분량", `사진 ${photos}장으로 기본 분량이 잡혀 있어요.`, "BGM 권리와 식장 제출 파일 형식만 별도로 확인하세요.", "/video");
+}
+
 function vendorFreshness(data: WeddingData): AgentFinding {
   const items = [
     ...data.rings.map((x) => ({ label: `${x.brand} ${x.model}`, verified: x.lastVerified })),
@@ -267,6 +598,84 @@ function vendorFreshness(data: WeddingData): AgentFinding {
   };
 }
 
+function vendorDecisionProgress(data: WeddingData): AgentFinding {
+  const dday = daysUntilISODate(data.invitation.date);
+  const venues = data.venues ?? [];
+  const venueContract = venues.some((v) => v.status === "계약") || !!data.invitation.venue?.trim();
+  const sdmContracts = {
+    studio: data.sdm.some((v) => v.category === "studio" && v.status === "계약"),
+    dress: data.sdm.some((v) => v.category === "dress" && v.status === "계약"),
+    makeup: data.sdm.some((v) => v.category === "makeup" && v.status === "계약"),
+    snap: data.sdm.some((v) => v.category === "snap" && v.status === "계약"),
+  };
+  const missing = [
+    !venueContract && "예식장",
+    !sdmContracts.studio && "스튜디오",
+    !sdmContracts.dress && "드레스",
+    !sdmContracts.makeup && "메이크업",
+    !sdmContracts.snap && "본식 스냅",
+  ].filter(Boolean) as string[];
+  if (missing.length === 0) {
+    return good("schedule", "주요 업체 결정", "예식장·스드메·스냅 결정 흐름이 잡혀 있어요.", "계약 조건과 잔금일은 예산/메모에 따로 남기세요.", "/venues");
+  }
+  const severity: AgentSeverity = dday !== null && dday <= 120 ? "warn" : "info";
+  return {
+    id: "vendor-decision-progress",
+    category: "schedule",
+    severity,
+    title: "주요 업체 결정 공백",
+    summary: `${missing.join(", ")} 결정 상태가 비어 있어요.`,
+    detail: "예식 3~4개월 전에는 큰 업체가 대부분 잠겨 있어야 이후 청첩장, 촬영, 드레스 투어 일정이 밀리지 않습니다.",
+    to: "/venues",
+    action: "업체 결정 확인",
+    count: missing.length,
+  };
+}
+
+function venueCapacityFit(data: WeddingData): AgentFinding {
+  const attending = (data.guests ?? [])
+    .filter((g) => g.status === "참석")
+    .reduce((sum, g) => sum + Math.max(1, g.partyCount ?? 1), 0);
+  const contracted = (data.venues ?? []).find((v) => v.status === "계약") ?? (data.venues ?? [])[0];
+  if (!contracted || attending === 0) {
+    return {
+      id: "venue-capacity-fit",
+      category: "money",
+      severity: "info",
+      title: "식장 수용 인원 점검 대기",
+      summary: "계약 식장 또는 참석 인원이 부족해요.",
+      detail: "계약 식장과 참석 인원이 정리되면 최소 보증 인원·최대 수용 인원 초과를 자동으로 잡습니다.",
+      to: "/venues",
+      action: "식장/하객 정리",
+    };
+  }
+  if (contracted.capacityMax && attending > contracted.capacityMax) {
+    return {
+      id: "venue-capacity-fit",
+      category: "money",
+      severity: "danger",
+      title: "식장 최대 인원 초과",
+      summary: `참석 예상 ${attending}명이 최대 ${contracted.capacityMax}명을 넘습니다.`,
+      detail: "좌석·식사·소방법 기준 문제가 생길 수 있습니다. 식장 담당자에게 증원 가능 여부를 확인하세요.",
+      to: "/venues",
+      action: "수용 인원 확인",
+    };
+  }
+  if (contracted.capacityMin && attending < contracted.capacityMin) {
+    return {
+      id: "venue-capacity-fit",
+      category: "money",
+      severity: "warn",
+      title: "보증 인원 미달 가능성",
+      summary: `참석 예상 ${attending}명이 최소 ${contracted.capacityMin}명보다 적습니다.`,
+      detail: "보증 인원보다 실제 식수가 낮으면 비용 손실이 생길 수 있습니다. 보증 조정 가능일을 확인하세요.",
+      to: "/guests",
+      action: "식수 조정",
+    };
+  }
+  return good("money", "식장 수용 인원", `참석 예상 ${attending}명이 식장 범위 안에 있어요.`, "최종 식수 확정일 전에 불참·동반 인원을 다시 정리하세요.", "/guests");
+}
+
 function budgetOverrun(data: WeddingData): AgentFinding {
   const items = data.budget ?? [];
   const over = items.filter((item) => isBudgetOver(item));
@@ -295,6 +704,37 @@ function budgetOverrun(data: WeddingData): AgentFinding {
     to: "/budget",
     action: "비용 확인",
     count: over.length,
+  };
+}
+
+function unpaidBudgetItems(data: WeddingData): AgentFinding {
+  const items = data.budget ?? [];
+  const unpaid = items.filter((item) => ((item.actual ?? item.planned ?? 0) > 0) && !item.paid);
+  if (items.length === 0) {
+    return {
+      id: "unpaid-budget-items",
+      category: "money",
+      severity: "info",
+      title: "잔금 점검 대기",
+      summary: "예산 항목이 없어 결제 상태를 볼 수 없어요.",
+      detail: "계약금·중도금·잔금 항목을 나눠두면 예식 직전 누락 결제를 줄일 수 있습니다.",
+      to: "/budget",
+      action: "예산 항목 추가",
+    };
+  }
+  if (unpaid.length === 0) {
+    return good("money", "미결제 항목", "금액이 있는 항목은 모두 결제 완료로 표시돼 있어요.", "영수증과 계약서는 앱 밖에도 따로 보관하세요.", "/budget");
+  }
+  return {
+    id: "unpaid-budget-items",
+    category: "money",
+    severity: "warn",
+    title: "미결제 항목",
+    summary: `${unpaid.length}개 비용 항목이 결제 완료 전입니다.`,
+    detail: `미결제: ${unpaid.slice(0, 4).map((x) => x.category).join(", ")}${unpaid.length > 4 ? " 등" : ""}. 잔금일과 이체 한도를 미리 확인하세요.`,
+    to: "/budget",
+    action: "결제 상태 확인",
+    count: unpaid.length,
   };
 }
 
@@ -353,6 +793,124 @@ function backupHealth(data: WeddingData): AgentFinding {
     to: "/settings#data-backup",
     action: "백업 내려받기",
   };
+}
+
+function honeymoonDocumentReadiness(data: WeddingData): AgentFinding {
+  const hasTrip = data.honeymoon.regions.length > 0 || data.flights.length > 0 || data.hotels.length > 0;
+  if (!hasTrip) {
+    return {
+      id: "honeymoon-document-readiness",
+      category: "schedule",
+      severity: "info",
+      title: "여행 서류 점검 대기",
+      summary: "신혼여행 후보가 아직 없어요.",
+      detail: "해외 여행지가 정해지면 여권, 비자, 보험, 환전, 로밍 항목을 체크리스트에 남겨두세요.",
+      to: "/trip",
+      action: "여행 후보 정리",
+    };
+  }
+  const checklistText = data.checklist.flatMap((s) => s.items).map((i) => i.text).join(" ");
+  const missing = [
+    !/여권|passport/i.test(checklistText) && "여권",
+    !/비자|visa/i.test(checklistText) && "비자",
+    !/보험|insurance/i.test(checklistText) && "여행자보험",
+    !/환전|로밍|eSIM|유심/i.test(checklistText) && "환전/로밍",
+  ].filter(Boolean) as string[];
+  if (missing.length === 0) {
+    return good("schedule", "여행 서류", "여권·비자·보험·환전/로밍 항목이 체크리스트에 있어요.", "항공권 영문명과 여권 영문명 일치 여부를 최종 확인하세요.", "/checklist");
+  }
+  return {
+    id: "honeymoon-document-readiness",
+    category: "schedule",
+    severity: "warn",
+    title: "신혼여행 서류 항목 부족",
+    summary: `${missing.join(", ")} 확인 항목이 약해요.`,
+    detail: "해외 여행은 서류 누락이 가장 치명적입니다. 여행지가 확정되면 체크리스트에 별도 항목으로 넣으세요.",
+    to: "/checklist",
+    action: "여행 체크 추가",
+    count: missing.length,
+  };
+}
+
+function translationCompleteness(data: WeddingData): AgentFinding {
+  const locales = data.invitation.enabledLocales ?? [];
+  if (locales.length === 0) {
+    return good("content", "외국어 청첩장", "외국어 청첩장이 꺼져 있어요.", "외국인 하객이 있으면 영어/중국어 이름·장소·인사말을 별도 검수하세요.", "/invitation");
+  }
+  const missing = locales.flatMap((locale) => {
+    const t = data.invitation.translations?.[locale];
+    const label = locale === "en" ? "영어" : "중국어";
+    return [
+      !t?.greeting?.trim() && `${label} 인사말`,
+      !t?.venue?.trim() && `${label} 장소`,
+      !t?.venueAddress?.trim() && `${label} 주소`,
+    ].filter(Boolean) as string[];
+  });
+  if (missing.length === 0) {
+    return good("content", "외국어 번역", "켜진 외국어 청첩장의 핵심 문구가 채워져 있어요.", "고유명사와 교통 안내는 원어민 또는 실제 하객에게 한 번 더 검수받으세요.", "/invitation");
+  }
+  return {
+    id: "translation-completeness",
+    category: "content",
+    severity: "warn",
+    title: "외국어 청첩장 번역 누락",
+    summary: `${missing.slice(0, 3).join(", ")}${missing.length > 3 ? " 등" : ""}이 비어 있어요.`,
+    detail: "외국어 탭을 켜면 한국어 문구와 별도로 장소, 주소, 인사말을 확인해야 합니다. 자동 번역은 고유명사 오류가 잦습니다.",
+    to: "/invitation",
+    action: "번역 보완",
+    count: missing.length,
+  };
+}
+
+function externalLinkSafety(data: WeddingData): AgentFinding {
+  const links = collectExternalLinks(data);
+  if (links.length === 0) {
+    return good("security", "외부 링크", "사용자 입력 외부 링크가 거의 없습니다.", "지도·업체·사진 URL을 넣을 때는 https 링크를 우선 사용하세요.", "/invitation");
+  }
+  const risky = links.filter((item) => !isSafeExternalHref(item.href));
+  if (risky.length === 0) {
+    return good("security", "외부 링크", `${links.length}개 링크가 기본 안전 형식입니다.`, "공식 사이트가 아닌 링크는 계약 전 한 번 더 출처를 확인하세요.", "/share");
+  }
+  return {
+    id: "external-link-safety",
+    category: "security",
+    severity: "danger",
+    title: "외부 링크 형식 위험",
+    summary: `${risky.length}개 링크가 https/http/mail/tel 형식이 아닙니다.`,
+    detail: `먼저 확인: ${risky.slice(0, 3).map((x) => x.label).join(", ")}. 사용자 입력 링크에는 javascript:, data: 같은 스킴을 쓰지 마세요.`,
+    to: "/invitation",
+    action: "링크 정리",
+    count: risky.length,
+  };
+}
+
+function publishFreshness(data: WeddingData): AgentFinding {
+  if (!data.publish) {
+    return {
+      id: "publish-freshness",
+      category: "content",
+      severity: "info",
+      title: "청첩장 발행 전",
+      summary: "간편 발행된 청첩장이 없습니다.",
+      detail: "공개 전에 이름, 날짜, 시간, 장소, 계좌, 사진 권리, RSVP 수집 범위를 점검하세요.",
+      to: "/invitation",
+      action: "발행 준비",
+    };
+  }
+  const age = daysSince(data.publish.publishedAt);
+  if (age !== null && age > 30) {
+    return {
+      id: "publish-freshness",
+      category: "content",
+      severity: "warn",
+      title: "발행된 청첩장 재검수",
+      summary: `발행 후 ${age}일이 지났어요.`,
+      detail: "발행 이후 날짜, 시간, 홀명, 계좌, 사진이 바뀌었을 수 있습니다. 공유 링크를 다시 열어 실제 화면을 확인하세요.",
+      to: "/invitation",
+      action: "공개 링크 확인",
+    };
+  }
+  return good("content", "청첩장 발행 상태", "최근 발행된 청첩장 정보가 있습니다.", "하객에게 보내기 전 실제 링크를 본인 휴대폰에서 다시 열어보세요.", "/invitation");
 }
 
 function aiPromptPrivacy(data: WeddingData): AgentFinding {
@@ -431,6 +989,38 @@ function contractEvidence(data: WeddingData): AgentFinding {
 function isBudgetOver(item: BudgetItem): boolean {
   if (typeof item.planned !== "number" || typeof item.actual !== "number") return false;
   return item.actual > item.planned;
+}
+
+function collectExternalLinks(data: WeddingData): { label: string; href: string }[] {
+  const out: { label: string; href: string }[] = [];
+  const push = (label: string, href?: string) => {
+    if (href?.trim()) out.push({ label, href: href.trim() });
+  };
+  push("청첩장 지도", data.invitation.venueMapUrl);
+  push("청첩장 대표 사진", data.invitation.heroImageUrl);
+  push("청첩장 BGM", data.invitation.bgmUrl);
+  data.invitation.gallery?.forEach((item, index) => push(`청첩장 갤러리 ${index + 1}`, item.url));
+  data.rings.forEach((item) => {
+    push(`반지 ${item.brand} ${item.model}`, item.link);
+    push(`반지 이미지 ${item.brand} ${item.model}`, item.imageUrl);
+    item.imageUrls?.forEach((url, index) => push(`반지 이미지 ${index + 1}`, url));
+  });
+  data.sdm.forEach((item) => push(`업체 ${item.name}`, item.link));
+  data.hotels.forEach((item) => {
+    item.otaPrices?.forEach((ota) => push(`숙소 ${item.name} ${ota.ota}`, ota.url));
+  });
+  data.flights.forEach((item) => push(`항공 ${item.flightNumber || item.airline || item.id}`, item.link));
+  (data.venues ?? []).forEach((item) => push(`예식장 ${item.name}`, item.link));
+  data.video.photos.forEach((item, index) => push(`영상 사진 ${index + 1}`, item.url));
+  push("영상 BGM", data.video.bgmUrl);
+  return out;
+}
+
+function isSafeExternalHref(href: string): boolean {
+  if (/^(https?:|mailto:|tel:|blob:|data:image\/)/i.test(href)) return true;
+  if (/^idb:/i.test(href)) return true;
+  if (href.startsWith("/") || href.startsWith("#")) return true;
+  return false;
 }
 
 function good(category: AgentFinding["category"], title: string, summary: string, detail: string, to?: string): AgentFinding {
