@@ -65,6 +65,22 @@ export function mealCostRange(venue: WeddingVenue | undefined, headcount: number
   return { min, max, headcount };
 }
 
+export type BalanceDue = { name: string; amount: number; dueAt: string; daysLeft: number; targetPath: string };
+/** 예식장·스드메 등 잔금이 남은 계약을 잔금일 순으로 — 임박/지난 결제 알림용 */
+export function upcomingBalances(data: WeddingData, today: string = todayISO()): BalanceDue[] {
+  const out: BalanceDue[] = [];
+  const add = (name: string, balanceKRW: number | undefined, balanceDueAt: string | undefined, targetPath: string) => {
+    if (!balanceKRW || balanceKRW <= 0 || !balanceDueAt) return;
+    const dueAt = balanceDueAt.slice(0, 10);
+    const daysLeft = Math.round((Date.parse(dueAt) - Date.parse(today)) / 86_400_000);
+    if (Number.isNaN(daysLeft)) return;
+    out.push({ name, amount: balanceKRW, dueAt, daysLeft, targetPath });
+  };
+  for (const v of data.venues ?? []) add(v.name, v.balanceKRW, v.balanceDueAt, "/venues");
+  for (const s of data.sdm ?? []) add(s.name, s.balanceKRW, s.balanceDueAt, s.category === "snap" ? "/snap" : "/sdm");
+  return out.sort((a, b) => a.daysLeft - b.daysLeft);
+}
+
 /** 청첩장 공유 준비도 — 핵심 5필드 중 채워진 수 */
 export function invitationReadiness(data: WeddingData): { filled: number; total: number; missing: string[] } {
   const fields: [string, unknown][] = [

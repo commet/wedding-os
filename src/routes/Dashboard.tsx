@@ -9,7 +9,7 @@ import { defaultData } from "../lib/schema";
 import { AGENT_PRIORITIES, type AgentPriority } from "../lib/agentDraft";
 import { AgentIdentity } from "../components/AgentIdentity";
 import { buildMenuGroups } from "../lib/menu";
-import { budgetTotals, overdueChecklistCount, formatKRW } from "../lib/derived";
+import { budgetTotals, overdueChecklistCount, formatKRW, upcomingBalances } from "../lib/derived";
 import { koBreak } from "../lib/typography";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
@@ -68,6 +68,7 @@ export default function Dashboard({ data, update }: Props) {
   // 영역 간 위험 신호 — 서브페이지를 안 열어도 홈에서 한눈에.
   const { overCount: overBudgetCount, overSum: overBudgetSum } = budgetTotals(data);
   const overdueCount = overdueChecklistCount(data);
+  const balanceDueSoon = upcomingBalances(data).filter((b) => b.daysLeft <= 14)[0]; // 가장 임박한 잔금
 
   const setWeddingDate = (date: string) => {
     update((prev: WeddingData) => {
@@ -488,7 +489,7 @@ export default function Dashboard({ data, update }: Props) {
             <p className="mb-7 max-w-[21rem] text-[15px] leading-[1.8] text-soft">
               {data.ai?.starterSummary || `현재 준비 상태를 보고, 다음 결정이 쉬워지는 순서로 정리했어요.`}
             </p>
-            {(overdueCount > 0 || overBudgetCount > 0) && (
+            {(overdueCount > 0 || overBudgetCount > 0 || balanceDueSoon) && (
               <div className="mb-7 border-y border-hair">
                 {overdueCount > 0 && (
                   <Link to="/checklist" className="row-tap flex items-center justify-between gap-3 border-b border-hair px-1 py-3 last:border-b-0">
@@ -499,6 +500,12 @@ export default function Dashboard({ data, update }: Props) {
                 {overBudgetCount > 0 && (
                   <Link to="/budget" className="row-tap flex items-center justify-between gap-3 border-b border-hair px-1 py-3 last:border-b-0">
                     <span className="text-[13px] text-ink break-keep">예산을 <b className="font-semibold">{overBudgetCount}건</b> 초과했어요 · +{formatKRW(overBudgetSum)}</span>
+                    <span className="flex-shrink-0 text-gold">→</span>
+                  </Link>
+                )}
+                {balanceDueSoon && (
+                  <Link to={balanceDueSoon.targetPath} className="row-tap flex items-center justify-between gap-3 border-b border-hair px-1 py-3 last:border-b-0">
+                    <span className="text-[13px] text-ink break-keep">{balanceDueSoon.name} 잔금 {balanceDueSoon.daysLeft < 0 ? `${-balanceDueSoon.daysLeft}일 지남` : balanceDueSoon.daysLeft === 0 ? "오늘" : `D-${balanceDueSoon.daysLeft}`} · {formatKRW(balanceDueSoon.amount)}</span>
                     <span className="flex-shrink-0 text-gold">→</span>
                   </Link>
                 )}

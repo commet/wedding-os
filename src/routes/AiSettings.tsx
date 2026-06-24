@@ -15,6 +15,54 @@ const PROVIDERS: { id: AiProvider; label: string; desc: string; link?: string }[
   { id: "ollama", label: "Ollama 로컬", desc: "내 컴퓨터의 로컬 LLM 서버에 연결", link: "https://ollama.com/download" },
 ];
 
+const PROVIDER_GUIDE: Partial<Record<AiProvider, {
+  keyName: string;
+  placeholder: string;
+  modelHint: string;
+  steps: string[];
+}>> = {
+  gemini: {
+    keyName: "Gemini API 키",
+    placeholder: "AIza...",
+    modelHint: "모델을 잘 모르면 기본값을 그대로 두세요. 나중에 Google AI Studio에서 쓰는 모델명으로 바꿀 수 있습니다.",
+    steps: [
+      "Google AI Studio에서 새 API 키를 만듭니다.",
+      "복사한 키를 아래 입력칸에 붙여넣습니다.",
+      "연결 테스트를 눌러 '연결 완료'가 뜨는지 확인합니다.",
+    ],
+  },
+  openai: {
+    keyName: "OpenAI API 키",
+    placeholder: "sk-...",
+    modelHint: "모델을 잘 모르면 기본값을 그대로 두세요. OpenAI 콘솔에서 사용하는 모델명으로 바꿀 수 있습니다.",
+    steps: [
+      "OpenAI API Keys 화면에서 새 secret key를 만듭니다.",
+      "복사한 키를 아래 입력칸에 붙여넣습니다.",
+      "연결 테스트를 눌러 '연결 완료'가 뜨는지 확인합니다.",
+    ],
+  },
+  anthropic: {
+    keyName: "Claude API 키",
+    placeholder: "sk-ant-...",
+    modelHint: "모델을 잘 모르면 기본값을 그대로 두세요. Anthropic Console에서 사용하는 Claude 모델명으로 바꿀 수 있습니다.",
+    steps: [
+      "Anthropic Console에서 새 API 키를 만듭니다.",
+      "복사한 키를 아래 입력칸에 붙여넣습니다.",
+      "연결 테스트를 눌러 '연결 완료'가 뜨는지 확인합니다.",
+    ],
+  },
+  ollama: {
+    keyName: "Ollama URL",
+    placeholder: "http://localhost:11434",
+    modelHint: "모델명은 내 컴퓨터에 내려받은 Ollama 모델 이름과 같아야 합니다.",
+    steps: [
+      "Ollama를 설치하고 원하는 모델을 내려받습니다.",
+      "Ollama 앱 또는 서버를 켠 뒤 URL을 확인합니다.",
+      "연결 테스트를 눌러 브라우저에서 접근되는지 확인합니다.",
+    ],
+  },
+};
+
 export default function AiSettings(_: Props) {
   const initial = getAiConfig();
   const [provider, setProvider] = useState<AiProvider>(initial.provider);
@@ -32,7 +80,8 @@ export default function AiSettings(_: Props) {
   }, []);
 
   const selected = useMemo(() => PROVIDERS.find((p) => p.id === provider) ?? PROVIDERS[0], [provider]);
-  const directReady = provider === "managed" ? managedSignedIn : hasDirectAi({ provider, apiKey, model, baseUrl });
+  const guide = PROVIDER_GUIDE[provider];
+  const directReady = hasDirectAi({ provider, apiKey, model, baseUrl });
 
   const save = () => {
     const next: AiConfig = {
@@ -119,7 +168,8 @@ export default function AiSettings(_: Props) {
             </div>
           ) : (
             <p className="text-[13px] text-soft leading-relaxed">
-              Wedding OS AI는 비용 오남용 방지를 위해 로그인이 필요합니다. <a href="/login" className="underline underline-offset-4 text-ink">로그인하기 →</a>
+              로그인 없이도 짧은 체험 호출은 가능합니다. 중요한 초안 생성과 더 넉넉한 사용량은 비용 오남용 방지를 위해{" "}
+              <a href="/login" className="underline underline-offset-4 text-ink">로그인 후</a> 제공됩니다.
             </p>
           )}
         </section>
@@ -127,6 +177,39 @@ export default function AiSettings(_: Props) {
 
       {provider !== "bridge" && provider !== "managed" && (
         <section className="space-y-5">
+          {guide && (
+            <div className="rounded-[22px] border border-hair bg-white/45 p-5 space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="eyebrow-gold mb-2">처음 연결</div>
+                  <h2 className="font-serif text-[19px] text-ink leading-tight">
+                    키를 만들고 붙여넣으면 끝입니다.
+                  </h2>
+                </div>
+                {selected.link && (
+                  <a
+                    href={selected.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-secondary px-3 py-2 text-[11px] whitespace-nowrap"
+                  >
+                    키 만들기 ↗
+                  </a>
+                )}
+              </div>
+              <ol className="space-y-2">
+                {guide.steps.map((step, index) => (
+                  <li key={step} className="flex gap-3 text-[12.5px] text-soft leading-relaxed">
+                    <span className="mt-[2px] flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-hair text-[10px] text-ink">
+                      {index + 1}
+                    </span>
+                    <span>{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
           <div>
             <label className="label">모델</label>
             <input
@@ -136,7 +219,7 @@ export default function AiSettings(_: Props) {
               placeholder={defaultModel(provider)}
             />
             <p className="text-[11px] text-soft mt-2 leading-relaxed">
-              모델 이름은 선택한 AI 서비스에서 사용할 수 있는 이름으로 바꿀 수 있어요.
+              {guide?.modelHint ?? "모델 이름은 선택한 AI 서비스에서 사용할 수 있는 이름으로 바꿀 수 있어요."}
             </p>
           </div>
 
@@ -150,12 +233,12 @@ export default function AiSettings(_: Props) {
             </div>
           ) : (
             <div>
-              <label className="label">API 키</label>
+              <label className="label">{guide?.keyName ?? "API 키"}</label>
               <input
                 className="input"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                placeholder="sk-... / AIza..."
+                placeholder={guide?.placeholder ?? "sk-... / AIza..."}
                 type="password"
                 autoComplete="off"
               />
@@ -168,7 +251,7 @@ export default function AiSettings(_: Props) {
           <div className="flex gap-5 flex-wrap border-t border-hair pt-4">
             {selected.link && (
               <a href={selected.link} target="_blank" rel="noopener noreferrer" className="text-[12px] underline underline-offset-4 text-soft hover:text-ink">
-                키 발급/설정 열기 ↗
+                키 만드는 곳 열기 ↗
               </a>
             )}
             <a href="https://ai.google.dev/gemini-api/docs/pricing" target="_blank" rel="noopener noreferrer" className="text-[12px] underline underline-offset-4 text-soft hover:text-ink">
@@ -206,10 +289,15 @@ export default function AiSettings(_: Props) {
 
       <section className="border-t border-hair pt-6">
         <div className="eyebrow mb-3">개인정보</div>
-        <p className="text-[12px] text-soft leading-relaxed">
-          AI를 실행하면 해당 작업에 필요한 내용이 선택한 AI 서비스로 전송됩니다.
-          전화번호·계좌·축의금 같은 민감 정보는 AI 작업에 포함하지 않습니다.
-        </p>
+        <div className="space-y-2 text-[12px] text-soft leading-relaxed">
+          <p>
+            AI를 실행하면 해당 작업에 필요한 내용이 선택한 AI 서비스로 전송됩니다.
+            전화번호·계좌·축의금 같은 민감 정보는 AI 작업에 포함하지 않습니다.
+          </p>
+          <p>
+            개인 API 키는 이 브라우저에만 저장됩니다. 공용 PC에서는 쓰지 말고, 키가 노출됐다고 느끼면 각 AI 콘솔에서 바로 폐기하세요.
+          </p>
+        </div>
       </section>
     </div>
   );

@@ -582,6 +582,57 @@ function MyVenueRow({
             />
           </div>
 
+          {/* 계약 관리 — 담당자 연락처·계약금·잔금 */}
+          <div className="pt-4 border-t border-hair space-y-4">
+            <div className="eyebrow-gold">계약 관리</div>
+
+            <div>
+              <label className="label">담당자·업체 연락처</label>
+              <input
+                type="text"
+                className="input text-[13px]"
+                value={v.contact ?? ""}
+                onChange={(e) => onUpdate({ contact: e.target.value || undefined })}
+                placeholder="예: 김실장 010-0000-0000"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="label">계약금 (원)</label>
+                <input
+                  type="number"
+                  min={0}
+                  className="input text-[13px] tabular-nums"
+                  value={v.depositKRW ?? ""}
+                  onChange={(e) => onUpdate({ depositKRW: parseWon(e.target.value) })}
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className="label">잔금 (원)</label>
+                <input
+                  type="number"
+                  min={0}
+                  className="input text-[13px] tabular-nums"
+                  value={v.balanceKRW ?? ""}
+                  onChange={(e) => onUpdate({ balanceKRW: parseWon(e.target.value) })}
+                  placeholder="0"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="label">잔금 납부일</label>
+              <input
+                type="date"
+                className="input text-[13px]"
+                value={v.balanceDueAt ?? ""}
+                onChange={(e) => onUpdate({ balanceDueAt: e.target.value || undefined })}
+              />
+            </div>
+          </div>
+
           <VendorActions name={v.name} region={v.region} officialUrl={v.link} />
 
           <div className="pt-2 flex items-center gap-6 border-t border-hair">
@@ -708,4 +759,14 @@ function CustomAdd({ onAdd }: { onAdd: (v: Omit<WeddingVenue, "id">) => void }) 
 function fmtMan(n?: number): string {
   if (!n) return "?";
   return Math.round(n / 10000).toString();
+}
+
+// 금액 입력 파싱 (원 단위) — 빈 칸은 undefined, "0"은 0 유지, 음수·비정상값은 거부.
+// Budget.tsx 의 parseAmount 와 동일한 규약: 입력값을 원(KRW) 그대로 저장.
+function parseWon(raw: string): number | undefined {
+  const t = raw.trim();
+  if (t === "") return undefined;
+  const n = Number(t);
+  if (!Number.isFinite(n) || n < 0) return undefined;
+  return n;
 }

@@ -39,7 +39,7 @@ export default function ChatbotBridgeModal({ open, onClose, prompt, onApply }: P
 
   if (!prompt) return null;
   const aiConfig = getAiConfig();
-  const directAiReady = aiConfig.provider === "managed" ? managedSignedIn : hasDirectAi(aiConfig);
+  const directAiReady = hasDirectAi(aiConfig);
   const pendingPreview = previewPending(pending, prompt.expectedShape);
   const actionLabel = prompt.expectedShape === "text" ? "문안 다듬기 →" : "초안 만들기 →";
 
@@ -126,8 +126,17 @@ export default function ChatbotBridgeModal({ open, onClose, prompt, onApply }: P
                 {aiStatus === "running" ? "정리하는 중…" : actionLabel}
               </button>
               <p className="text-[11px] text-soft text-center mt-2">
-                추천은 시작점이에요. 가격·일정·계약 조건은 직접 확인해 주세요.
+                {aiConfig.provider === "managed" && !managedSignedIn
+                  ? "비로그인 체험은 짧게만 가능해요. 로그인하면 중요한 초안도 더 안정적으로 쓸 수 있습니다."
+                  : "추천은 시작점이에요. 가격·일정·계약 조건은 직접 확인해 주세요."}
               </p>
+              {aiConfig.provider === "managed" && (
+                <p className="text-center mt-2">
+                  <a href="/ai" className="text-[11px] underline underline-offset-4 text-soft hover:text-ink">
+                    내 API 키로 직접 쓰기 →
+                  </a>
+                </p>
+              )}
             </>
           ) : (
             <div className="flex items-center justify-between gap-4">

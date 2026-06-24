@@ -10,6 +10,7 @@ import {
 import Modal from "../components/Modal";
 import VendorActions from "../components/VendorActions";
 import { koBreak } from "../lib/typography";
+import { formatKRW } from "../lib/derived";
 
 type Props = { data: WeddingData; update: (patch: any) => void; initialCategory?: SdmCategory };
 
@@ -364,8 +365,68 @@ function MyVendorCard({
           onChange={(e) => onUpdate({ link: e.target.value })}
         />
       </div>
+
+      {/* 계약 관리 — 상담·계약 단계에서만 노출 */}
+      {v.status !== "관심" && (
+        <div className="pt-3 mt-1 border-t border-hair space-y-3">
+          <div className="eyebrow">계약 관리</div>
+          <input
+            className="input text-[13px]"
+            placeholder="담당자·업체 연락처"
+            value={v.contact ?? ""}
+            onChange={(e) => onUpdate({ contact: e.target.value })}
+          />
+          <div className="grid grid-cols-2 gap-x-4">
+            <div>
+              <label className="label">계약금 (원)</label>
+              <input
+                type="number"
+                min={0}
+                className="input text-[13px] tabular-nums"
+                placeholder="0"
+                value={v.depositKRW ?? ""}
+                onChange={(e) => onUpdate({ depositKRW: parseAmount(e.target.value) })}
+              />
+            </div>
+            <div>
+              <label className="label">잔금 (원)</label>
+              <input
+                type="number"
+                min={0}
+                className="input text-[13px] tabular-nums"
+                placeholder="0"
+                value={v.balanceKRW ?? ""}
+                onChange={(e) => onUpdate({ balanceKRW: parseAmount(e.target.value) })}
+              />
+            </div>
+          </div>
+          {(v.depositKRW || v.balanceKRW) ? (
+            <div className="eyebrow tabular-nums">
+              합계 {formatKRW((v.depositKRW ?? 0) + (v.balanceKRW ?? 0))}
+            </div>
+          ) : null}
+          <div>
+            <label className="label">잔금 납부일</label>
+            <input
+              type="date"
+              className="input text-[13px] tabular-nums"
+              value={v.balanceDueAt ?? ""}
+              onChange={(e) => onUpdate({ balanceDueAt: e.target.value || undefined })}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+// 금액 입력 파싱 — Budget.tsx 와 동일 규칙(원 단위 그대로 저장). 빈 칸 undefined, 음수 거부.
+function parseAmount(raw: string): number | undefined {
+  const t = raw.trim();
+  if (t === "") return undefined;
+  const n = Number(t);
+  if (!Number.isFinite(n) || n < 0) return undefined;
+  return n;
 }
 
 function CustomAdd({

@@ -423,13 +423,38 @@ test.describe("critical product flows", () => {
     expect(stored.guests?.[0]?.name).toBe(seeded.guests?.[0]?.name);
   });
 
-  test("rejects unauthenticated managed AI and invitation publishing", async () => {
-    const aiResponse = await aiApi.fetch(new Request("https://wedding.test/api/ai", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ prompt: "test" }),
-    }));
-    expect(aiResponse.status).toBe(401);
+  test("allows limited managed AI trial but keeps deep AI and publishing protected", async () => {
+    const previousKey = process.env.ANTHROPIC_API_KEY;
+    const originalFetch = globalThis.fetch;
+    process.env.ANTHROPIC_API_KEY = "test-key";
+    globalThis.fetch = async (input) => {
+      const url = String(input);
+      if (url.includes("api.anthropic.com")) {
+        return new Response(JSON.stringify({ content: [{ type: "text", text: "trial-ok" }] }), { status: 200 });
+      }
+      return originalFetch(input);
+    };
+    try {
+      const aiResponse = await aiApi.fetch(new Request("https://wedding.test/api/ai", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ prompt: "test" }),
+      }));
+      expect(aiResponse.status).toBe(200);
+      expect(aiResponse.headers.get("set-cookie")).toContain("wos_ai_trial=");
+      expect(await aiResponse.json()).toEqual({ text: "trial-ok" });
+
+      const deepResponse = await aiApi.fetch(new Request("https://wedding.test/api/ai", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ prompt: "test", tier: "deep" }),
+      }));
+      expect(deepResponse.status).toBe(401);
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (previousKey === undefined) delete process.env.ANTHROPIC_API_KEY;
+      else process.env.ANTHROPIC_API_KEY = previousKey;
+    }
 
     const publishResponse = await publishApi.fetch(new Request("https://wedding.test/api/invite-publish", {
       method: "POST",
@@ -447,7 +472,13 @@ test.describe("critical product flows", () => {
     expect(publishApiSource).toContain("meta.rsvpToken.length > 256");
     const securitySource = fs.readFileSync("api/_security.ts", "utf8");
     expect(securitySource).toContain("isSupabaseHost(url)");
+    expect(securitySource).toContain("jsonWithHeaders");
     expect(securitySource).toContain("로그인 서버 설정이 올바르지 않습니다.");
+    const aiSource = fs.readFileSync("api/ai.ts", "utf8");
+    expect(aiSource).toContain("ai-trial-cookie-day");
+    expect(aiSource).toContain("ai-trial-local-day");
+    expect(aiSource).toContain("ai-trial-subnet-hour");
+    expect(aiSource).toContain("signedTrialCookie");
     const authSource = fs.readFileSync("src/lib/auth.ts", "utf8");
     expect(authSource).toContain("replaceExisting?: boolean");
     expect(authSource).toContain("이미 연결된 청첩장이 있어요");
@@ -533,7 +564,12 @@ test.describe("critical product flows", () => {
     });
     const managedAiSource = fs.readFileSync("api/ai.ts", "utf8");
     expect(managedAiSource).toContain('DEFAULT_MODEL = "claude-haiku-4-5-20251001"');
+    expect(managedAiSource).toContain('DEFAULT_DEEP_MODEL = "claude-sonnet-4-6"');
+    expect(managedAiSource).toContain('"ai-deep-user-hour"');
+    expect(managedAiSource).toContain('"ai-user-hour"');
     expect(managedAiSource).toContain("AbortSignal.timeout(55_000)");
+    const promptsSource = fs.readFileSync("src/lib/chatbotBridge.ts", "utf8");
+    expect(promptsSource).toContain('tier: "deep"');
   });
 
   test("provisions direct Supabase ownership explicitly and ships hosted migrations", async () => {

@@ -10,6 +10,7 @@ export type AiRunResult = {
 
 const MAX_PROMPT_CHARS = 30_000;
 const AI_TIMEOUT_MS = 60_000;
+const TRIAL_ID_KEY = "wedding-os/ai-trial-id/v1";
 
 async function fetchAi(input: RequestInfo | URL, init: RequestInit): Promise<Response> {
   const controller = new AbortController();
@@ -58,7 +59,7 @@ export async function runAiPrompt(prompt: BridgePrompt, config: AiConfig = getAi
     if (!hasDirectAi(config)) {
       return { ok: false, reason: "AI 설정이 아직 없어요. 복붙 모드를 쓰거나 API 키를 연결해주세요." };
     }
-    if (config.provider === "managed") return runManagedAI(prompt.prompt);
+    if (config.provider === "managed") return runManagedAI(prompt);
     if (config.provider === "gemini") return runGemini(prompt.prompt, config);
     if (config.provider === "openai") return runOpenAI(prompt.prompt, config);
     if (config.provider === "anthropic") return runAnthropic(prompt.prompt, config);
@@ -69,13 +70,15 @@ export async function runAiPrompt(prompt: BridgePrompt, config: AiConfig = getAi
   }
 }
 
-async function runManagedAI(input: string): Promise<AiRunResult> {
+async function runManagedAI(prompt: BridgePrompt): Promise<AiRunResult> {
   const accessToken = await currentAccessToken();
-  if (!accessToken) return { ok: false, reason: "Wedding OS AI는 로그인 후 사용할 수 있어요." };
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+  else headers["X-WOS-Trial-Id"] = getOrCreateTrialId();
   const res = await fetchAi("/api/ai", {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-    body: JSON.stringify({ prompt: input }),
+    headers,
+    body: JSON.stringify({ prompt: prompt.prompt, tier: prompt.tier ?? "standard" }),
   });
   const json = await res.json().catch(() => ({}));
   if (res.status === 404) {
@@ -86,6 +89,18 @@ async function runManagedAI(input: string): Promise<AiRunResult> {
   }
   if (!res.ok) return { ok: false, reason: json?.error ?? `Wedding OS AI 오류 (${res.status})` };
   return json?.text ? { ok: true, text: json.text } : { ok: false, reason: "Wedding OS AI 응답이 비어 있어요." };
+}
+
+function getOrCreateTrialId(): string {
+  try {
+    const current = localStorage.getItem(TRIAL_ID_KEY);
+    if (current && /^[A-Za-z0-9_-]{16,80}$/.test(current)) return current;
+    const id = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    localStorage.setItem(TRIAL_ID_KEY, id);
+    return id;
+  } catch {
+    return "trial-unavailable";
+  }
 }
 
 async function runGemini(input: string, config: AiConfig): Promise<AiRunResult> {

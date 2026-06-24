@@ -111,6 +111,10 @@ export type WeddingVenue = Verifiable & {
   notes?: string;
   status?: "관심" | "투어" | "계약";
   visitedAt?: string;       // 답사 날짜
+  contact?: string;         // 담당자·업체 연락처
+  depositKRW?: number;      // 계약금
+  balanceKRW?: number;      // 잔금
+  balanceDueAt?: string;    // 잔금 납부일 (ISO)
 };
 
 // ── 예산 ──
@@ -157,6 +161,10 @@ export type SdmVendor = {
   notes?: string;
   link?: string;
   status?: "관심" | "상담" | "계약";
+  contact?: string;         // 담당자·업체 연락처
+  depositKRW?: number;      // 계약금
+  balanceKRW?: number;      // 잔금
+  balanceDueAt?: string;    // 잔금 납부일 (ISO)
 };
 
 export type CheckItem = {
