@@ -12,9 +12,9 @@ type Props = {
 
 const NAV = [
   { to: "/dashboard", label: "홈" },
+  { to: "/agent", label: "점검" },
   { to: "/invitation", label: "청첩장" },
   { to: "/checklist", label: "체크리스트" },
-  { to: "/budget", label: "예산" },
   { to: "/settings", label: "더보기" },
 ];
 

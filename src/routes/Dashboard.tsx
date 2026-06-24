@@ -375,6 +375,7 @@ export default function Dashboard({ data, update }: Props) {
     {
       title: "도구",
       items: [
+        { to: "/agent", label: "에이전트 점검", sub: "법무 · 개인정보 · 저작권 · 비용" },
         { to: "/share", label: "공유 센터", sub: "청첩장 · 초대 링크 · 백업" },
         { to: "/ai", label: "AI 연결", sub: "복붙 모드 · API 키 · 로컬 LLM" },
       ],
@@ -648,6 +649,7 @@ const SAFE_TARGET_PATHS = new Set([
   "/trip",
   "/venues",
   "/share",
+  "/agent",
   "/setup",
   "/settings",
 ]);
