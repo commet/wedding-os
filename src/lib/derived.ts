@@ -252,6 +252,54 @@ export function mealBudgetCheck(data: WeddingData): MealBudgetCheck | null {
   return null;
 }
 
+// 분류별 1인 평균 축의금 가정치(원) — 거친 참고값. 지역·관계·시기에 따라 크게 다름.
+// 직계가족·혼주 지인은 보통 별도라 가족은 낮게 잡고, 사용자가 조정할 수 있다.
+export const GIFT_AVG_DEFAULT: Record<GuestCategory, number> = {
+  family: 100_000,
+  relative: 100_000,
+  work: 50_000,
+  school: 70_000,
+  friend: 70_000,
+  acquaintance: 50_000,
+};
+
+export function giftAvgFor(data: WeddingData, category: GuestCategory): number {
+  const override = data.headcount?.giftAvg?.find((g) => g.category === category);
+  return override ? override.krw : GIFT_AVG_DEFAULT[category];
+}
+
+export type GiftIncome = {
+  total: number;
+  byCategory: { category: GuestCategory; label: string; count: number; avg: number; sum: number }[];
+  basis: "estimate" | "listed";
+  count: number;
+};
+/** 예상 축의금 — 분류별 (예상 인원 × 1인 평균). 예상치가 없으면 명단의 분류별 인원으로. */
+export function expectedGiftIncome(data: WeddingData): GiftIncome | null {
+  const sum = headcountSummary(data);
+  const useEstimate = sum.estTotal > 0;
+  const byCategory = sum.rows.map((r) => {
+    const count = useEstimate ? r.groomEst + r.brideEst : r.listed;
+    const avg = giftAvgFor(data, r.category);
+    return { category: r.category, label: r.label, count, avg, sum: count * avg };
+  });
+  const total = byCategory.reduce((s, r) => s + r.sum, 0);
+  const count = byCategory.reduce((s, r) => s + r.count, 0);
+  if (count === 0) return null;
+  return { total, byCategory, basis: useEstimate ? "estimate" : "listed", count };
+}
+
+export type BreakEven = { gift: number; mealCost: number | null; plannedBudget: number; vsMeal: number | null };
+/** 본전 — 예상 축의금 vs 예상 식대·총예산. "축의금으로 메워지나"에 답한다. */
+export function breakEven(data: WeddingData): BreakEven | null {
+  const income = expectedGiftIncome(data);
+  if (!income) return null;
+  const meal = mealCostRange(contractedVenue(data), planningHeadcount(data));
+  const mealCost = meal ? (meal.max ?? meal.min ?? null) : null;
+  const plannedBudget = (data.budget ?? []).reduce((s, b) => s + (b.planned ?? 0), 0);
+  return { gift: income.total, mealCost, plannedBudget, vsMeal: mealCost !== null ? income.total - mealCost : null };
+}
+
 /** 만원 단위 한국어 포맷 (예: 145000000 → "1억 4,500만") */
 export function formatKRW(won: number): string {
   if (!won) return "0원";

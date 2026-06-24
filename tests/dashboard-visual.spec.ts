@@ -100,6 +100,27 @@ test.describe("dashboard visual smoke", () => {
     await assertLayoutHealth(page);
   });
 
+  test("budget break-even weighs expected gift income against meal cost", async ({ page }) => {
+    const data = defaultData();
+    data.preferences = { ...data.preferences, mode: "local", isDemo: false };
+    data.invitation = { ...data.invitation, groomName: "민준", brideName: "서연", date: "2026-11-07", venue: "그랜드하우스" };
+    data.venues = [{ id: "v1", name: "그랜드하우스", status: "계약", capacityMin: 100, capacityMax: 300, mealPriceMin: 65000, mealPriceMax: 70000 }] as WeddingData["venues"];
+    data.headcount = { estimates: [
+      { side: "groom", category: "work", expected: 80 },
+      { side: "bride", category: "friend", expected: 70 },
+    ] };
+    data.budget = [{ id: "b1", category: "스드메", planned: 4000000 }];
+    await page.addInitScript((v) => {
+      localStorage.clear(); sessionStorage.clear();
+      localStorage.setItem("wedding-os/v1", JSON.stringify(v));
+      localStorage.setItem("wedding-os/owner/v1", "1");
+    }, data);
+    await page.goto("/budget");
+    await expect(page.getByText("예상 축의금 · 본전")).toBeVisible();
+    await expect(page.getByText(/식대 메우고 남아요|식대보다 부족해요/)).toBeVisible();
+    await assertLayoutHealth(page);
+  });
+
   test("headcount estimator projects capacity and meal cost before the list is filled", async ({ page }) => {
     const data = defaultData();
     data.preferences = { ...data.preferences, mode: "local", isDemo: false };

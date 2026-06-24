@@ -314,7 +314,14 @@ function sanitizeHeadcount(h: unknown): WeddingData["headcount"] {
       expected: typeof e.expected === "number" && e.expected > 0 ? Math.min(Math.round(e.expected), 9999) : 0,
     }))
     .filter((e) => e.expected > 0);
-  return (estimates.length ? { estimates } : undefined) as WeddingData["headcount"];
+  const giftAvg = Array.isArray(h.giftAvg)
+    ? h.giftAvg
+        .filter(isPlainObject)
+        .filter((g) => cats.has(String(g.category)) && typeof g.krw === "number" && g.krw >= 0)
+        .map((g) => ({ category: g.category, krw: Math.min(Math.round(g.krw as number), 100_000_000) }))
+    : [];
+  if (!estimates.length && !giftAvg.length) return undefined;
+  return { estimates, ...(giftAvg.length ? { giftAvg } : {}) } as WeddingData["headcount"];
 }
 
 // 발행 자격증명 검증 — code·keyRaw 가 문자열일 때만 통과. 손상 시 undefined(미발행 취급).

@@ -61,10 +61,11 @@ export default function Guests({ data, update }: Props) {
 
   const exportCsv = () => {
     if (guests.length === 0) return;
-    const header = ["이름", "구분", "관계", "상태", "동반인원", "축의금"];
+    const header = ["이름", "구분", "분류", "관계", "상태", "동반인원", "축의금"];
     const rows = guests.map((g) => [
       g.name,
       SIDE_LABEL[g.side],
+      g.category ? GUEST_CATEGORY_LABEL[g.category] : "",
       g.relation ?? "",
       STATUS_LABEL[g.status],
       String(g.partyCount ?? 1),

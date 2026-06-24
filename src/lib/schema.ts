@@ -358,8 +358,11 @@ export type WeddingData = {
   venues?: WeddingVenue[];
   budget?: BudgetItem[];
   guests?: Guest[];
-  /** 예상 인원 계산기 — 측·분류별 추정치. 명단(guests)과 함께 reconcile 된다. */
-  headcount?: { estimates: HeadcountEstimate[] };
+  /**
+   * 예상 인원 계산기 — 측·분류별 추정치. 명단(guests)과 함께 reconcile 된다.
+   * giftAvg: 분류별 1인 평균 축의금 가정치(사용자 조정 가능, 없으면 기본값).
+   */
+  headcount?: { estimates: HeadcountEstimate[]; giftAvg?: { category: GuestCategory; krw: number }[] };
   ceremony?: CeremonyStep[];   // 당일 식순 진행표
   /** 발행한 청첩장의 code·keyRaw. 미발행이면 undefined. */
   publish?: PublishedInvite;

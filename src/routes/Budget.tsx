@@ -1,8 +1,11 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import type { WeddingData, BudgetItem } from "../lib/schema";
+import type { WeddingData, BudgetItem, GuestCategory } from "../lib/schema";
 import { defaultBudget, BUDGET_TEMPLATE, BUDGET_TOTAL_NOTE } from "../data/budgetTemplate";
-import { expectedHeadcount, formatKRW, contractedVenue, mealCostRange, upcomingBalances, contractedTotals } from "../lib/derived";
+import {
+  planningHeadcount, formatKRW, contractedVenue, mealCostRange, upcomingBalances, contractedTotals,
+  breakEven, expectedGiftIncome, type BreakEven, type GiftIncome,
+} from "../lib/derived";
 import { koBreak } from "../lib/typography";
 
 type Props = { data: WeddingData; update: (patch: any) => void };
@@ -10,7 +13,7 @@ type View = "all" | "current" | "unpaid" | "over";
 
 export default function Budget({ data, update }: Props) {
   const items = data.budget ?? [];
-  const headcount = expectedHeadcount(data); // 하객 명단과 연결된 예상 식수
+  const headcount = planningHeadcount(data); // 예상 인원 계산기·명단 중 큰 값(현재 최선 추정)
   const meal = mealCostRange(contractedVenue(data), headcount); // 계약 예식장 식대 단가 × 예상 식수
   const balances = upcomingBalances(data).slice(0, 3); // 벤더 계약 잔금 — 다가오는 결제
   const ct = contractedTotals(data); // 계약 선금·잔금 합계
@@ -172,6 +175,14 @@ export default function Budget({ data, update }: Props) {
         </div>
       </div>
 
+      {/* 예상 축의금 · 본전 — 분류별 인원 × 평균 가정 vs 식대·총예산 */}
+      {(() => {
+        const income = expectedGiftIncome(data);
+        const be = breakEven(data);
+        if (!income || !be) return null;
+        return <GiftBreakEven data={data} update={update} income={income} be={be} />;
+      })()}
+
       {/* 다가오는 결제 — 예식장·스드메 계약 잔금 (잔금일 순) */}
       {balances.length > 0 && (
         <div className="border-y border-hair py-5">
@@ -298,6 +309,97 @@ export default function Budget({ data, update }: Props) {
       <p className="text-[10.5px] text-soft text-center leading-relaxed">
         기본 금액은 실제 견적 전 감을 잡기 위한 참고치입니다. 지역·시즌·요일·보증인원·계약 조건에 따라 크게 달라집니다.
       </p>
+    </div>
+  );
+}
+
+// 예상 축의금 · 본전 — "축의금으로 메워지나"에 답한다. 인원은 예상 계산기/명단에서,
+// 1인 평균은 분류별 가정치(조정 가능). 식대·총예산과 자동 reconcile.
+function GiftBreakEven({ data, update, income, be }: {
+  data: WeddingData;
+  update: (patch: any) => void;
+  income: GiftIncome;
+  be: BreakEven;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const setGiftAvgMan = (category: GuestCategory, manRaw: string) => {
+    const krw = Math.max(0, Math.min(100_000_000, Math.round((Number(manRaw) || 0) * 10000)));
+    update((prev: WeddingData) => {
+      const list = (prev.headcount?.giftAvg ?? []).filter((g) => g.category !== category);
+      list.push({ category, krw });
+      return { ...prev, headcount: { estimates: prev.headcount?.estimates ?? [], giftAvg: list } };
+    });
+  };
+
+  return (
+    <div className="border-y border-hair py-5">
+      <div className="eyebrow-gold mb-1.5">예상 축의금 · 본전</div>
+      <div className="font-serif text-[2rem] leading-none text-ink tabular-nums">{formatKRW(be.gift)}</div>
+      <p className="mt-1.5 text-[11px] text-soft break-keep">
+        {income.basis === "estimate" ? "예상 인원" : "명단"} <span className="tabular-nums">{income.count}</span>명 · 분류별 평균 가정
+      </p>
+
+      <div className="mt-4 space-y-2.5">
+        {be.mealCost !== null && (
+          <div className="flex items-baseline justify-between gap-3 text-[13px]">
+            <span className="text-soft break-keep">예상 식대</span>
+            <span className="tabular-nums text-ink">{formatKRW(be.mealCost)}</span>
+          </div>
+        )}
+        {be.vsMeal !== null && (
+          <div className="flex items-baseline justify-between gap-3 text-[13px] border-t border-hair pt-2.5">
+            <span className="break-keep text-ink">{be.vsMeal >= 0 ? "식대 메우고 남아요" : "식대보다 부족해요"}</span>
+            <span className={`tabular-nums font-semibold ${be.vsMeal >= 0 ? "text-sage" : "text-gold"}`}>
+              {be.vsMeal >= 0 ? "+" : "−"}{formatKRW(Math.abs(be.vsMeal))}
+            </span>
+          </div>
+        )}
+        {be.plannedBudget > 0 && (
+          <div className="flex items-baseline justify-between gap-3 text-[13px]">
+            <span className="text-soft break-keep">총예산 회수율</span>
+            <span className="tabular-nums text-ink">
+              {Math.round((be.gift / be.plannedBudget) * 100)}%
+              <span className="text-soft text-[11px] ml-1.5">/ {formatKRW(be.plannedBudget)}</span>
+            </span>
+          </div>
+        )}
+      </div>
+
+      <button onClick={() => setOpen((o) => !o)} className="mt-4 text-[12px] underline underline-offset-4 text-ink hover:text-gold">
+        {open ? "분류별 가정 접기" : "분류별 평균 조정 →"}
+      </button>
+
+      {open && (
+        <div className="mt-4 border-t border-hair pt-4">
+          <div className="grid grid-cols-[1fr_2.2rem_3.4rem_auto] gap-x-3 gap-y-2 items-center">
+            <span className="eyebrow">분류</span>
+            <span className="eyebrow text-center">인원</span>
+            <span className="eyebrow text-center">만원</span>
+            <span className="eyebrow text-right">소계</span>
+            {income.byCategory.map((r) => (
+              <Fragment key={r.category}>
+                <span className="text-[13px] text-ink">{r.label}</span>
+                <span className="text-[13px] text-soft text-center tabular-nums">{r.count}</span>
+                <input
+                  type="number" min={0} inputMode="numeric"
+                  aria-label={`${r.label} 1인 평균 축의금 (만원)`}
+                  className="input text-[12px] tabular-nums text-center py-1.5"
+                  value={Math.round(r.avg / 10000) || ""}
+                  onChange={(e) => setGiftAvgMan(r.category, e.target.value)}
+                  placeholder="0"
+                />
+                <span className="text-[12px] text-ink text-right tabular-nums">{formatKRW(r.sum)}</span>
+              </Fragment>
+            ))}
+          </div>
+          <p className="mt-3 text-[11px] text-soft leading-relaxed break-keep">
+            평균값은 <b className="text-ink font-medium">거친 가정</b>이에요 — 지역·관계·시기에 따라 크게 달라요.
+            직계가족·혼주 지인 축의는 보통 별도예요. 분류 인원은{" "}
+            <Link to="/guests" className="underline underline-offset-2 text-ink">하객</Link>에서 조정하세요.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
