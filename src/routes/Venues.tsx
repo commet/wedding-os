@@ -10,6 +10,13 @@ import {
 } from "../data/venueCatalog";
 import VendorActions from "../components/VendorActions";
 import Modal from "../components/Modal";
+import {
+  upcomingBalances,
+  venueCapacityFit,
+  expectedHeadcount,
+  formatKRW,
+  type BalanceDue,
+} from "../lib/derived";
 
 type Props = { data: WeddingData; update: (patch: any) => void };
 type Tab = "mine" | "catalog";
@@ -42,6 +49,12 @@ export default function Venues({ data, update }: Props) {
     for (const v of myVenues) if (v.status) r[v.status]++;
     return r;
   }, [myVenues]);
+
+  const venueBalances = useMemo(
+    () => upcomingBalances(data).filter((b) => b.targetPath === "/venues"),
+    [data]
+  );
+  const headcount = useMemo(() => expectedHeadcount(data), [data]);
 
   const filteredCatalog = useMemo(() => {
     const rm = REGION_GROUPS.find((g) => g.key === region)?.match ?? (() => true);
@@ -161,6 +174,32 @@ export default function Venues({ data, update }: Props) {
                 <span className="ml-auto"><span className="tabular-nums text-gold">{haveStatusCount["계약"]}</span> <span className="text-soft">계약</span></span>
               </div>
 
+              {venueBalances.length > 0 && (
+                <div className="border-y border-hair py-4">
+                  <div className="eyebrow mb-3">다음 납부</div>
+                  <ul className="space-y-2">
+                    {venueBalances.slice(0, 3).map((b) => (
+                      <li
+                        key={b.name}
+                        className="flex items-baseline justify-between gap-4 text-[13px]"
+                      >
+                        <span className="text-ink break-keep">
+                          {b.name} <span className="text-soft">잔금</span>{" "}
+                          <span className="tabular-nums">{formatKRW(b.amount)}</span>
+                        </span>
+                        <span
+                          className={`tabular-nums whitespace-nowrap flex-shrink-0 ${
+                            b.daysLeft <= 14 ? "text-gold" : "text-soft"
+                          }`}
+                        >
+                          {dDayLabel(b.daysLeft)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               <div className="flex items-baseline justify-between">
                 <h2 className="eyebrow">내 후보</h2>
                 <button onClick={() => setShowAdd(true)} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
@@ -202,6 +241,8 @@ export default function Venues({ data, update }: Props) {
                           key={v.id}
                           v={v}
                           registered={!!v.name.trim() && v.name.trim() === (data.invitation.venue ?? "").trim()}
+                          headcount={headcount}
+                          balance={venueBalances.find((b) => b.name === v.name)}
                           onUpdate={(patch) => updateVenue(v.id, patch)}
                           onRemove={() => removeVenue(v.id)}
                           onApply={() => applyToInvitation(v)}
@@ -523,15 +564,20 @@ function CatalogRow({ v, added, onAdd }: { v: WeddingVenue; added: boolean; onAd
 }
 
 function MyVenueRow({
-  v, registered, onUpdate, onRemove, onApply,
+  v, registered, headcount, balance, onUpdate, onRemove, onApply,
 }: {
   v: WeddingVenue;
   registered?: boolean;
+  headcount: number;
+  balance?: BalanceDue;
   onUpdate: (patch: Partial<WeddingVenue>) => void;
   onRemove: () => void;
   onApply: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const fit = venueCapacityFit(v, headcount);
+  const showDDay =
+    v.status === "계약" && (v.balanceKRW ?? 0) > 0 && !!v.balanceDueAt && !!balance;
   return (
     <li className="py-5">
       <div className="flex items-baseline justify-between gap-3">
@@ -542,6 +588,12 @@ function MyVenueRow({
             {v.hallType && <span>· {HALL_TYPE_LABEL[v.hallType]}</span>}
             {v.status && <span className="text-gold">· {v.status}</span>}
             {registered && <span className="text-sage">· ✓ 청첩장 등록</span>}
+            {fit !== "unknown" && (
+              <span className={CAPACITY_FIT_TONE[fit]}>· {CAPACITY_FIT_LABEL[fit]}</span>
+            )}
+            {showDDay && (
+              <span className="text-gold tabular-nums">· {dDayLabel(balance!.daysLeft)}</span>
+            )}
           </div>
         </button>
         <button onClick={onRemove} className="text-soft hover:text-ink text-sm flex-shrink-0">×</button>
@@ -585,6 +637,16 @@ function MyVenueRow({
           {/* 계약 관리 — 담당자 연락처·계약금·잔금 */}
           <div className="pt-4 border-t border-hair space-y-4">
             <div className="eyebrow-gold">계약 관리</div>
+
+            {(v.depositKRW ?? 0) > 0 && (v.balanceKRW ?? 0) > 0 && v.balanceDueAt && (
+              <div className="text-[13px] text-soft tabular-nums break-keep border-b border-hair pb-3">
+                <span className="text-ink">선금 {formatKRW(v.depositKRW!)}</span>
+                {" · "}
+                <span className="text-ink">잔금 {formatKRW(v.balanceKRW!)}</span>
+                {" · "}
+                잔금일 {v.balanceDueAt.slice(0, 10)}
+              </div>
+            )}
 
             <div>
               <label className="label">담당자·업체 연락처</label>
@@ -754,6 +816,27 @@ function CustomAdd({ onAdd }: { onAdd: (v: Omit<WeddingVenue, "id">) => void }) 
       </button>
     </div>
   );
+}
+
+// 수용 여유도 칩 — venueCapacityFit 결과를 한 줄 라벨/톤으로. gold 는 초과·미달(주의)만.
+const CAPACITY_FIT_LABEL: Record<Exclude<ReturnType<typeof venueCapacityFit>, "unknown">, string> = {
+  under: "보증인원 미달",
+  tight: "수용 근접",
+  ok: "수용 여유",
+  over: "인원 초과",
+};
+const CAPACITY_FIT_TONE: Record<Exclude<ReturnType<typeof venueCapacityFit>, "unknown">, string> = {
+  under: "text-gold",
+  tight: "text-soft",
+  ok: "text-soft",
+  over: "text-gold",
+};
+
+// 잔금일까지의 D-day 라벨 — daysLeft 는 upcomingBalances 가 계산한 값(음수=지남).
+function dDayLabel(daysLeft: number): string {
+  if (daysLeft < 0) return `${-daysLeft}일 지남`;
+  if (daysLeft === 0) return "오늘";
+  return `D-${daysLeft}`;
 }
 
 function fmtMan(n?: number): string {

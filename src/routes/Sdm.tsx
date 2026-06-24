@@ -10,7 +10,14 @@ import {
 import Modal from "../components/Modal";
 import VendorActions from "../components/VendorActions";
 import { koBreak } from "../lib/typography";
-import { formatKRW } from "../lib/derived";
+import { formatKRW, upcomingBalances } from "../lib/derived";
+
+// D-day 표기 — upcomingBalances 의 daysLeft 를 사람이 읽는 문구로. (음수=지남)
+function dDayLabel(daysLeft: number): string {
+  if (daysLeft < 0) return `${-daysLeft}일 지남`;
+  if (daysLeft === 0) return "오늘";
+  return `D-${daysLeft}`;
+}
 
 type Props = { data: WeddingData; update: (patch: any) => void; initialCategory?: SdmCategory };
 
@@ -48,6 +55,12 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
   const [showChannels, setShowChannels] = useState(false);
 
   const inCat = data.sdm.filter((v) => v.category === cat);
+
+  // 다음 납부 — 스드메/스냅 잔금만, 잔금일 순. (읽기 전용)
+  const sdmBalances = useMemo(
+    () => upcomingBalances(data).filter((b) => b.targetPath === "/sdm" || b.targetPath === "/snap"),
+    [data],
+  );
 
   const filteredCatalog = useMemo(() => {
     const regionMatch = REGION_GROUPS.find((g) => g.key === region)?.match ?? (() => true);
@@ -143,6 +156,32 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
         </div>
       </details>
 
+      {/* 다음 납부 — 스드메/스냅 잔금 임박 (읽기 전용) */}
+      {sdmBalances.length > 0 && (
+        <div className="border-y border-hair py-4">
+          <div className="eyebrow mb-3">다음 납부</div>
+          <ul className="space-y-2">
+            {sdmBalances.slice(0, 3).map((b) => (
+              <li
+                key={`${b.targetPath}-${b.name}-${b.dueAt}`}
+                className="flex items-baseline justify-between gap-3 text-[13px]"
+              >
+                <span className="text-ink break-keep min-w-0 truncate">
+                  {b.name} 잔금 <span className="tabular-nums">{formatKRW(b.amount)}</span>
+                </span>
+                <span
+                  className={`tabular-nums whitespace-nowrap flex-shrink-0 ${
+                    b.daysLeft <= 14 ? "text-gold" : "text-soft"
+                  }`}
+                >
+                  {dDayLabel(b.daysLeft)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* 내 후보 */}
       {inCat.length > 0 && (
         <section>
@@ -155,6 +194,7 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
               <MyVendorCard
                 key={v.id}
                 v={v}
+                dueDaysLeft={sdmBalances.find((b) => b.name === v.name)?.daysLeft}
                 onUpdate={(patch) => updateVendor(v.id, patch)}
                 onRemove={() => remove(v.id)}
               />
@@ -314,17 +354,31 @@ function CatalogCard({
 }
 
 function MyVendorCard({
-  v, onUpdate, onRemove,
+  v, dueDaysLeft, onUpdate, onRemove,
 }: {
   v: SdmVendor;
+  dueDaysLeft?: number;
   onUpdate: (patch: Partial<SdmVendor>) => void;
   onRemove: () => void;
 }) {
+  // 계약 + 잔금 남음 + 잔금일 있음 → 요약에 D-day 칩. daysLeft 는 upcomingBalances 가 계산한 값을 그대로 재사용.
+  const showDueChip =
+    v.status === "계약" &&
+    (v.balanceKRW ?? 0) > 0 &&
+    !!v.balanceDueAt &&
+    dueDaysLeft !== undefined;
   return (
     <div className="py-4 space-y-3">
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
-          <div className="font-serif text-[15px] text-ink">{v.name}</div>
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <span className="font-serif text-[15px] text-ink break-keep">{v.name}</span>
+            {showDueChip && (
+              <span className="text-[10.5px] tracking-eyebrow uppercase text-gold tabular-nums whitespace-nowrap">
+                {dDayLabel(dueDaysLeft!)}
+              </span>
+            )}
+          </div>
           {v.region && <div className="eyebrow mt-1">{v.region}</div>}
         </div>
         <button onClick={onRemove} className="text-soft hover:text-ink text-sm">×</button>
@@ -370,6 +424,12 @@ function MyVendorCard({
       {v.status !== "관심" && (
         <div className="pt-3 mt-1 border-t border-hair space-y-3">
           <div className="eyebrow">계약 관리</div>
+          {/* 읽기 전용 원장 한 줄 — 선금·잔금·잔금일이 모두 채워졌을 때만 */}
+          {(v.depositKRW ?? 0) > 0 && (v.balanceKRW ?? 0) > 0 && v.balanceDueAt && (
+            <div className="text-[12px] text-soft tabular-nums break-keep">
+              선금 {formatKRW(v.depositKRW!)} · 잔금 {formatKRW(v.balanceKRW!)} · 잔금일 {v.balanceDueAt.slice(0, 10)}
+            </div>
+          )}
           <input
             className="input text-[13px]"
             placeholder="담당자·업체 연락처"

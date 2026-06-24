@@ -490,21 +490,21 @@ export default function Dashboard({ data, update }: Props) {
               {data.ai?.starterSummary || `현재 준비 상태를 보고, 다음 결정이 쉬워지는 순서로 정리했어요.`}
             </p>
             {(overdueCount > 0 || overBudgetCount > 0 || balanceDueSoon) && (
-              <div className="mb-7 border-y border-hair">
+              <div className="mb-7 border-y border-l-2 border-hair border-l-gold bg-cream/40">
                 {overdueCount > 0 && (
-                  <Link to="/checklist" className="row-tap flex items-center justify-between gap-3 border-b border-hair px-1 py-3 last:border-b-0">
+                  <Link to="/checklist" className="row-tap flex items-center justify-between gap-3 border-b border-hair px-3 py-3 last:border-b-0">
                     <span className="text-[13px] text-ink break-keep">지난 마감 <b className="font-semibold">{overdueCount}건</b>이 남아 있어요</span>
                     <span className="flex-shrink-0 text-gold">→</span>
                   </Link>
                 )}
                 {overBudgetCount > 0 && (
-                  <Link to="/budget" className="row-tap flex items-center justify-between gap-3 border-b border-hair px-1 py-3 last:border-b-0">
+                  <Link to="/budget" className="row-tap flex items-center justify-between gap-3 border-b border-hair px-3 py-3 last:border-b-0">
                     <span className="text-[13px] text-ink break-keep">예산을 <b className="font-semibold">{overBudgetCount}건</b> 초과했어요 · +{formatKRW(overBudgetSum)}</span>
                     <span className="flex-shrink-0 text-gold">→</span>
                   </Link>
                 )}
                 {balanceDueSoon && (
-                  <Link to={balanceDueSoon.targetPath} className="row-tap flex items-center justify-between gap-3 border-b border-hair px-1 py-3 last:border-b-0">
+                  <Link to={balanceDueSoon.targetPath} className="row-tap flex items-center justify-between gap-3 border-b border-hair px-3 py-3 last:border-b-0">
                     <span className="text-[13px] text-ink break-keep">{balanceDueSoon.name} 잔금 {balanceDueSoon.daysLeft < 0 ? `${-balanceDueSoon.daysLeft}일 지남` : balanceDueSoon.daysLeft === 0 ? "오늘" : `D-${balanceDueSoon.daysLeft}`} · {formatKRW(balanceDueSoon.amount)}</span>
                     <span className="flex-shrink-0 text-gold">→</span>
                   </Link>

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { WeddingData, BudgetItem } from "../lib/schema";
 import { defaultBudget, BUDGET_TEMPLATE, BUDGET_TOTAL_NOTE } from "../data/budgetTemplate";
-import { expectedHeadcount, formatKRW } from "../lib/derived";
+import { expectedHeadcount, formatKRW, contractedVenue, mealCostRange, upcomingBalances, contractedTotals } from "../lib/derived";
 import { koBreak } from "../lib/typography";
 
 type Props = { data: WeddingData; update: (patch: any) => void };
@@ -11,6 +11,9 @@ type View = "all" | "current" | "unpaid" | "over";
 export default function Budget({ data, update }: Props) {
   const items = data.budget ?? [];
   const headcount = expectedHeadcount(data); // 하객 명단과 연결된 예상 식수
+  const meal = mealCostRange(contractedVenue(data), headcount); // 계약 예식장 식대 단가 × 예상 식수
+  const balances = upcomingBalances(data).slice(0, 3); // 벤더 계약 잔금 — 다가오는 결제
+  const ct = contractedTotals(data); // 계약 선금·잔금 합계
   const [view, setView] = useState<View>("all");
   const [customName, setCustomName] = useState("");
 
@@ -147,8 +150,46 @@ export default function Budget({ data, update }: Props) {
               <span className="text-[12px] text-soft break-keep">1인당 약 <b className="font-semibold tabular-nums text-ink">{formatKRW(Math.round(totals.planned / headcount))}</b></span>
             </Link>
           )}
+          {meal && (
+            <Link to="/venues" className="row-tap mt-3 flex items-baseline justify-between gap-3 border-t border-hair pt-3">
+              <span className="eyebrow break-keep">예상 식대 · {meal.headcount}명</span>
+              <span className="text-[12px] text-soft break-keep tabular-nums">
+                <b className="font-semibold text-ink">{meal.min ? formatKRW(meal.min) : ""}{meal.max && meal.max !== meal.min ? `~${formatKRW(meal.max)}` : ""}</b>
+              </span>
+            </Link>
+          )}
         </div>
       </div>
+
+      {/* 다가오는 결제 — 예식장·스드메 계약 잔금 (잔금일 순) */}
+      {balances.length > 0 && (
+        <div className="border-y border-hair py-5">
+          <div className="eyebrow-gold mb-3">다음 납부</div>
+          <div>
+            {balances.map((b) => (
+              <Link
+                key={b.name + b.dueAt}
+                to={b.targetPath}
+                className="row-tap flex items-baseline justify-between gap-3 border-b border-hair py-2.5 last:border-b-0"
+              >
+                <span className="text-[13px] text-ink break-keep">{b.name} <span className="text-soft">잔금</span></span>
+                <span className="flex items-baseline gap-2.5 tabular-nums break-keep">
+                  <b className="text-[13px] font-semibold text-ink">{formatKRW(b.amount)}</b>
+                  <span className={`text-[12px] ${b.daysLeft <= 14 ? "text-gold font-medium" : "text-soft"}`}>
+                    {b.daysLeft < 0 ? `${-b.daysLeft}일 지남` : b.daysLeft === 0 ? "오늘" : `D-${b.daysLeft}`}
+                  </span>
+                </span>
+              </Link>
+            ))}
+          </div>
+          {ct.balanceTotal > 0 && (
+            <div className="mt-1 flex items-baseline justify-between gap-3 border-t border-hair pt-3">
+              <span className="eyebrow break-keep">남은 잔금 합계</span>
+              <span className="text-[13px] font-semibold text-ink tabular-nums break-keep">{formatKRW(ct.balanceTotal)}</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 토글 */}
       <div className="flex items-center gap-6 border-b border-hair pb-3">
@@ -212,14 +253,19 @@ export default function Budget({ data, update }: Props) {
           if (visible.length === 0) return null;
           const groupPlanned = list.reduce((s, b) => s + (b.planned ?? 0), 0);
           const groupActual = list.reduce((s, b) => s + (b.actual ?? 0), 0);
+          // 미결제 정의는 합계(totals.unpaidCount)와 동일하게 — 두 수치가 어긋나지 않게.
+          const groupUnpaid = list.filter((b) => ((b.planned ?? 0) > 0 || (b.actual ?? 0) > 0) && !b.paid).length;
           return (
             <section key={group}>
-              <div className="flex items-baseline justify-between mb-2">
+              <div className="flex items-baseline justify-between gap-3 mb-2">
                 <h2 className="section-title">{koBreak(group)}</h2>
-                <span className="text-[11.5px] text-soft tabular-nums">
-                  {groupPlanned > 0 ? `${fmtMan(groupPlanned)}만원 예산` : ""}
-                  {groupActual > 0 && groupPlanned > 0 && " · "}
-                  {groupActual > 0 && `${fmtMan(groupActual)}만원 지출`}
+                <span className="flex items-baseline gap-2 text-[11.5px] tabular-nums break-keep">
+                  {groupUnpaid > 0 && <span className="text-ink">미결제 {groupUnpaid}</span>}
+                  <span className="text-soft">
+                    {groupPlanned > 0 ? `${fmtMan(groupPlanned)}만원 예산` : ""}
+                    {groupActual > 0 && groupPlanned > 0 && " · "}
+                    {groupActual > 0 && `${fmtMan(groupActual)}만원 지출`}
+                  </span>
                 </span>
               </div>
               <ul className="group-card">

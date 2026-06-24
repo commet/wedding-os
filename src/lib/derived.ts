@@ -81,6 +81,22 @@ export function upcomingBalances(data: WeddingData, today: string = todayISO()):
   return out.sort((a, b) => a.daysLeft - b.daysLeft);
 }
 
+/** 계약(status=계약) 벤더들의 선금·잔금 합계 — "얼마 걸렸고 얼마 남았나" */
+export function contractedTotals(data: WeddingData): { depositTotal: number; balanceTotal: number; count: number } {
+  let depositTotal = 0;
+  let balanceTotal = 0;
+  let count = 0;
+  const add = (status: string | undefined, deposit?: number, balance?: number) => {
+    if (status !== "계약") return;
+    if ((deposit ?? 0) > 0 || (balance ?? 0) > 0) count += 1;
+    depositTotal += deposit ?? 0;
+    balanceTotal += balance ?? 0;
+  };
+  for (const v of data.venues ?? []) add(v.status, v.depositKRW, v.balanceKRW);
+  for (const s of data.sdm ?? []) add(s.status, s.depositKRW, s.balanceKRW);
+  return { depositTotal, balanceTotal, count };
+}
+
 /** 청첩장 공유 준비도 — 핵심 5필드 중 채워진 수 */
 export function invitationReadiness(data: WeddingData): { filled: number; total: number; missing: string[] } {
   const fields: [string, unknown][] = [

@@ -2,6 +2,17 @@ import { useState } from "react";
 import type { WeddingData, CeremonyStep } from "../lib/schema";
 import { defaultCeremony } from "../data/ceremonyTemplate";
 import { koBreak } from "../lib/typography";
+import { parseISODateLocal } from "../lib/date";
+
+const KO_WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+
+// "2026.11.07 토" — 요일은 로컬 타임존 기준 getDay() 로 계산
+function formatCeremonyDate(iso?: string): string {
+  const d = parseISODateLocal(iso);
+  if (!d) return "";
+  const ymd = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
+  return `${ymd} ${KO_WEEKDAYS[d.getDay()]}`;
+}
 
 type Props = { data: WeddingData; update: (patch: any) => void };
 
@@ -59,6 +70,15 @@ export default function Ceremony({ data, update }: Props) {
 
   const doneCount = steps.filter((s) => s.done).length;
 
+  // 식순을 실제 예식 순간에 묶어주는 컨텍스트 한 줄 — 있는 정보만 모아 표기
+  const inv = data.invitation;
+  const ceremonyDate = formatCeremonyDate(inv?.date);
+  const contextParts = [
+    ceremonyDate,
+    inv?.time?.trim() || "",
+    inv?.venue?.trim() ? `${inv.venue.trim()}${inv.venueHall?.trim() ? ` ${inv.venueHall.trim()}` : ""}` : "",
+  ].filter(Boolean);
+
   // 빈 상태
   if (steps.length === 0) {
     return (
@@ -95,10 +115,23 @@ export default function Ceremony({ data, update }: Props) {
         <div>
           <div className="eyebrow-gold mb-2">예식 진행</div>
           <h1 className="h-page">식순</h1>
+          {contextParts.length > 0 && (
+            <p className="mt-1.5 text-[12px] text-soft break-keep">
+              <span className="tabular-nums">{contextParts.join(" · ")}</span>
+            </p>
+          )}
         </div>
         <span className="eyebrow tabular-nums whitespace-nowrap">
           {doneCount}/{steps.length} 확인
         </span>
+      </div>
+
+      {/* 진행 게이지 — 리허설·당일 체크 진척을 한눈에 */}
+      <div className="mt-3 h-px w-full bg-hair" aria-hidden="true">
+        <div
+          className="h-full bg-gold transition-all"
+          style={{ width: `${(doneCount / steps.length) * 100}%` }}
+        />
       </div>
 
       <p className="mt-4 text-[13px] text-soft leading-[1.8] break-keep">
