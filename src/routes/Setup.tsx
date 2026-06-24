@@ -565,7 +565,7 @@ function Step4({
         />
       </div>
       <div>
-        <label className="label">② anon (public) key</label>
+        <label className="label">② 공개 키 <span className="text-mute normal-case tracking-normal">(anon public)</span></label>
         <input
           className="input text-[12px]"
           value={anonKey}
@@ -575,10 +575,12 @@ function Step4({
         <p className="text-[11px] text-soft mt-1">긴 문자열이에요 (eyJ 로 시작).</p>
       </div>
 
-      <div className="pl-4 border-l-2 border-gold text-[12px] space-y-1 leading-relaxed">
-        <p className="text-ink"><b>service_role 키는 절대 입력하지 마세요.</b></p>
-        <p className="text-soft">service_role 은 모든 데이터에 접근할 수 있는 마스터 키예요.
-          반드시 <b className="text-ink">anon (public)</b> 키만!</p>
+      <div className="pl-4 border-l-2 border-sage/60 text-[12px] space-y-1 leading-relaxed">
+        <p className="text-ink"><b>안심하세요 —</b> 위 화면의 <b>anon public</b> 키 하나만 쓰면 돼요.</p>
+        <p className="text-soft">
+          바로 아래 <b className="text-ink">service_role</b> 키는 쓰지 않아요. 모든 데이터에 접근하는
+          관리자용이라, 공개되는 앱에는 넣지 않습니다.
+        </p>
       </div>
 
       <div className="pl-4 border-l-2 border-gold/50 text-[12px] leading-relaxed text-soft">

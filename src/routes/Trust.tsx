@@ -83,29 +83,33 @@ export default function Trust() {
       {/* 04 — 오픈소스 코드 핀 */}
       <Section num="04" title="코드로 확인하기">
         <p className="text-soft mb-3">
-          당신 브라우저에서 도는 코드는 전부 공개돼 있습니다. 전문가라면 직접 읽고 검증할 수 있어요.
+          당신 브라우저에서 도는 코드는 전부 공개돼 있어요. 꼭 읽지 않아도 괜찮지만,
+          원하면 직접 열어 검증할 수 있습니다.
         </p>
-        <ul className="space-y-2">
-          <li>
-            <a href={`${REPO}/src/lib/inviteCrypto.ts`} target="_blank" rel="noopener noreferrer"
-               className="underline underline-offset-2 text-ink">inviteCrypto.ts</a>
-            <span className="text-soft"> — 암호화(AES-GCM-256). 키 생성·암복호화 전부.</span>
-          </li>
-          <li>
-            <a href={`${REPO}/api/invite-publish.ts`} target="_blank" rel="noopener noreferrer"
-               className="underline underline-offset-2 text-ink">api/invite-publish.ts</a>
-            <span className="text-soft"> — 서버는 암호문만 받습니다. 키는 받지 않아요.</span>
-          </li>
-          <li>
-            <a href={`${REPO}/src/lib/inviteHosting.ts`} target="_blank" rel="noopener noreferrer"
-               className="underline underline-offset-2 text-ink">inviteHosting.ts</a>
-            <span className="text-soft"> — 키는 링크의 <code className="bg-cream px-1">#</code> 뒤에만 붙습니다.</span>
-          </li>
-          <li>
-            <a href="https://github.com/commet/wedding-os" target="_blank" rel="noopener noreferrer"
-               className="underline underline-offset-2 text-ink">전체 저장소 →</a>
-          </li>
-        </ul>
+        <a href="https://github.com/commet/wedding-os" target="_blank" rel="noopener noreferrer"
+           className="underline underline-offset-2 text-ink">전체 저장소 열기 →</a>
+        <details className="mt-3">
+          <summary className="cursor-pointer list-none text-[13px] text-soft underline underline-offset-4 hover:text-ink">
+            전문가용 — 핵심 파일 바로 보기
+          </summary>
+          <ul className="mt-3 space-y-2 border-l border-hair pl-4">
+            <li>
+              <a href={`${REPO}/src/lib/inviteCrypto.ts`} target="_blank" rel="noopener noreferrer"
+                 className="underline underline-offset-2 text-ink">inviteCrypto.ts</a>
+              <span className="text-soft"> — 암호화(AES-GCM-256). 키 생성·암복호화 전부.</span>
+            </li>
+            <li>
+              <a href={`${REPO}/api/invite-publish.ts`} target="_blank" rel="noopener noreferrer"
+                 className="underline underline-offset-2 text-ink">api/invite-publish.ts</a>
+              <span className="text-soft"> — 서버는 암호문만 받습니다. 키는 받지 않아요.</span>
+            </li>
+            <li>
+              <a href={`${REPO}/src/lib/inviteHosting.ts`} target="_blank" rel="noopener noreferrer"
+                 className="underline underline-offset-2 text-ink">inviteHosting.ts</a>
+              <span className="text-soft"> — 키는 링크의 <code className="bg-cream px-1">#</code> 뒤에만 붙습니다.</span>
+            </li>
+          </ul>
+        </details>
       </Section>
 
       {/* 05 — 3단 스펙트럼 */}

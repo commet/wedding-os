@@ -6,10 +6,10 @@ import { koBreak } from "../lib/typography";
 type Props = { data: WeddingData; };
 
 const CATEGORIES = [
-  "버그 / 오류",
-  "기능 요청",
-  "셋업이 어려워요",
-  "기타 문의",
+  "화면이 깨졌거나 저장이 안 돼요",
+  "이런 기능이 있으면 좋겠어요",
+  "어디서부터 시작할지 모르겠어요",
+  "기타",
 ] as const;
 
 export default function Contact({ data }: Props) {
@@ -57,13 +57,12 @@ export default function Contact({ data }: Props) {
       </div>
 
       <p className="text-[13px] text-soft leading-relaxed border-b border-hair pb-6">
-        화면 이름, 눌렀던 버튼, 기대했던 결과를 적어주시면 빠르게 확인할 수 있어요.
-        캡처가 있으면 메일 앱에서 함께 첨부해주세요.
+        어디서 어떤 일이 있었는지 편하게 적어주세요. 화면 이름이나 캡처를 함께 주시면 더 빨리 도와드릴 수 있어요.
       </p>
 
       <div className="space-y-5">
         <div>
-          <label className="label">분류</label>
+          <label className="label">주제</label>
           <select aria-label="문의 분류" className="input-boxed text-[13px]" value={category} onChange={(e) => setCategory(e.target.value as any)}>
             {CATEGORIES.map(c => <option key={c}>{c}</option>)}
           </select>

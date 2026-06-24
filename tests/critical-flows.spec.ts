@@ -157,7 +157,7 @@ test.describe("critical product flows", () => {
       ],
       invitationGreeting: "서로의 계절을 함께 건너온 두 사람이\n소중한 분들을 모시고 결혼식을 올립니다.",
     }));
-    await page.getByRole("button", { name: "검토하기 →" }).click();
+    await page.getByRole("button", { name: "초안 확인하기 →" }).click();
     await expect(page.getByText("적용 전 확인", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "이대로 반영 →" }).click();
 
@@ -197,7 +197,7 @@ test.describe("critical product flows", () => {
 
     const greeting = "오랜 시간 서로의 일상을 아껴온 두 사람이\n소중한 분들을 모시고 결혼식을 올립니다.\n따뜻한 마음으로 함께 축복해주시면 감사하겠습니다.";
     await page.getByPlaceholder("챗봇이 준 답변을 그대로 복사해서 붙여넣기…").fill(greeting);
-    await page.getByRole("button", { name: "검토하기 →" }).click();
+    await page.getByRole("button", { name: "초안 확인하기 →" }).click();
     await expect(page.getByText("적용 전 확인", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "이대로 반영 →" }).click();
 

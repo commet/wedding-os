@@ -7,8 +7,8 @@ import { koBreak } from "../lib/typography";
 type Props = { data?: unknown };
 
 const PROVIDERS: { id: AiProvider; label: string; desc: string; link?: string }[] = [
-  { id: "managed", label: "Wedding OS AI", desc: "운영자 서버의 AI로 앱 안에서 바로 실행하는 기본 방식" },
-  { id: "bridge", label: "복붙 모드", desc: "API 키 없이 챗봇에 프롬프트를 복사해 쓰는 기본 방식" },
+  { id: "managed", label: "Wedding OS AI", desc: "설정 없이 바로 쓸 수 있어요. 무료로 체험한 뒤 필요하면 로그인" },
+  { id: "bridge", label: "복붙 모드", desc: "평소 쓰는 챗봇(ChatGPT·Claude)에 복사해서 쓰기 — 키도 비용도 없음" },
   { id: "gemini", label: "Gemini API", desc: "Google AI Studio 키로 앱 안에서 바로 실행", link: "https://ai.google.dev/gemini-api/docs/api-key" },
   { id: "openai", label: "OpenAI API", desc: "OpenAI API 키로 앱 안에서 바로 실행", link: "https://platform.openai.com/api-keys" },
   { id: "anthropic", label: "Claude API", desc: "Anthropic API 키로 앱 안에서 바로 실행", link: "https://console.anthropic.com/settings/keys" },
@@ -167,10 +167,14 @@ export default function AiSettings(_: Props) {
               </p>
             </div>
           ) : (
-            <p className="text-[13px] text-soft leading-relaxed">
-              로그인 없이도 짧은 체험 호출은 가능합니다. 중요한 초안 생성과 더 넉넉한 사용량은 비용 오남용 방지를 위해{" "}
-              <a href="/login" className="underline underline-offset-4 text-ink">로그인 후</a> 제공됩니다.
-            </p>
+            <div>
+              <div className="eyebrow mb-2">가장 간단해요</div>
+              <p className="text-[13px] text-soft leading-relaxed">
+                특별한 키나 설정 없이 바로 시작할 수 있어요. 먼저 무료로 짧게 써 보고,
+                더 자주 쓰고 싶으면{" "}
+                <a href="/login" className="underline underline-offset-4 text-ink">로그인</a>하면 넉넉하게 이어집니다.
+              </p>
+            </div>
           )}
         </section>
       )}
@@ -178,7 +182,7 @@ export default function AiSettings(_: Props) {
       {provider !== "bridge" && provider !== "managed" && (
         <section className="space-y-5">
           {guide && (
-            <div className="rounded-[22px] border border-hair bg-white/45 p-5 space-y-4">
+            <div className="border border-hair bg-cream/30 p-5 space-y-4">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="eyebrow-gold mb-2">처음 연결</div>
@@ -200,7 +204,7 @@ export default function AiSettings(_: Props) {
               <ol className="space-y-2">
                 {guide.steps.map((step, index) => (
                   <li key={step} className="flex gap-3 text-[12.5px] text-soft leading-relaxed">
-                    <span className="mt-[2px] flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-hair text-[10px] text-ink">
+                    <span className="mt-[2px] flex h-5 w-5 shrink-0 items-center justify-center border border-hair text-[10px] text-ink tabular-nums">
                       {index + 1}
                     </span>
                     <span>{step}</span>

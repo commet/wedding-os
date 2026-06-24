@@ -308,18 +308,19 @@ export default function Dashboard({ data, update }: Props) {
       });
     }
     const deduped = dedupeFocusItems(items);
-    let top = deduped.slice(0, 4);
-    // 반지는 중요한 시작 '킥' — 후보가 비어 있으면 첫 네 단계 안에 반드시 노출한다.
-    if (data.rings.length === 0 && !top.some((i) => i.to === "/rings")) {
-      const ringItem = deduped.find((i) => i.to === "/rings") ?? {
+    // 반지는 중요한 시작 '킥'이지만 첫 번째(01)로는 띄우지 않는다 — 반지 관련 항목은
+    // 항상 마지막 네 번째 자리(04)로 내려 고정한다(노출은 유지).
+    const nonRings = deduped.filter((i) => i.to !== "/rings");
+    let ringItem = deduped.find((i) => i.to === "/rings");
+    if (!ringItem && data.rings.length === 0) {
+      ringItem = {
         to: "/rings",
         title: "반지 후보 풀 만들기",
         desc: "브랜드·예산·소재 기준으로 볼 만한 후보를 빠르게 좁힙니다.",
         tag: "후보 정리",
       };
-      top = [...top.slice(0, 3), ringItem];
     }
-    return top;
+    return ringItem ? [...nonRings.slice(0, 3), ringItem] : nonRings.slice(0, 4);
   }, [
     data.ai?.today,
     budgetCount,

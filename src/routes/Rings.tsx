@@ -342,6 +342,10 @@ export default function Rings({ data, update }: Props) {
         </div>
         {catalogOpen && (
           <>
+            <p className="pt-3 text-[11.5px] text-soft leading-relaxed break-keep">
+              여기 담긴 건 흔히 찾는 브랜드 위주의 <b className="text-ink">대표 예시</b>예요. 실제 디자인·라인업은 훨씬 다양하니,
+              마음에 드는 게 없으면 위의 <button type="button" onClick={() => setShowAdd(true)} className="underline underline-offset-2 text-ink hover:text-gold">직접 추가</button>로 담거나 매장·브랜드 사이트에서 더 찾아보세요.
+            </p>
             <div className="flex justify-end pt-3">
               <button onClick={resetCatalog} className="text-[11px] text-soft underline underline-offset-4 hover:text-ink">
                 처음 상태로
@@ -844,6 +848,9 @@ function AddRingModal({ open, onClose, update }: { open: boolean; onClose: () =>
   return (
     <Modal open={open} onClose={onClose} title="반지 직접 추가">
       <div className="space-y-3">
+        <p className="text-[12px] text-soft leading-relaxed break-keep">
+          매장 명함이나 화면 캡처에서 보이는 만큼만 옮겨 적으면 돼요. 나머지는 나중에 채워도 됩니다.
+        </p>
         <div>
           <label className="label">브랜드</label>
           <input className="input" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="예: 티파니" />
@@ -861,8 +868,8 @@ function AddRingModal({ open, onClose, update }: { open: boolean; onClose: () =>
           <input className="input" type="number" value={priceKRW} onChange={(e) => setPriceKRW(e.target.value)} placeholder="1850000" />
         </div>
         <div>
-          <label className="label">이미지 URL (선택)</label>
-          <input className="input" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://...jpg" />
+          <label className="label">이미지 링크 <span className="text-mute normal-case tracking-normal">· 선택</span></label>
+          <input className="input" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="매장·브랜드 사이트의 사진 주소" />
         </div>
         <button onClick={submit} className="btn-primary w-full">추가하기</button>
       </div>

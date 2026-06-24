@@ -211,6 +211,16 @@ export default function Settings({ data, update }: Props) {
         <p className="text-[13px] text-soft">
           현재 · <b className="text-ink">{currentMode}</b>
         </p>
+        <details className="mt-3 text-[12px]">
+          <summary className="cursor-pointer list-none underline underline-offset-4 text-soft hover:text-ink">
+            각 방식이 뭐가 달라요?
+          </summary>
+          <div className="mt-2.5 space-y-2 text-soft leading-relaxed border-l border-hair pl-4">
+            <p><b className="text-ink">내 휴대폰에 저장</b> — 이 기기에만 저장돼요. 다른 기기에서 보려면 백업이나 복구 링크가 필요해요.</p>
+            <p><b className="text-ink">간편 (운영자 호스팅)</b> — 우리 서버에 안전하게 보관하고, 링크 하나로 배우자와 함께 편집해요.</p>
+            <p><b className="text-ink">내 저장소로 직접 운영</b> — 내 Supabase 계정에 직접 보관해요. 모든 권한이 나에게 있고, 설정에 몇 단계가 필요해요.</p>
+          </div>
+        </details>
         {data.preferences.mode === "local" && authAvailable() && (
           <Link to="/start-hosted" className="block mt-3 text-[12px] text-ink underline underline-offset-4 hover:text-gold">
             👫 배우자와 함께 편집 · 다른 기기에서 이어서 →
@@ -335,7 +345,7 @@ function LoginStatus() {
   const doSignOut = async () => {
     if (!confirm(
       "로그아웃하면 공용 기기에서 다른 사람이 보지 못하도록 이 기기의 결혼 데이터와 사진을 모두 지웁니다.\n\n" +
-      "다시 사용하려면 로그인 복구 암호문구 또는 복구 링크가 필요합니다. 계속할까요?",
+      "다시 사용하려면 로그인 복구 비밀번호 또는 복구 링크가 필요합니다. 계속할까요?",
     )) return;
     try {
       // 세션보다 로컬 평문을 먼저 제거한다. 중간 실패가 나도 로그아웃 상태에 데이터가 남지 않게 한다.

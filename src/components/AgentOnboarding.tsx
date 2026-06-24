@@ -174,7 +174,7 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
           <AgentStep eyebrow="05 · 보관" title={koBreak("준비 내용을 어디에 보관할까요?")} message="지금 바로 시작할 수도, 로그인해 두 사람이 함께 쓸 수도 있어요.">
             <div className="mt-9 border-y border-hair divide-y divide-hair">
               <StorageChoice active={answers.storage === "local"} onClick={() => { set("storage", "local"); next(); }} title="우선 이 기기에서 시작" desc="가입 없이 바로 열고, 나중에 둘이 쓰기로 바꿀 수 있어요." badge="가장 빠름" />
-              <StorageChoice active={answers.storage === "hosted"} onClick={() => { if (hostedReady) { set("storage", "hosted"); next(); } }} title="처음부터 둘이 같이" desc={hostedReady ? "로그인 후 암호화된 준비판을 함께 편집해요." : "현재 배포에서 로그인 연결이 필요해요."} badge="추천" disabled={!hostedReady} />
+              <StorageChoice active={answers.storage === "hosted"} onClick={() => { if (hostedReady) { set("storage", "hosted"); next(); } }} title="처음부터 둘이 같이" desc={hostedReady ? "로그인 후 둘이 같은 준비판을 함께 편집해요. 내용은 안전하게 보호돼요." : "현재 배포에서 로그인 연결이 필요해요."} badge="추천" disabled={!hostedReady} />
             </div>
             <button onClick={onAdvanced} className="mt-5 min-h-11 text-[13px] text-soft underline underline-offset-2">내 저장소로 직접 운영</button>
           </AgentStep>

@@ -196,12 +196,12 @@ export default function ChatbotBridgeModal({ open, onClose, prompt, onApply }: P
               )}
             </div>
           )}
-          <button className="btn-primary w-full mt-4 py-3 text-[12.5px]" onClick={reviewReply}>
-            검토하기 →
-          </button>
-          <p className="text-[11px] text-soft text-center mt-3 leading-relaxed">
-            답변이 완벽하지 않아도 괜찮아요. 필요한 부분만 직접 고쳐 쓸 수 있습니다.
+          <p className="text-[11px] text-soft text-center mt-4 mb-3 leading-relaxed">
+            만든 초안을 먼저 보여드릴게요. 그대로 반영하거나, 필요한 부분만 고쳐 써도 돼요.
           </p>
+          <button className="btn-primary w-full py-3 text-[12.5px]" onClick={reviewReply}>
+            초안 확인하기 →
+          </button>
         </div>
 
         {pending !== null && (
