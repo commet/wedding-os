@@ -108,7 +108,7 @@ AI가 만드는 후보·가격·일정·질문은 출발점입니다. 가격, �
 
 - `BLOB_READ_WRITE_TOKEN`: 간편 청첩장 발행, `/i/<code>` 공유 링크, 암호화 RSVP 저장에 필요합니다.
 - `ANTHROPIC_API_KEY`: Wedding OS AI 기본 실행에 필요합니다. 서버 함수에서만 사용되며 클라이언트 번들에 들어가지 않습니다.
-- `ANTHROPIC_MODEL`: 선택. 기본값은 `claude-3-5-haiku-20241022`입니다. 필요하면 Sonnet 계열 등으로 바꿀 수 있습니다.
+- `ANTHROPIC_MODEL`: 선택. 기본값은 `claude-haiku-4-5-20251001`입니다. 필요하면 Sonnet 계열 등으로 바꿀 수 있습니다.
 - `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`: 같이 쓰는 저장소 기본 연결과 공개 청첩장 fallback에 필요합니다.
 - `SUPABASE_URL`, `SUPABASE_ANON_KEY`: 서버 함수에서만 쓰고 싶을 때 선택적으로 사용할 수 있습니다. 클라이언트 번들에는 `VITE_` 값만 들어갑니다.
 
