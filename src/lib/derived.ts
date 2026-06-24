@@ -16,6 +16,13 @@ export function expectedHeadcount(data: WeddingData): number {
   return (data.guests ?? []).filter((g) => g.status !== "불참" && g.status !== "미정").length;
 }
 
+/** 식권 예상 장수 — 참석 + 식사함 하객의 동반 인원 합 (당일 식수 정산용) */
+export function mealTicketCount(data: WeddingData): number {
+  return (data.guests ?? [])
+    .filter((g) => g.status === "참석" && g.meal !== false)
+    .reduce((s, g) => s + (g.partyCount ?? 1), 0);
+}
+
 /** 계약 확정한 예식장 (없으면 undefined) */
 export function contractedVenue(data: WeddingData): WeddingVenue | undefined {
   return (data.venues ?? []).find((v) => v.status === "계약");
@@ -140,6 +147,52 @@ export function invitationReadiness(data: WeddingData): { filled: number; total:
   ];
   const missing = fields.filter(([, v]) => !v).map(([k]) => k);
   return { filled: fields.length - missing.length, total: fields.length, missing };
+}
+
+export type WeddingPhase = { key: string; label: string; focus: string };
+/**
+ * 남은 일수(D-day)로 현재 준비 '국면'을 판단 — 체크리스트 템플릿의 시기 분포에 맞춤.
+ * 에이전트가 "지금 어느 단계인지"를 알고 말하게 하는 기반.
+ */
+export function weddingPhase(dday: number | null): WeddingPhase {
+  if (dday === null) return { key: "undated", label: "날짜 정하기", focus: "예식 날짜를 정하면 준비 일정이 한 번에 잡혀요." };
+  if (dday < 0) return { key: "after", label: "결혼 후", focus: "감사 인사와 비용 정산을 마무리하는 시기예요." };
+  if (dday <= 14) return { key: "week", label: "본식 주간", focus: "큐시트·봉투·준비물 등 당일 운영만 남았어요." };
+  if (dday <= 45) return { key: "final", label: "마무리", focus: "청첩장 발송·가봉·리허설·잔금을 마치는 구간이에요." };
+  if (dday <= 90) return { key: "confirm", label: "확정", focus: "청첩장·하객·신혼여행·식순을 확정하는 시기예요." };
+  if (dday <= 150) return { key: "detail", label: "디테일", focus: "반지·스냅·드레스와 청첩장 방향을 정하는 구간이에요." };
+  if (dday <= 300) return { key: "contract", label: "큰 계약", focus: "예식장·스드메 같은 큰 계약을 마무리하는 시기예요." };
+  return { key: "start", label: "준비 시작", focus: "예식장과 날짜부터 정하면 나머지가 수월해져요." };
+}
+
+export type RsvpReadiness = { invited: number; responded: number; pending: number; rate: number | null; daysSinceFirstInvite: number | null };
+/** 회신 진척 — 초대 보낸 사람 대비 참석/불참 응답 비율, 첫 초대 후 경과일. */
+export function rsvpReadiness(data: WeddingData, today: string = todayISO()): RsvpReadiness {
+  const guests = data.guests ?? [];
+  const invited = guests.filter((g) => g.status !== "초대 예정");
+  const responded = guests.filter((g) => g.status === "참석" || g.status === "불참");
+  const rate = invited.length > 0 ? Math.round((responded.length / invited.length) * 100) : null;
+  const dates = guests.map((g) => g.invitedAt).filter((d): d is string => !!d).map((d) => d.slice(0, 10)).sort();
+  const daysSinceFirstInvite = dates.length
+    ? Math.round((Date.parse(today) - Date.parse(dates[0])) / 86_400_000)
+    : null;
+  return { invited: invited.length, responded: responded.length, pending: invited.length - responded.length, rate, daysSinceFirstInvite };
+}
+
+export type MealBudgetCheck = { kind: "missing" | "low"; expected: number; planned?: number };
+/** 예상 식대(계약 식장 단가 × 인원) 대비 예산표의 식대 항목 점검 — 빠졌거나 크게 모자라면 알림. */
+export function mealBudgetCheck(data: WeddingData): MealBudgetCheck | null {
+  const range = mealCostRange(contractedVenue(data), expectedHeadcount(data));
+  if (!range) return null;
+  const expected = range.max ?? range.min ?? 0;
+  if (expected <= 0) return null;
+  const budget = data.budget ?? [];
+  if (budget.length === 0) return null; // 예산 시작 전엔 보채지 않음
+  const mealItem = budget.find((b) => /식대|식사/.test(b.category));
+  if (!mealItem) return { kind: "missing", expected };
+  const planned = mealItem.planned ?? mealItem.actual ?? 0;
+  if (planned > 0 && planned < expected * 0.7) return { kind: "low", expected, planned };
+  return null;
 }
 
 /** 만원 단위 한국어 포맷 (예: 145000000 → "1억 4,500만") */

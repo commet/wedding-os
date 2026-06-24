@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import type { WeddingData, CeremonyStep } from "../lib/schema";
 import { defaultCeremony } from "../data/ceremonyTemplate";
 import { koBreak } from "../lib/typography";
 import { parseISODateLocal } from "../lib/date";
 import { buildCeremonySheet, shareOrDownloadText } from "../lib/textExport";
+import { attendingCount, mealTicketCount } from "../lib/derived";
 
 const KO_WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -187,6 +189,48 @@ export default function Ceremony({ data, update }: Props) {
       >
         + 단계 추가
       </button>
+
+      {/* 당일 운영 — 한국 예식에서 자주 빠뜨리는 것들 + 하객 데이터 자동 집계 */}
+      <details className="mt-8 border-t border-hair pt-5">
+        <summary className="list-none cursor-pointer flex items-baseline justify-between gap-4 min-h-11">
+          <span>
+            <span className="eyebrow-gold block mb-1">당일 운영</span>
+            <span className="font-serif text-[17px] text-ink break-keep">자주 빠뜨리는 것들</span>
+          </span>
+          <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
+        </summary>
+        <div className="mt-4 space-y-5">
+          <Link to="/guests" className="row-tap block border border-hair px-4 py-3">
+            <div className="eyebrow mb-1.5">식수 · 축의금 (하객에서 자동)</div>
+            <div className="text-[14px] text-ink break-keep">
+              참석 <b className="tabular-nums">{attendingCount(data)}명</b>
+              <span className="text-soft"> · </span>
+              식권 <b className="tabular-nums">{mealTicketCount(data)}장</b> 예상
+            </div>
+          </Link>
+
+          <div>
+            <div className="eyebrow mb-2">꼭 정해둘 담당</div>
+            <ul className="space-y-1.5 text-[13px] text-soft leading-relaxed break-keep">
+              <li>· 축의금·식권 <b className="text-ink">수거 담당</b> — 양가 1명씩, 입구 데스크</li>
+              <li>· 음향·음악 — 마이크·입장곡·축가 음량, <b className="text-ink">백업 USB·폰</b> 따로</li>
+              <li>· 신부 대기실 — 음료·응급약·슬리퍼·여분 스타킹·부케 보관</li>
+            </ul>
+          </div>
+
+          <div>
+            <div className="eyebrow mb-2">폐백을 한다면</div>
+            <p className="text-[13px] text-soft leading-relaxed break-keep">
+              폐백실 위치·방석·이바지·혼주 동선을 미리 확인하세요. 안 하는 식이면 식순에서 빼면 돼요.
+            </p>
+          </div>
+
+          <p className="text-[11.5px] text-soft leading-relaxed break-keep">
+            체크는 <Link to="/checklist" className="underline underline-offset-2 text-ink">체크리스트</Link>에서,
+            사람·식수는 <Link to="/guests" className="underline underline-offset-2 text-ink">하객</Link>에서 관리해요.
+          </p>
+        </div>
+      </details>
 
       <div className="mt-6 text-center">
         <button

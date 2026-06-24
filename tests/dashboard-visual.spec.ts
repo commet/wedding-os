@@ -80,6 +80,26 @@ test.describe("dashboard visual smoke", () => {
     await expect(banner).toHaveCount(0);
   });
 
+  test("agent reads the couple's situation — capacity and meal-budget signals", async ({ page }) => {
+    const data = defaultData();
+    data.preferences = { ...data.preferences, mode: "local", isDemo: false };
+    data.invitation = { ...data.invitation, groomName: "민준", brideName: "서연", date: "2026-11-07", venue: "그랜드하우스" };
+    data.checklist = defaultChecklist(data.invitation.date);
+    data.venues = [{ id: "v1", name: "그랜드하우스", status: "계약", capacityMin: 100, capacityMax: 150, mealPriceMin: 65000, mealPriceMax: 70000 }] as WeddingData["venues"];
+    data.guests = Array.from({ length: 180 }, (_, i) => ({ id: `g${i}`, name: `손님${i}`, side: (i % 2 ? "bride" : "groom") as const, status: "참석" as const, partyCount: 1 }));
+    data.budget = [{ id: "b1", category: "스드메", planned: 4000000 }];
+    await page.addInitScript((v) => {
+      localStorage.clear(); sessionStorage.clear();
+      localStorage.setItem("wedding-os/v1", JSON.stringify(v));
+      localStorage.setItem("wedding-os/owner/v1", "1");
+    }, data);
+    await page.goto("/dashboard");
+    // 계약 식장 수용 초과 + 예산표 식대 항목 누락을 에이전트가 스스로 짚는다.
+    await expect(page.getByText(/수용/)).toBeVisible();
+    await expect(page.getByText(/식대 항목이 없어요/)).toBeVisible();
+    await assertLayoutHealth(page);
+  });
+
   test("explains the product before asking for setup choices", async ({ page }) => {
     await page.addInitScript(() => { localStorage.clear(); sessionStorage.clear(); });
     await page.goto("/");

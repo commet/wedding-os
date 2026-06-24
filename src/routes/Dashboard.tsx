@@ -9,7 +9,10 @@ import { defaultData } from "../lib/schema";
 import { AGENT_PRIORITIES, type AgentPriority } from "../lib/agentDraft";
 import { AgentIdentity } from "../components/AgentIdentity";
 import { buildMenuGroups } from "../lib/menu";
-import { budgetTotals, overdueChecklistCount, formatKRW, upcomingBalances, upcomingEvents } from "../lib/derived";
+import {
+  budgetTotals, overdueChecklistCount, formatKRW, upcomingBalances, upcomingEvents,
+  weddingPhase, rsvpReadiness, mealBudgetCheck, contractedVenue, expectedHeadcount, venueCapacityFit,
+} from "../lib/derived";
 import { koBreak } from "../lib/typography";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
@@ -70,6 +73,18 @@ export default function Dashboard({ data, update }: Props) {
   const overdueCount = overdueChecklistCount(data);
   const balanceDueSoon = upcomingBalances(data).filter((b) => b.daysLeft <= 14)[0]; // 가장 임박한 잔금
   const timeline = upcomingEvents(data); // 예식·마감·잔금·답사를 한 시간축으로
+
+  // 에이전트 '상황 읽기' — D-day 국면 + 부부 데이터에서 직접 추론한 신호들(읽기 전용, AI 비용 없음).
+  const phase = weddingPhase(dday);
+  const contractVenueForFit = contractedVenue(data);
+  const headcountForFit = expectedHeadcount(data);
+  const capFit = venueCapacityFit(contractVenueForFit, headcountForFit);
+  const rsvp = rsvpReadiness(data);
+  const mealCheck = mealBudgetCheck(data);
+  // 회신 독려는 충분히 보냈는데 응답이 더딜 때만 — 거짓 경보 방지.
+  const rsvpNudge = rsvp.invited >= 20 && rsvp.rate !== null && rsvp.rate < 50 && (rsvp.daysSinceFirstInvite ?? 0) >= 14;
+  const capitalRisk = capFit === "over" || capFit === "under";
+  const hasRisk = overdueCount > 0 || overBudgetCount > 0 || !!balanceDueSoon || capitalRisk || rsvpNudge || !!mealCheck;
 
   const setWeddingDate = (date: string) => {
     update((prev: WeddingData) => {
@@ -506,10 +521,16 @@ export default function Dashboard({ data, update }: Props) {
           </div>
         ) : (
           <div className="page-enter">
+            {dday !== null && (
+              <div className="mb-3 flex items-baseline gap-2">
+                <span className="eyebrow-gold">{phase.label}</span>
+                {dday >= 0 && <span className="text-[11px] text-soft tabular-nums">D-{dday}</span>}
+              </div>
+            )}
             <p className="mb-7 max-w-[21rem] text-[15px] leading-[1.8] text-soft">
-              {data.ai?.starterSummary || `현재 준비 상태를 보고, 다음 결정이 쉬워지는 순서로 정리했어요.`}
+              {data.ai?.starterSummary || (dday !== null ? phase.focus : "현재 준비 상태를 보고, 다음 결정이 쉬워지는 순서로 정리했어요.")}
             </p>
-            {(overdueCount > 0 || overBudgetCount > 0 || balanceDueSoon) && (
+            {hasRisk && (
               <div className="mb-7 border-y border-l-2 border-hair border-l-gold bg-cream/40">
                 {overdueCount > 0 && (
                   <Link to="/checklist" className="row-tap flex items-center justify-between gap-3 border-b border-hair px-3 py-3 last:border-b-0">
@@ -526,6 +547,36 @@ export default function Dashboard({ data, update }: Props) {
                 {balanceDueSoon && (
                   <Link to={balanceDueSoon.targetPath} className="row-tap flex items-center justify-between gap-3 border-b border-hair px-3 py-3 last:border-b-0">
                     <span className="text-[13px] text-ink break-keep">{balanceDueSoon.name} 잔금 {balanceDueSoon.daysLeft < 0 ? `${-balanceDueSoon.daysLeft}일 지남` : balanceDueSoon.daysLeft === 0 ? "오늘" : `D-${balanceDueSoon.daysLeft}`} · {formatKRW(balanceDueSoon.amount)}</span>
+                    <span className="flex-shrink-0 text-gold">→</span>
+                  </Link>
+                )}
+                {capFit === "over" && (
+                  <Link to="/guests" className="row-tap flex items-center justify-between gap-3 border-b border-hair px-3 py-3 last:border-b-0">
+                    <span className="text-[13px] text-ink break-keep">초대 인원 <b className="font-semibold tabular-nums">{headcountForFit}명</b>이 {contractVenueForFit?.name} 수용(<span className="tabular-nums">{contractVenueForFit?.capacityMax}명</span>)을 넘을 수 있어요</span>
+                    <span className="flex-shrink-0 text-gold">→</span>
+                  </Link>
+                )}
+                {capFit === "under" && (
+                  <Link to="/venues" className="row-tap flex items-center justify-between gap-3 border-b border-hair px-3 py-3 last:border-b-0">
+                    <span className="text-[13px] text-ink break-keep">초대 인원 <span className="tabular-nums">{headcountForFit}명</span>이 최소 보증인원(<span className="tabular-nums">{contractVenueForFit?.capacityMin}명</span>)보다 적어요 · 보증금 확인</span>
+                    <span className="flex-shrink-0 text-gold">→</span>
+                  </Link>
+                )}
+                {rsvpNudge && (
+                  <Link to="/guests" className="row-tap flex items-center justify-between gap-3 border-b border-hair px-3 py-3 last:border-b-0">
+                    <span className="text-[13px] text-ink break-keep">청첩장 보낸 지 <span className="tabular-nums">{rsvp.daysSinceFirstInvite}일</span> · 회신 <b className="font-semibold tabular-nums">{rsvp.rate}%</b> · 미응답 <span className="tabular-nums">{rsvp.pending}명</span></span>
+                    <span className="flex-shrink-0 text-gold">→</span>
+                  </Link>
+                )}
+                {mealCheck?.kind === "missing" && (
+                  <Link to="/budget" className="row-tap flex items-center justify-between gap-3 border-b border-hair px-3 py-3 last:border-b-0">
+                    <span className="text-[13px] text-ink break-keep">예상 식대 약 <b className="font-semibold">{formatKRW(mealCheck.expected)}</b> · 예산표에 식대 항목이 없어요</span>
+                    <span className="flex-shrink-0 text-gold">→</span>
+                  </Link>
+                )}
+                {mealCheck?.kind === "low" && (
+                  <Link to="/budget" className="row-tap flex items-center justify-between gap-3 border-b border-hair px-3 py-3 last:border-b-0">
+                    <span className="text-[13px] text-ink break-keep">예산 식대(<span className="tabular-nums">{formatKRW(mealCheck.planned!)}</span>)가 예상(<span className="tabular-nums">{formatKRW(mealCheck.expected)}</span>)보다 적어요</span>
                     <span className="flex-shrink-0 text-gold">→</span>
                   </Link>
                 )}
