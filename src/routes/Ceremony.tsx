@@ -57,7 +57,7 @@ export default function Ceremony({ data, update }: Props) {
     });
   };
 
-  const toggleDone = (id: string, done: boolean) => updateStep(id, { done });
+  const doneCount = steps.filter((s) => s.done).length;
 
   // 빈 상태
   if (steps.length === 0) {
@@ -90,18 +90,22 @@ export default function Ceremony({ data, update }: Props) {
   }
 
   return (
-    <div className="page pt-8 pb-10 space-y-8">
-      <div>
-        <div className="eyebrow-gold mb-2">예식 진행</div>
-        <h1 className="h-page">식순</h1>
+    <div className="page pt-8 pb-10">
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <div className="eyebrow-gold mb-2">예식 진행</div>
+          <h1 className="h-page">식순</h1>
+        </div>
+        <span className="eyebrow tabular-nums whitespace-nowrap">
+          {doneCount}/{steps.length} 확인
+        </span>
       </div>
 
-      <p className="text-[12.5px] text-soft leading-relaxed border-y border-hair py-4">
-        당일 사회자와 두 분이 따라갈 진행표예요. 시간·담당·구간 음악을 미리 적어두면, 리허설과 당일에
-        한 줄씩 체크하며 진행할 수 있어요.
+      <p className="mt-4 text-[13px] text-soft leading-[1.8] break-keep">
+        당일 사회자와 두 분이 따라갈 진행표예요. 노드를 누르면 리허설·당일에 한 단계씩 체크할 수 있어요.
       </p>
 
-      <ul className="border-y border-hair divide-y divide-hair">
+      <ol className="mt-8">
         {steps.map((s, i) => (
           <CeremonyRow
             key={s.id}
@@ -114,19 +118,19 @@ export default function Ceremony({ data, update }: Props) {
             onChange={(patch) => updateStep(s.id, patch)}
             onRemove={() => removeStep(s.id)}
             onMove={(dir) => moveStep(s.id, dir)}
-            onToggleDone={(done) => toggleDone(s.id, done)}
+            onToggleDone={(done) => updateStep(s.id, { done })}
           />
         ))}
-      </ul>
+      </ol>
 
       <button
         onClick={addStep}
-        className="w-full min-h-11 border border-hair text-[13px] text-ink hover:text-gold transition-colors"
+        className="mt-6 w-full min-h-11 border border-hair text-[13px] text-ink hover:border-gold transition-colors"
       >
         + 단계 추가
       </button>
 
-      <div className="pt-2 text-center">
+      <div className="mt-6 text-center">
         <button
           onClick={() => {
             if (!confirm("지금 식순을 기본 식순으로 바꿀까요?\n적어둔 내용은 사라져요.")) return;
@@ -138,7 +142,7 @@ export default function Ceremony({ data, update }: Props) {
         </button>
       </div>
 
-      <p className="text-[10.5px] text-soft text-center leading-relaxed">
+      <p className="mt-6 text-[11px] text-soft text-center leading-relaxed break-keep">
         주례 없는 식이면 해당 단계를 지우고, 식장·사회자와 맞춰 시간을 조정하세요.
       </p>
     </div>
@@ -175,57 +179,58 @@ function CeremonyRow({
   ].filter(Boolean);
 
   return (
-    <li className="py-3.5">
-      <div className="flex items-start gap-3">
-        {/* 완료 토글 (리허설·당일 체크) */}
-        <button
-          onClick={() => onToggleDone(!step.done)}
-          aria-label={step.done ? "완료 해제" : "완료"}
-          className={`w-11 h-11 -my-2.5 -ml-1 flex items-center justify-center flex-shrink-0 transition after:w-4 after:h-4 after:border ${
-            step.done ? "after:bg-ink after:border-ink" : "after:border-mute hover:after:border-ink"
+    <li className="relative pl-9">
+      {/* 타임라인 세로선 — 단계들을 흐름으로 잇는다 */}
+      <span
+        aria-hidden="true"
+        className={`absolute left-[7px] w-px bg-hair ${isFirst ? "top-[1.35rem]" : "top-0"} ${isLast ? "h-[1.35rem]" : "bottom-0"}`}
+      />
+      {/* 노드 = 완료 토글 (마름모) */}
+      <button
+        onClick={() => onToggleDone(!step.done)}
+        aria-label={step.done ? "완료 해제" : "완료 표시"}
+        className="absolute left-0 top-[0.85rem] w-4 h-4 flex items-center justify-center"
+      >
+        <span
+          className={`w-[9px] h-[9px] rotate-45 border transition-colors ${
+            step.done ? "bg-gold border-gold" : "border-mute bg-paper"
           }`}
-        >
-          {step.done && <span className="block text-paper text-[10px] leading-4 text-center">✓</span>}
-        </button>
+        />
+      </button>
 
-        {/* 단계 번호 + 본문 (탭하면 편집) */}
-        <button
-          onClick={onToggleOpen}
-          className="row-tap flex-1 min-w-0 text-left flex items-baseline gap-3 -my-1 py-1"
-        >
-          <span className="font-serif text-[15px] text-gold tabular-nums flex-shrink-0 leading-none pt-0.5">
-            {num}
+      {/* 본문 — 탭하면 편집 펼침 */}
+      <button
+        onClick={onToggleOpen}
+        className="row-tap block w-full text-left py-3.5 border-b border-hair"
+      >
+        <span className="flex items-baseline gap-2">
+          <span className="font-serif text-[11px] text-gold tabular-nums flex-shrink-0">{num}</span>
+          {step.time && (
+            <span className="text-[12px] text-soft tabular-nums flex-shrink-0">{step.time}</span>
+          )}
+          <span
+            className={`text-[15px] font-medium break-keep ${
+              step.done ? "line-through text-soft" : "text-ink"
+            }`}
+          >
+            {step.title || "(제목 없음)"}
           </span>
-          <span className="flex-1 min-w-0">
-            <span className="flex items-baseline gap-2">
-              {step.time && (
-                <span className="text-[12px] text-soft tabular-nums flex-shrink-0">{step.time}</span>
-              )}
-              <span
-                className={`text-[15px] font-medium break-keep ${
-                  step.done ? "line-through text-soft" : "text-ink"
-                }`}
-              >
-                {step.title || "(제목 없음)"}
-              </span>
-            </span>
-            {meta.length > 0 && (
-              <span className="block text-[12px] text-soft mt-1 break-keep leading-relaxed">
-                {meta.join(" · ")}
-              </span>
-            )}
-            {step.notes && (
-              <span className="block text-[11.5px] text-soft/90 mt-0.5 break-keep leading-relaxed">
-                {step.notes}
-              </span>
-            )}
+          <span className="ml-auto text-soft text-[11px] flex-shrink-0 pl-2">{open ? "−" : "+"}</span>
+        </span>
+        {meta.length > 0 && (
+          <span className="mt-1 block text-[12px] text-soft break-keep leading-relaxed">
+            {meta.join(" · ")}
           </span>
-          <span className="text-soft text-[11px] flex-shrink-0">{open ? "−" : "+"}</span>
-        </button>
-      </div>
+        )}
+        {step.notes && (
+          <span className="mt-0.5 block text-[11.5px] text-soft/90 break-keep leading-relaxed">
+            {step.notes}
+          </span>
+        )}
+      </button>
 
       {open && (
-        <div className="mt-3 pt-3 border-t border-hair space-y-3 pl-[3.25rem]">
+        <div className="py-4 border-b border-hair space-y-3">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">시간</label>
@@ -274,12 +279,12 @@ function CeremonyRow({
             />
           </div>
 
-          <div className="flex items-center justify-between pt-2 border-t border-hair">
-            <div className="flex items-center gap-4">
+          <div className="flex items-center justify-between pt-1">
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => onMove(-1)}
                 disabled={isFirst}
-                className="min-h-11 text-[14px] text-soft hover:text-ink disabled:opacity-30 px-1"
+                className="min-h-11 min-w-11 text-[15px] text-soft hover:text-ink disabled:opacity-25"
                 aria-label="위로"
               >
                 ↑
@@ -287,7 +292,7 @@ function CeremonyRow({
               <button
                 onClick={() => onMove(1)}
                 disabled={isLast}
-                className="min-h-11 text-[14px] text-soft hover:text-ink disabled:opacity-30 px-1"
+                className="min-h-11 min-w-11 text-[15px] text-soft hover:text-ink disabled:opacity-25"
                 aria-label="아래로"
               >
                 ↓
@@ -297,7 +302,7 @@ function CeremonyRow({
               onClick={onRemove}
               className="text-[11px] text-soft hover:text-gold underline underline-offset-4"
             >
-              삭제
+              이 단계 삭제
             </button>
           </div>
         </div>
