@@ -92,12 +92,7 @@ export default function Trip({ data, update }: Props) {
 
 function TabBtn({ active, onClick, children }: any) {
   return (
-    <button
-      onClick={onClick}
-      className={`text-[12px] tracking-wide transition pb-1 ${
-        active ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
-      }`}
-    >
+    <button onClick={onClick} className={`tracking-wide ${active ? "seg-active" : "seg"}`}>
       {children}
     </button>
   );
@@ -190,12 +185,7 @@ function StarterOption({ label, children }: { label: string; children: React.Rea
 
 function Segment({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button
-      onClick={onClick}
-      className={`text-[12px] tracking-wide pb-1 transition ${
-        active ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
-      }`}
-    >
+    <button onClick={onClick} className={`tracking-wide ${active ? "seg-active" : "seg"}`}>
       {children}
     </button>
   );

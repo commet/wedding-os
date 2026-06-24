@@ -64,6 +64,20 @@ test.describe("dashboard visual smoke", () => {
     await expect(page.getByText("개식 선언")).toBeVisible();
     await expect(page.getByText("혼인 서약")).toBeVisible();
     await expect(page.getByText("성혼 선언문 낭독")).toBeVisible();
+    // 진행표를 사회자에게 넘길 수 있는 내보내기 동선이 있다.
+    await expect(page.getByRole("button", { name: /사회자에게 보내기/ })).toBeVisible();
+  });
+
+  test("shows the couple exactly what guests see via a dedicated tab", async ({ page }) => {
+    await seedVisualData(page, true);
+    await page.goto("/invitation");
+    await page.getByRole("button", { name: "하객 시점" }).click();
+    // koBreak 가 NBSP로 단어를 잇기 때문에 안정적인 한 단어로 배너를 찾는다.
+    const banner = page.getByText("하객에게는", { exact: false });
+    await expect(banner).toBeVisible();
+    // 안내 배너는 닫을 수 있다.
+    await page.getByRole("button", { name: "닫기", exact: true }).click();
+    await expect(banner).toHaveCount(0);
   });
 
   test("explains the product before asking for setup choices", async ({ page }) => {

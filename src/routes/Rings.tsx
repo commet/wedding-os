@@ -244,13 +244,13 @@ export default function Rings({ data, update }: Props) {
         <div className="flex gap-5">
           <button
             onClick={() => setWho("bride")}
-            className={`text-[12px] transition pb-1 ${who === "bride" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+            className={who === "bride" ? "seg-active" : "seg"}
           >
             신부
           </button>
           <button
             onClick={() => setWho("groom")}
-            className={`text-[12px] transition pb-1 ${who === "groom" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+            className={who === "groom" ? "seg-active" : "seg"}
           >
             신랑
           </button>
@@ -310,9 +310,7 @@ export default function Rings({ data, update }: Props) {
             <button
               key={b}
               onClick={() => setBrandFilter(b)}
-              className={`text-[12px] tracking-wide whitespace-nowrap pb-1 transition ${
-                brandFilter === b ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
-              }`}
+              className={`tracking-wide whitespace-nowrap ${brandFilter === b ? "seg-active" : "seg"}`}
             >
               {b}
             </button>
@@ -728,12 +726,7 @@ function StarterOption({ label, children }: { label: string; children: React.Rea
 
 function Segment({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button
-      onClick={onClick}
-      className={`text-[12px] tracking-wide pb-1 transition ${
-        active ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
-      }`}
-    >
+    <button onClick={onClick} className={`tracking-wide ${active ? "seg-active" : "seg"}`}>
       {children}
     </button>
   );

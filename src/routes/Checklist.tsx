@@ -5,6 +5,7 @@ import { defaultChecklist, recalcDueDates } from "../data/checklistTemplate";
 import { daysSince } from "../lib/freshness";
 import { GIFT_TIER_LABEL, GIFT_IDEAS, GIFT_TIP } from "../data/giftCatalog";
 import { koBreak } from "../lib/typography";
+import { buildChecklistSheet, shareOrDownloadText } from "../lib/textExport";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type View = "category" | "timeline";
@@ -14,6 +15,7 @@ export default function Checklist({ data, update }: Props) {
   const [query, setQuery] = useState("");
   const [incompleteOnly, setIncompleteOnly] = useState(true);
   const [deleted, setDeleted] = useState<{ sid: string; item: CheckItem; index: number } | null>(null);
+  const [exportToast, setExportToast] = useState<string | null>(null);
   const sections = data.checklist;
   const weddingDate = data.invitation.date;
 
@@ -40,6 +42,20 @@ export default function Checklist({ data, update }: Props) {
 
   const loadDefault = () => {
     update((prev: WeddingData) => ({ ...prev, checklist: defaultChecklist(prev.invitation.date) }));
+  };
+
+  const exportChecklist = async () => {
+    const r = await shareOrDownloadText({
+      title: "체크리스트",
+      text: buildChecklistSheet(data),
+      filename: "체크리스트.txt",
+    });
+    setExportToast(
+      r === "shared" ? "공유 시트를 열었어요" :
+      r === "copied" ? "파일로 저장하고 클립보드에 복사했어요" :
+      "파일로 저장했어요",
+    );
+    window.setTimeout(() => setExportToast(null), 2600);
   };
 
   const recalc = () => {
@@ -148,21 +164,26 @@ export default function Checklist({ data, update }: Props) {
       <div className="flex items-center gap-6 border-b border-hair pb-3">
         <button
           onClick={() => setView("timeline")}
-          className={`text-[12px] tracking-wide transition pb-1 ${view === "timeline" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+          className={`tracking-wide ${view === "timeline" ? "seg-active" : "seg"}`}
         >
           일정순
         </button>
         <button
           onClick={() => setView("category")}
-          className={`text-[12px] tracking-wide transition pb-1 ${view === "category" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+          className={`tracking-wide ${view === "category" ? "seg-active" : "seg"}`}
         >
           카테고리
         </button>
-        {weddingDate && (
-          <button onClick={recalc} className="ml-auto text-[11px] text-soft underline underline-offset-4 hover:text-ink">
-            날짜 기준 재계산
+        <div className="ml-auto flex items-center gap-4">
+          <button onClick={exportChecklist} className="text-[11px] text-soft underline underline-offset-4 hover:text-ink">
+            내보내기
           </button>
-        )}
+          {weddingDate && (
+            <button onClick={recalc} className="text-[11px] text-soft underline underline-offset-4 hover:text-ink">
+              날짜 기준 재계산
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
@@ -205,6 +226,12 @@ export default function Checklist({ data, update }: Props) {
         </div>
       )}
 
+      {exportToast && (
+        <div role="status" className="anim-pop fixed inset-x-0 bottom-24 z-40 flex justify-center px-6 pointer-events-none">
+          <div className="bg-ink text-paper text-[12px] px-4 py-2.5">{exportToast}</div>
+        </div>
+      )}
+
       <GiftGuide />
     </div>
   );
@@ -241,7 +268,7 @@ function GiftPanel() {
           <button
             key={t}
             onClick={() => setTier(t)}
-            className={`text-[12px] tracking-wide pb-1 transition ${tier === t ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+            className={`tracking-wide ${tier === t ? "seg-active" : "seg"}`}
           >
             {GIFT_TIER_LABEL[t].range.split(" ")[0]}
           </button>

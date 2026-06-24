@@ -127,9 +127,7 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
           <button
             key={c}
             onClick={() => { setCat(c); setCatalogOpen(data.sdm.every((vendor) => vendor.category !== c)); }}
-            className={`text-[12px] tracking-wide whitespace-nowrap pb-1 transition ${
-              cat === c ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
-            }`}
+            className={`tracking-wide whitespace-nowrap ${cat === c ? "seg-active" : "seg"}`}
           >
             {CAT_LABEL[c]}
           </button>
@@ -231,9 +229,7 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
             <button
               key={g.key}
               onClick={() => setRegion(g.key)}
-              className={`text-[11.5px] tracking-wide whitespace-nowrap pb-1 transition ${
-                region === g.key ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
-              }`}
+              className={`tracking-wide whitespace-nowrap ${region === g.key ? "seg-active" : "seg"}`}
             >
               {g.label}
             </button>
@@ -391,9 +387,7 @@ function MyVendorCard({
           <button
             key={s}
             onClick={() => onUpdate({ status: s })}
-            className={`text-[12px] tracking-wide pb-1 transition ${
-              v.status === s ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
-            }`}
+            className={`tracking-wide ${v.status === s ? "seg-active" : "seg"}`}
           >
             {s}
           </button>

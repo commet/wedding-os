@@ -29,6 +29,7 @@ export default function Guests({ data, update }: Props) {
   const [addSide, setAddSide] = useState<GuestSide>("groom");
   const [rsvpStatus, setRsvpStatus] = useState<"idle" | "loading" | "ok" | "fail">("idle");
   const [rsvpMsg, setRsvpMsg] = useState("");
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -104,6 +105,26 @@ export default function Guests({ data, update }: Props) {
       ...prev,
       guests: (prev.guests ?? []).map((g) => (g.id === id ? { ...g, ...patch } : g)),
     }));
+  };
+
+  // 일괄 상태 변경 — 지금 화면에 보이는(필터된) 하객에게만 적용. 초대장 보낸 날
+  // 한 번에 '초대 완료'로 넘기는 흐름을 위해. 되돌리기 어려우니 확인을 받는다.
+  const bulkSetStatus = (status: GuestStatus) => {
+    const ids = new Set(filtered.map((g) => g.id));
+    if (ids.size === 0) return;
+    if (!confirm(`지금 보이는 ${ids.size}명의 상태를 '${STATUS_LABEL[status]}'(으)로 바꿀까요?`)) return;
+    const today = new Date().toISOString().split("T")[0];
+    update((prev: WeddingData) => ({
+      ...prev,
+      guests: (prev.guests ?? []).map((g) => {
+        if (!ids.has(g.id)) return g;
+        const patch: Partial<Guest> = { status };
+        // '초대 완료'로 넘길 때 초대일이 비어 있으면 오늘로 채운다(행의 '초대 미전송' 해소).
+        if (status === "초대 완료" && !g.invitedAt) patch.invitedAt = today;
+        return { ...g, ...patch };
+      }),
+    }));
+    setBulkOpen(false);
   };
 
   const removeGuest = (id: string) => {
@@ -308,6 +329,29 @@ export default function Guests({ data, update }: Props) {
           onAddOne={addGuest}
           onAddBulk={bulkAddGuests}
         />
+
+        {/* 일괄 상태 변경 — 초대장 발송 후 한 번에 정리 */}
+        {filtered.length > 1 && (
+          <div className="border-t border-hair pt-3">
+            <button
+              type="button"
+              onClick={() => setBulkOpen((o) => !o)}
+              className="flex w-full items-baseline justify-between text-left"
+            >
+              <span className="eyebrow break-keep">일괄 상태 변경 · 보이는 <span className="tabular-nums">{filtered.length}</span>명</span>
+              <span className="text-[11px] text-soft flex-shrink-0">{bulkOpen ? "닫기" : "열기"}</span>
+            </button>
+            {bulkOpen && (
+              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2">
+                {(Object.keys(STATUS_LABEL) as GuestStatus[]).map((s) => (
+                  <button key={s} type="button" onClick={() => bulkSetStatus(s)} className="seg">
+                    {STATUS_LABEL[s]}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 명단 */}

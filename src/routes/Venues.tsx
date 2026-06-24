@@ -142,13 +142,13 @@ export default function Venues({ data, update }: Props) {
           <div className="flex items-center gap-6 border-b border-hair pb-3">
             <button
               onClick={() => setTab("mine")}
-              className={`text-[13px] tracking-wide pb-1 transition ${tab === "mine" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+              className={`tracking-wide ${tab === "mine" ? "seg-active" : "seg"}`}
             >
               내 후보 · <span className="tabular-nums">{myVenues.length}</span>
             </button>
             <button
               onClick={() => setTab("catalog")}
-              className={`text-[13px] tracking-wide pb-1 transition ${tab === "catalog" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+              className={`tracking-wide ${tab === "catalog" ? "seg-active" : "seg"}`}
             >
               카탈로그 · <span className="tabular-nums">{VENUE_CATALOG.length}</span>
             </button>
@@ -221,13 +221,13 @@ export default function Venues({ data, update }: Props) {
                     <div className="flex items-center gap-6 border-b border-hair pb-3">
                       <button
                         onClick={() => setMineView("list")}
-                        className={`text-[13px] tracking-wide pb-1 transition ${mineView === "list" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                        className={`tracking-wide ${mineView === "list" ? "seg-active" : "seg"}`}
                       >
                         목록
                       </button>
                       <button
                         onClick={() => setMineView("compare")}
-                        className={`text-[13px] tracking-wide pb-1 transition ${mineView === "compare" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                        className={`tracking-wide ${mineView === "compare" ? "seg-active" : "seg"}`}
                       >
                         나란히 비교
                       </button>
@@ -267,7 +267,7 @@ export default function Venues({ data, update }: Props) {
               <div className="flex gap-5 overflow-x-auto pb-2 -mx-6 px-6 scrollbar-hide">
                 <button
                   onClick={() => setHallFilter("all")}
-                  className={`text-[13px] tracking-wide whitespace-nowrap pb-1 transition ${hallFilter === "all" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                  className={`tracking-wide whitespace-nowrap ${hallFilter === "all" ? "seg-active" : "seg"}`}
                 >
                   전체
                 </button>
@@ -275,7 +275,7 @@ export default function Venues({ data, update }: Props) {
                   <button
                     key={t}
                     onClick={() => setHallFilter(t)}
-                    className={`text-[13px] tracking-wide whitespace-nowrap pb-1 transition ${hallFilter === t ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                    className={`tracking-wide whitespace-nowrap ${hallFilter === t ? "seg-active" : "seg"}`}
                   >
                     {HALL_TYPE_LABEL[t]}
                   </button>
@@ -288,7 +288,7 @@ export default function Venues({ data, update }: Props) {
                   <button
                     key={g.key}
                     onClick={() => setRegion(g.key)}
-                    className={`text-[13px] tracking-wide whitespace-nowrap pb-1 transition ${region === g.key ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                    className={`tracking-wide whitespace-nowrap ${region === g.key ? "seg-active" : "seg"}`}
                   >
                     {g.label}
                   </button>
@@ -475,12 +475,7 @@ function StarterOption({ label, children }: { label: string; children: React.Rea
 
 function Segment({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button
-      onClick={onClick}
-      className={`text-[13px] tracking-wide pb-1 transition ${
-        active ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
-      }`}
-    >
+    <button onClick={onClick} className={`tracking-wide ${active ? "seg-active" : "seg"}`}>
       {children}
     </button>
   );
@@ -608,7 +603,7 @@ function MyVenueRow({
               <button
                 key={s}
                 onClick={() => onUpdate({ status: s })}
-                className={`text-[13px] tracking-wide pb-1 transition ${v.status === s ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                className={`tracking-wide ${v.status === s ? "seg-active" : "seg"}`}
               >
                 {s}
               </button>
@@ -731,7 +726,10 @@ function VenueCompare({ venues }: { venues: WeddingVenue[] }) {
     { label: "상태", get: (v) => v.status || "—" },
     { label: "답사일", get: (v) => v.visitedAt || "—" },
   ];
+  // 위치 비교용 — 이름·지역이 있는 후보만 지도 노출. 멀리 떨어진 후보를 한 화면에서 가늠.
+  const mappable = venues.filter((v) => [v.name, v.region].filter(Boolean).join(" ").trim());
   return (
+    <div className="space-y-5">
     <div className="overflow-x-auto -mx-6 px-6 scrollbar-hide">
       <table className="border-collapse">
         <thead>
@@ -765,6 +763,25 @@ function VenueCompare({ venues }: { venues: WeddingVenue[] }) {
         </tbody>
       </table>
     </div>
+
+    {mappable.length > 0 && (
+      <div>
+        <div className="eyebrow mb-2">위치 비교</div>
+        <div className="flex gap-3 overflow-x-auto -mx-6 px-6 scrollbar-hide">
+          {mappable.map((v) => (
+            <div key={v.id} className="w-[200px] flex-shrink-0">
+              <div className="text-[12px] text-ink truncate mb-1.5 break-keep">{v.name}</div>
+              <MapEmbed
+                query={[v.name, v.region].filter(Boolean).join(" ")}
+                heightClass="h-32"
+                label={`${v.name} 지도`}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+    </div>
   );
 }
 
@@ -783,7 +800,7 @@ function CustomAdd({ onAdd }: { onAdd: (v: Omit<WeddingVenue, "id">) => void }) 
         <div className="flex flex-wrap gap-5">
           <button
             onClick={() => setHallType(undefined)}
-            className={`text-[13px] tracking-wide pb-1 ${!hallType ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+            className={`tracking-wide ${!hallType ? "seg-active" : "seg"}`}
           >
             미정
           </button>
@@ -791,7 +808,7 @@ function CustomAdd({ onAdd }: { onAdd: (v: Omit<WeddingVenue, "id">) => void }) 
             <button
               key={t}
               onClick={() => setHallType(t)}
-              className={`text-[13px] tracking-wide pb-1 ${hallType === t ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+              className={`tracking-wide ${hallType === t ? "seg-active" : "seg"}`}
             >
               {HALL_TYPE_LABEL[t]}
             </button>

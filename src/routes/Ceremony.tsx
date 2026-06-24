@@ -3,6 +3,7 @@ import type { WeddingData, CeremonyStep } from "../lib/schema";
 import { defaultCeremony } from "../data/ceremonyTemplate";
 import { koBreak } from "../lib/typography";
 import { parseISODateLocal } from "../lib/date";
+import { buildCeremonySheet, shareOrDownloadText } from "../lib/textExport";
 
 const KO_WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -26,6 +27,21 @@ function makeStep(): CeremonyStep {
 export default function Ceremony({ data, update }: Props) {
   const steps = data.ceremony ?? [];
   const [openId, setOpenId] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const shareSheet = async () => {
+    const r = await shareOrDownloadText({
+      title: "식순",
+      text: buildCeremonySheet(data),
+      filename: "식순.txt",
+    });
+    setToast(
+      r === "shared" ? "공유 시트를 열었어요" :
+      r === "copied" ? "파일로 저장하고 클립보드에 복사했어요" :
+      "파일로 저장했어요",
+    );
+    window.setTimeout(() => setToast(null), 2600);
+  };
 
   const loadDefault = () => {
     update((prev: WeddingData) => ({ ...prev, ceremony: defaultCeremony() }));
@@ -138,6 +154,15 @@ export default function Ceremony({ data, update }: Props) {
         당일 사회자와 두 분이 따라갈 진행표예요. 노드를 누르면 리허설·당일에 한 단계씩 체크할 수 있어요.
       </p>
 
+      <div className="mt-3">
+        <button
+          onClick={shareSheet}
+          className="text-[12px] underline underline-offset-4 text-ink hover:text-gold"
+        >
+          사회자에게 보내기 · 저장 →
+        </button>
+      </div>
+
       <ol className="mt-8">
         {steps.map((s, i) => (
           <CeremonyRow
@@ -178,6 +203,12 @@ export default function Ceremony({ data, update }: Props) {
       <p className="mt-6 text-[11px] text-soft text-center leading-relaxed break-keep">
         주례 없는 식이면 해당 단계를 지우고, 식장·사회자와 맞춰 시간을 조정하세요.
       </p>
+
+      {toast && (
+        <div className="fixed inset-x-0 bottom-24 z-40 flex justify-center px-6 pointer-events-none">
+          <div className="bg-ink text-paper text-[12px] px-4 py-2.5 anim-pop">{toast}</div>
+        </div>
+      )}
     </div>
   );
 }

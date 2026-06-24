@@ -1035,9 +1035,7 @@ function PhotoChips<T extends string>({
           <button
             key={o.value}
             onClick={() => onChange(o.value)}
-            className={`text-[12px] tracking-wide pb-1 transition ${
-              value === o.value ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
-            }`}
+            className={`tracking-wide ${value === o.value ? "seg-active" : "seg"}`}
           >
             {o.label}
           </button>

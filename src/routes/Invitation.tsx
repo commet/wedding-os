@@ -20,7 +20,7 @@ import { invitationReadiness, contractedVenue } from "../lib/derived";
 import MapEmbed from "../components/MapEmbed";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
-type Tab = "edit" | "preview";
+type Tab = "edit" | "preview" | "guest";
 type Locale = "ko" | "en" | "zh";
 type Theme = "cream" | "white" | "sage" | "rose" | "navy" | "sand" | "slate" | "blush";
 type FontStyle = "serif" | "sans" | "handwriting";
@@ -57,6 +57,7 @@ export default function Invitation({ data, update }: Props) {
     () => location.search.includes("edit=publish") || (!guest && !isGuestRoute && !data.invitation.groomName && !data.invitation.brideName) ? "edit" : "preview",
   );
   const [showRsvp, setShowRsvp] = useState(false);
+  const [guestBannerDismissed, setGuestBannerDismissed] = useState(false);
   const inv = data.invitation;
   const locale: Locale = "ko";
 
@@ -197,6 +198,9 @@ export default function Invitation({ data, update }: Props) {
             <div className="flex items-center gap-6">
               <TabBtn active={tab === "preview"} onClick={() => setTab("preview")}>미리보기</TabBtn>
               {!guest && (
+                <TabBtn active={tab === "guest"} onClick={() => setTab("guest")}>하객 시점</TabBtn>
+              )}
+              {!guest && (
                 <TabBtn active={tab === "edit"} onClick={() => setTab("edit")}>편집</TabBtn>
               )}
             </div>
@@ -228,20 +232,37 @@ export default function Invitation({ data, update }: Props) {
       {tab === "edit" && !guest ? (
         <EditForm inv={inv} set={set} mode={data.preferences.mode} data={data} update={update} onPreview={() => setTab("preview")} />
       ) : (
-        <Preview
-          inv={inv}
-          locale={locale}
-          rsvpEnabled={canRsvp}
-          onRsvpClick={() => setShowRsvp(true)}
-          hideShareBox={!isGuestRoute}
-          onShare={share}
-          shareCopied={shareCopied}
-          shareHint={
-            data.preferences.mode === "supabase"
-              ? "하객이 여는 청첩장 링크를 공유합니다. 편집 초대 링크는 공유 센터에서 따로 보내세요."
-              : "카톡에 붙여넣을 문안을 만듭니다. 하객이 여는 웹 링크는 [편집] 탭의 [청첩장 링크 만들기]에서 만들 수 있어요."
-          }
-        />
+        <>
+          {tab === "guest" && !guest && !guestBannerDismissed && (
+            <div className="page pt-4">
+              <div className="flex items-baseline justify-between gap-3 border-l-2 border-gold pl-3 py-2 bg-cream/40">
+                <p className="text-[12px] text-soft leading-relaxed break-keep">
+                  {koBreak("하객에게는 이 화면이 그대로 보여요. 발행된 링크에서는 RSVP 버튼도 작동합니다.")}
+                </p>
+                <button
+                  onClick={() => setGuestBannerDismissed(true)}
+                  className="text-[11px] text-soft hover:text-ink flex-shrink-0 min-h-11 px-1"
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+          )}
+          <Preview
+            inv={inv}
+            locale={locale}
+            rsvpEnabled={canRsvp}
+            onRsvpClick={() => setShowRsvp(true)}
+            hideShareBox={tab === "guest" || !isGuestRoute}
+            onShare={share}
+            shareCopied={shareCopied}
+            shareHint={
+              data.preferences.mode === "supabase"
+                ? "하객이 여는 청첩장 링크를 공유합니다. 편집 초대 링크는 공유 센터에서 따로 보내세요."
+                : "카톡에 붙여넣을 문안을 만듭니다. 하객이 여는 웹 링크는 [편집] 탭의 [청첩장 링크 만들기]에서 만들 수 있어요."
+            }
+          />
+        </>
       )}
 
       {showRsvp && (
@@ -423,9 +444,7 @@ function TabBtn({ active, onClick, children }: any) {
   return (
     <button
       onClick={onClick}
-      className={`min-h-11 px-2 text-[12px] tracking-wide -mb-2 transition ${
-        active ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
-      }`}
+      className={`min-h-11 px-2 tracking-wide ${active ? "seg-active" : "seg"}`}
     >
       {children}
     </button>
