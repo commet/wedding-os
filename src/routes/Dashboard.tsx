@@ -9,7 +9,7 @@ import { defaultData } from "../lib/schema";
 import { AGENT_PRIORITIES, type AgentPriority } from "../lib/agentDraft";
 import { AgentIdentity } from "../components/AgentIdentity";
 import { buildMenuGroups } from "../lib/menu";
-import { budgetTotals, overdueChecklistCount, formatKRW, upcomingBalances } from "../lib/derived";
+import { budgetTotals, overdueChecklistCount, formatKRW, upcomingBalances, upcomingEvents } from "../lib/derived";
 import { koBreak } from "../lib/typography";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
@@ -69,6 +69,7 @@ export default function Dashboard({ data, update }: Props) {
   const { overCount: overBudgetCount, overSum: overBudgetSum } = budgetTotals(data);
   const overdueCount = overdueChecklistCount(data);
   const balanceDueSoon = upcomingBalances(data).filter((b) => b.daysLeft <= 14)[0]; // 가장 임박한 잔금
+  const timeline = upcomingEvents(data); // 예식·마감·잔금·답사를 한 시간축으로
 
   const setWeddingDate = (date: string) => {
     update((prev: WeddingData) => {
@@ -571,6 +572,36 @@ export default function Dashboard({ data, update }: Props) {
       </>}
 
       <div className="hairline" />
+
+      {!empty && timeline.length > 0 && (
+        <>
+          <section className="page py-9">
+            <div className="mb-5 flex items-baseline justify-between gap-4">
+              <div className="eyebrow-gold">다가오는 일정</div>
+              <Link to="/checklist" className="text-[11px] text-soft underline underline-offset-4 hover:text-ink">전체 일정 →</Link>
+            </div>
+            <ol>
+              {timeline.map((e, i) => (
+                <li key={`${e.kind}-${e.date}-${i}`} className="relative pl-8">
+                  <span
+                    aria-hidden="true"
+                    className={`absolute left-[6px] w-px bg-hair ${i === 0 ? "top-[1.05rem]" : "top-0"} ${i === timeline.length - 1 ? "h-[1.05rem]" : "bottom-0"}`}
+                  />
+                  <span aria-hidden="true" className="absolute left-0 top-[0.7rem] flex h-3.5 w-3.5 items-center justify-center">
+                    <span className={`w-[8px] h-[8px] rotate-45 border ${e.kind === "wedding" ? "bg-gold border-gold" : "border-mute bg-paper"}`} />
+                  </span>
+                  <Link to={e.targetPath} className="row-tap flex items-baseline gap-2 border-b border-hair py-3 last:border-b-0">
+                    <span className="w-12 flex-shrink-0 text-[12px] text-soft tabular-nums">{e.date.slice(5).replace("-", ".")}</span>
+                    <span className={`min-w-0 truncate break-keep text-[14px] ${e.kind === "wedding" ? "font-serif text-ink" : "text-ink"}`}>{e.label}</span>
+                    <span className={`ml-auto flex-shrink-0 text-[12px] tabular-nums ${e.daysLeft <= 14 ? "text-gold font-medium" : "text-soft"}`}>{e.daysLeft === 0 ? "오늘" : `D-${e.daysLeft}`}</span>
+                  </Link>
+                </li>
+              ))}
+            </ol>
+          </section>
+          <div className="hairline" />
+        </>
+      )}
 
       {/* ─── 전체 메뉴는 접어서, 첫 화면 집중도를 유지 ─── */}
       <section className="page py-7">

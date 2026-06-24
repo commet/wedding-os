@@ -81,6 +81,38 @@ export function upcomingBalances(data: WeddingData, today: string = todayISO()):
   return out.sort((a, b) => a.daysLeft - b.daysLeft);
 }
 
+export type TimelineKind = "wedding" | "task" | "balance" | "visit";
+export type TimelineEvent = { date: string; daysLeft: number; label: string; kind: TimelineKind; targetPath: string };
+/**
+ * 흩어진 모든 날짜를 하나의 시간축으로 — 예식 당일·체크리스트 마감·벤더 잔금일·답사일.
+ * 오늘 이후(미래)만, 가까운 순. limit 으로 상위 N개.
+ */
+export function upcomingEvents(data: WeddingData, today: string = todayISO(), limit = 6): TimelineEvent[] {
+  const events: TimelineEvent[] = [];
+  const push = (date: string | undefined, label: string, kind: TimelineKind, targetPath: string) => {
+    if (!date) return;
+    const d = date.slice(0, 10);
+    const daysLeft = Math.round((Date.parse(d) - Date.parse(today)) / 86_400_000);
+    if (Number.isNaN(daysLeft) || daysLeft < 0) return; // 미래(오늘 포함)만
+    events.push({ date: d, daysLeft, label, kind, targetPath });
+  };
+  push(data.invitation.date, "예식 당일", "wedding", "/dashboard");
+  for (const sec of data.checklist) {
+    for (const it of sec.items) {
+      if (!it.done && it.dueDate) push(it.dueDate, it.text, "task", "/checklist");
+    }
+  }
+  for (const v of data.venues ?? []) {
+    if (v.status === "계약" && (v.balanceKRW ?? 0) > 0) push(v.balanceDueAt, `${v.name} 잔금`, "balance", "/venues");
+    push(v.visitedAt, `${v.name} 답사`, "visit", "/venues");
+  }
+  for (const s of data.sdm ?? []) {
+    if (s.status === "계약" && (s.balanceKRW ?? 0) > 0) push(s.balanceDueAt, `${s.name} 잔금`, "balance", s.category === "snap" ? "/snap" : "/sdm");
+  }
+  events.sort((a, b) => a.daysLeft - b.daysLeft || a.label.localeCompare(b.label));
+  return events.slice(0, limit);
+}
+
 /** 계약(status=계약) 벤더들의 선금·잔금 합계 — "얼마 걸렸고 얼마 남았나" */
 export function contractedTotals(data: WeddingData): { depositTotal: number; balanceTotal: number; count: number } {
   let depositTotal = 0;
