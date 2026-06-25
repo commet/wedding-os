@@ -32,8 +32,11 @@ test.describe("critical product flows", () => {
     await page.getByRole("button", { name: "이 순서로 준비 시작하기 →" }).click();
 
     await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(page.getByText("준비 에이전트")).toBeVisible();
+    await expect(page.getByText("WEDDY · 정리 중").first()).toBeVisible();
     await expect(page.getByRole("heading", { name: "서울 강남구 예식장 후보 추리기" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "예상 하객은 어느 정도로 잡을까요?" })).toBeVisible();
+    await page.getByRole("button", { name: /200명 안팎/ }).click();
+    await expect(page.getByText("예상 하객 200명과 식대 기준을 준비판에 반영했어요.")).toBeVisible();
 
     const stored = await readStoredData(page);
     expect(stored.preferences.mode).toBe("local");
@@ -41,13 +44,19 @@ test.describe("critical product flows", () => {
     expect(stored.invitation.groomName).toBe("김민준");
     expect(stored.invitation.brideName).toBe("이서연");
     expect(stored.checklist.length).toBeGreaterThan(0);
-    expect(stored.budget?.length).toBe(0);
+    expect(stored.checklist.some((section) => section.title === "에이전트 첫 정리")).toBe(true);
+    expect(stored.venues?.length).toBeGreaterThan(0);
+    expect(stored.venues?.[0]?.notes).toContain("보증인원");
+    expect(stored.budget?.length).toBeGreaterThan(0);
+    expect(stored.budget?.some((item) => item.category === "예식장 식대")).toBe(true);
+    expect(stored.headcount?.estimates?.reduce((sum, item) => sum + item.expected, 0)).toBeGreaterThan(0);
+    expect(stored.ai?.dialogue?.some((item) => item.id === "headcount-scale" && item.answer === "200명 안팎")).toBe(true);
     expect(stored.ai?.profile?.priority).toBe("venue");
     expect(stored.ai?.profile?.region).toBe("서울 강남구");
     expect(stored.ai?.profile?.onboardedAt).toBeTruthy();
     expect(await page.evaluate((key) => localStorage.getItem(key), OWNER_KEY)).toBe("1");
     await page.reload();
-    await expect(page.getByRole("heading", { name: "서울 강남구 예식장 후보 추리기" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "예상 하객 200명 기준으로 예식장 다시 보기" })).toBeVisible();
     expect((await readStoredData(page)).ai?.profile?.priority).toBe("venue");
   });
 

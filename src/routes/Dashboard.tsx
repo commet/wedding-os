@@ -6,7 +6,8 @@ import { daysUntilISODate, parseISODateLocal } from "../lib/date";
 import ChatbotBridgeModal from "../components/ChatbotBridgeModal";
 import { type BridgePrompt, weddingPlanStarterPrompt } from "../lib/chatbotBridge";
 import { defaultData } from "../lib/schema";
-import { AGENT_PRIORITIES, type AgentPriority } from "../lib/agentDraft";
+import { AGENT_PRIORITIES, type AgentPriority } from "../lib/agentProfile";
+import { applyAgentAnswer, nextAgentQuestion, type AgentLoopQuestion } from "../lib/agentLoop";
 import { AgentIdentity } from "../components/AgentIdentity";
 import { buildMenuGroups } from "../lib/menu";
 import {
@@ -85,6 +86,12 @@ export default function Dashboard({ data, update }: Props) {
   const rsvpNudge = rsvp.invited >= 20 && rsvp.rate !== null && rsvp.rate < 50 && (rsvp.daysSinceFirstInvite ?? 0) >= 14;
   const capitalRisk = capFit === "over" || capFit === "under";
   const hasRisk = overdueCount > 0 || overBudgetCount > 0 || !!balanceDueSoon || capitalRisk || rsvpNudge || !!mealCheck;
+  const agentQuestion = useMemo(() => nextAgentQuestion(data), [data]);
+  const agentCaption = hasRisk
+    ? "놓치기 쉬운 신호를 먼저 보고 있어요."
+    : agentQuestion
+      ? "다음 결정을 하나만 물어볼게요."
+      : "지금은 준비판을 조용히 정리해두고 있어요.";
 
   const setWeddingDate = (date: string) => {
     update((prev: WeddingData) => {
@@ -120,6 +127,12 @@ export default function Dashboard({ data, update }: Props) {
       },
     }));
     setAgentChoosing(false);
+  };
+
+  const answerAgentQuestion = (question: AgentLoopQuestion, value: string) => {
+    const result = applyAgentAnswer(data, question, value);
+    update(() => result.next);
+    setAiMessage(result.message);
   };
 
   const applyAiStarter = (parsed: any) => {
@@ -492,7 +505,7 @@ export default function Dashboard({ data, update }: Props) {
       {/* ─── Agent briefing — 지금 할 일 하나와 다음 순서 ─── */}
       <section id="today-focus" className="page py-9 scroll-mt-20">
         <div className="mb-7 flex items-end justify-between gap-4">
-          <AgentIdentity />
+          <AgentIdentity mood={agentQuestion ? "thinking" : hasRisk ? "watching" : "ready"} caption={agentCaption} />
           <span className="eyebrow text-right">{coupleDisplay}<br />오늘의 브리핑</span>
         </div>
         {aiMessage && (
@@ -530,6 +543,9 @@ export default function Dashboard({ data, update }: Props) {
             <p className="mb-7 max-w-[21rem] text-[15px] leading-[1.8] text-soft">
               {data.ai?.starterSummary || (dday !== null ? phase.focus : "현재 준비 상태를 보고, 다음 결정이 쉬워지는 순서로 정리했어요.")}
             </p>
+            {agentQuestion && (
+              <AgentQuestionCard question={agentQuestion} onAnswer={answerAgentQuestion} />
+            )}
             {hasRisk && (
               <div className="mb-7 border-y border-l-2 border-hair border-l-gold bg-cream/40">
                 {overdueCount > 0 && (
@@ -715,6 +731,38 @@ export default function Dashboard({ data, update }: Props) {
         prompt={aiPrompt}
         onApply={applyAiStarter}
       />
+    </div>
+  );
+}
+
+function AgentQuestionCard({ question, onAnswer }: { question: AgentLoopQuestion; onAnswer: (question: AgentLoopQuestion, value: string) => void }) {
+  return (
+    <div className="mb-7 border-y border-hair bg-paper py-5">
+      <div className="mb-4 flex items-center gap-3">
+        <AgentIdentity compact mood="thinking" />
+        <div className="min-w-0">
+          <div className="eyebrow-gold">{question.eyebrow}</div>
+          <div className="mt-1 text-[11px] leading-snug text-soft">답을 고르면 제가 준비판에 바로 반영할게요.</div>
+        </div>
+      </div>
+      <h2 className="font-serif text-[20px] leading-[1.45] text-ink break-keep">{question.title}</h2>
+      <p className="mt-2 text-[13px] leading-[1.75] text-soft">{question.body}</p>
+      <div className="mt-5 divide-y divide-hair border-y border-hair">
+        {question.options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onAnswer(question, option.value)}
+            className="row-tap flex min-h-[62px] w-full items-center justify-between gap-3 py-3 text-left"
+          >
+            <span className="min-w-0">
+              <span className="block text-[13px] font-medium text-ink break-keep">{option.label}</span>
+              {option.desc && <span className="mt-1 block text-[11.5px] leading-relaxed text-soft break-keep">{option.desc}</span>}
+            </span>
+            <span className="flex-shrink-0 text-gold">→</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

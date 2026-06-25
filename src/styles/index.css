@@ -252,6 +252,43 @@
   position: relative;
   background: theme('colors.paper');
 }
+.agent-mark {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, theme('colors.gold') 62%, theme('colors.paper'));
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 32% 25%, rgba(255,255,255,0.88), transparent 34%),
+    linear-gradient(145deg, color-mix(in srgb, theme('colors.paper') 92%, white), color-mix(in srgb, theme('colors.gold') 20%, theme('colors.paper')));
+  box-shadow: 0 10px 30px rgba(111, 86, 50, 0.11);
+}
+.agent-mark-glow {
+  position: absolute;
+  inset: -5px;
+  border-radius: inherit;
+  border: 1px solid rgba(184, 134, 70, 0.12);
+}
+.agent-mark-img {
+  position: relative;
+  z-index: 1;
+  width: 94%;
+  height: 94%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+@keyframes agentBreathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-1px) scale(1.018); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .agent-mark-thinking {
+    animation: agentBreathe 2.6s ease-in-out infinite;
+  }
+}
 .agent-briefing {
   display: grid;
   grid-template-columns: 2.25rem minmax(0, 1fr);

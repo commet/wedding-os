@@ -838,6 +838,7 @@ function assertImportFieldTypes(value: unknown): void {
     if (!isPlainObject(value.ai)) throw new Error("백업의 AI 메모 형식이 올바르지 않습니다.");
     scalar(value.ai, ["starterSummary", "updatedAt"]);
     nestedRecords(value.ai, "today").forEach((item) => scalar(item, ["title", "reason", "targetPath"]));
+    nestedRecords(value.ai, "dialogue").forEach((item) => scalar(item, ["id", "question", "answer", "answeredAt"]));
   }
 
   if (isPlainObject(value.invitation)) {

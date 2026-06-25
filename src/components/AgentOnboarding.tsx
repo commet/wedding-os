@@ -6,8 +6,7 @@ import {
   AGENT_PRIORITIES,
   type AgentAnswers,
   type AgentPriority,
-  type AgentStorage,
-} from "../lib/agentDraft";
+} from "../lib/agentProfile";
 
 type Props = {
   data: WeddingData;
@@ -55,6 +54,23 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
     { label: "예식 날짜", value: answers.date || "아직 미정" },
     { label: "희망 지역", value: answers.region.trim() || "지역을 열어두고 찾기" },
   ], [answers]);
+  const generatedPreview = useMemo(() => {
+    const items = [
+      { label: "오늘의 첫 단계", value: selectedPriority.title },
+      { label: "체크리스트", value: "상황별 핵심 할 일 4개를 맨 위에 추가" },
+      { label: "예산표", value: "먼저 빠뜨리기 쉬운 항목만 선별" },
+    ];
+    if (answers.priority === "venue") {
+      items.push({
+        label: "예식장",
+        value: answers.region.trim() ? `${answers.region.trim()} 기준 후보와 상담 질문` : "후보 비교 기준과 상담 질문",
+      });
+    }
+    if (answers.priority === "trip") {
+      items.push({ label: "신혼여행", value: "처음 비교하기 좋은 지역 3곳" });
+    }
+    return items;
+  }, [answers.priority, answers.region, selectedPriority.title]);
 
   const next = () => setStep((value) => Math.min(TOTAL_STEPS, value + 1));
   const back = () => setStep((value) => Math.max(0, value - 1));
@@ -200,6 +216,17 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
                 <div className="eyebrow-gold mb-2">가장 먼저</div>
                 <h2 className="font-serif text-[19px] leading-[1.5] text-ink">{selectedPriority.title}</h2>
                 <p className="mt-2 text-[13px] leading-[1.8] text-soft">{selectedPriority.reason}</p>
+              </div>
+            </div>
+            <div className="mt-7 border-y border-hair py-4">
+              <div className="eyebrow mb-3">준비판에 바로 생기는 것</div>
+              <div className="divide-y divide-hair">
+                {generatedPreview.map((item) => (
+                  <div key={item.label} className="grid grid-cols-[5.5rem_1fr] gap-3 py-3 text-[12.5px] leading-relaxed">
+                    <span className="text-soft">{item.label}</span>
+                    <span className="text-ink break-keep">{item.value}</span>
+                  </div>
+                ))}
               </div>
             </div>
             <AgentPrimary onClick={() => onComplete(answers)}>

@@ -339,6 +339,7 @@ export type WeddingData = {
   ai?: {
     starterSummary?: string;
     today?: { title: string; reason?: string; targetPath?: string }[];
+    dialogue?: { id: string; question: string; answer: string; answeredAt: string }[];
     updatedAt?: string;
     profile?: {
       priority?: "venue" | "invitation" | "rings" | "trip";

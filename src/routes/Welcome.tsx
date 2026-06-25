@@ -8,7 +8,7 @@ import { demoData } from "../data/demoData";
 import { authAvailable } from "../lib/auth";
 import { downloadCorruptLocalBackup, hasCorruptLocalBackup } from "../lib/storage";
 import AgentOnboarding from "../components/AgentOnboarding";
-import { buildAgentDraft, type AgentAnswers } from "../lib/agentDraft";
+import type { AgentAnswers } from "../lib/agentProfile";
 import { koBreak } from "../lib/typography";
 
 type Props = {
@@ -130,7 +130,8 @@ export default function Welcome({ data, update }: Props) {
     navigate(id === "local" ? "/dashboard" : "/setup");
   };
 
-  const completeAgent = (answers: AgentAnswers) => {
+  const completeAgent = async (answers: AgentAnswers) => {
+    const { buildAgentDraft } = await import("../lib/agentDraft");
     update(() => buildAgentDraft(data, answers));
     markOwner();
     navigate(answers.storage === "hosted" ? "/start-hosted" : "/dashboard");
