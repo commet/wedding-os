@@ -116,8 +116,8 @@ test.describe("dashboard visual smoke", () => {
       localStorage.setItem("wedding-os/owner/v1", "1");
     }, data);
     await page.goto("/budget");
-    await expect(page.getByText("예상 축의금 · 본전")).toBeVisible();
-    await expect(page.getByText(/식대 메우고 남아요|식대보다 부족해요/)).toBeVisible();
+    await expect(page.getByText("예상 축의금", { exact: true })).toBeVisible();
+    await expect(page.getByText("식대 충당률")).toBeVisible();
     await assertLayoutHealth(page);
   });
 
