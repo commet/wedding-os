@@ -100,7 +100,7 @@ test.describe("dashboard visual smoke", () => {
     await assertLayoutHealth(page);
   });
 
-  test("budget break-even weighs expected gift income against meal cost", async ({ page }) => {
+  test("budget shows expected net burden after gift income", async ({ page }) => {
     const data = defaultData();
     data.preferences = { ...data.preferences, mode: "local", isDemo: false };
     data.invitation = { ...data.invitation, groomName: "민준", brideName: "서연", date: "2026-11-07", venue: "그랜드하우스" };
@@ -109,15 +109,18 @@ test.describe("dashboard visual smoke", () => {
       { side: "groom", category: "work", expected: 80 },
       { side: "bride", category: "friend", expected: 70 },
     ] };
-    data.budget = [{ id: "b1", category: "스드메", planned: 4000000 }];
+    data.budget = [
+      { id: "b1", category: "예식장 식대", planned: 17500000 },
+      { id: "b2", category: "스드메", planned: 4000000 },
+    ];
     await page.addInitScript((v) => {
       localStorage.clear(); sessionStorage.clear();
       localStorage.setItem("wedding-os/v1", JSON.stringify(v));
       localStorage.setItem("wedding-os/owner/v1", "1");
     }, data);
     await page.goto("/budget");
-    await expect(page.getByText("예상 축의금", { exact: true })).toBeVisible();
-    await expect(page.getByText("식대 충당률")).toBeVisible();
+    await expect(page.getByText("예상 실부담")).toBeVisible();
+    await expect(page.getByRole("button", { name: /분류별 평균 조정/ })).toBeVisible();
     await assertLayoutHealth(page);
   });
 

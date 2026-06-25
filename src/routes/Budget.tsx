@@ -332,49 +332,27 @@ function GiftBreakEven({ data, update, income, be }: {
     });
   };
 
-  const coverage = be.mealCost && be.mealCost > 0 ? Math.round((be.gift / be.mealCost) * 100) : null;
-  const coverNote =
-    coverage === null ? "" :
-    coverage >= 100 ? "예상 축의금이 식대를 충분히 충당하는 수준이에요. 나머지 비용은 예산에서 관리하면 돼요." :
-    coverage >= 85 ? "예상 축의금이 식대를 거의 충당해요." :
-    "예상 축의금만으로는 식대를 다 채우기 어려울 수 있어요. 다른 비용과 함께 살펴보세요.";
+  const showBurden = be.plannedBudget > 0;
+  const netBurden = Math.max(0, be.plannedBudget - be.gift);
 
   return (
     <div className="border-y border-hair py-5">
-      <div className="eyebrow-gold mb-1.5">예상 축의금</div>
-      <div className="font-serif text-[2rem] leading-none text-ink tabular-nums">{formatKRW(be.gift)}</div>
-      <p className="mt-1.5 text-[11px] text-soft break-keep">
-        {income.basis === "estimate" ? "예상 인원" : "명단"} <span className="tabular-nums">{income.count}</span>명 · 분류별 평균 가정
-      </p>
-
-      <div className="mt-4 space-y-2.5">
-        {be.mealCost !== null && (
-          <div className="flex items-baseline justify-between gap-3 text-[13px]">
-            <span className="text-soft break-keep">예상 식대</span>
-            <span className="tabular-nums text-ink">{formatKRW(be.mealCost)}</span>
-          </div>
-        )}
-        {coverage !== null && (
-          <div className="flex items-baseline justify-between gap-3 text-[13px] border-t border-hair pt-2.5">
-            <span className="break-keep text-ink">식대 충당률</span>
-            <span className={`tabular-nums font-semibold ${coverage >= 100 ? "text-sage" : "text-ink"}`}>{coverage}%</span>
-          </div>
-        )}
-        {be.plannedBudget > 0 && (
-          <div className="flex items-baseline justify-between gap-3 text-[13px]">
-            <span className="text-soft break-keep">총예산의</span>
-            <span className="tabular-nums text-ink">
-              {Math.round((be.gift / be.plannedBudget) * 100)}%
-              <span className="text-soft text-[11px] ml-1.5">/ {formatKRW(be.plannedBudget)}</span>
-            </span>
-          </div>
-        )}
-      </div>
-
-      {coverNote && (
-        <p className="mt-3.5 border-l-2 border-gold/60 pl-3 text-[12.5px] text-soft leading-relaxed break-keep">
-          {coverNote}
-        </p>
+      {showBurden ? (
+        <>
+          <div className="eyebrow-gold mb-1.5">예상 실부담</div>
+          <div className="font-serif text-[2rem] leading-none text-ink tabular-nums">{formatKRW(netBurden)}</div>
+          <p className="mt-1.5 text-[11px] text-soft break-keep tabular-nums">
+            우리 예산 {formatKRW(be.plannedBudget)} <span className="text-mute">−</span> 예상 축의금 {formatKRW(be.gift)}
+          </p>
+        </>
+      ) : (
+        <>
+          <div className="eyebrow-gold mb-1.5">예상 축의금</div>
+          <div className="font-serif text-[2rem] leading-none text-ink tabular-nums">{formatKRW(be.gift)}</div>
+          <p className="mt-1.5 text-[11px] text-soft break-keep">
+            {income.basis === "estimate" ? "예상 인원" : "명단"} <span className="tabular-nums">{income.count}</span>명 기준
+          </p>
+        </>
       )}
 
       <button onClick={() => setOpen((o) => !o)} className="mt-4 text-[12px] underline underline-offset-4 text-ink hover:text-gold">
