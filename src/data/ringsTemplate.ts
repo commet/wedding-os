@@ -20,7 +20,7 @@ export const RING_CATALOG: Ring[] = ringOptions
       imageFit: option.imgFit ?? "contain",
       notes: [option.note, option.priceSet ? `가격표기: ${option.priceSet}` : undefined].filter(Boolean).join("\n") || undefined,
       link: option.link,
-      source: "mayrriage 이미지 카탈로그",
+      source: "이미지 카탈로그 · 제휴 없음 · 공식 판매처 재확인 필요",
       lastVerified: catalogLastVerified,
     };
   });

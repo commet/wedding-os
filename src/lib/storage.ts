@@ -787,6 +787,13 @@ function assertImportFieldTypes(value: unknown): void {
     if (!Array.isArray(list) || !list.every(isPlainObject)) throw new Error(`백업의 ${key} 목록 형식이 올바르지 않습니다.`);
     return list;
   };
+  const optionalRecord = (record: Record<string, unknown>, key: string) => {
+    const item = record[key];
+    if (item === undefined) return undefined;
+    if (!isPlainObject(item)) throw new Error(`백업의 ${key} 형식이 올바르지 않습니다.`);
+    return item;
+  };
+  const contractFields = ["contact", "quote", "payment", "cancellation", "included", "extras", "evidence"];
 
   records("rings").forEach((item) => {
     scalar(item, ["id", "brand", "model", "material", "imageUrl", "imageFit", "notes", "link", "lastVerified", "source"], ["priceKRW"], ["hasDiamond"]);
@@ -796,16 +803,24 @@ function assertImportFieldTypes(value: unknown): void {
       }
     }
   });
-  records("sdm").forEach((item) => scalar(item, ["id", "category", "name", "priceRange", "region", "notes", "link", "status"]));
+  records("sdm").forEach((item) => {
+    scalar(item, ["id", "category", "name", "priceRange", "region", "notes", "link", "status", "contact", "balanceDueAt"], ["depositKRW", "balanceKRW"]);
+    const contract = optionalRecord(item, "contract");
+    if (contract) scalar(contract, contractFields);
+  });
   records("hotels").forEach((item) => {
     scalar(item, ["id", "name", "location", "notes", "lastVerified", "source"]);
     nestedRecords(item, "rooms").forEach((room) => scalar(room, ["type"], ["pricePerNight"], ["breakfast"]));
     nestedRecords(item, "otaPrices").forEach((price) => scalar(price, ["ota", "url"], ["price"]));
   });
   records("flights").forEach((item) => scalar(item, ["id", "airline", "flightNumber", "from", "to", "departAt", "arriveAt", "notes", "link", "lastVerified", "source"], ["priceKRW"]));
-  records("venues").forEach((item) => scalar(item, ["id", "name", "region", "hallType", "foodType", "link", "notes", "status", "visitedAt", "lastVerified", "source"], ["capacityMin", "capacityMax", "mealPriceMin", "mealPriceMax"]));
+  records("venues").forEach((item) => {
+    scalar(item, ["id", "name", "region", "hallType", "foodType", "link", "notes", "status", "visitedAt", "lastVerified", "source", "contact", "balanceDueAt"], ["capacityMin", "capacityMax", "mealPriceMin", "mealPriceMax", "depositKRW", "balanceKRW"]);
+    const contract = optionalRecord(item, "contract");
+    if (contract) scalar(contract, contractFields);
+  });
   records("budget").forEach((item) => scalar(item, ["id", "category", "notes"], ["planned", "actual", "avgKRW"], ["paid"]));
-  records("guests").forEach((item) => scalar(item, ["id", "name", "relation", "side", "phone", "email", "status", "notes", "invitedAt"], ["partyCount", "giftKRW"], ["meal"]));
+  records("guests").forEach((item) => scalar(item, ["id", "name", "relation", "group", "side", "category", "phone", "email", "status", "notes", "invitedAt"], ["partyCount", "giftKRW"], ["meal"]));
 
   records("checklist").forEach((section) => {
     scalar(section, ["id", "icon", "title"]);

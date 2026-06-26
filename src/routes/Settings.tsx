@@ -270,6 +270,7 @@ export default function Settings({ data, update }: Props) {
       <Section title={koBreak("AI 편집 방식")}>
         <p className="text-[15px] text-soft leading-[1.85]">
           앱에서 바로 쓰는 AI, 외부 챗봇 복사, 개인 API 연결 중에서 선택합니다.
+          Wedding OS AI는 프롬프트가 운영자 서버와 Anthropic을 거치므로, 계좌·하객 명단·복구 링크는 보내지 마세요.
         </p>
         <Link to="/ai" className="text-[12px] underline underline-offset-4 text-ink hover:text-gold inline-block mt-3">
           AI 연결 설정 →

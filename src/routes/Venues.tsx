@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import type { WeddingData, WeddingVenue, VenueHallType } from "../lib/schema";
+import type { ContractCheck, WeddingData, WeddingVenue, VenueHallType } from "../lib/schema";
 import {
   VENUE_CATALOG,
   HALL_TYPE_LABEL,
@@ -11,6 +11,7 @@ import {
 import VendorActions from "../components/VendorActions";
 import MapEmbed from "../components/MapEmbed";
 import Modal from "../components/Modal";
+import FreshnessBadge from "../components/FreshnessBadge";
 import {
   upcomingBalances,
   venueCapacityFit,
@@ -23,6 +24,14 @@ type Props = { data: WeddingData; update: (patch: any) => void };
 type Tab = "mine" | "catalog";
 
 const STATUS_OPTIONS: WeddingVenue["status"][] = ["관심", "투어", "계약"];
+const CONTRACT_FIELDS: { key: keyof ContractCheck; label: string; placeholder: string }[] = [
+  { key: "quote", label: "견적 기준", placeholder: "예: 토 12시, 보증 250명, 식대 13만원, 대관료 포함" },
+  { key: "payment", label: "결제 일정", placeholder: "예: 계약금 100만원, 잔금 D-7, 카드 가능 여부" },
+  { key: "cancellation", label: "취소·변경", placeholder: "예: D-90 전 전액 환불, 이후 위약금 단계별 적용" },
+  { key: "included", label: "포함 항목", placeholder: "예: 생화 장식, 혼구용품, 음주류, 폐백실, 빔 사용" },
+  { key: "extras", label: "별도 비용", placeholder: "예: 부가세, 봉사료, 주차권, 셔틀, 원판 추가" },
+  { key: "evidence", label: "증빙 보관", placeholder: "예: 계약서 PDF는 드라이브 / 견적 캡처는 카톡방 고정" },
+];
 
 const REGION_GROUPS: { key: string; label: string; match: (r?: string) => boolean }[] = [
   { key: "all",    label: "전체",        match: () => true },
@@ -265,7 +274,8 @@ export default function Venues({ data, update }: Props) {
                   마음에 드는 곳을 담으면 <span className="text-gold">‘내 후보’</span>에서 비교돼요
                 </p>
                 <p className="mt-2 text-[12px] text-soft leading-relaxed">
-                  {VENUE_PRICE_NOTE}
+                  {VENUE_PRICE_NOTE}<br />
+                  최신 확인일이 없는 항목은 출발점으로만 보고, 공식 채널에서 다시 확인하세요. Wedding OS는 식장과 제휴·광고 관계가 없습니다.
                 </p>
               </div>
 
@@ -549,6 +559,9 @@ function CatalogRow({ v, added, onAdd }: { v: WeddingVenue; added: boolean; onAd
           {v.notes && (
             <div className="text-[12px] text-soft mt-1 italic leading-relaxed">{v.notes}</div>
           )}
+          <div className="mt-2">
+            <FreshnessBadge lastVerified={v.lastVerified} />
+          </div>
         </div>
         <button
           onClick={onAdd}
@@ -577,6 +590,9 @@ function MyVenueRow({
   onApply: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const updateContract = (patch: Partial<ContractCheck>) => {
+    onUpdate({ contract: cleanContract({ ...(v.contract ?? {}), ...patch }) });
+  };
   const fit = venueCapacityFit(v, headcount);
   const showDDay =
     v.status === "계약" && (v.balanceKRW ?? 0) > 0 && !!v.balanceDueAt && !!balance;
@@ -697,6 +713,8 @@ function MyVenueRow({
             </div>
           </div>
 
+          <ContractFields contract={v.contract} onUpdate={updateContract} />
+
           <MapEmbed query={[v.name, v.region].filter(Boolean).join(" ")} label={`${v.name} 지도`} />
 
           <VendorActions name={v.name} region={v.region} officialUrl={v.link} />
@@ -710,6 +728,56 @@ function MyVenueRow({
       )}
     </li>
   );
+}
+
+function ContractFields({
+  contract,
+  onUpdate,
+}: {
+  contract?: ContractCheck;
+  onUpdate: (patch: Partial<ContractCheck>) => void;
+}) {
+  return (
+    <details className="border-y border-hair py-3">
+      <summary className="cursor-pointer list-none flex items-baseline justify-between gap-4">
+        <span>
+          <span className="eyebrow-gold block mb-1">계약 체크</span>
+          <span className="text-[12px] text-soft">{contractProgress(contract)} · 확인한 것만 적어두세요</span>
+        </span>
+        <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
+      </summary>
+      <div className="mt-4 space-y-3">
+        <p className="text-[11.5px] text-soft leading-relaxed">
+          모든 칸을 채울 필요는 없어요. 나중에 분쟁이 생기거나 가족과 공유할 때 헷갈리기 쉬운 조건만 남기면 충분합니다.
+        </p>
+        {CONTRACT_FIELDS.map((field) => (
+          <div key={field.key}>
+            <label className="label">{field.label}</label>
+            <textarea
+              className="input-boxed text-[12.5px] min-h-[44px]"
+              value={contract?.[field.key] ?? ""}
+              onChange={(e) => onUpdate({ [field.key]: e.target.value } as Partial<ContractCheck>)}
+              placeholder={field.placeholder}
+            />
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function contractProgress(contract?: ContractCheck): string {
+  const count = CONTRACT_FIELDS.filter((field) => contract?.[field.key]?.trim()).length;
+  return `확인 ${count}/${CONTRACT_FIELDS.length}`;
+}
+
+function cleanContract(contract: ContractCheck): ContractCheck | undefined {
+  const next = Object.fromEntries(
+    Object.entries(contract)
+      .map(([key, value]) => [key, typeof value === "string" ? value.trim() : value])
+      .filter(([, value]) => Boolean(value))
+  ) as ContractCheck;
+  return Object.keys(next).length > 0 ? next : undefined;
 }
 
 // 담아둔 식장 후보를 한눈에 — 식대·인원·상태를 나란히 놓고 비교한다.
@@ -731,6 +799,7 @@ function VenueCompare({ venues }: { venues: WeddingVenue[] }) {
     },
     { label: "상태", get: (v) => v.status || "—" },
     { label: "답사일", get: (v) => v.visitedAt || "—" },
+    { label: "계약 체크", get: (v) => contractProgress(v.contract) },
   ];
   // 위치 비교용 — 이름·지역이 있는 후보만 지도 노출. 멀리 떨어진 후보를 한 화면에서 가늠.
   const mappable = venues.filter((v) => [v.name, v.region].filter(Boolean).join(" ").trim());

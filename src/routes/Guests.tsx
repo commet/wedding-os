@@ -41,7 +41,7 @@ export default function Guests({ data, update }: Props) {
       if (filter === "bride" && g.side !== "bride") return false;
       if (filter === "attending" && g.status !== "참석") return false;
       if (filter === "pending" && (g.status === "참석" || g.status === "불참")) return false;
-      if (q && !(g.name.toLowerCase().includes(q) || (g.relation ?? "").toLowerCase().includes(q))) return false;
+      if (q && !(g.name.toLowerCase().includes(q) || (g.relation ?? "").toLowerCase().includes(q) || (g.group ?? "").toLowerCase().includes(q))) return false;
       return true;
     });
   }, [guests, filter, search]);
@@ -58,15 +58,17 @@ export default function Guests({ data, update }: Props) {
     const bride = guests.filter((g) => g.side === "bride").length;
     return { total, attending: attending.length, declined: declined.length, pending, partySum, giftSum, mealCount, groom, bride };
   }, [guests]);
+  const seatingGroups = useMemo(() => summarizeSeatingGroups(guests), [guests]);
 
   const exportCsv = () => {
     if (guests.length === 0) return;
-    const header = ["이름", "구분", "분류", "관계", "상태", "동반인원", "축의금"];
+    const header = ["이름", "구분", "분류", "관계", "묶음", "상태", "동반인원", "축의금"];
     const rows = guests.map((g) => [
       g.name,
       SIDE_LABEL[g.side],
       g.category ? GUEST_CATEGORY_LABEL[g.category] : "",
       g.relation ?? "",
+      g.group ?? "",
       STATUS_LABEL[g.status],
       String(g.partyCount ?? 1),
       g.giftKRW != null ? String(g.giftKRW) : "",
@@ -251,6 +253,35 @@ export default function Guests({ data, update }: Props) {
         <Stat label="응답 대기" value={stats.pending} muted />
         <Stat label="불참" value={stats.declined} muted />
       </div>
+
+      {seatingGroups.total > 0 && (
+        <details className="-mt-2 border-b border-hair pb-4">
+          <summary className="cursor-pointer list-none flex items-baseline justify-between gap-4">
+            <span>
+              <span className="eyebrow-gold block mb-1">테이블 배치 초안</span>
+              <span className="text-[12px] text-soft">
+                {seatingGroups.total}명 · 약 {seatingGroups.tableCount}테이블
+              </span>
+            </span>
+            <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
+          </summary>
+          <div className="mt-4 space-y-3">
+            <p className="text-[11.5px] text-soft leading-relaxed break-keep">
+              불참자를 제외하고 묶음·관계·분류 순서로 가볍게 나눈 초안이에요. 각 하객 상세의 묶음 칸에 “신랑 회사”, “신부 대학 친구”처럼 적으면 더 정확해져요.
+            </p>
+            <div className="divide-y divide-hair border-y border-hair">
+              {seatingGroups.rows.map((row) => (
+                <div key={row.label} className="py-2.5 flex items-baseline justify-between gap-4 text-[12.5px]">
+                  <span className="text-ink break-keep">{row.label}</span>
+                  <span className="text-soft tabular-nums whitespace-nowrap">
+                    {row.count}명 · {row.tables}테이블
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </details>
+      )}
 
       {(() => {
         const venue = contractedVenue(data);
@@ -513,6 +544,30 @@ function makeGuest(name: string, side: GuestSide): Guest {
   };
 }
 
+function summarizeSeatingGroups(guests: Guest[]): {
+  total: number;
+  tableCount: number;
+  rows: { label: string; count: number; tables: number }[];
+} {
+  const grouped = new Map<string, number>();
+  for (const g of guests) {
+    if (g.status === "불참") continue;
+    const label =
+      g.group?.trim() ||
+      g.relation?.trim() ||
+      (g.category ? GUEST_CATEGORY_LABEL[g.category] : "") ||
+      SIDE_LABEL[g.side];
+    const count = Math.max(1, g.partyCount ?? 1);
+    grouped.set(label, (grouped.get(label) ?? 0) + count);
+  }
+  const rows = Array.from(grouped.entries())
+    .map(([label, count]) => ({ label, count, tables: Math.max(1, Math.ceil(count / 10)) }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+    .slice(0, 6);
+  const total = Array.from(grouped.values()).reduce((sum, count) => sum + count, 0);
+  return { total, tableCount: Math.max(1, Math.ceil(total / 10)), rows };
+}
+
 // 금액 입력 파싱 — 빈 칸은 undefined, "0"은 0으로 유지, 음수·비정상값은 거부.
 function parseAmount(raw: string): number | undefined {
   const t = raw.trim();
@@ -692,6 +747,7 @@ function GuestRow({ g, onChange, onRemove }: { g: Guest; onChange: (p: Partial<G
           <div className="text-[12px] text-soft mt-1 space-x-2">
             {g.category && <span>{GUEST_CATEGORY_LABEL[g.category]}</span>}
             {g.relation && <span>{g.category ? "· " : ""}{g.relation}</span>}
+            {g.group && <span>· {g.group}</span>}
             <span className={g.status === "참석" ? "text-ink" : ""}>· {STATUS_LABEL[g.status]}</span>
             {g.giftKRW != null && g.giftKRW > 0 && (
               <span className="tabular-nums">· {g.giftKRW.toLocaleString()}원</span>
@@ -714,6 +770,12 @@ function GuestRow({ g, onChange, onRemove }: { g: Guest; onChange: (p: Partial<G
             value={g.relation ?? ""}
             onChange={(e) => onChange({ relation: e.target.value })}
             placeholder="관계 (예: 회사 동료, 대학 동기, 친척)"
+          />
+          <input
+            className="input text-[13px]"
+            value={g.group ?? ""}
+            onChange={(e) => onChange({ group: e.target.value || undefined })}
+            placeholder="테이블 묶음 (예: 신랑 회사, 신부 대학 친구)"
           />
 
           <div>

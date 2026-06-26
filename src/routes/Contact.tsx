@@ -57,7 +57,8 @@ export default function Contact({ data }: Props) {
       </div>
 
       <p className="text-[13px] text-soft leading-relaxed border-b border-hair pb-6">
-        어디서 어떤 일이 있었는지 편하게 적어주세요. 화면 이름이나 캡처를 함께 주시면 더 빨리 도와드릴 수 있어요.
+        어디서 어떤 일이 있었는지 편하게 적어주세요. 화면 이름이나 캡처를 함께 주시면 더 빨리 도와드릴 수 있어요.<br />
+        복구 링크, 편집 링크, 계좌번호, 하객 명단, 신분증·계약서 원본은 보내지 마세요.
       </p>
 
       <div className="space-y-5">

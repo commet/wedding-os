@@ -97,6 +97,16 @@ export type VenueHallType = "hotel" | "house" | "convention" | "general" | "outd
 //   plated      — 단품 한식·일품 정찬
 export type VenueFoodType = "buffet" | "course" | "plated";
 
+export type ContractCheck = {
+  contact?: string;
+  quote?: string;
+  payment?: string;
+  cancellation?: string;
+  included?: string;
+  extras?: string;
+  evidence?: string;
+};
+
 export type WeddingVenue = Verifiable & {
   id: string;
   name: string;
@@ -115,6 +125,7 @@ export type WeddingVenue = Verifiable & {
   depositKRW?: number;      // 계약금
   balanceKRW?: number;      // 잔금
   balanceDueAt?: string;    // 잔금 납부일 (ISO)
+  contract?: ContractCheck;  // 계약 조건 확인 메모
 };
 
 // ── 예산 ──
@@ -140,6 +151,7 @@ export type Guest = {
   id: string;
   name: string;
   relation?: string;        // "회사 동료", "고등학교 친구" 등 자유
+  group?: string;           // 테이블/좌석을 잡기 전 묶음 메모
   side: GuestSide;
   category?: GuestCategory;  // 가족·친척·직장·학교·친구·지인
   phone?: string;
@@ -177,6 +189,7 @@ export type SdmVendor = {
   depositKRW?: number;      // 계약금
   balanceKRW?: number;      // 잔금
   balanceDueAt?: string;    // 잔금 납부일 (ISO)
+  contract?: ContractCheck;  // 계약 조건 확인 메모
 };
 
 // ── 식순 (당일 진행표) ──

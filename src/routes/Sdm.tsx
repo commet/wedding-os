@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import type { WeddingData, SdmVendor, SdmCategory } from "../lib/schema";
+import type { ContractCheck, WeddingData, SdmVendor, SdmCategory } from "../lib/schema";
 import {
   SDM_GUIDE,
   SDM_CATALOG,
@@ -29,6 +29,14 @@ const CAT_LABEL: Record<SdmCategory, string> = {
 };
 
 const STATUS_OPTIONS: SdmVendor["status"][] = ["관심", "상담", "계약"];
+const CONTRACT_FIELDS: { key: keyof ContractCheck; label: string; placeholder: string }[] = [
+  { key: "quote", label: "견적 기준", placeholder: "예: 토탈 패키지, 원장/실장 지정, 촬영 컷 수, 드레스 피팅 횟수" },
+  { key: "payment", label: "결제 일정", placeholder: "예: 계약금 30만원, 잔금 촬영 D-7, 현금영수증 가능" },
+  { key: "cancellation", label: "취소·변경", placeholder: "예: 일정 변경 1회 가능, 취소 위약금은 계약서 3조 확인" },
+  { key: "included", label: "포함 항목", placeholder: "예: 원본 파일, 보정본 20장, 헬퍼비 별도, 부케 대여 포함" },
+  { key: "extras", label: "별도 비용", placeholder: "예: 헬퍼비, 출장비, 앨범 추가, 야외 촬영 추가금" },
+  { key: "evidence", label: "증빙 보관", placeholder: "예: 계약서 PDF는 드라이브 / 카톡 견적 캡처 저장" },
+];
 
 const SEOUL = ["청담","강남","신사동","압구정","송파","강북","홍대","이태원"];
 
@@ -268,7 +276,7 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
         <p>{SDM_PRICE_RANGE_NOTE}</p>
         <p>
           이 목록은 결혼 준비 단계에서의 출발점일 뿐이에요. 완전한 리스트도, 순위도, 추천도 아닙니다.
-          업체 이전·실장 이동·이름 변경이 잦으니 최종 결정 전 직접 확인이 꼭 필요해요.
+          검증일이 따로 없는 목록이고, 업체 이전·실장 이동·이름 변경이 잦으니 최종 결정 전 직접 확인이 꼭 필요해요.
           <strong className="text-ink"> 어떤 업체와도 제휴·후원·광고 관계 없음</strong>.
         </p>
         <p>
@@ -357,6 +365,9 @@ function MyVendorCard({
   onUpdate: (patch: Partial<SdmVendor>) => void;
   onRemove: () => void;
 }) {
+  const updateContract = (patch: Partial<ContractCheck>) => {
+    onUpdate({ contract: cleanContract({ ...(v.contract ?? {}), ...patch }) });
+  };
   // 계약 + 잔금 남음 + 잔금일 있음 → 요약에 D-day 칩. daysLeft 는 upcomingBalances 가 계산한 값을 그대로 재사용.
   const showDueChip =
     v.status === "계약" &&
@@ -468,10 +479,61 @@ function MyVendorCard({
               onChange={(e) => onUpdate({ balanceDueAt: e.target.value || undefined })}
             />
           </div>
+          <ContractFields contract={v.contract} onUpdate={updateContract} />
         </div>
       )}
     </div>
   );
+}
+
+function ContractFields({
+  contract,
+  onUpdate,
+}: {
+  contract?: ContractCheck;
+  onUpdate: (patch: Partial<ContractCheck>) => void;
+}) {
+  return (
+    <details className="border-y border-hair py-3">
+      <summary className="cursor-pointer list-none flex items-baseline justify-between gap-4">
+        <span>
+          <span className="eyebrow-gold block mb-1">계약 체크</span>
+          <span className="text-[12px] text-soft">{contractProgress(contract)} · 확인한 것만 적어두세요</span>
+        </span>
+        <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
+      </summary>
+      <div className="mt-4 space-y-3">
+        <p className="text-[11.5px] text-soft leading-relaxed">
+          모든 칸을 채울 필요는 없어요. 패키지에 포함되는 것과 별도 비용처럼 나중에 헷갈릴 조건만 남기면 충분합니다.
+        </p>
+        {CONTRACT_FIELDS.map((field) => (
+          <div key={field.key}>
+            <label className="label">{field.label}</label>
+            <textarea
+              className="input-boxed text-[12.5px] min-h-[44px]"
+              value={contract?.[field.key] ?? ""}
+              onChange={(e) => onUpdate({ [field.key]: e.target.value } as Partial<ContractCheck>)}
+              placeholder={field.placeholder}
+            />
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function contractProgress(contract?: ContractCheck): string {
+  const count = CONTRACT_FIELDS.filter((field) => contract?.[field.key]?.trim()).length;
+  return `확인 ${count}/${CONTRACT_FIELDS.length}`;
+}
+
+function cleanContract(contract: ContractCheck): ContractCheck | undefined {
+  const next = Object.fromEntries(
+    Object.entries(contract)
+      .map(([key, value]) => [key, typeof value === "string" ? value.trim() : value])
+      .filter(([, value]) => Boolean(value))
+  ) as ContractCheck;
+  return Object.keys(next).length > 0 ? next : undefined;
 }
 
 // 금액 입력 파싱 — Budget.tsx 와 동일 규칙(원 단위 그대로 저장). 빈 칸 undefined, 음수 거부.

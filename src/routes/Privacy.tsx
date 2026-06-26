@@ -9,7 +9,7 @@ export default function Privacy() {
         <h1 className="font-serif text-[2rem] leading-none">개인정보 · 보안 안내</h1>
       </div>
       <p className="eyebrow mt-3 mb-8">
-        최종 갱신 · 2026-06-22
+        최종 갱신 · 2026-06-26
       </p>
 
       <Section num="01" title="한눈에">
@@ -119,7 +119,29 @@ export default function Privacy() {
         </p>
       </Section>
 
-      <Section num="09" title="문의" last>
+      <Section num="09" title="저작권 · 상표 · 콘텐츠">
+        <ul className="list-disc list-outside pl-5 space-y-1.5 marker:text-soft">
+          <li><b>사진</b> · 직접 촬영하지 않은 사진, 스튜디오·스냅 원본, 업체 제공 이미지는 계약서나 이용허락 범위 안에서만 올리세요. 청첩장·식전영상·SNS 공유 허용 범위가 다를 수 있습니다.</li>
+          <li><b>음악</b> · 상용 음원을 식전영상, 청첩장 BGM, 온라인 공유 영상에 넣는 경우 별도 사용 허락이 필요할 수 있습니다. 공유저작물도 출처 표시, 변경 가능 여부, 상업적 이용 제한 등 조건을 확인하세요.</li>
+          <li><b>상표·업체명</b> · 반지 브랜드, 웨딩홀, 스튜디오명은 비교·메모 목적으로만 표시합니다. Wedding OS는 해당 브랜드와 제휴·후원·공식 추천 관계가 아닙니다.</li>
+          <li><b>AI 문안</b> · AI가 만든 청첩장 문구, 안내문, 계약 질문은 초안입니다. 타인의 시·노래 가사·상업 문구를 그대로 쓰지 말고 최종 문안은 직접 확인하세요.</li>
+        </ul>
+      </Section>
+
+      <Section num="10" title="운영자 확인 필요 항목">
+        <p className="mb-3">
+          본 저장소를 공개 서비스로 운영하려면 코드만으로 해결되지 않는 운영 정보가 필요합니다.
+          실제 운영자는 배포 전에 다음 항목을 본인 상황에 맞게 채워야 합니다.
+        </p>
+        <ul className="list-disc list-outside pl-5 space-y-1.5 marker:text-soft">
+          <li>운영자 또는 사업자 명칭, 개인정보 보호 책임자, 실제 연락처</li>
+          <li>Vercel·Supabase·Anthropic·소셜 로그인 제공자의 실제 처리 국가, 리전, 보유기간</li>
+          <li>개인정보 침해 신고·삭제 요청·차단·통지 절차</li>
+          <li>업체 정보 삭제·정정 요청을 받았을 때의 처리 기준</li>
+        </ul>
+      </Section>
+
+      <Section num="11" title="문의" last>
         <p>
           개인정보 보호 책임 및 보안 · 삭제 요청 창구는 Wedding OS 운영자입니다. 개인정보가 포함된 요청은{" "}
           <a className="underline underline-offset-2 text-ink" href="mailto:yclee913@gmail.com" rel="noopener noreferrer">yclee913@gmail.com</a>

@@ -11,21 +11,27 @@ import { ringPriceCheckPrompt, BridgePrompt } from "../lib/chatbotBridge";
 import { todayISO } from "../lib/freshness";
 import { koBreak } from "../lib/typography";
 
-// 브랜드별 공식 사이트 — 모델 페이지는 변동이 잦아 메인 도메인만.
-// (curl 403도 실제 브라우저에서는 정상 동작)
+// 브랜드별 공식 웨딩/브라이덜 섹션. 개별 모델 페이지보다 덜 깨지는 진입점.
 const BRAND_SITES: Record<string, string> = {
-  "티파니": "https://www.tiffany.com/",
-  "까르띠에": "https://www.cartier.com/",
-  "샤넬": "https://www.chanel.com/",
-  "불가리": "https://www.bulgari.com/",
-  "부쉐론": "https://www.boucheron.com/",
-  "쇼메": "https://www.chaumet.com/",
-  "피아제": "https://www.piaget.com/",
-  "반 클리프 아펠": "https://www.vancleefarpels.com/",
-  "드 비어스": "https://www.debeers.com/",
-  "타사키": "https://www.tasaki.co.kr/",
-  "쇼파드": "https://www.chopard.com/",
+  "티파니": "https://www.tiffany.kr/engagement/wedding-band-sets/",
+  "까르띠에": "https://www.cartier.com/ko-kr/%EC%A3%BC%EC%96%BC%EB%A6%AC/%EC%9B%A8%EB%94%A9-%EB%B0%B4%EB%93%9C/",
+  "샤넬": "https://www.chanel.com/kr/fine-jewelry/bridal-exclusive-countries/c/3x2x10/",
+  "불가리": "https://www.bulgari.com/ko-kr/engagement-and-wedding/wedding-bands/",
+  "부쉐론": "https://www.boucheron.com/ko/jewelry/bridal/wedding-bands.html",
+  "쇼메": "https://www.chaumet.com/kr_kr/bridal/women-wedding-bands",
+  "피아제": "https://www.piaget.com/kr-ko/jewelry/wedding/wedding-rings",
+  "반 클리프 아펠": "https://www.vancleefarpels.com/kr/ko/collections/engagement/wedding-bands.html",
+  "드 비어스": "https://www.debeers.com/en-us/engagement-bridal/wedding-bands/",
+  "타사키": "https://www.tasaki.co.kr/bridal/wedding-bands/",
+  "쇼파드": "https://www.chopard.com/ko-kr/jewellery-wedding-rings",
 };
+
+const RESEARCH_LINKS = [
+  ...Object.entries(BRAND_SITES).map(([label, href]) => ({ label, href, group: "브랜드" })),
+  { label: "종로 결혼반지", href: "https://map.kakao.com/link/search/%EC%A2%85%EB%A1%9C%20%EA%B2%B0%ED%98%BC%EB%B0%98%EC%A7%80", group: "지역" },
+  { label: "종로 귀금속거리", href: "https://map.kakao.com/link/search/%EC%A2%85%EB%A1%9C%20%EA%B7%80%EA%B8%88%EC%86%8D%EA%B1%B0%EB%A6%AC", group: "지역" },
+  { label: "예물 후기 검색", href: "https://www.google.com/search?q=%EC%A2%85%EB%A1%9C+%EC%98%88%EB%AC%BC+%EA%B2%B0%ED%98%BC%EB%B0%98%EC%A7%80+%ED%9B%84%EA%B8%B0", group: "후기" },
+];
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type Who = "groom" | "bride";
@@ -272,6 +278,8 @@ export default function Rings({ data, update }: Props) {
         </button>
       )}
 
+      {!showStarter && <RingResearchHub />}
+
       {/* Top — 번호 매겨진 hairline 리스트 */}
       {!showStarter && top5.length > 0 && (
         <section>
@@ -332,7 +340,7 @@ export default function Rings({ data, update }: Props) {
                 반지 카탈로그 · <span className="tabular-nums">{catalogOpen ? visible.length : rings.length}</span>
               </span>
               <span className="text-[13px] text-soft leading-relaxed break-keep">
-                전체 후보는 필요할 때만 펼쳐서 비교합니다.
+                빠진 모델이 많을 수 있어요. 취향 저장용 출발점으로만 보고 공식 판매처에서 최신 가격을 확인하세요.
               </span>
             </span>
             <span className="text-[12px] text-soft underline underline-offset-4 flex-shrink-0">
@@ -378,6 +386,32 @@ export default function Rings({ data, update }: Props) {
         onApply={applyPrice}
       />
     </div>
+  );
+}
+
+function RingResearchHub() {
+  return (
+    <section className="border-y border-hair py-4">
+      <div className="mb-3">
+        <div className="eyebrow-gold mb-1">공식/지역 탐색</div>
+        <p className="text-[11.5px] text-soft leading-relaxed">
+          카탈로그에 없는 웨딩밴드는 여기서 직접 확인하세요. 제휴·광고 링크가 아닙니다.
+        </p>
+      </div>
+      <div className="flex gap-5 overflow-x-auto pb-1 -mx-6 px-6 scrollbar-hide">
+        {RESEARCH_LINKS.map((link) => (
+          <a
+            key={`${link.group}-${link.label}`}
+            href={link.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="whitespace-nowrap text-[12px] text-ink underline underline-offset-4 hover:text-gold"
+          >
+            <span className="text-soft">{link.group}</span> · {link.label}
+          </a>
+        ))}
+      </div>
+    </section>
   );
 }
 

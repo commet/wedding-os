@@ -347,6 +347,9 @@ export function RsvpModal({
       ) : (
         <div className="space-y-4">
           <p className="text-xs text-soft">신랑·신부가 따뜻한 마음으로 확인할게요.</p>
+          <p className="text-[11px] text-soft leading-relaxed border border-line bg-cream/40 p-3">
+            {t("이름·참석 여부·인원·식사 메모·축하 메시지는 예식 준비를 위해 신랑·신부만 확인합니다.", locale)}
+          </p>
 
           <div>
             <label className="label">{t("성함", locale)}</label>
@@ -1428,6 +1431,9 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
         <Field label="예식장"><input className="input" value={inv.venue} onChange={(e) => set("venue", e.target.value)} placeholder="서울대학교 교수회관" /></Field>
         <Field label="홀/층"><input className="input" value={inv.venueHall ?? ""} onChange={(e) => set("venueHall", e.target.value)} placeholder="3층 그랜드볼룸" /></Field>
         <Field label="주소"><input className="input" value={inv.venueAddress ?? ""} onChange={(e) => set("venueAddress", e.target.value)} placeholder="서울특별시 관악구..." /></Field>
+        <p className="text-[11px] text-soft leading-relaxed">
+          주차, 셔틀, 지하철 출구, 약도 이미지는 식장 안내를 받은 뒤 모시는 글이나 갤러리에 짧게 더하면 됩니다.
+        </p>
       </Section>}
 
       <Section title="모시는 글" defaultOpen>
@@ -1854,6 +1860,10 @@ function t(ko: string, locale: Locale): string {
     "전송 중…": { en: "Sending…", zh: "發送中…" },
     "참석 의사 전하기": { en: "Send RSVP", zh: "送出回覆" },
     "전송됐어요. 감사합니다.": { en: "Sent. Thank you.", zh: "已送出。謝謝。" },
+    "이름·참석 여부·인원·식사 메모·축하 메시지는 예식 준비를 위해 신랑·신부만 확인합니다.": {
+      en: "Your name, attendance, party size, meal note, and message are used only by the couple to prepare for the wedding.",
+      zh: "姓名、出席、人數、用餐備註和祝福訊息僅供新人準備婚禮使用。",
+    },
   };
   return map[ko]?.[locale] ?? ko;
 }
