@@ -31,6 +31,19 @@ type StarterResult = {
   greeting: boolean;
 };
 
+type JourneyStep = {
+  to: string;
+  label: string;
+  detail: string;
+  done: boolean;
+};
+
+type QuickAction = {
+  to: string;
+  label: string;
+  detail: string;
+};
+
 export default function Dashboard({ data, update }: Props) {
   const [aiPrompt, setAiPrompt] = useState<BridgePrompt | null>(null);
   const [aiMessage, setAiMessage] = useState("");
@@ -49,8 +62,16 @@ export default function Dashboard({ data, update }: Props) {
   const budgetCount = (data.budget ?? []).length;
   const guestCount = (data.guests ?? []).length;
   const guestAttending = (data.guests ?? []).filter((g) => g.status === "참석").length;
+  const guestMeals = (data.guests ?? [])
+    .filter((g) => g.status === "참석" && g.meal !== false)
+    .reduce((sum, g) => sum + Math.max(1, g.partyCount ?? 1), 0);
+  const unpaidBudgetCount = (data.budget ?? []).filter((b) => ((b.actual ?? b.planned ?? 0) > 0) && !b.paid).length;
+  const overBudgetCount = (data.budget ?? []).filter((b) => typeof b.planned === "number" && typeof b.actual === "number" && b.actual > b.planned).length;
   const sdmCount = data.sdm.filter((v) => v.category !== "snap").length;
   const snapCount = data.sdm.filter((v) => v.category === "snap").length;
+  const contractedVendorCount =
+    (data.venues ?? []).filter((v) => v.status === "계약").length +
+    data.sdm.filter((v) => v.status === "계약").length;
   const invitationReadyCount = [
     data.invitation.groomName,
     data.invitation.brideName,
@@ -70,6 +91,13 @@ export default function Dashboard({ data, update }: Props) {
       data.honeymoon.regions.length + data.flights.length + data.hotels.length > 0,
     ].filter(Boolean).length / 8) * 100
   );
+  const careCount = [
+    !data.invitation.date,
+    !data.invitation.venue && venueCount === 0,
+    guestCount === 0,
+    unpaidBudgetCount > 0,
+    overBudgetCount > 0,
+  ].filter(Boolean).length;
 
   const setWeddingDate = (date: string) => {
     update((prev: WeddingData) => {
@@ -344,6 +372,56 @@ export default function Dashboard({ data, update }: Props) {
     },
   ];
 
+  const journeySteps: JourneyStep[] = [
+    {
+      to: "/venues",
+      label: "큰 예약",
+      detail: contractedVendorCount > 0 ? `계약 ${contractedVendorCount}건` : venueCount > 0 ? `후보 ${venueCount}곳` : "예식장부터",
+      done: !!data.invitation.venue || contractedVendorCount > 0,
+    },
+    {
+      to: "/guests",
+      label: "사람",
+      detail: guestCount > 0 ? `${guestCount}명 · 식수 ${guestMeals}` : "명단 시작 전",
+      done: guestCount > 0 && guestAttending > 0,
+    },
+    {
+      to: "/invitation",
+      label: "초대",
+      detail: invitationReadyCount >= 4 ? "공유 준비" : `${invitationReadyCount}/5 입력`,
+      done: invitationReadyCount >= 4,
+    },
+    {
+      to: "/checklist",
+      label: "본식",
+      detail: checklistTotal > 0 ? `${progress}% 완료` : "일정판 필요",
+      done: checklistTotal > 0 && progress >= 50,
+    },
+  ];
+
+  const quickActions: QuickAction[] = [
+    {
+      to: focusItems[0]?.to ?? "/checklist",
+      label: "오늘 이어가기",
+      detail: focusItems[0]?.title ?? "먼저 할 일을 정리하세요",
+    },
+    {
+      to: "/agent",
+      label: "안심 체크",
+      detail: careCount > 0 ? `확인 ${careCount}개` : "오늘은 괜찮음",
+    },
+    {
+      to: "/budget",
+      label: "돈",
+      detail: unpaidBudgetCount > 0 ? `미결제 ${unpaidBudgetCount}개` : budgetCount > 0 ? "정리됨" : "예산 시작",
+    },
+    {
+      to: "/guests",
+      label: "하객",
+      detail: guestCount > 0 ? `${guestCount}명 · 참석 ${guestAttending}` : "명단 시작",
+    },
+  ];
+
   // 메뉴 순서는 실제 결혼 준비 흐름을 따른다 — 먼저 큰 예약을 잡고(결정·예약),
   // 청첩장·영상을 만들고(함께 만들기), 그 뒤 꾸준히 관리. 공유·AI는 도구로 분리.
   const MENU_GROUPS: { title: string; items: { to: string; label: string; sub: string }[] }[] = [
@@ -375,7 +453,7 @@ export default function Dashboard({ data, update }: Props) {
     {
       title: "도구",
       items: [
-        { to: "/agent", label: "에이전트 점검", sub: "법무 · 개인정보 · 저작권 · 비용" },
+        { to: "/agent", label: "안심 체크", sub: "공개 링크 · 돈 · 일정 · 저작권" },
         { to: "/share", label: "공유 센터", sub: "청첩장 · 초대 링크 · 백업" },
         { to: "/ai", label: "AI 연결", sub: "복붙 모드 · API 키 · 로컬 LLM" },
       ],
@@ -471,14 +549,50 @@ export default function Dashboard({ data, update }: Props) {
 
       <div className="hairline" />
 
+      {!empty && (
+        <>
+          <section className="page py-7">
+            <div className="flex items-baseline justify-between mb-4">
+              <div>
+                <div className="eyebrow-gold mb-2">Journey</div>
+                <h2 className="font-serif text-xl text-ink">우리 준비 흐름</h2>
+              </div>
+              <Link to="/agent" className="text-[12px] text-soft underline underline-offset-4 hover:text-ink">
+                안심 체크
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-4 gap-2 mb-5">
+              {journeySteps.map((step, index) => (
+                <Link key={step.label} to={step.to} className="min-w-0 active:opacity-70">
+                  <div className={`h-1 mb-2 ${step.done ? "bg-ink" : index === 0 ? "bg-gold" : "bg-line"}`} />
+                  <div className="text-[11px] font-medium text-ink truncate">{step.label}</div>
+                  <div className="text-[10.5px] text-soft mt-1 truncate">{step.detail}</div>
+                </Link>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              {quickActions.map((action) => (
+                <Link key={action.label} to={action.to} className="border border-hair bg-paper px-4 py-3 active:opacity-70">
+                  <div className="font-serif text-[15px] text-ink leading-tight">{action.label}</div>
+                  <div className="text-[11.5px] text-soft mt-1 truncate">{action.detail}</div>
+                </Link>
+              ))}
+            </div>
+          </section>
+          <div className="hairline" />
+        </>
+      )}
+
       {/* ─── 다음 행동 — 앱이 먼저 정리해주는 영역 ─── */}
       <section id="today-focus" className="page py-9 scroll-mt-20">
         <div className="flex items-baseline justify-between mb-5">
           <div>
-            <div className="eyebrow-gold mb-2">Next</div>
-            <h2 className="font-serif text-xl text-ink">먼저 할 일 3가지</h2>
+            <div className="eyebrow-gold mb-2">Today</div>
+            <h2 className="font-serif text-xl text-ink">오늘 이어갈 일</h2>
           </div>
-          <span className="text-[11px] text-soft">지금 필요한 순서</span>
+          <span className="text-[11px] text-soft">최대 3개만</span>
         </div>
         {aiMessage && (
           <p className="text-[11.5px] text-soft leading-relaxed -mt-2 mb-4">

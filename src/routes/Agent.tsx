@@ -29,47 +29,53 @@ const SEVERITY_META: Record<AgentSeverity, { label: string; cls: string; dot: st
 export default function Agent({ data }: Props) {
   const report = buildAgentReport(data);
   const priority = report.findings.filter((f) => f.severity === "danger" || f.severity === "warn");
+  const today = priority.slice(0, 3);
+  const later = priority.slice(3);
+  const watch = report.findings.filter((f) => f.severity === "info");
   const ok = report.findings.filter((f) => f.severity === "good");
 
   return (
-    <div className="page pt-8 pb-10 space-y-9">
+    <div className="page pt-8 pb-10 space-y-8">
       <header>
-        <div className="eyebrow-gold mb-2">Wedding Agent</div>
-        <h1 className="font-serif text-[2rem] leading-none">에이전트 점검</h1>
+        <div className="eyebrow-gold mb-2">Care Check</div>
+        <h1 className="font-serif text-[2rem] leading-none">안심 체크</h1>
         <p className="text-[12.5px] text-soft leading-relaxed mt-4">
-          법무·개인정보·저작권·비용·일정을 한 번에 훑습니다. 법률 자문은 아니며,
-          실제 운영자 정보와 계약서는 최종 확인이 필요합니다.
+          지금 진짜 놓치면 곤란한 것만 먼저 보여줍니다. 법률 자문은 아니고,
+          공개 링크·돈·일정·저작권을 덜 불안하게 관리하기 위한 체크입니다.
         </p>
       </header>
 
       <section className="border-y border-hair py-5">
-        <div className="flex items-end justify-between gap-4 mb-4">
+        <div className="flex items-end justify-between gap-4 mb-3">
           <div>
-            <div className="eyebrow mb-2">Risk score</div>
-            <div className="font-serif text-[4rem] leading-none tabular-nums">
+            <div className="eyebrow mb-2">준비 안정도</div>
+            <div className="font-serif text-[3.4rem] leading-none tabular-nums">
               {report.score}
               <span className="text-[1rem] text-soft font-sans ml-1">/100</span>
             </div>
           </div>
-          <div className="text-right text-[12px] leading-relaxed">
-            <p className="text-gold">즉시 확인 {report.danger}</p>
-            <p className="text-ink">주의 {report.warn}</p>
-            <p className="text-sage">정상 {report.good}</p>
+          <div className="text-right text-[12px] leading-relaxed pb-1">
+            <p className="text-gold">오늘 {today.length}</p>
+            <p className="text-ink">나중에 {later.length}</p>
+            <p className="text-sage">괜찮음 {ok.length}</p>
           </div>
         </div>
         <div className="h-2 bg-line overflow-hidden">
           <div className="h-full bg-ink transition-all" style={{ width: `${report.score}%` }} />
         </div>
+        <p className="text-[11.5px] text-soft leading-relaxed mt-3">
+          전부 고치라는 뜻이 아니라, 오늘은 위 숫자의 앞 3개만 처리하면 됩니다.
+        </p>
       </section>
 
       <section>
         <div className="flex items-baseline justify-between gap-4 mb-4">
-          <h2 className="section-title">먼저 볼 항목</h2>
-          <span className="eyebrow tabular-nums">{priority.length}개</span>
+          <h2 className="section-title">오늘 볼 것</h2>
+          <span className="eyebrow tabular-nums">{today.length}개</span>
         </div>
         <div className="border-y border-hair divide-y divide-hair">
-          {priority.length > 0 ? (
-            priority.map((finding) => <FindingRow key={finding.id} finding={finding} />)
+          {today.length > 0 ? (
+            today.map((finding) => <FindingRow key={finding.id} finding={finding} />)
           ) : (
             <p className="py-6 text-[12.5px] text-soft">지금 바로 처리할 위험 항목은 없습니다.</p>
           )}
@@ -77,48 +83,81 @@ export default function Agent({ data }: Props) {
       </section>
 
       <section>
-        <details open>
+        <details>
           <summary className="list-none cursor-pointer flex items-baseline justify-between gap-4 min-h-11">
-            <span className="section-title">전체 자동 점검 {report.findings.length}개</span>
-            <span className="text-[12px] text-soft underline underline-offset-4">펼쳐보기</span>
+            <span>
+              <span className="section-title block">다음에 볼 것</span>
+              <span className="text-[11px] text-soft">{later.length}개 항목은 급하지 않습니다</span>
+            </span>
+            <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
           </summary>
           <div className="mt-4 border-y border-hair divide-y divide-hair">
-            {report.findings.map((finding) => (
+            {later.map((finding) => (
               <FindingRow key={finding.id} finding={finding} compact />
             ))}
           </div>
         </details>
       </section>
 
-      <section className="border-y border-hair py-5">
-        <h2 className="section-title mb-3">정상 항목</h2>
-        <div className="grid grid-cols-2 gap-3">
-          {ok.slice(0, 6).map((finding) => (
-            <div key={finding.id} className="bg-cream/40 p-3">
-              <div className="eyebrow-gold mb-2">{CATEGORY_LABELS[finding.category]}</div>
-              <p className="font-serif text-[15px] text-ink leading-tight">{finding.title}</p>
-            </div>
-          ))}
-        </div>
+      <section>
+        <details>
+          <summary className="list-none cursor-pointer flex items-baseline justify-between gap-4 min-h-11">
+            <span>
+              <span className="section-title block">대기 중인 점검</span>
+              <span className="text-[11px] text-soft">{watch.length}개 항목은 데이터가 더 쌓이면 판단합니다</span>
+            </span>
+            <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
+          </summary>
+          <div className="mt-4 border-y border-hair divide-y divide-hair">
+            {watch.map((finding) => (
+              <FindingRow key={finding.id} finding={finding} compact />
+            ))}
+          </div>
+        </details>
       </section>
 
       <section>
-        <h2 className="section-title mb-3">운영 전 참고 링크</h2>
-        <ul className="border-y border-hair divide-y divide-hair">
-          {AGENT_REFERENCE_LINKS.map((link) => (
-            <li key={link.href}>
-              <a
-                href={link.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-between gap-4 py-3.5 text-[12.5px] text-ink active:opacity-70"
-              >
-                <span>{link.label}</span>
-                <span className="text-soft">↗</span>
-              </a>
-            </li>
-          ))}
-        </ul>
+        <details>
+          <summary className="list-none cursor-pointer flex items-baseline justify-between gap-4 min-h-11">
+            <span>
+              <span className="section-title block">문제 없는 것</span>
+              <span className="text-[11px] text-soft">{ok.length}개는 지금 그대로 둬도 됩니다</span>
+            </span>
+            <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
+          </summary>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            {ok.map((finding) => (
+              <div key={finding.id} className="bg-cream/40 p-3">
+                <div className="eyebrow-gold mb-2">{CATEGORY_LABELS[finding.category]}</div>
+                <p className="font-serif text-[15px] text-ink leading-tight">{finding.title}</p>
+              </div>
+            ))}
+          </div>
+        </details>
+      </section>
+
+      <section className="border-y border-hair py-5">
+        <details>
+          <summary className="list-none cursor-pointer flex items-baseline justify-between gap-4 min-h-11">
+            <span className="section-title">운영 전 참고 링크</span>
+            <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
+          </summary>
+          <ul className="pt-3 divide-y divide-hair">
+            {AGENT_REFERENCE_LINKS.map((link) => (
+              <li key={link.href}>
+                <a
+                  href={link.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-between gap-4 py-3.5 text-[12.5px] text-ink active:opacity-70"
+                >
+                  <span>{link.label}</span>
+                  <span className="text-soft">↗</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </details>
       </section>
     </div>
   );
@@ -143,6 +182,11 @@ function FindingRow({ finding, compact = false }: { finding: AgentFinding; compa
           {!compact && (
             <p className="text-[11.5px] text-soft leading-relaxed mt-2">{finding.detail}</p>
           )}
+          {!compact && finding.action && (
+            <span className="inline-flex mt-3 text-[11.5px] text-ink underline underline-offset-4">
+              {finding.action}
+            </span>
+          )}
         </div>
         {finding.to && <span className="text-soft pt-1 flex-shrink-0">→</span>}
       </div>
@@ -153,9 +197,6 @@ function FindingRow({ finding, compact = false }: { finding: AgentFinding; compa
   return (
     <Link to={finding.to} className="block">
       {body}
-      {!compact && finding.action && (
-        <span className="sr-only">{finding.action}</span>
-      )}
     </Link>
   );
 }

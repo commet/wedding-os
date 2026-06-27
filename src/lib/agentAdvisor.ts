@@ -73,7 +73,6 @@ export function buildAgentReport(data: WeddingData): AgentReport {
     honeymoonDocumentReadiness(data),
     backupHealth(data),
     aiPromptPrivacy(data),
-    translationCompleteness(data),
     externalLinkSafety(data),
     publishFreshness(data),
     internationalTransferNotice(data),
@@ -832,36 +831,6 @@ function honeymoonDocumentReadiness(data: WeddingData): AgentFinding {
   };
 }
 
-function translationCompleteness(data: WeddingData): AgentFinding {
-  const locales = data.invitation.enabledLocales ?? [];
-  if (locales.length === 0) {
-    return good("content", "외국어 청첩장", "외국어 청첩장이 꺼져 있어요.", "외국인 하객이 있으면 영어/중국어 이름·장소·인사말을 별도 검수하세요.", "/invitation");
-  }
-  const missing = locales.flatMap((locale) => {
-    const t = data.invitation.translations?.[locale];
-    const label = locale === "en" ? "영어" : "중국어";
-    return [
-      !t?.greeting?.trim() && `${label} 인사말`,
-      !t?.venue?.trim() && `${label} 장소`,
-      !t?.venueAddress?.trim() && `${label} 주소`,
-    ].filter(Boolean) as string[];
-  });
-  if (missing.length === 0) {
-    return good("content", "외국어 번역", "켜진 외국어 청첩장의 핵심 문구가 채워져 있어요.", "고유명사와 교통 안내는 원어민 또는 실제 하객에게 한 번 더 검수받으세요.", "/invitation");
-  }
-  return {
-    id: "translation-completeness",
-    category: "content",
-    severity: "warn",
-    title: "외국어 청첩장 번역 누락",
-    summary: `${missing.slice(0, 3).join(", ")}${missing.length > 3 ? " 등" : ""}이 비어 있어요.`,
-    detail: "외국어 탭을 켜면 한국어 문구와 별도로 장소, 주소, 인사말을 확인해야 합니다. 자동 번역은 고유명사 오류가 잦습니다.",
-    to: "/invitation",
-    action: "번역 보완",
-    count: missing.length,
-  };
-}
-
 function externalLinkSafety(data: WeddingData): AgentFinding {
   const links = collectExternalLinks(data);
   if (links.length === 0) {
@@ -1002,8 +971,6 @@ function collectExternalLinks(data: WeddingData): { label: string; href: string 
   data.invitation.gallery?.forEach((item, index) => push(`청첩장 갤러리 ${index + 1}`, item.url));
   data.rings.forEach((item) => {
     push(`반지 ${item.brand} ${item.model}`, item.link);
-    push(`반지 이미지 ${item.brand} ${item.model}`, item.imageUrl);
-    item.imageUrls?.forEach((url, index) => push(`반지 이미지 ${index + 1}`, url));
   });
   data.sdm.forEach((item) => push(`업체 ${item.name}`, item.link));
   data.hotels.forEach((item) => {

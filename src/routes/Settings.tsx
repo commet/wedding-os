@@ -218,12 +218,12 @@ export default function Settings({ data, update }: Props) {
         </Link>
       </Section>
 
-      <Section title="에이전트 점검">
+      <Section title="안심 체크">
         <p className="text-[12px] text-soft leading-relaxed">
           공개 링크, 개인정보, 저작권, 예산 초과, 기한 지난 할 일을 한 화면에서 확인합니다.
         </p>
         <Link to="/agent" className="text-[12px] underline underline-offset-4 text-ink hover:text-gold inline-block mt-3">
-          점검 열기 →
+          안심 체크 열기 →
         </Link>
       </Section>
 
