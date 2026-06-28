@@ -83,7 +83,7 @@ export function buildAgentDraft(current: WeddingData, answers: AgentAnswers): We
           notes: [
             venue.notes,
             region ? `${region} 기준으로 먼저 비교할 후보입니다.` : "처음 비교해볼 후보입니다.",
-            "상담 때 보증인원, 식대, 부가세·봉사료, 외부업체 반입료, 동시 예식 수를 확인하세요.",
+            "상담 때 보증인원, 식대, 부가세·봉사료, 외부업체 반입료, 동시 예식 수를 확인하고 계약서에 남기세요.",
           ].filter(Boolean).join("\n"),
         })),
     ],
@@ -192,11 +192,13 @@ function buildStarterChecklist(answers: AgentAnswers) {
   const byPriority: Record<AgentPriority, Array<{ text: string; ddayOffset: number; priority: "red" | "yellow" | "green" }>> = {
     venue: [
       { text: `${region || "희망 지역"} 예식장 3곳 상담 가능 일정 확인`, ddayOffset: -370, priority: "red" },
-      { text: "상담 때 물어볼 질문 준비: 보증인원·식대·취소 위약금·외부업체 반입료·동시 예식 수", ddayOffset: -365, priority: "red" },
+      { text: "상담 질문 준비: 보증인원·식대·환급 기준·외부업체 반입료·동시 예식 수", ddayOffset: -365, priority: "red" },
+      { text: "계약서에 예식 장소·식사 메뉴·지불보증인원·총액이 적히는지 확인", ddayOffset: -360, priority: "red" },
     ],
     invitation: [
       { text: "청첩장에 들어갈 이름·날짜·장소·혼주 표기 방식 확인", ddayOffset: -75, priority: "red" },
       { text: "계좌·연락처·오시는 길 공개 범위 정하기", ddayOffset: -70, priority: "yellow" },
+      { text: "RSVP는 이름·측·참석 여부·인원·식사 메모처럼 필요한 정보만 받기", ddayOffset: -35, priority: "yellow" },
     ],
     rings: [
       { text: "반지 예산 상한과 선호 소재 합의하기", ddayOffset: -160, priority: "yellow" },

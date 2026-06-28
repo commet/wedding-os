@@ -24,7 +24,7 @@ export const BUDGET_TEMPLATE: BudgetGroup[] = [
       { category: "폐백실·혼주대기실 등 부대비", avgKRW: 500_000 },
       { category: "외부업체 반입료", avgKRW: 500_000, notes: "스냅·영상·사회자·플라워·답례품 반입 가능 여부와 함께 확인" },
       { category: "메뉴 업그레이드·음주류 추가", avgKRW: 800_000, notes: "시식 후 변경 시 1인 단가가 달라질 수 있음" },
-      { category: "계약금·취소 위약금", avgKRW: 0, notes: "비용보다 조건 확인용 항목" },
+      { category: "계약금·취소 위약금", avgKRW: 0, notes: "비용보다 조건 확인용 항목. 환급 시점·통보 방법·보증인원 변경 가능 여부를 계약서에 남기기" },
     ],
   },
   {
@@ -97,6 +97,7 @@ export const BUDGET_TEMPLATE: BudgetGroup[] = [
       { category: "가구 (침대·소파·식탁·옷장)", avgKRW: 8_000_000 },
       { category: "주방·생활용품", avgKRW: 2_000_000 },
       { category: "이사·인테리어", avgKRW: 3_000_000 },
+      { category: "이사 행정·서류 발급", avgKRW: 50_000, notes: "전입신고는 수수료 없음. 확정일자·증명서 발급·우편물 이전 등 소액 항목" },
     ],
   },
   {

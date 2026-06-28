@@ -9,7 +9,7 @@ export default function Privacy() {
         <h1 className="font-serif text-[2rem] leading-none">개인정보 · 보안 안내</h1>
       </div>
       <p className="eyebrow mt-3 mb-8">
-        최종 갱신 · 2026-06-26
+        최종 갱신 · 2026-06-29
       </p>
 
       <Section num="01" title="한눈에">
@@ -25,7 +25,7 @@ export default function Privacy() {
       <Section num="02" title="수집 · 저장 항목">
         <p className="text-soft mb-3">사용자가 직접 입력한 다음 정보들이 저장될 수 있습니다.</p>
         <ul className="list-disc list-outside pl-5 space-y-1.5 marker:text-soft">
-          <li>본인 · 배우자 · 혼주의 이름, 영문 이름, 관계</li>
+          <li>본인 · 배우자 · 혼주의 이름, 관계</li>
           <li>연락처(전화번호), 입금 계좌 정보</li>
           <li>예식 일정 · 장소 · 주소</li>
           <li>업로드한 사진과 사진 설명</li>
@@ -34,7 +34,7 @@ export default function Privacy() {
           <li>로그인 사용 시 이메일, 소셜 로그인 제공자가 전달한 계정 식별정보</li>
         </ul>
         <p className="text-[11.5px] text-soft mt-3">
-          주민등록번호 등 고유식별정보는 수집하지 않습니다.
+          주민등록번호 등 고유식별정보는 수집하지 않습니다. 하객 RSVP도 예식 준비에 필요한 이름·참석 여부·인원·식사 메모 중심으로만 받는 것을 권장합니다.
         </p>
       </Section>
 
