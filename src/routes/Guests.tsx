@@ -489,14 +489,14 @@ function HeadcountEstimator({ data, update }: { data: WeddingData; update: (patc
       )}
 
       {hasEst && (
-        <button onClick={() => setEditing((v) => !v)} className="mt-4 text-[12px] underline underline-offset-4 text-ink hover:text-gold">
+        <button onClick={() => setEditing((v) => !v)} className="mt-4 min-h-11 text-[12px] underline underline-offset-4 text-ink hover:text-gold">
           {editing ? "분류별 입력 접기" : "분류별 예상 수정 →"}
         </button>
       )}
 
       {open && (
         <div className="mt-4 border-t border-hair pt-4">
-          <div className="grid grid-cols-[1fr_4.25rem_4.25rem] gap-x-3 gap-y-2 items-center">
+          <div className="grid grid-cols-[minmax(0,1fr)_5.25rem_5.25rem] gap-x-3 gap-y-2.5 items-center">
             <span className="eyebrow">분류</span>
             <span className="eyebrow text-center">신랑</span>
             <span className="eyebrow text-center">신부</span>
@@ -509,7 +509,7 @@ function HeadcountEstimator({ data, update }: { data: WeddingData; update: (patc
                 <input
                   type="number" min={0} inputMode="numeric"
                   aria-label={`${row.label} 신랑 측 예상`}
-                  className="input text-[13px] tabular-nums text-center py-1.5"
+                  className="input-boxed min-h-11 px-2 py-2 text-center text-[14px] tabular-nums"
                   value={row.groomEst || ""}
                   onChange={(e) => setEstimate("groom", row.category, e.target.value)}
                   placeholder="0"
@@ -517,7 +517,7 @@ function HeadcountEstimator({ data, update }: { data: WeddingData; update: (patc
                 <input
                   type="number" min={0} inputMode="numeric"
                   aria-label={`${row.label} 신부 측 예상`}
-                  className="input text-[13px] tabular-nums text-center py-1.5"
+                  className="input-boxed min-h-11 px-2 py-2 text-center text-[14px] tabular-nums"
                   value={row.brideEst || ""}
                   onChange={(e) => setEstimate("bride", row.category, e.target.value)}
                   placeholder="0"

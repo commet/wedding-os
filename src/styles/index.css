@@ -82,11 +82,11 @@
     letter-spacing: 0.05em;
   }
   .btn-secondary {
-    @apply inline-flex items-center justify-center bg-transparent border-b border-ink text-ink px-1 py-2 font-medium leading-none transition-opacity duration-150 hover:opacity-80 active:opacity-60;
+    @apply inline-flex min-h-11 items-center justify-center bg-transparent border-b border-ink text-ink px-1 py-2 font-medium leading-none transition-opacity duration-150 hover:opacity-80 active:opacity-60;
     letter-spacing: 0.05em;
   }
   .btn-ghost {
-    @apply inline-flex items-center justify-center text-soft px-2 py-2 hover:text-ink transition;
+    @apply inline-flex min-h-11 items-center justify-center text-soft px-2 py-2 hover:text-ink transition;
   }
 
   /* ───── 입력 — 박스 대신 underline ───── */
@@ -148,10 +148,10 @@
   }
   /* 탭/필터 — 비활성은 명확히 흐리게(soft), 활성은 ink+밑줄. 어포던스 일관화. */
   .seg {
-    @apply text-[13px] text-soft border-b border-transparent pb-2 transition-colors duration-150 hover:text-ink;
+    @apply inline-flex min-h-11 items-center border-b border-transparent px-1 text-[13px] text-soft transition-colors duration-150 hover:text-ink;
   }
   .seg-active {
-    @apply text-[13px] text-ink font-medium border-b border-ink pb-2;
+    @apply inline-flex min-h-11 items-center border-b border-ink px-1 text-[13px] font-medium text-ink;
   }
   /* 탭 가능한 행 — press/hover 피드백 표준 */
   .row-tap {

@@ -443,7 +443,7 @@ function RingCard({
               <div className="font-serif text-[18px] text-ink truncate">{koBreak(ring.model)}</div>
               {ring.material && <div className="text-[11px] text-soft mt-1">{ring.material}</div>}
             </div>
-            <button onClick={onRemove} className="text-soft hover:text-ink text-sm px-1">×</button>
+            <button onClick={onRemove} aria-label={`${ring.model} 삭제`} className="flex min-h-11 min-w-11 items-center justify-center text-soft hover:text-ink text-sm">×</button>
           </div>
 
           <div className="mt-3 font-serif text-xl text-ink tabular-nums">

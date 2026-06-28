@@ -533,16 +533,30 @@ export default function Dashboard({ data, update }: Props) {
             <button onClick={() => setAgentChoosing(false)} className="mt-4 min-h-11 text-[12px] text-soft underline underline-offset-4">지금 제안으로 돌아가기</button>
           </div>
         ) : (
-          <div className="page-enter">
+          <div className="page-enter lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)] lg:items-start lg:gap-x-10">
+            <div>
             {dday !== null && (
               <div className="mb-3 flex items-baseline gap-2">
                 <span className="eyebrow-gold">{phase.label}</span>
                 {dday >= 0 && <span className="text-[11px] text-soft tabular-nums">D-{dday}</span>}
               </div>
             )}
-            <p className="mb-7 max-w-[21rem] text-[15px] leading-[1.8] text-soft">
+            <p className="mb-6 max-w-[21rem] text-[15px] leading-[1.8] text-soft">
               {data.ai?.starterSummary || (dday !== null ? phase.focus : "현재 준비 상태를 보고, 다음 결정이 쉬워지는 순서로 정리했어요.")}
             </p>
+            <div className="agent-briefing mb-7 lg:mb-0">
+              <div className="agent-briefing-number">01</div>
+              <div className="min-w-0">
+                <div className="eyebrow-gold mb-2">오늘의 첫 단계</div>
+                <h2 className="font-serif text-[1.625rem] leading-[1.4] text-ink break-keep">{primaryFocus.title}</h2>
+                <p className="mt-3 text-[15px] leading-[1.75] text-soft">{primaryFocus.desc}</p>
+                <Link to={primaryFocus.to} className="mt-5 inline-flex min-h-11 items-center border-b border-ink text-[12.5px] font-medium text-ink">
+                  에이전트와 이 일 시작하기&nbsp; →
+                </Link>
+              </div>
+            </div>
+            </div>
+            <div className="lg:pt-1">
             {agentQuestion && (
               <AgentQuestionCard question={agentQuestion} onAnswer={answerAgentQuestion} />
             )}
@@ -598,16 +612,6 @@ export default function Dashboard({ data, update }: Props) {
                 )}
               </div>
             )}
-            <div className="agent-briefing">
-              <div className="agent-briefing-number">01</div>
-              <div className="min-w-0">
-                <div className="eyebrow-gold mb-2">오늘의 첫 단계</div>
-                <h2 className="font-serif text-[1.625rem] leading-[1.4] text-ink break-keep">{primaryFocus.title}</h2>
-                <p className="mt-3 text-[15px] leading-[1.75] text-soft">{primaryFocus.desc}</p>
-                <Link to={primaryFocus.to} className="mt-5 inline-flex min-h-11 items-center border-b border-ink text-[12.5px] font-medium text-ink">
-                  에이전트와 이 일 시작하기&nbsp; →
-                </Link>
-              </div>
             </div>
           </div>
         )}
@@ -664,7 +668,7 @@ export default function Dashboard({ data, update }: Props) {
           <section className="page py-9">
             <div className="mb-5 flex items-baseline justify-between gap-4">
               <div className="eyebrow-gold">다가오는 일정</div>
-              <Link to="/checklist" className="text-[11px] text-soft underline underline-offset-4 hover:text-ink">전체 일정 →</Link>
+              <Link to="/checklist" className="inline-flex min-h-11 items-center text-[11px] text-soft underline underline-offset-4 hover:text-ink">전체 일정 →</Link>
             </div>
             <ol>
               {timeline.map((e, i) => (

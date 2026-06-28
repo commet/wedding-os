@@ -5,18 +5,18 @@ export default function SearchLinks({ links, label }: { links: SearchLink[]; lab
   return (
     <div>
       {label && <div className="eyebrow mb-3">{label}</div>}
-      <div className="flex gap-4 flex-wrap">
+      <div className="flex gap-2 flex-wrap">
         {links.map((l) => (
-          <span key={l.name} className="inline-flex flex-col gap-1">
+          <span key={l.name} className="inline-flex max-w-[190px] flex-col gap-1">
             <a
               href={l.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[12px] text-ink underline underline-offset-4 hover:text-gold"
+              className="inline-flex min-h-11 items-center justify-center border border-hair bg-paper px-3 text-[12px] text-ink transition hover:border-ink hover:text-gold active:opacity-70"
             >
               {l.name} ↗
             </a>
-            {l.note && <span className="text-[10.5px] leading-snug text-soft max-w-[180px]">{l.note}</span>}
+            {l.note && <span className="text-[10.5px] leading-snug text-soft">{l.note}</span>}
           </span>
         ))}
       </div>

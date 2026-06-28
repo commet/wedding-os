@@ -614,7 +614,7 @@ function MyVenueRow({
             )}
           </div>
         </button>
-        <button onClick={onRemove} className="text-soft hover:text-ink text-sm flex-shrink-0">×</button>
+        <button onClick={onRemove} aria-label={`${v.name} 삭제`} className="flex min-h-11 min-w-11 flex-shrink-0 items-center justify-center text-soft hover:text-ink text-sm">×</button>
       </div>
 
       {open && (

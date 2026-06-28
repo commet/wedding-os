@@ -225,8 +225,6 @@ export type ChecklistSection = {
 export type InvitationContent = {
   groomName: string;
   brideName: string;
-  groomEnglishName?: string;
-  brideEnglishName?: string;
   date: string;          // ISO
   time?: string;         // "오후 3시"
   venue: string;
@@ -249,12 +247,6 @@ export type InvitationContent = {
   rsvpEnabled?: boolean;
   theme?: "cream" | "white" | "sage" | "rose" | "navy" | "sand" | "slate" | "blush"; // 청첩장 색상 팔레트
   fontStyle?: "serif" | "sans" | "handwriting"; // 이름·D-day 폰트 톤
-  // 외국 하객을 위한 추가 언어. 빈 배열/undefined면 한국어만 — 다국어 칩 안 보임.
-  enabledLocales?: ("en" | "zh")[];
-  translations?: {
-    en?: Partial<InvitationContent>;
-    zh?: Partial<InvitationContent>;
-  };
 };
 
 // ── 식전영상 ──────────────────────────────────
@@ -321,7 +313,7 @@ export function normalizeVideo(v: unknown): VideoConfig {
 
 export type Preferences = {
   mode: Mode | null;            // null = 아직 모드 미선택
-  locale: "ko" | "en" | "zh";
+  locale: "ko";
   isDemo?: boolean;             // true = 예시 데이터로 둘러보는 중
   supabase?: {                  // 모드 2일 때만
     url: string;

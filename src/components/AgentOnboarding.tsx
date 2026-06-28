@@ -16,7 +16,8 @@ type Props = {
   onDemo: () => void;
 };
 
-const TOTAL_STEPS = 6;
+const QUESTION_STEPS = 5;
+const FINAL_STEP = 6;
 
 const REGIONS = [
   "서울",
@@ -45,7 +46,13 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
   });
   const [otherOpen, setOtherOpen] = useState(Boolean(savedRegion) && !REGIONS.includes(savedRegion));
 
-  const progress = Math.round((step / TOTAL_STEPS) * 100);
+  const progress = step === 0 ? 0 : step >= FINAL_STEP ? 100 : Math.round((step / QUESTION_STEPS) * 100);
+  const showQuestionProgress = step > 0 && step < FINAL_STEP;
+  const progressText = step >= FINAL_STEP
+    ? "첫 브리핑 준비 완료"
+    : step === QUESTION_STEPS
+      ? "마지막 질문"
+      : `${QUESTION_STEPS - step}개 질문 남음`;
   const selectedPriority = AGENT_PRIORITIES[answers.priority];
   const coupleLabel = [answers.groomName.trim(), answers.brideName.trim()].filter(Boolean).join(" · ") || "두 분";
   const summary = useMemo(() => [
@@ -72,7 +79,7 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
     return items;
   }, [answers.priority, answers.region, selectedPriority.title]);
 
-  const next = () => setStep((value) => Math.min(TOTAL_STEPS, value + 1));
+  const next = () => setStep((value) => Math.min(FINAL_STEP, value + 1));
   const back = () => setStep((value) => Math.max(0, value - 1));
   const set = <K extends keyof AgentAnswers>(key: K, value: AgentAnswers[K]) => {
     setAnswers((current) => ({ ...current, [key]: value }));
@@ -82,7 +89,7 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
     <div className="agent-canvas min-h-screen max-w-app mx-auto overflow-hidden">
       <div className="px-6 pt-7 pb-5 flex items-center justify-between gap-4">
         <AgentIdentity compact />
-        {step > 0 && step < TOTAL_STEPS && (
+        {showQuestionProgress && (
           <button onClick={back} className="min-h-11 px-2 text-[13px] text-soft underline underline-offset-2">이전</button>
         )}
       </div>
@@ -90,9 +97,16 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
       <div className="h-px bg-hair mx-6">
         <div className="h-px bg-gold transition-all duration-500" style={{ width: `${progress}%` }} />
       </div>
-      {step > 0 && step < TOTAL_STEPS && (
-        <div className="px-6 pt-3 text-right font-serif text-[13px] text-soft">
-          {String(step).padStart(2, "0")} <span className="text-soft/70">/ 05</span>
+      {step > 0 && (
+        <div className="flex items-center justify-between gap-3 px-6 pt-3 text-[12px] text-soft">
+          <span className="eyebrow">{progressText}</span>
+          <span className="font-serif text-[13px] tabular-nums">
+            {showQuestionProgress ? (
+              <>
+                {String(step).padStart(2, "0")} <span className="text-soft/70">/ {String(QUESTION_STEPS).padStart(2, "0")}</span>
+              </>
+            ) : "완료"}
+          </span>
         </div>
       )}
 

@@ -21,7 +21,7 @@ import MapEmbed from "../components/MapEmbed";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type Tab = "edit" | "preview" | "guest";
-type Locale = "ko" | "en" | "zh";
+type Locale = "ko";
 type Theme = "cream" | "white" | "sage" | "rose" | "navy" | "sand" | "slate" | "blush";
 type FontStyle = "serif" | "sans" | "handwriting";
 
@@ -476,9 +476,7 @@ export function Preview({
   // 길찾기 검색어 — 주소가 있으면 주소(정확), 없으면 식장 이름.
   const mapQuery = (inv.venueAddress?.trim() || inv.venue || "").trim();
 
-  const names = locale === "en"
-    ? `${inv.groomEnglishName || inv.groomName || "Groom"} & ${inv.brideEnglishName || inv.brideName || "Bride"}`
-    : `${inv.groomName || "신랑"} · ${inv.brideName || "신부"}`;
+  const names = `${inv.groomName || "신랑"} · ${inv.brideName || "신부"}`;
 
   return (
     <div className="px-5 py-4">
@@ -493,7 +491,7 @@ export function Preview({
             </div>
           )}
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent px-6 pt-20 pb-9 text-white text-center">
-            <div className="text-[10.5px] tracking-[0.34em] uppercase mb-3.5 text-white/80">{t("Wedding Invitation", locale)}</div>
+            <div className="text-[10.5px] tracking-[0.34em] uppercase mb-3.5 text-white/80">{t("우리 결혼합니다", locale)}</div>
             <div className="mx-auto w-7 h-px bg-white/45 mb-4" />
             <div className={`${fontClass} text-[2rem] leading-tight tracking-wide`}>{names}</div>
             {validDate && (
@@ -510,19 +508,19 @@ export function Preview({
             {dday < 0 ? (
               <>
                 <div className="text-soft text-xs mb-1">
-                  {locale === "ko" ? "결혼식이 끝났어요" : locale === "en" ? "Just Married" : "已結婚"}
+                  결혼식이 끝났어요
                 </div>
                 <div className={`${fontClass} text-3xl ${theme.accent}`}>
                   D+{Math.abs(dday)}
                 </div>
                 <p className="text-xs text-soft mt-2">
-                  {locale === "ko" ? "함께해주셔서 감사합니다" : locale === "en" ? "Thank you for being with us" : "謝謝您的祝福"}
+                  함께해주셔서 감사합니다
                 </p>
               </>
             ) : (
               <>
                 <div className="text-soft text-xs mb-1">
-                  {locale === "ko" ? "결혼식까지" : locale === "en" ? "Days to go" : "距婚禮"}
+                  결혼식까지
                 </div>
                 <div className={`${fontClass} text-3xl ${theme.accent}`}>
                   {dday > 0 ? `D-${dday}` : "D-DAY"}
@@ -677,14 +675,10 @@ export function Preview({
         {dday !== null && dday < 0 ? (
           <div className="px-7 py-8 text-center">
             <SectionTitle accent={theme.accent}>
-              {locale === "ko" ? "감사의 인사" : locale === "en" ? "Thank You" : "感謝您"}
+              감사의 인사
             </SectionTitle>
             <p className="text-sm leading-relaxed text-ink/90 whitespace-pre-line">
-              {locale === "ko"
-                ? "축하해주신 모든 분들께\n진심으로 감사드립니다.\n\n앞으로 더 행복하게 살아보겠습니다."
-                : locale === "en"
-                ? "Thank you to everyone who\ncelebrated with us.\n\nWe'll cherish your blessings."
-                : "謝謝所有祝福我們的人。\n\n會幸福地生活下去。"}
+              {"축하해주신 모든 분들께\n진심으로 감사드립니다.\n\n앞으로 더 행복하게 살아보겠습니다."}
             </p>
           </div>
         ) : (
@@ -1911,60 +1905,16 @@ function Field({ label, children }: { label: string; children: React.ReactNode; 
   return <div><label htmlFor={id} className="label">{label}</label>{control}</div>;
 }
 
-/* ════════════ i18n ════════════ */
+/* ════════════ 한국어 문구 ════════════ */
 
 function t(ko: string, locale: Locale): string {
-  if (locale === "ko") return ko;
-  const map: Record<string, { en: string; zh: string; }> = {
-    "Wedding Invitation": { en: "WEDDING INVITATION", zh: "結婚請帖" },
-    "모시는 글": { en: "Invitation", zh: "邀請函" },
-    "예식일": { en: "The Day", zh: "婚禮日期" },
-    "갤러리": { en: "Gallery", zh: "相冊" },
-    "오시는 길": { en: "Location", zh: "交通指引" },
-    "연락하기": { en: "Contact", zh: "聯絡方式" },
-    "마음 전하실 곳": { en: "Gift Account", zh: "禮金帳號" },
-    "복사": { en: "Copy", zh: "複製" },
-    "복사됨": { en: "Copied", zh: "已複製" },
-    "계좌번호를 복사하세요": { en: "Copy this account", zh: "請複製帳號" },
-    "주소 복사": { en: "Copy address", zh: "複製地址" },
-    "내 캘린더에 추가": { en: "Add to calendar", zh: "加入行事曆" },
-    "참석 의사 전달": { en: "RSVP", zh: "出席回覆" },
-    "참석 여부 전하기": { en: "Send RSVP", zh: "回覆出席" },
-    "축하의 마음으로 참석해 주시는 분들을 위해": { en: "Please let us know if you can join us", zh: "請告知是否能出席" },
-    "RSVP는 발행된 하객용 링크에서 작동합니다": { en: "RSVP works on the published guest link", zh: "RSVP 會在已發佈的賓客連結中啟用" },
-    "신랑": { en: "Groom", zh: "新郎" },
-    "신부": { en: "Bride", zh: "新娘" },
-    "아들": { en: "son", zh: "之子" },
-    "딸": { en: "daughter", zh: "之女" },
-    "결혼했습니다": { en: "Just Married", zh: "已結婚" },
-    "배경 음악": { en: "Background Music", zh: "背景音樂" },
-    // ── RSVP 모달 ──
-    "성함": { en: "Name", zh: "姓名" },
-    "어느 쪽": { en: "Side", zh: "誰的賓客" },
-    "신랑 측": { en: "Groom's side", zh: "新郎方" },
-    "신부 측": { en: "Bride's side", zh: "新娘方" },
-    "참석 여부": { en: "Attending?", zh: "是否出席" },
-    "참석": { en: "Yes", zh: "出席" },
-    "불참": { en: "No", zh: "缺席" },
-    "참석 인원 (본인 포함)": { en: "Guests (incl. you)", zh: "人數 (含本人)" },
-    "식사 메모 (선택)": { en: "Meal note (optional)", zh: "用餐備註 (選填)" },
-    "예: 아동 1명, 채식, 알레르기": { en: "e.g. 1 child, vegetarian, allergy", zh: "例：兒童1位、素食、過敏" },
-    "축하 메시지 (선택)": { en: "Message (optional)", zh: "祝福訊息 (選填)" },
-    "전송 중…": { en: "Sending…", zh: "發送中…" },
-    "참석 의사 전하기": { en: "Send RSVP", zh: "送出回覆" },
-    "전송됐어요. 감사합니다.": { en: "Sent. Thank you.", zh: "已送出。謝謝。" },
-    "이름·참석 여부·인원·식사 메모·축하 메시지는 예식 준비를 위해 신랑·신부만 확인합니다.": {
-      en: "Your name, attendance, party size, meal note, and message are used only by the couple to prepare for the wedding.",
-      zh: "姓名、出席、人數、用餐備註和祝福訊息僅供新人準備婚禮使用。",
-    },
-  };
-  return map[ko]?.[locale] ?? ko;
+  void locale;
+  return ko;
 }
 
 function formatDate(d: Date, locale: Locale): string {
-  if (locale === "ko") return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
-  if (locale === "en") return d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+  void locale;
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
 }
 
 function formatShareDate(inv: InvitationContent): string {

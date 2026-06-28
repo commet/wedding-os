@@ -388,7 +388,7 @@ function MyVendorCard({
           </div>
           {v.region && <div className="eyebrow mt-1">{v.region}</div>}
         </div>
-        <button onClick={onRemove} className="text-soft hover:text-ink text-sm">×</button>
+        <button onClick={onRemove} aria-label={`${v.name} 삭제`} className="flex min-h-11 min-w-11 items-center justify-center text-soft hover:text-ink text-sm">×</button>
       </div>
       <VendorActions name={v.name} region={v.region} officialUrl={v.link} />
 

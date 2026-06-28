@@ -544,7 +544,7 @@ function Flights({ data, update }: Props) {
                     <div className="eyebrow mt-1">{f.from} → {f.to}</div>
                     {f.departAt && <div className="text-[11px] text-soft mt-1 tabular-nums">{f.departAt} {f.arriveAt && `→ ${f.arriveAt}`}</div>}
                   </div>
-                  <button onClick={() => remove(f.id)} className="text-soft hover:text-ink text-sm">×</button>
+                  <button onClick={() => remove(f.id)} aria-label={`${f.airline} ${f.flightNumber} 삭제`} className="flex min-h-11 min-w-11 items-center justify-center text-soft hover:text-ink text-sm">×</button>
                 </div>
                 <div className="mt-3 flex items-center justify-between">
                   <span className="font-serif text-lg text-ink tabular-nums">{f.priceKRW ? `${f.priceKRW.toLocaleString()}원` : <span className="text-soft text-sm">가격 미정</span>}</span>
@@ -704,7 +704,7 @@ function Stays({ data, update }: Props) {
                     <div className="font-serif text-[15px] text-ink">{hotel.name}</div>
                     {hotel.location && <div className="eyebrow mt-1">{hotel.location}</div>}
                   </div>
-                  <button onClick={() => remove(hotel.id)} className="text-soft hover:text-ink text-sm">×</button>
+                  <button onClick={() => remove(hotel.id)} aria-label={`${hotel.name} 삭제`} className="flex min-h-11 min-w-11 items-center justify-center text-soft hover:text-ink text-sm">×</button>
                 </div>
                 <div className="mt-2">
                   <FreshnessBadge lastVerified={hotel.lastVerified} onClickCheck={() => openPriceBridge(hotel)} />

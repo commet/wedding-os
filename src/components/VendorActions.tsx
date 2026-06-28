@@ -22,26 +22,27 @@ export default function VendorActions({ name, query, region, officialUrl, size =
   const kakaoMap = `https://map.kakao.com/link/search/${encodeURIComponent(mapQuery)}`;
   const officialSafe = safeHref(officialUrl);
 
-  const cls = size === "sm" ? "text-[12px]" : "text-[11px]";
+  const cls = size === "sm" ? "text-[12px] px-3" : "text-[11.5px] px-2.5";
+  const linkClass = `${cls} inline-flex min-h-11 items-center justify-center border border-hair bg-paper tracking-wide transition hover:border-ink hover:text-ink active:opacity-70`;
 
   return (
-    <div className="flex gap-4 flex-wrap">
+    <div className="flex gap-2 flex-wrap">
       {officialSafe && (
         <a href={officialSafe} target="_blank" rel="noopener noreferrer"
-           className={`${cls} tracking-wide text-gold underline underline-offset-4 hover:text-ink`}>
+           className={`${linkClass} text-gold`}>
           공식 ↗
         </a>
       )}
       <a href={google} target="_blank" rel="noopener noreferrer"
-         className={`${cls} tracking-wide text-soft underline underline-offset-4 hover:text-ink`}>
+         className={`${linkClass} text-soft`}>
         구글
       </a>
       <a href={instagram} target="_blank" rel="noopener noreferrer"
-         className={`${cls} tracking-wide text-soft underline underline-offset-4 hover:text-ink`}>
+         className={`${linkClass} text-soft`}>
         인스타
       </a>
       <a href={kakaoMap} target="_blank" rel="noopener noreferrer"
-         className={`${cls} tracking-wide text-soft underline underline-offset-4 hover:text-ink`}>
+         className={`${linkClass} text-soft`}>
         지도
       </a>
     </div>

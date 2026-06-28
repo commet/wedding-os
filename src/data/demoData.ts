@@ -78,8 +78,6 @@ export function demoData(): WeddingData {
     invitation: {
       groomName: "도현",
       brideName: "지윤",
-      groomEnglishName: "Dohyun",
-      brideEnglishName: "Jiyoon",
       date: iso(wedding),
       time: "오후 1시",
       venue: "그랜드하우스 웨딩홀",
@@ -102,7 +100,6 @@ export function demoData(): WeddingData {
       ],
       rsvpEnabled: true,
       theme: "cream",
-      enabledLocales: [],
     },
     rings: demoRings(),
     sdm: demoSdm(),

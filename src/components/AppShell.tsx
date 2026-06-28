@@ -31,7 +31,7 @@ export default function AppShell({ data, children }: Props) {
   const isSetup = location.pathname === "/setup";
   const isGuestInvitation = location.pathname === "/i";
   const isDashboard = location.pathname === "/dashboard";
-  const wideWorkspace = ["/checklist", "/budget", "/guests", "/venues", "/rings", "/sdm", "/trip"].some(
+  const wideWorkspace = ["/dashboard", "/checklist", "/budget", "/guests", "/venues", "/rings", "/sdm", "/trip"].some(
     (path) => location.pathname.startsWith(path),
   );
   const isDemo = !!data.preferences.isDemo;
@@ -107,7 +107,7 @@ export default function AppShell({ data, children }: Props) {
               {data.preferences.mode ? (
                 <ModeBadge mode={data.preferences.mode} />
               ) : isDemo ? (
-                <Link to="/settings" className="eyebrow">예시</Link>
+                <Link to="/settings" className="eyebrow flex min-h-11 items-center">예시</Link>
               ) : null}
             </div>
           </div>
@@ -122,13 +122,13 @@ export default function AppShell({ data, children }: Props) {
             <span className="eyebrow-gold">예시</span>
             <span className="text-soft truncate">둘러본 뒤 내 정보로 시작할 수 있어요</span>
           </div>
-          <button onClick={startMine} className="text-[12px] underline underline-offset-4 decoration-ink text-ink whitespace-nowrap">
+          <button onClick={startMine} className="min-h-11 px-2 text-[12px] underline underline-offset-4 decoration-ink text-ink whitespace-nowrap">
             시작 →
           </button>
           <button
             onClick={dismissBanner}
             aria-label="배너 닫기"
-            className="text-soft hover:text-ink text-lg leading-none -mr-1 px-1 flex-shrink-0"
+            className="flex min-h-11 min-w-11 flex-shrink-0 items-center justify-center text-soft hover:text-ink text-lg leading-none -mr-2"
           >
             ×
           </button>
@@ -144,7 +144,7 @@ export default function AppShell({ data, children }: Props) {
           </span>
           <button
             onClick={() => window.location.reload()}
-            className="text-[12px] underline underline-offset-4 text-ink"
+            className="min-h-11 px-2 text-[12px] underline underline-offset-4 text-ink"
           >
             새로고침
           </button>
@@ -162,11 +162,11 @@ export default function AppShell({ data, children }: Props) {
           <div className="flex flex-col gap-2 flex-shrink-0">
             <button
               onClick={() => window.location.reload()}
-              className="text-[12px] underline underline-offset-4 text-ink"
+              className="min-h-11 px-2 text-[12px] underline underline-offset-4 text-ink"
             >
               새로고침
             </button>
-            <button onClick={clearConflict} className="text-[12px] text-soft">
+            <button onClick={clearConflict} className="min-h-11 px-2 text-[12px] text-soft">
               나중에
             </button>
           </div>

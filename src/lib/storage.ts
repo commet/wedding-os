@@ -223,15 +223,14 @@ function migrate(raw: unknown): WeddingData {
 
   const validMode = (m: unknown): WeddingData["preferences"]["mode"] =>
     m === "local" || m === "hosted" || m === "supabase" || m === "devOnly" ? m : null;
-  const validLocale = (l: unknown): WeddingData["preferences"]["locale"] =>
-    l === "ko" || l === "en" || l === "zh" ? l : "ko";
+  const validLocale = (): WeddingData["preferences"]["locale"] => "ko";
 
   return {
     schemaVersion: SCHEMA_VERSION,
     preferences: {
       ...base.preferences,
       mode: validMode(prefsRaw.mode),
-      locale: validLocale(prefsRaw.locale),
+      locale: validLocale(),
       isDemo: prefsRaw.isDemo === true,
       supabase: sanitizeSupabaseConfig(prefsRaw.supabase),
       lastBackupAt: typeof prefsRaw.lastBackupAt === "string" ? prefsRaw.lastBackupAt : undefined,
@@ -862,7 +861,7 @@ function assertImportFieldTypes(value: unknown): void {
 
   if (isPlainObject(value.invitation)) {
     scalar(value.invitation, [
-      "groomName", "brideName", "groomEnglishName", "brideEnglishName", "date", "time", "venue", "venueHall",
+      "groomName", "brideName", "date", "time", "venue", "venueHall",
       "venueAddress", "venueMapUrl", "greeting", "groomOrder", "brideOrder", "groomPhone",
       "bridePhone", "groomAccount", "brideAccount", "theme", "fontStyle",
     ], [], ["rsvpEnabled", "previewImageEnabled"]);

@@ -132,7 +132,7 @@ export default function ChatbotBridgeModal({ open, onClose, prompt, onApply }: P
               </p>
               {aiConfig.provider === "managed" && (
                 <p className="text-center mt-2">
-                  <a href="/ai" className="text-[11px] underline underline-offset-4 text-soft hover:text-ink">
+                  <a href="/ai" className="inline-flex min-h-11 items-center text-[11px] underline underline-offset-4 text-soft hover:text-ink">
                     내 API 키로 직접 쓰기 →
                   </a>
                 </p>
@@ -143,7 +143,7 @@ export default function ChatbotBridgeModal({ open, onClose, prompt, onApply }: P
               <p className="text-[11.5px] text-soft leading-relaxed">
                 AI 연결을 켜면 이 단계를 앱 안에서 바로 실행할 수 있어요.
               </p>
-              <a href={aiConfig.provider === "managed" ? "/login" : "/ai"} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold whitespace-nowrap">
+              <a href={aiConfig.provider === "managed" ? "/login" : "/ai"} className="inline-flex min-h-11 items-center px-2 text-[12px] underline underline-offset-4 text-ink hover:text-gold whitespace-nowrap">
                 {aiConfig.provider === "managed" ? "로그인 →" : "설정 →"}
               </a>
             </div>
@@ -166,14 +166,14 @@ export default function ChatbotBridgeModal({ open, onClose, prompt, onApply }: P
               <pre className="text-[11px] whitespace-pre-wrap font-mono text-ink/80 leading-relaxed">{prompt.prompt}</pre>
             </div>
 
-            <button className="text-[12px] underline underline-offset-4 text-ink hover:text-gold" onClick={copy}>
+            <button className="min-h-11 text-[12px] underline underline-offset-4 text-ink hover:text-gold" onClick={copy}>
               프롬프트 복사 →
             </button>
 
-            <div className="flex gap-5 flex-wrap pt-2 border-t border-hair">
-              <a className="text-[12px] underline underline-offset-4 text-ink hover:text-gold" href={CHAT_LINKS.claude} target="_blank" rel="noopener noreferrer">Claude 열기 ↗</a>
-              <a className="text-[12px] underline underline-offset-4 text-ink hover:text-gold" href={CHAT_LINKS.chatgpt} target="_blank" rel="noopener noreferrer">ChatGPT 열기 ↗</a>
-              <a className="text-[12px] underline underline-offset-4 text-ink hover:text-gold" href={CHAT_LINKS.gemini} target="_blank" rel="noopener noreferrer">Gemini 열기 ↗</a>
+            <div className="flex gap-3 flex-wrap pt-2 border-t border-hair">
+              <a className="inline-flex min-h-11 items-center text-[12px] underline underline-offset-4 text-ink hover:text-gold" href={CHAT_LINKS.claude} target="_blank" rel="noopener noreferrer">Claude 열기 ↗</a>
+              <a className="inline-flex min-h-11 items-center text-[12px] underline underline-offset-4 text-ink hover:text-gold" href={CHAT_LINKS.chatgpt} target="_blank" rel="noopener noreferrer">ChatGPT 열기 ↗</a>
+              <a className="inline-flex min-h-11 items-center text-[12px] underline underline-offset-4 text-ink hover:text-gold" href={CHAT_LINKS.gemini} target="_blank" rel="noopener noreferrer">Gemini 열기 ↗</a>
             </div>
           </div>
         </details>
