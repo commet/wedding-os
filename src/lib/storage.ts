@@ -788,7 +788,7 @@ function assertImportFieldTypes(value: unknown): void {
       "groomName", "brideName", "groomEnglishName", "brideEnglishName", "date", "time", "venue", "venueHall",
       "venueAddress", "venueMapUrl", "greeting", "groomOrder", "brideOrder", "groomPhone",
       "bridePhone", "groomAccount", "brideAccount", "theme", "fontStyle",
-    ], [], ["rsvpEnabled"]);
+    ], [], ["rsvpEnabled", "previewImageEnabled"]);
     for (const mediaKey of ["heroImageUrl", "bgmUrl"] as const) {
       const media = value.invitation[mediaKey];
       if (media !== undefined && (typeof media !== "string" || media.length > 8 * 1024 * 1024)) {

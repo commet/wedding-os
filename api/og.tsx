@@ -60,7 +60,7 @@ type Invitation = {
   heroImageUrl?: string;
 };
 
-// '간편 발행' 청첩장 — Vercel Blob 의 meta.json 에서 ogMeta 만 읽는다 (이름·날짜).
+// '간편 발행' 청첩장 — Vercel Blob 의 meta.json 에서 ogMeta 만 읽는다 (이름·날짜·선택 공개 썸네일).
 // 본문은 암호문이라 어차피 읽을 수 없고, 카드에는 어차피 안 들어간다.
 async function loadFromBlob(code: string): Promise<Invitation | null> {
   const token =
@@ -70,7 +70,7 @@ async function loadFromBlob(code: string): Promise<Invitation | null> {
     const res = await blobGet(`invite/${code}/meta.json`, { access: "private", token });
     if (!res || res.statusCode !== 200) return null;
     const stored = (await new Response(res.stream).json()) as {
-      ogMeta?: { groomName?: string; brideName?: string; date?: string };
+      ogMeta?: { groomName?: string; brideName?: string; date?: string; heroImageUrl?: string };
       expiresAt?: string;
     };
     if (stored.expiresAt && new Date(stored.expiresAt).getTime() < Date.now()) return null;
@@ -80,6 +80,7 @@ async function loadFromBlob(code: string): Promise<Invitation | null> {
       groomName: og.groomName,
       brideName: og.brideName,
       date: og.date,
+      heroImageUrl: og.heroImageUrl,
     };
   } catch {
     return null;

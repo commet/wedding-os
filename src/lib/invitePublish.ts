@@ -32,9 +32,14 @@ export type SealedInvitation = {
   keyRaw: string;
   /** 원본을 못 찾아 발행에서 빠진 사진 수 */
   droppedPhotos: number;
+  /** 사용자가 링크 미리보기 대표사진을 켰는지 */
+  previewImageRequested: boolean;
+  /** OG 카드용 공개 축소본. 본문 사진과 별도로 서버에 공개 저장된다. */
+  previewImageBlob?: Blob;
 };
 
 const MAX_REMOTE_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_PREVIEW_IMAGE_BYTES = 1024 * 1024;
 
 async function readImageWithLimit(response: Response): Promise<Blob> {
   const contentType = response.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase() ?? "";
@@ -91,17 +96,99 @@ async function inlinePhoto(
   return dataUrl;
 }
 
+async function dataUrlToBlob(dataUrl: string): Promise<Blob | null> {
+  try {
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+    return blob.type.startsWith("image/") ? blob : null;
+  } catch {
+    return null;
+  }
+}
+
+async function readSourceImageBlob(url: string | undefined): Promise<Blob | null> {
+  if (!url) return null;
+  if (isIdbUrl(url)) {
+    const dataUrl = await idbToDataUrl(url);
+    return dataUrl ? dataUrlToBlob(dataUrl) : null;
+  }
+  if (url.startsWith("data:")) return dataUrlToBlob(url);
+  if (/^https?:\/\//i.test(url)) {
+    try {
+      const response = await fetch(url, { referrerPolicy: "no-referrer", signal: AbortSignal.timeout(10_000) });
+      if (!response.ok) throw new Error("image fetch failed");
+      return await readImageWithLimit(response);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+function loadImageElement(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("이미지 디코딩 실패"));
+    img.src = src;
+  });
+}
+
+async function makePreviewImageBlob(url: string | undefined): Promise<Blob | undefined> {
+  if (typeof document === "undefined" || typeof URL === "undefined") return undefined;
+  const source = await readSourceImageBlob(url);
+  if (!source) return undefined;
+
+  const objectUrl = URL.createObjectURL(source);
+  try {
+    const img = await loadImageElement(objectUrl);
+    const naturalWidth = img.naturalWidth || img.width;
+    const naturalHeight = img.naturalHeight || img.height;
+    if (!naturalWidth || !naturalHeight) return undefined;
+
+    const maxSide = 900;
+    const ratio = Math.min(maxSide / naturalWidth, maxSide / naturalHeight, 1);
+    const width = Math.max(1, Math.round(naturalWidth * ratio));
+    const height = Math.max(1, Math.round(naturalHeight * ratio));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return undefined;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(img, 0, 0, width, height);
+
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", 0.82),
+    );
+    if (!blob || blob.size > MAX_PREVIEW_IMAGE_BYTES) return undefined;
+    return blob;
+  } catch {
+    return undefined;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 /** WeddingData → 발행 가능한 청첩장 본문(사진 인라인) + OG 메타.
  *  data.invitation 외에는 아무것도 읽지 않는다 — 이것이 발행 안전 경계다. */
 export async function buildPublishInvitation(data: WeddingData): Promise<{
   ogMeta: PublishOgMeta;
   invitation: InvitationContent;
   droppedPhotos: number;
+  previewImageRequested: boolean;
+  previewImageBlob?: Blob;
 }> {
   const inv = data.invitation;
   let dropped = 0;
   const drop = () => { dropped++; };
 
+  const previewImageRequested = !!inv.previewImageEnabled;
+  const previewImageBlob = previewImageRequested
+    ? await makePreviewImageBlob(inv.heroImageUrl)
+    : undefined;
   const heroImageUrl = await inlinePhoto(inv.heroImageUrl, drop);
 
   let gallery: InvitationContent["gallery"];
@@ -125,6 +212,8 @@ export async function buildPublishInvitation(data: WeddingData): Promise<{
     ogMeta: { groomName: inv.groomName, brideName: inv.brideName, date: inv.date },
     invitation,
     droppedPhotos: dropped,
+    previewImageRequested,
+    previewImageBlob,
   };
 }
 
@@ -134,7 +223,7 @@ export async function sealInvitation(
   data: WeddingData,
   existingKeyRaw?: string,
 ): Promise<SealedInvitation> {
-  const { ogMeta, invitation, droppedPhotos } = await buildPublishInvitation(data);
+  const { ogMeta, invitation, droppedPhotos, previewImageRequested, previewImageBlob } = await buildPublishInvitation(data);
   let key: CryptoKey;
   let keyRaw: string;
   if (existingKeyRaw) {
@@ -146,7 +235,7 @@ export async function sealInvitation(
     keyRaw = generated.raw;
   }
   const ciphertext = await encryptJSON(invitation, key);
-  return { ogMeta, ciphertext, keyRaw, droppedPhotos };
+  return { ogMeta, ciphertext, keyRaw, droppedPhotos, previewImageRequested, previewImageBlob };
 }
 
 /** 게스트 측 — 암호문 + 링크 '#' 의 키 → 청첩장 본문.

@@ -22,7 +22,7 @@ test.describe("critical product flows", () => {
 
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(page.getByLabel("예식 날짜")).toBeVisible();
-    await expect(page.getByText("먼저 할 일 3가지")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "오늘 이어갈 일" })).toBeVisible();
 
     const stored = await readStoredData(page);
     expect(stored.preferences.mode).toBe("local");
@@ -163,7 +163,7 @@ test.describe("critical product flows", () => {
     });
 
     await expect(page.getByText("예산과 여행 후보를 먼저 잡으면 다음 결정이 쉬워집니다.")).toBeVisible();
-    await expect(page.getByText("반지 예산 상한 정하기")).toBeVisible();
+    await expect(page.getByRole("link", { name: /01 반지 예산 상한 정하기 AI/ })).toBeVisible();
   });
 
   test("lets the invitation editor apply an AI-refined greeting", async ({ page }) => {
@@ -184,6 +184,24 @@ test.describe("critical product flows", () => {
     await page.getByRole("button", { name: "이대로 반영 →" }).click();
 
     await expect.poll(() => readStoredData(page).then((stored) => stored.invitation.greeting)).toBe(greeting);
+  });
+
+  test("lets the owner use the representative photo as the link preview thumbnail", async ({ page }) => {
+    const seeded = seededWeddingData();
+    seeded.invitation.heroImageUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+    await seedBrowserStorage(page, seeded);
+
+    await page.goto("/invitation");
+    await page.getByRole("button", { name: "편집" }).click();
+
+    const previewSwitch = page.getByRole("switch", { name: "링크 미리보기 대표사진 사용" });
+    await expect(previewSwitch).toBeVisible();
+    await expect(previewSwitch).toHaveAttribute("aria-checked", "false");
+
+    await previewSwitch.click();
+    await expect(previewSwitch).toHaveAttribute("aria-checked", "true");
+    await expect(page.getByText("대표사진 축소본이 카톡·문자 공유 카드에 공개 표시됩니다.")).toBeVisible();
+    await expect.poll(() => readStoredData(page).then((stored) => stored.invitation.previewImageEnabled)).toBe(true);
   });
 
   test("keeps the invitation quick start singular and restores a deleted checklist item", async ({ page }) => {
@@ -268,12 +286,16 @@ test.describe("critical product flows", () => {
         items: [{ id: "private-task", text: "가족 회의 메모", done: false }],
       },
     ];
+    data.invitation.previewImageEnabled = true;
 
-    const { invitation } = await buildPublishInvitation(data);
+    const built = await buildPublishInvitation(data);
+    const { invitation } = built;
     const payload = JSON.stringify(invitation);
 
+    expect(built.previewImageRequested).toBe(true);
     expect(payload).toContain(data.invitation.groomName);
     expect(payload).toContain(data.invitation.brideName);
+    expect(payload).toContain("previewImageEnabled");
     expect(payload).not.toContain("비공개 하객");
     expect(payload).not.toContain("비공개 예산");
     expect(payload).not.toContain("가족 회의 메모");
@@ -420,10 +442,15 @@ test.describe("critical product flows", () => {
     expect(publishClient).not.toContain("?meta=");
     expect(publishClient).toContain('"x-owner-token"');
     expect(publishClient).toContain('"x-publish-meta"');
+    expect(publishClient).toContain("FormData");
     const publishApiSource = fs.readFileSync("api/invite-publish.ts", "utf8");
     expect(publishApiSource).toContain("metaRaw.length > 16_384");
     expect(publishApiSource).toContain("ownerToken.length > 256");
     expect(publishApiSource).toContain("meta.rsvpToken.length > 256");
+    expect(publishApiSource).toContain("multipart/form-data");
+    expect(publishApiSource).toContain('access: "public"');
+    expect(fs.readFileSync("api/og.tsx", "utf8")).toContain("heroImageUrl: og.heroImageUrl");
+    expect(fs.readFileSync("api/serve-invite.ts", "utf8")).toContain("new URL(`/api/og?code=");
     for (const dynamicInvitePath of ["api/invite-payload.ts", "api/serve-invite.ts", "api/og.tsx"]) {
       expect(fs.readFileSync(dynamicInvitePath, "utf8")).toContain("no-store");
     }

@@ -981,6 +981,17 @@ function PublishSection({ data, update }: { data: WeddingData; update: (patch: a
     ? hostedInviteLink(published)
     : "";
 
+  const setPreviewImageEnabled = (enabled: boolean) => {
+    update((prev: WeddingData) => ({
+      ...prev,
+      invitation: { ...prev.invitation, previewImageEnabled: enabled },
+    }));
+    if (published) {
+      setIsError(false);
+      setMessage("링크 미리보기 사진 설정을 바꿨어요. 재발행하면 공유 카드에 반영됩니다.");
+    }
+  };
+
   // 발행 정보를 세 곳 모두에 일관되게 반영: 컴포넌트 상태 · localStorage 미러 · WeddingData(백업).
   const persistPublished = (next: PublishedInvite | null) => {
     storePublished(next);
@@ -1010,9 +1021,17 @@ function PublishSection({ data, update }: { data: WeddingData; update: (patch: a
         publishedAt: new Date().toISOString(),
       });
       setIsError(false);
-      setMessage(
-        r.droppedPhotos > 0
-          ? `발행 완료 — 사진 ${r.droppedPhotos}장은 원본을 못 찾아 빠졌어요.`
+      const notes: string[] = [];
+      if (r.previewImageRequested && !r.previewImageIncluded) {
+        notes.push("대표사진 썸네일은 만들지 못해 이름·날짜 카드로 발행됐어요.");
+      }
+      if (r.droppedPhotos > 0) {
+        notes.push(`사진 ${r.droppedPhotos}장은 원본을 못 찾아 빠졌어요.`);
+      }
+      setMessage(notes.length > 0
+        ? `발행 완료 — ${notes.join(" ")}`
+        : r.previewImageIncluded
+          ? "발행 완료! 링크 미리보기에 대표사진이 표시됩니다."
           : "발행 완료! 아래 링크를 하객에게 보내세요.",
       );
     } else {
@@ -1075,6 +1094,13 @@ function PublishSection({ data, update }: { data: WeddingData; update: (patch: a
         하객에게 보낼 <b className="text-ink">청첩장 웹 링크</b>를 만듭니다. 내용은 암호화되어 올라가며,
         운영자도 청첩장 본문을 읽을 수 없습니다. 이 링크는 편집 초대 링크와 다릅니다.
       </p>
+
+      <PreviewImageOption
+        inv={inv}
+        enabled={!!inv.previewImageEnabled}
+        published={!!published}
+        onToggle={setPreviewImageEnabled}
+      />
 
       {published ? (
         <div className="space-y-3">
@@ -1168,6 +1194,73 @@ function PublishSection({ data, update }: { data: WeddingData; update: (patch: a
         하려면 [더보기 → 편집 초대 링크]도 같이 보관하세요. 발행된 청첩장은 결혼식 6개월 뒤 자동 삭제됩니다.
       </p>
     </div>
+  );
+}
+
+function PreviewImageOption({
+  inv,
+  enabled,
+  published,
+  onToggle,
+}: {
+  inv: InvitationContent;
+  enabled: boolean;
+  published: boolean;
+  onToggle: (enabled: boolean) => void;
+}) {
+  const hasImage = !!inv.heroImageUrl;
+  const active = hasImage && enabled;
+  const actionWord = published ? "재발행하면" : "발행하면";
+
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={active}
+      aria-label="링크 미리보기 대표사진 사용"
+      disabled={!hasImage}
+      onClick={() => hasImage && onToggle(!enabled)}
+      className={`w-full border border-hair px-3 py-3 text-left transition disabled:cursor-not-allowed ${
+        active ? "bg-gold/5 border-gold/40" : "bg-white/50 hover:border-mute"
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <div className="w-14 h-14 rounded-md overflow-hidden bg-cream border border-hair flex-shrink-0">
+          {hasImage ? (
+            <SafeImg src={inv.heroImageUrl} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full grid place-items-center text-[10px] text-soft">사진 없음</div>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-3">
+            <div className="eyebrow-gold">링크 미리보기 사진</div>
+            <span className={`text-[11px] ${active ? "text-gold" : "text-soft"}`}>
+              {active ? "켜짐" : "꺼짐"}
+            </span>
+          </div>
+          <p className="mt-1 text-[11.5px] text-soft leading-relaxed">
+            {hasImage
+              ? active
+                ? `${actionWord} 대표사진 축소본이 카톡·문자 공유 카드에 공개 표시됩니다.`
+                : "누르면 대표사진을 공유 카드 썸네일로 씁니다. 끈 상태에서는 이름·날짜 카드만 보여요."
+              : "대표사진을 넣으면 공유 카드 썸네일로 쓸 수 있어요."}
+          </p>
+        </div>
+        <span
+          aria-hidden="true"
+          className={`relative w-10 h-6 rounded-full flex-shrink-0 transition ${
+            active ? "bg-gold" : "bg-mute"
+          }`}
+        >
+          <span
+            className={`absolute top-1 left-1 h-4 w-4 rounded-full bg-white transition ${
+              active ? "translate-x-4" : "translate-x-0"
+            }`}
+          />
+        </span>
+      </div>
+    </button>
   );
 }
 

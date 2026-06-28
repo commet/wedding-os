@@ -189,6 +189,7 @@ export type InvitationContent = {
   venueAddress?: string;
   venueMapUrl?: string;
   heroImageUrl?: string; // 메인 대표 사진
+  previewImageEnabled?: boolean; // 링크 미리보기 카드에 대표 사진 공개 썸네일 사용
   greeting: string;      // 모시는 글
   groomParents?: { father?: string; mother?: string; };
   brideParents?: { father?: string; mother?: string; };

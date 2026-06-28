@@ -15,7 +15,16 @@ const PAYLOAD_ENDPOINT = "/api/invite-payload";
 const MAX_PUBLISH_BYTES = 4 * 1024 * 1024;
 
 export type PublishResult =
-  | { ok: true; code: string; keyRaw: string; rsvpToken: string; link: string; droppedPhotos: number }
+  | {
+      ok: true;
+      code: string;
+      keyRaw: string;
+      rsvpToken: string;
+      link: string;
+      droppedPhotos: number;
+      previewImageRequested: boolean;
+      previewImageIncluded: boolean;
+    }
   | { ok: false; reason: string };
 
 export type OpenResult =
@@ -56,23 +65,41 @@ export async function publishInvitation(
       rsvpToken,
       ...(existing?.code ? { code: existing.code } : {}),
     };
+    const headers: Record<string, string> = {
+      "x-owner-token": ownerToken,
+      "x-publish-meta": toBase64Url(JSON.stringify(meta)),
+      Authorization: `Bearer ${accessToken}`,
+    };
+    let requestBody: BodyInit = sealed.ciphertext;
+    if (sealed.previewImageBlob) {
+      const form = new FormData();
+      form.append("payload", new Blob([sealed.ciphertext], { type: "application/octet-stream" }), "invite.enc");
+      form.append("ogImage", sealed.previewImageBlob, "preview.jpg");
+      requestBody = form;
+    } else {
+      headers["content-type"] = "application/octet-stream";
+    }
     const res = await fetch(PUBLISH_ENDPOINT, {
       method: "POST",
-      headers: {
-        "content-type": "application/octet-stream",
-        "x-owner-token": ownerToken,
-        "x-publish-meta": toBase64Url(JSON.stringify(meta)),
-        Authorization: `Bearer ${accessToken}`,
-      },
-      body: sealed.ciphertext,
+      headers,
+      body: requestBody,
     });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok || typeof body?.code !== "string") {
-      return { ok: false, reason: body?.error ?? `발행에 실패했어요 (${res.status}).` };
+    const responseBody = await res.json().catch(() => ({}));
+    if (!res.ok || typeof responseBody?.code !== "string") {
+      return { ok: false, reason: responseBody?.error ?? `발행에 실패했어요 (${res.status}).` };
     }
-    const code: string = body.code;
+    const code: string = responseBody.code;
     const link = `${location.origin}/i/${code}#k=${sealed.keyRaw}&r=${rsvpToken}`;
-    return { ok: true, code, keyRaw: sealed.keyRaw, rsvpToken, link, droppedPhotos: sealed.droppedPhotos };
+    return {
+      ok: true,
+      code,
+      keyRaw: sealed.keyRaw,
+      rsvpToken,
+      link,
+      droppedPhotos: sealed.droppedPhotos,
+      previewImageRequested: sealed.previewImageRequested,
+      previewImageIncluded: !!sealed.previewImageBlob,
+    };
   } catch (e: any) {
     return { ok: false, reason: e?.message ?? "발행 중 오류가 났어요." };
   }

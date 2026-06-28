@@ -12,7 +12,7 @@ import { get } from "@vercel/blob";
 
 declare const process: { env: Record<string, string | undefined> };
 
-type OgMeta = { groomName?: string; brideName?: string; date?: string };
+type OgMeta = { groomName?: string; brideName?: string; date?: string; heroImageUrl?: string };
 
 function escapeHtmlAttr(s: string): string {
   return s
@@ -47,13 +47,13 @@ async function loadOgMeta(code: string): Promise<OgMeta | null> {
   }
 }
 
-function injectOg(html: string, code: string, og: OgMeta): string {
+function injectOg(html: string, code: string, og: OgMeta, requestUrl: string): string {
   const groom = og.groomName?.trim() || "신랑";
   const bride = og.brideName?.trim() || "신부";
   const dateStr = formatDateKo(og.date);
   const title = `${groom} ♥ ${bride} 결혼합니다`;
   const desc = dateStr ? `${dateStr} · 청첩장을 확인해주세요.` : "청첩장을 확인해주세요.";
-  const image = `/api/og?code=${encodeURIComponent(code)}`;
+  const image = new URL(`/api/og?code=${encodeURIComponent(code)}`, requestUrl).toString();
 
   const titleAttr = escapeHtmlAttr(title);
   const descAttr = escapeHtmlAttr(desc);
@@ -112,7 +112,7 @@ async function handler(req: Request): Promise<Response> {
     let injected = html;
     if (/^[a-z0-9]{6,16}$/.test(code)) {
       const og = await loadOgMeta(code);
-      if (og) injected = injectOg(html, code, og);
+      if (og) injected = injectOg(html, code, og, req.url);
     }
 
     return new Response(injected, {
