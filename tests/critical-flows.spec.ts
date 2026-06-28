@@ -14,22 +14,35 @@ const DRAFT_KEY = "wedding-os/setup-draft/v1";
 const OWNER_KEY = "wedding-os/owner/v1";
 
 test.describe("critical product flows", () => {
-  test("starts from the demo and creates a clean local workspace", async ({ page }) => {
+  test("builds a personalized local workspace through the Wedding OS Agent", async ({ page }) => {
     await resetBrowserStorage(page);
     await page.goto("/");
 
-    await page.getByRole("button", { name: "가입 없이 바로 시작", exact: true }).first().click();
+    await expect(page.getByRole("heading", { name: "막막한 준비를 두 분의 순서로 바꿔드릴게요." })).toBeVisible();
+    await page.getByRole("button", { name: "에이전트와 시작하기 →" }).click();
+    await page.getByPlaceholder("예: 김민준").fill("김민준");
+    await page.getByPlaceholder("예: 이서연").fill("이서연");
+    await page.getByRole("button", { name: "계속 →" }).click();
+    await page.getByRole("button", { name: "아직 미정이에요 →" }).click();
+    await page.getByRole("button", { name: "기타 (직접 입력)" }).click();
+    await page.getByPlaceholder("예: 서울 강남구").fill("서울 강남구");
+    await page.getByRole("button", { name: "이 지역으로 보기 →" }).click();
+    await page.getByRole("button", { name: "예식장을 찾고 싶어요" }).click();
+    await page.getByRole("button", { name: "우선 이 기기에서 시작" }).click();
+    await page.getByRole("button", { name: "이 순서로 준비 시작하기 →" }).click();
 
     await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(page.getByLabel("예식 날짜")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "오늘 이어갈 일" })).toBeVisible();
+    await expect(page.getByRole("link", { name: /01 서울 강남구 예식장 후보 추리기 AI/ })).toBeVisible();
 
     const stored = await readStoredData(page);
     expect(stored.preferences.mode).toBe("local");
     expect(stored.preferences.isDemo).toBe(false);
-    expect(stored.invitation.groomName).toBe("");
-    expect(stored.invitation.brideName).toBe("");
+    expect(stored.invitation.groomName).toBe("김민준");
+    expect(stored.invitation.brideName).toBe("이서연");
     expect(stored.checklist.length).toBeGreaterThan(0);
+    expect(stored.ai?.profile?.priority).toBe("venue");
+    expect(stored.ai?.profile?.region).toBe("서울 강남구");
+    expect(stored.ai?.profile?.onboardedAt).toBeTruthy();
     expect(await page.evaluate((key) => localStorage.getItem(key), OWNER_KEY)).toBe("1");
   });
 
@@ -41,7 +54,7 @@ test.describe("critical product flows", () => {
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "저장 방식 다시 선택 →" }).click();
 
-    await page.getByRole("button", { name: "저장·공유 방식 직접 고르기 (고급)" }).click();
+    await page.getByRole("button", { name: "고급 저장 설정" }).click();
     await page.getByText("내 저장소로 직접 운영").click();
 
     await expect(page).toHaveURL(/\/setup$/);
@@ -404,7 +417,7 @@ test.describe("critical product flows", () => {
       await storage.clearLocalDeviceData();
     });
     await expect(secondTab).toHaveURL(/\/$/);
-    await expect(secondTab.getByRole("button", { name: "가입 없이 바로 시작", exact: true })).toBeVisible();
+    await expect(secondTab.getByRole("button", { name: "에이전트와 시작하기 →" })).toBeVisible();
     expect(await secondTab.evaluate(() => localStorage.getItem("wedding-os/v1"))).toBeNull();
     await secondTab.close();
   });

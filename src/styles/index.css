@@ -178,6 +178,26 @@
   animation: pageFade 0.32s ease-out both;
 }
 
+.agent-canvas {
+  position: relative;
+  background: theme('colors.paper');
+}
+.agent-briefing {
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr);
+  gap: 1rem;
+  border-top: 1px solid theme('colors.ink');
+  border-bottom: 1px solid theme('colors.hair');
+  padding: 1.4rem 0 1.55rem;
+}
+.agent-briefing-number {
+  padding-top: 0.1rem;
+  font-family: theme('fontFamily.serif');
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: theme('colors.gold');
+}
+
 /* 가로 스크롤 탭에서 스크롤바 숨김 */
 .scrollbar-hide {
   scrollbar-width: none;
