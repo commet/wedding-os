@@ -104,7 +104,13 @@ async function handler(req: Request): Promise<Response> {
       // self-fetch 실패는 매우 드물지만 깨지면 안 되므로 짧은 안내로 폴백.
       return new Response(
         "청첩장 페이지를 준비하는 데 실패했어요. 잠시 후 다시 열어주세요.",
-        { status: 500, headers: { "content-type": "text/plain; charset=utf-8" } },
+        {
+          status: 500,
+          headers: {
+            "content-type": "text/plain; charset=utf-8",
+            "cache-control": "private, no-store, max-age=0",
+          },
+        },
       );
     }
 
@@ -127,7 +133,13 @@ async function handler(req: Request): Promise<Response> {
     // 마지막 안전망 — 어떤 예외든 페이지가 통째로 죽지 않도록.
     return new Response(
       "청첩장 페이지를 준비하는 데 실패했어요. 잠시 후 다시 열어주세요.",
-      { status: 500, headers: { "content-type": "text/plain; charset=utf-8" } },
+      {
+        status: 500,
+        headers: {
+          "content-type": "text/plain; charset=utf-8",
+          "cache-control": "private, no-store, max-age=0",
+        },
+      },
     );
   }
 }

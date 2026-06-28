@@ -15,9 +15,12 @@ import { useSaveStatus } from "../lib/storage";
 import { daysUntilISODate, parseISODateLocal } from "../lib/date";
 import { publishInvitation, unpublishInvitation, fetchHostedRsvps, type HostedRsvp } from "../lib/inviteHosting";
 import { type BridgePrompt, invitationGreetingPrompt } from "../lib/chatbotBridge";
+import { koBreak } from "../lib/typography";
+import { invitationReadiness, contractedVenue } from "../lib/derived";
+import MapEmbed from "../components/MapEmbed";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
-type Tab = "edit" | "preview";
+type Tab = "edit" | "preview" | "guest";
 type Locale = "ko" | "en" | "zh";
 type Theme = "cream" | "white" | "sage" | "rose" | "navy" | "sand" | "slate" | "blush";
 type FontStyle = "serif" | "sans" | "handwriting";
@@ -51,9 +54,10 @@ export default function Invitation({ data, update }: Props) {
   const canRsvp = data.preferences.mode === "supabase" && !!data.preferences.supabase;
   // 새 청첩장(이름 비어있고 오너)이면 빈 미리보기 대신 편집 탭(QuickStart)으로 시작.
   const [tab, setTab] = useState<Tab>(
-    () => (!guest && !isGuestRoute && !data.invitation.groomName && !data.invitation.brideName) ? "edit" : "preview",
+    () => location.search.includes("edit=publish") || (!guest && !isGuestRoute && !data.invitation.groomName && !data.invitation.brideName) ? "edit" : "preview",
   );
   const [showRsvp, setShowRsvp] = useState(false);
+  const [guestBannerDismissed, setGuestBannerDismissed] = useState(false);
   const inv = data.invitation;
   const locale: Locale = "ko";
 
@@ -164,8 +168,8 @@ export default function Invitation({ data, update }: Props) {
       <div className="min-h-screen bg-paper flex items-center justify-center px-6">
         <div className="text-center max-w-xs">
           <div className="eyebrow-gold mb-4">Wedding · Invitation</div>
-          <h1 className="font-serif text-[1.75rem] text-ink leading-tight mb-3">
-            아직 준비 중이에요
+          <h1 className="display-sm text-ink mb-3">
+            {koBreak("아직 준비 중이에요")}
           </h1>
           <p className="text-[13px] text-soft leading-relaxed">
             청첩장이 곧 도착할 거예요.<br />
@@ -183,18 +187,35 @@ export default function Invitation({ data, update }: Props) {
         <div className="sticky top-[57px] z-20 bg-paper/95 backdrop-blur border-b border-hair">
           <div className="page py-4 flex items-baseline justify-between">
             <div>
-              <div className="eyebrow-gold mb-1">Invitation</div>
-              <h1 className="font-serif text-xl text-ink">모바일 청첩장</h1>
+              <div className="eyebrow-gold mb-1">청첩장 만들기</div>
+              <h1 className="font-serif text-xl text-ink">{koBreak("모바일 청첩장")}</h1>
             </div>
             <button onClick={share} className="min-h-11 px-2 text-[12px] underline underline-offset-4 text-ink hover:text-gold transition">
-              {shareCopied ? "복사됨" : "공유 →"}
+              {shareCopied ? "복사됨" : data.publish || data.preferences.mode === "supabase" ? "공유 →" : "발행 →"}
             </button>
           </div>
-          <div className="page pb-3 flex items-center gap-6">
-            <TabBtn active={tab === "preview"} onClick={() => setTab("preview")}>미리보기</TabBtn>
-            {!guest && (
-              <TabBtn active={tab === "edit"} onClick={() => setTab("edit")}>편집</TabBtn>
-            )}
+          <div className="page pb-3 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-6">
+              <TabBtn active={tab === "preview"} onClick={() => setTab("preview")}>미리보기</TabBtn>
+              {!guest && (
+                <TabBtn active={tab === "guest"} onClick={() => setTab("guest")}>하객 시점</TabBtn>
+              )}
+              {!guest && (
+                <TabBtn active={tab === "edit"} onClick={() => setTab("edit")}>편집</TabBtn>
+              )}
+            </div>
+            {!guest && (() => {
+              const r = invitationReadiness(data);
+              const done = r.filled === r.total;
+              return (
+                <span
+                  className={`text-[11px] tracking-wide break-keep ${done ? "text-soft" : "text-gold font-medium"}`}
+                  title={done ? undefined : `남은 항목: ${r.missing.join(", ")}`}
+                >
+                  {done ? "✓ 공유 준비 완료" : `공유 준비 ${r.filled}/${r.total}`}
+                </span>
+              );
+            })()}
           </div>
         </div>
       )}
@@ -211,20 +232,37 @@ export default function Invitation({ data, update }: Props) {
       {tab === "edit" && !guest ? (
         <EditForm inv={inv} set={set} mode={data.preferences.mode} data={data} update={update} onPreview={() => setTab("preview")} />
       ) : (
-        <Preview
-          inv={inv}
-          locale={locale}
-          rsvpEnabled={canRsvp}
-          onRsvpClick={() => setShowRsvp(true)}
-          hideShareBox={isGuestRoute}
-          onShare={share}
-          shareCopied={shareCopied}
-          shareHint={
-            data.preferences.mode === "supabase"
-              ? "하객이 여는 청첩장 링크를 공유합니다. 편집 초대 링크는 공유 센터에서 따로 보내세요."
-              : "카톡에 붙여넣을 문안을 만듭니다. 하객이 여는 웹 링크는 [편집] 탭의 [청첩장 링크 만들기]에서 만들 수 있어요."
-          }
-        />
+        <>
+          {tab === "guest" && !guest && !guestBannerDismissed && (
+            <div className="page pt-4">
+              <div className="flex items-baseline justify-between gap-3 border-l-2 border-gold pl-3 py-2 bg-cream/40">
+                <p className="text-[12px] text-soft leading-relaxed break-keep">
+                  {koBreak("하객에게는 이 화면이 그대로 보여요. 발행된 링크에서는 RSVP 버튼도 작동합니다.")}
+                </p>
+                <button
+                  onClick={() => setGuestBannerDismissed(true)}
+                  className="text-[11px] text-soft hover:text-ink flex-shrink-0 min-h-11 px-1"
+                >
+                  닫기
+                </button>
+              </div>
+            </div>
+          )}
+          <Preview
+            inv={inv}
+            locale={locale}
+            rsvpEnabled={canRsvp}
+            onRsvpClick={() => setShowRsvp(true)}
+            hideShareBox={tab === "guest" || !isGuestRoute}
+            onShare={share}
+            shareCopied={shareCopied}
+            shareHint={
+              data.preferences.mode === "supabase"
+                ? "하객이 여는 청첩장 링크를 공유합니다. 편집 초대 링크는 공유 센터에서 따로 보내세요."
+                : "카톡에 붙여넣을 문안을 만듭니다. 하객이 여는 웹 링크는 [편집] 탭의 [청첩장 링크 만들기]에서 만들 수 있어요."
+            }
+          />
+        </>
       )}
 
       {showRsvp && (
@@ -309,6 +347,9 @@ export function RsvpModal({
       ) : (
         <div className="space-y-4">
           <p className="text-xs text-soft">신랑·신부가 따뜻한 마음으로 확인할게요.</p>
+          <p className="text-[11px] text-soft leading-relaxed border border-line bg-cream/40 p-3">
+            {t("이름·참석 여부·인원·식사 메모·축하 메시지는 예식 준비를 위해 신랑·신부만 확인합니다.", locale)}
+          </p>
 
           <div>
             <label className="label">{t("성함", locale)}</label>
@@ -387,7 +428,7 @@ export function RsvpModal({
             />
           </div>
 
-          {errMsg && <p className="text-red-500 text-sm">{errMsg}</p>}
+          {errMsg && <p className="text-ink text-sm">{errMsg}</p>}
 
           <button
             onClick={submit}
@@ -406,9 +447,7 @@ function TabBtn({ active, onClick, children }: any) {
   return (
     <button
       onClick={onClick}
-      className={`min-h-11 px-2 text-[12px] tracking-wide -mb-2 transition ${
-        active ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
-      }`}
+      className={`min-h-11 px-2 tracking-wide ${active ? "seg-active" : "seg"}`}
     >
       {children}
     </button>
@@ -456,7 +495,7 @@ export function Preview({
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 via-black/20 to-transparent px-6 pt-20 pb-9 text-white text-center">
             <div className="text-[10.5px] tracking-[0.34em] uppercase mb-3.5 text-white/80">{t("Wedding Invitation", locale)}</div>
             <div className="mx-auto w-7 h-px bg-white/45 mb-4" />
-            <div className={`${fontClass} text-[2rem] leading-tight tracking-wide drop-shadow-sm`}>{names}</div>
+            <div className={`${fontClass} text-[2rem] leading-tight tracking-wide`}>{names}</div>
             {validDate && (
               <div className="text-[11.5px] mt-3.5 tracking-[0.18em] text-white/85">
                 {formatDate(validDate, locale)}{inv.time && ` · ${inv.time}`}
@@ -547,7 +586,7 @@ export function Preview({
                   <button
                     key={i}
                     onClick={() => setLightbox(i)}
-                    className="block w-full aspect-square overflow-hidden rounded-md active:opacity-80 transition"
+                    className="block w-full aspect-square overflow-hidden active:opacity-80 transition"
                     aria-label={g.caption || `사진 ${i + 1} 크게 보기`}
                   >
                     <SafeImg src={g.url} alt={g.caption ?? ""} className="w-full h-full object-cover" />
@@ -581,6 +620,11 @@ export function Preview({
                     label={t("주소 복사", locale)}
                     className="text-[10.5px] border border-line bg-white px-1.5 py-0.5 hover:border-ink active:opacity-70 transition whitespace-nowrap"
                   />
+                </div>
+              )}
+              {mapQuery && (
+                <div className="mt-4">
+                  <MapEmbed query={mapQuery} heightClass="h-48" label={`${inv.venue || "예식장"} 지도`} />
                 </div>
               )}
               <div className="flex gap-2 justify-center mt-4 flex-wrap">
@@ -701,7 +745,7 @@ export function Preview({
 function SectionTitle({ children, accent }: { children: React.ReactNode; accent: string }) {
   return (
     <div className={`flex flex-col items-center mb-5 ${accent}`}>
-      <h3 className="text-[12px] tracking-[0.2em] uppercase font-medium">{children}</h3>
+      <h2 className="text-[12px] tracking-[0.2em] uppercase font-medium">{children}</h2>
       <span className="block w-6 h-px mt-3 bg-current opacity-30" />
     </div>
   );
@@ -907,14 +951,14 @@ function MiniCalendar({ date, chipClass, fontClass = "font-serif" }: { date: Dat
       <div className={`text-center ${fontClass} text-lg mb-3`}>{year}.{String(month + 1).padStart(2, "0")}</div>
       <div className="grid grid-cols-7 gap-1 text-center text-xs">
         {WD.map((w, i) => (
-          <div key={w} className={`py-1 ${i === 0 ? "text-red-400" : i === 6 ? "text-blue-400" : "text-soft"}`}>{w}</div>
+          <div key={w} className="py-1 text-soft">{w}</div>
         ))}
         {cells.map((c, i) => (
           <div key={i} className="py-1.5">
             {c === day ? (
-              <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full ${chipClass} text-white font-medium`}>{c}</span>
+              <span className={`inline-flex items-center justify-center w-7 h-7 rounded-none ${chipClass} text-white font-medium`}>{c}</span>
             ) : (
-              <span className={`${i % 7 === 0 ? "text-red-400" : i % 7 === 6 ? "text-blue-400" : "text-ink"}`}>{c}</span>
+              <span className={`${i % 7 === 0 || i % 7 === 6 ? "text-soft" : "text-ink"}`}>{c}</span>
             )}
           </div>
         ))}
@@ -1189,9 +1233,8 @@ function PublishSection({ data, update }: { data: WeddingData; update: (patch: a
       )}
 
       <p className="text-[11px] text-soft leading-relaxed border-t border-hair pt-3">
-        발행 링크는 <b className="text-ink">데이터 백업 파일에 함께 저장</b>돼요 — 기기를 바꿔도
-        [더보기 → 데이터 백업]으로 복구할 수 있어요. 단, 다른 기기에서 재발행·취소·RSVP 확인까지
-        하려면 [더보기 → 편집 초대 링크]도 같이 보관하세요. 발행된 청첩장은 결혼식 6개월 뒤 자동 삭제됩니다.
+        발행 링크는 백업 파일에도 저장됩니다. 다른 기기에서 수정·발행 취소·RSVP 확인까지 하려면 편집 초대 링크도 필요해요.
+        청첩장은 예식 6개월 뒤 자동 삭제됩니다.
       </p>
     </div>
   );
@@ -1243,7 +1286,7 @@ function PreviewImageOption({
             {hasImage
               ? active
                 ? `${actionWord} 대표사진 축소본이 카톡·문자 공유 카드에 공개 표시됩니다.`
-                : "누르면 대표사진을 공유 카드 썸네일로 씁니다. 끈 상태에서는 이름·날짜 카드만 보여요."
+                : "누르면 대표사진을 공유 카드 썸네일로 씁니다. 꺼두면 이름·날짜 카드만 보여요."
               : "대표사진을 넣으면 공유 카드 썸네일로 쓸 수 있어요."}
           </p>
         </div>
@@ -1269,12 +1312,15 @@ function PreviewImageOption({
 // 30초 완성 — 새 청첩장의 마찰 제거. 이름·날짜·식장만 받으면 모시는 글·디자인은
 // 이미 채워져 있어 즉시 완성된 청첩장이 된다. 필수가 채워지면 카드는 사라지고
 // 상세 섹션만 남는다(편집은 같은 inv 를 가리키므로 중복 입력이 아님).
-function QuickStart({ inv, set, onPreview }: {
+function QuickStart({ inv, set, onPreview, contractedVenueName }: {
   inv: InvitationContent;
   set: (k: any, v: any) => void;
   onPreview?: () => void;
+  contractedVenueName?: string;
 }) {
-  const ready = !!inv.groomName && !!inv.brideName && !!inv.date;
+  // 미리보기는 이름만 있으면 열어준다 — 날짜·장소는 미리보기를 보며 더해도 되고,
+  // 미리보기 자체가 '날짜 미정'도 정상 렌더한다. (예전엔 날짜까지 강제해 버튼이 막혔음)
+  const ready = !!inv.groomName && !!inv.brideName;
   // 마운트 시점에 이미 필수가 있으면 노출 안 함. 채우는 중 완성돼도 카드는 유지해
   // CTA 버튼이 사라지지 않게 하고, 미리보기 다녀와 EditForm 이 재마운트되면 그때 사라진다.
   const [neededAtMount] = useState(!ready);
@@ -1282,8 +1328,8 @@ function QuickStart({ inv, set, onPreview }: {
   return (
     <div className="border border-hair bg-cream/40 px-5 py-6 mb-2">
       <div className="eyebrow-gold mb-2">30초 만에 시작</div>
-      <h3 className="font-serif text-[1.4rem] text-ink leading-tight mb-2">
-        {ready ? "기본 정보가 채워졌어요" : "이 세 가지면, 청첩장이 완성돼요"}
+      <h3 className="font-serif text-2xl text-ink leading-tight mb-2">
+        {koBreak(ready ? "기본 정보가 채워졌어요" : "이 세 가지면, 청첩장이 완성돼요")}
       </h3>
       <p className="text-[12.5px] text-soft leading-relaxed mb-5">
         모시는 글과 디자인은 이미 채워 두었어요. 두 분 이름과 날짜만 넣으면
@@ -1300,12 +1346,23 @@ function QuickStart({ inv, set, onPreview }: {
         </div>
       </div>
       <div className="mb-3">
-        <label className="label">예식 날짜</label>
-        <input aria-label="예식 날짜" type="date" className="input" value={inv.date} onChange={(e) => set("date", e.target.value)} />
+        <label className="label">예식 날짜 <span className="text-mute normal-case tracking-normal">· 미정이면 비워두세요</span></label>
+        <input
+          aria-label="예식 날짜"
+          type="date"
+          className={`input ${inv.date ? "text-ink" : "text-soft"}`}
+          value={inv.date}
+          onChange={(e) => set("date", e.target.value)}
+        />
       </div>
       <div className="mb-5">
         <label className="label">예식장 <span className="text-mute normal-case tracking-normal">· 나중에 넣어도 돼요</span></label>
         <input aria-label="예식장" className="input" value={inv.venue} onChange={(e) => set("venue", e.target.value)} placeholder="서울대학교 교수회관" />
+        {!inv.venue.trim() && contractedVenueName && (
+          <button type="button" onClick={() => set("venue", contractedVenueName)} className="mt-2 text-[12px] text-gold underline underline-offset-4 break-keep">
+            계약한 ‘{contractedVenueName}’ 불러오기 →
+          </button>
+        )}
       </div>
       <button
         onClick={onPreview}
@@ -1314,11 +1371,50 @@ function QuickStart({ inv, set, onPreview }: {
       >
         미리보기로 결과 보기 →
       </button>
-      {!ready && (
-        <p className="text-[11px] text-soft text-center mt-2.5">
-          이름과 날짜를 채우면 완성된 청첩장을 볼 수 있어요.
-        </p>
-      )}
+      <p className="text-[11px] text-soft text-center mt-2.5">
+        {ready
+          ? "날짜·장소는 미리보기를 보며 천천히 더해도 돼요."
+          : "두 분 이름만 채우면 완성된 청첩장을 볼 수 있어요."}
+      </p>
+    </div>
+  );
+}
+
+// 편집 화면 상단의 '도우미' 띠 — 빈 폼이 한꺼번에 쏟아지는 느낌을 줄이고,
+// 지금 무엇이 남았는지 + 다른 화면의 정보로 한 번에 채울 수 있는 것을 먼저 안내한다.
+function EditAssist({ inv, set, data, onPreview }: {
+  inv: InvitationContent;
+  set: (k: any, v: any) => void;
+  data: WeddingData;
+  onPreview?: () => void;
+}) {
+  const r = invitationReadiness(data);
+  const venueName = contractedVenue(data)?.name;
+  const canFillVenue = !inv.venue.trim() && !!venueName;
+  const done = r.filled >= r.total;
+  return (
+    <div className="border border-hair bg-cream/30 px-5 py-5 mb-7">
+      <div className="flex items-stretch gap-2.5 mb-2.5">
+        <span aria-hidden="true" className="w-px self-stretch bg-gold/70" />
+        <span className="eyebrow-gold leading-none pt-0.5">청첩장 도우미</span>
+      </div>
+      <p className="text-[13px] text-soft leading-[1.7] break-keep">
+        {done
+          ? "기본 정보가 모두 준비됐어요. 사진·색감을 더하거나 바로 미리보기로 확인해 보세요."
+          : koBreak(`공유까지 ${r.total - r.filled}가지만 더 채우면 돼요 — ${r.missing.join(", ")}.`)}
+      </p>
+      <div className="mt-3.5 flex flex-wrap gap-x-5 gap-y-2.5">
+        {canFillVenue && (
+          <button type="button" onClick={() => set("venue", venueName)} className="seg break-keep">
+            계약한 ‘{venueName}’ 넣기
+          </button>
+        )}
+        {onPreview && (
+          <button type="button" onClick={onPreview} className="seg">
+            미리보기로 확인
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -1352,11 +1448,16 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
         </div>
       </div>
 
-      {showQuickStart && <QuickStart inv={inv} set={set} onPreview={onPreview} />}
+      {showQuickStart && <QuickStart inv={inv} set={set} onPreview={onPreview} contractedVenueName={contractedVenue(data)?.name} />}
 
-      <Section title="청첩장 발행 — 진짜 링크 만들기" defaultOpen={hasEssentials}>
-        <PublishSection data={data} update={update} />
-      </Section>
+      {!showQuickStart && <>
+      <EditAssist inv={inv} set={set} data={data} onPreview={onPreview} />
+
+      <div id="publish-invitation" className="scroll-mt-36">
+        <Section title="하객용 링크 발행" defaultOpen={hasEssentials || location.search.includes("edit=publish")}>
+          <PublishSection data={data} update={update} />
+        </Section>
+      </div>
 
       <Section title="대표 사진 & 색감" defaultOpen>
         {inv.heroImageUrl && (
@@ -1418,11 +1519,14 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
       </Section>}
 
       {!showQuickStart && <Section title="예식 일정" defaultOpen>
-        <Field label="날짜"><input type="date" className="input" value={inv.date} onChange={(e) => set("date", e.target.value)} /></Field>
+        <Field label="날짜"><input type="date" className={`input ${inv.date ? "text-ink" : "text-soft"}`} value={inv.date} onChange={(e) => set("date", e.target.value)} /></Field>
         <Field label="시간"><input className="input" value={inv.time ?? ""} onChange={(e) => set("time", e.target.value)} placeholder="오후 3시" /></Field>
         <Field label="예식장"><input className="input" value={inv.venue} onChange={(e) => set("venue", e.target.value)} placeholder="서울대학교 교수회관" /></Field>
         <Field label="홀/층"><input className="input" value={inv.venueHall ?? ""} onChange={(e) => set("venueHall", e.target.value)} placeholder="3층 그랜드볼룸" /></Field>
         <Field label="주소"><input className="input" value={inv.venueAddress ?? ""} onChange={(e) => set("venueAddress", e.target.value)} placeholder="서울특별시 관악구..." /></Field>
+        <p className="text-[11px] text-soft leading-relaxed">
+          주차, 셔틀, 지하철 출구, 약도 이미지는 식장 안내를 받은 뒤 모시는 글이나 갤러리에 짧게 더하면 됩니다.
+        </p>
       </Section>}
 
       <Section title="모시는 글" defaultOpen>
@@ -1492,8 +1596,7 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
       </Section>
 
       <p className="text-[11px] text-soft text-center leading-relaxed pt-6">
-        카톡 문안은 미리보기의 [공유]에서 만들고,<br />
-        하객이 여는 웹 링크와 RSVP는 위의 [청첩장 링크 만들기]에서 발행합니다.
+        카톡 문안은 공유 센터에서 복사할 수 있어요.<br />하객용 웹 링크와 RSVP는 위에서 발행합니다.
       </p>
 
       <Section title="다른 청첩장 서비스도 알아보기" defaultOpen={false}>
@@ -1524,6 +1627,7 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
           {" "}으로 — 24시간 내 처리.
         </p>
       </Section>
+      </>}
 
       {picker && (
         <PhotoPickerModal
@@ -1578,11 +1682,11 @@ function PhotoPickerModal({
                 if (isHero) onPickHero(url);
                 else setSelected((s) => (on ? s.filter((x) => x !== url) : [...s, url]));
               }}
-              className={`relative rounded-lg overflow-hidden ${on ? "ring-2 ring-gold" : ""}`}
+              className={`relative overflow-hidden ${on ? "ring-2 ring-ink" : ""}`}
             >
               <img src={url} alt="" className="w-full aspect-square object-cover" />
               {!isHero && on && (
-                <span className="absolute top-1 right-1 bg-gold text-white rounded-full w-5 h-5 text-xs flex items-center justify-center">✓</span>
+                <span className="absolute top-1 right-1 bg-ink text-paper rounded-none w-5 h-5 text-xs flex items-center justify-center">✓</span>
               )}
             </button>
           );
@@ -1731,9 +1835,9 @@ function GalleryEditor({ gallery, onChange }: { gallery: { url: string; caption?
             return (
               <div key={i} className="flex items-center gap-2.5">
                 {u ? (
-                  <img src={u} alt="" className="w-14 h-14 object-cover rounded-md flex-shrink-0" />
+                  <img src={u} alt="" className="w-14 h-14 object-cover flex-shrink-0" />
                 ) : (
-                  <div className="w-14 h-14 rounded-md bg-cream border border-red-200 flex items-center justify-center text-[10px] text-red-500 text-center flex-shrink-0 leading-tight">잘못된<br />주소</div>
+                  <div className="w-14 h-14 bg-cream border border-hair flex items-center justify-center text-[10px] text-soft text-center flex-shrink-0 leading-tight">잘못된<br />주소</div>
                 )}
                 <input
                   aria-label={`${i + 1}번째 사진 설명`}
@@ -1849,6 +1953,10 @@ function t(ko: string, locale: Locale): string {
     "전송 중…": { en: "Sending…", zh: "發送中…" },
     "참석 의사 전하기": { en: "Send RSVP", zh: "送出回覆" },
     "전송됐어요. 감사합니다.": { en: "Sent. Thank you.", zh: "已送出。謝謝。" },
+    "이름·참석 여부·인원·식사 메모·축하 메시지는 예식 준비를 위해 신랑·신부만 확인합니다.": {
+      en: "Your name, attendance, party size, meal note, and message are used only by the couple to prepare for the wedding.",
+      zh: "姓名、出席、人數、用餐備註和祝福訊息僅供新人準備婚禮使用。",
+    },
   };
   return map[ko]?.[locale] ?? ko;
 }

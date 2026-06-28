@@ -5,11 +5,11 @@ export default function Privacy() {
   return (
     <div className="page pt-8 pb-10 max-w-app mx-auto text-[13px] leading-relaxed">
       <div className="mb-2">
-        <div className="eyebrow-gold mb-2">Privacy · Security</div>
+        <div className="eyebrow-gold mb-2">개인정보와 보안</div>
         <h1 className="font-serif text-[2rem] leading-none">개인정보 · 보안 안내</h1>
       </div>
       <p className="eyebrow mt-3 mb-8">
-        최종 갱신 · 2026-06-25
+        최종 갱신 · 2026-06-26
       </p>
 
       <Section num="01" title="한눈에">
@@ -75,10 +75,10 @@ export default function Privacy() {
       <Section num="06" title="데이터 삭제 · 내려받기">
         <p className="mb-3">모든 데이터는 본인이 직접 통제합니다.</p>
         <ul className="list-disc list-outside pl-5 space-y-1.5 marker:text-soft">
-          <li>로컬 · 더보기 → "모든 데이터 지우기"</li>
-          <li>간편 · 더보기 → "모든 데이터 지우기"를 누르면 운영자 서버의 암호문과 복구 연결도 함께 삭제됩니다.</li>
+          <li>로컬 · 설정 → "모든 데이터 지우기"</li>
+          <li>간편 · 설정 → "모든 데이터 지우기"를 누르면 운영자 서버의 암호문과 복구 연결도 함께 삭제됩니다.</li>
           <li>직접 운영 · 본인의 외부 저장소 대시보드에서 row/table 삭제</li>
-          <li>백업 · 더보기 → "내려받기" 로 JSON 다운로드 가능 (보안상 anon key 등 시크릿은 제외됨)</li>
+          <li>백업 · 설정 → "내려받기" 로 JSON 다운로드 가능 (보안상 anon key 등 시크릿은 제외됨)</li>
         </ul>
       </Section>
 
@@ -113,7 +113,7 @@ export default function Privacy() {
         </ul>
         <p className="text-[11.5px] text-soft mt-4 leading-relaxed">
           <b className="text-ink">이용 조건</b> · 간편 발행은 무료 편의 기능으로 제공되며 가용성·보존을
-          보장하지 않습니다. 중요한 데이터는 [더보기 → 백업]으로 따로 보관하세요. 불법이거나 타인의 권리를
+          보장하지 않습니다. 중요한 데이터는 [설정 → 백업]으로 따로 보관하세요. 불법이거나 타인의 권리를
           침해하는 콘텐츠의 발행은 금지되며, 신고가 접수되면 운영자가 삭제할 수 있습니다 (운영자는 암호문을
           못 읽으므로 신고에 의존합니다). 더 강한 통제가 필요하면 직접 운영 모드(본인 외부 저장소) 또는 코드 직접 운영을 사용하세요.
         </p>
@@ -123,7 +123,6 @@ export default function Privacy() {
         <ul className="list-disc list-outside pl-5 space-y-1.5 marker:text-soft">
           <li><b>사진</b> · 직접 촬영하지 않은 사진, 스튜디오·스냅 원본, 업체 제공 이미지는 계약서나 이용허락 범위 안에서만 올리세요. 청첩장·식전영상·SNS 공유 허용 범위가 다를 수 있습니다.</li>
           <li><b>음악</b> · 상용 음원을 식전영상, 청첩장 BGM, 온라인 공유 영상에 넣는 경우 별도 사용 허락이 필요할 수 있습니다. 공유저작물도 출처 표시, 변경 가능 여부, 상업적 이용 제한 등 조건을 확인하세요.</li>
-          <li><b>폰트</b> · 브라우저 기본 폰트나 배포 가능한 웹폰트만 사용하세요. 폰트 파일을 무단 복제해 업로드하거나 청첩장 이미지에 포함하지 마세요.</li>
           <li><b>상표·업체명</b> · 반지 브랜드, 웨딩홀, 스튜디오명은 비교·메모 목적으로만 표시합니다. Wedding OS는 해당 브랜드와 제휴·후원·공식 추천 관계가 아닙니다.</li>
           <li><b>AI 문안</b> · AI가 만든 청첩장 문구, 안내문, 계약 질문은 초안입니다. 타인의 시·노래 가사·상업 문구를 그대로 쓰지 말고 최종 문안은 직접 확인하세요.</li>
         </ul>

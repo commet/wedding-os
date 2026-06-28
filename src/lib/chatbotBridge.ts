@@ -6,6 +6,8 @@ export type BridgePrompt = {
   title: string;
   prompt: string;
   expectedShape: "json" | "text";
+  /** Managed AI 품질/비용 tier. deep은 서버에서 별도 quota를 통과해야만 Sonnet 계열로 승격된다. */
+  tier?: "standard" | "deep";
   /** 답변에서 추출할 JSON 키 — UI에 자동 채워줄 필드 */
   keys?: string[];
 };
@@ -44,6 +46,8 @@ export function weddingPlanStarterPrompt(data: WeddingData): BridgePrompt {
 중요한 원칙:
 - 부모님 관여도, 종교, 문화, 언어, 가족사 같은 민감하거나 지나치게 개인적인 가정은 하지 마세요.
 - 업체·가격·일정은 확정처럼 말하지 말고, 사용자가 확인할 출발점으로 제안하세요.
+- 웨딩홀 관련 제안에는 보증인원, 식대, 취소·환불, 외부업체 반입료, 동시 예식/하객 동선 중 적어도 2가지를 확인 항목으로 포함하세요.
+- 돈 관련 제안은 총액 추정보다 "빠뜨리기 쉬운 항목"과 "계약서에서 확인할 조건" 위주로 적으세요.
 - 너무 많이 만들지 말고, 오늘 바로 도움이 되는 핵심만 제안하세요.
 - 전화번호, 계좌, 하객 이름 같은 민감 정보는 요청하지 마세요.
 
@@ -78,6 +82,7 @@ ${JSON.stringify(summary, null, 2)}
 - budgetItems 5개 이하
 - honeymoonRegions 3개 이하`,
     expectedShape: "json",
+    tier: "deep",
   };
 }
 
@@ -109,6 +114,7 @@ ${JSON.stringify(summary, null, 2)}
 
 모시는 글 본문만 답해주세요. 제목이나 설명은 붙이지 마세요.`,
     expectedShape: "text",
+    tier: "standard",
   };
 }
 
@@ -129,6 +135,7 @@ export function ringPriceCheckPrompt(brand: string, model: string, material?: st
 }
 \`\`\``,
     expectedShape: "json",
+    tier: "standard",
     keys: ["priceKRW", "source", "verifiedAt"],
   };
 }
@@ -152,6 +159,7 @@ OTA: 호텔스닷컴, 아고다, 익스피디아, 부킹닷컴, 트립닷컴
 }
 \`\`\``,
     expectedShape: "json",
+    tier: "standard",
   };
 }
 
@@ -176,6 +184,7 @@ export function flightSearchPrompt(from: string, to: string, date: string): Brid
 }
 \`\`\``,
     expectedShape: "json",
+    tier: "standard",
   };
 }
 
@@ -223,6 +232,7 @@ ${JSON.stringify(slim, null, 2)}
 
 수정된 전체 JSON 만 답변해주세요. 변경 이유는 한 줄로 짧게.`,
     expectedShape: "json",
+    tier: "deep",
   };
 }
 

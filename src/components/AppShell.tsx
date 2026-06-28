@@ -3,6 +3,7 @@ import { NavLink, useLocation, Link, useNavigate } from "react-router-dom";
 import type { WeddingData, Mode } from "../lib/schema";
 import { daysSince } from "../lib/freshness";
 import { useSaveStatus, useRealtimeStatus, useConflictStatus, clearConflict } from "../lib/storage";
+import MenuSheet from "./MenuSheet";
 
 type Props = {
   data: WeddingData;
@@ -10,13 +11,15 @@ type Props = {
   children: React.ReactNode;
 };
 
+// 하단 탭 — 4개 핵심 라우트 + 5번째 "더보기"는 전체 기능 시트를 여는 버튼.
 const NAV = [
   { to: "/dashboard", label: "홈" },
   { to: "/invitation", label: "청첩장" },
   { to: "/checklist", label: "체크리스트" },
   { to: "/budget", label: "예산" },
-  { to: "/settings", label: "더보기" },
 ];
+// 4개 탭에 해당하지 않는 경로 — 이때 "더보기"를 현재 위치로 강조.
+const TAB_PATHS = NAV.map((n) => n.to);
 
 // 데모 배너 dismiss 는 세션 단위 — 새 탭/새로고침 시 다시 보임(영영 안 보이는 사고 방지).
 const DEMO_BANNER_DISMISSED_KEY = "wedding-os/demo-banner-dismissed/v1";
@@ -36,17 +39,18 @@ export default function AppShell({ data, children }: Props) {
   const showChrome = !isWelcome && !isGuestInvitation;
   // 서브 라우트엔 헤더에 ← 뒤로가기 — /dashboard(홈)·/setup(자체 흐름)·/(랜딩) 제외.
   const showBack = showChrome && !isDashboard;
-  // 백업 알림 — 모드 1(localStorage 만 존재)인 사용자에게만, 의미 있는 데이터가 있을 때만.
-  // 빈 상태 새 사용자에게 "백업하세요" 띄우는 건 노이즈.
-  const hasMeaningfulData = !!(
-    data.invitation.groomName ||
-    data.invitation.brideName ||
+  // 백업 알림 — 모드 1(localStorage 만 존재)인 사용자에게만, 챙길 게 쌓였을 때만.
+  // 첫날 이름만 적은 사용자에게 "백업하세요"는 노이즈 →
+  // 이름 + 실제 준비 항목(반지·스드메·예식장·예산·하객) 하나 이상이 있을 때만 알린다.
+  const hasNames = !!(data.invitation.groomName || data.invitation.brideName);
+  const hasCategory = !!(
     data.rings.length ||
     data.sdm.length ||
     (data.venues ?? []).length ||
     (data.budget ?? []).length ||
     (data.guests ?? []).length
   );
+  const hasMeaningfulData = hasNames && hasCategory;
   const backupStale =
     data.preferences.mode === "local" &&
     hasMeaningfulData &&
@@ -54,6 +58,11 @@ export default function AppShell({ data, children }: Props) {
   const saveStatus = useSaveStatus();
   const realtimeStatus = useRealtimeStatus();
   const conflictStatus = useConflictStatus();
+
+  // "더보기" 전체 기능 시트 — 라우트가 바뀌면 닫는다.
+  const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => { setMenuOpen(false); }, [location.pathname]);
+  const isMoreActive = !TAB_PATHS.includes(location.pathname);
 
   // 데모 배너 dismiss 상태 (세션 단위)
   const [bannerDismissed, setBannerDismissed] = useState(false);
@@ -89,8 +98,8 @@ export default function AppShell({ data, children }: Props) {
                   ←
                 </button>
               )}
-              <Link to="/dashboard" className="font-serif text-base tracking-tight text-ink truncate min-h-11 flex items-center">
-                Wedding<span className="text-gold">·</span>OS
+              <Link to="/dashboard" className="font-serif text-base tracking-[-0.01em] text-ink truncate min-h-11 flex items-center">
+                Wedding OS
               </Link>
             </div>
             <div className="flex items-center gap-3 flex-shrink-0">
@@ -108,7 +117,7 @@ export default function AppShell({ data, children }: Props) {
 
       {/* 데모 띠 — 작은 안내. 세션 단위로 닫기 가능 (× 버튼) */}
       {isDemo && !isWelcome && !isGuestInvitation && !bannerDismissed && (
-        <div className="px-6 py-2.5 flex items-center justify-between gap-3 border-b border-hair">
+        <div className="anim-drop px-6 py-2.5 flex items-center justify-between gap-3 border-b border-hair">
           <div className="text-[11.5px] leading-tight flex-1 min-w-0 flex items-baseline gap-2">
             <span className="eyebrow-gold">예시</span>
             <span className="text-soft truncate">둘러본 뒤 내 정보로 시작할 수 있어요</span>
@@ -128,9 +137,10 @@ export default function AppShell({ data, children }: Props) {
 
       {/* 실시간 끊김 알림 — 모드 2 동시 편집 깨진 신호 */}
       {realtimeStatus === "disconnected" && !isGuestInvitation && (
-        <div className="px-6 py-3 border-b border-hair flex items-center justify-between gap-3">
-          <span className="text-[12px] text-soft">
-            동기화 연결이 끊어졌어요. 네트워크 확인 후 새로고침하세요.
+        <div className="anim-drop px-6 py-3 border-b border-hair flex items-center justify-between gap-3">
+          <span className="text-[12px] text-soft leading-relaxed">
+            실시간 동기화가 잠깐 끊겼어요. 작업한 내용은 그대로 있으니,
+            네트워크가 돌아오면 새로고침해 주세요.
           </span>
           <button
             onClick={() => window.location.reload()}
@@ -143,11 +153,11 @@ export default function AppShell({ data, children }: Props) {
 
       {/* 동시 편집 충돌 — 다른 기기(신랑/신부 다른 폰)가 먼저 저장함. 사용자 동작 잃은 상태 */}
       {conflictStatus === "detected" && !isGuestInvitation && (
-        <div className="px-6 py-3 border-b border-hair flex items-center justify-between gap-3 bg-gold/5">
+        <div className="anim-drop px-6 py-3 border-b border-hair flex items-center justify-between gap-3 bg-gold/5">
           <span className="text-[12px] text-ink leading-relaxed">
-            <strong>다른 기기에서 먼저 저장됐어요.</strong>
+            <strong>다른 기기에서 먼저 저장했어요.</strong>
             <br />
-            <span className="text-soft">방금 변경한 내용은 적용되지 않았어요. 새로고침해서 최신 데이터를 불러오세요.</span>
+            <span className="text-soft">신랑·신부가 같은 정보를 동시에 고치면 이런 일이 생겨요. 방금 변경한 내용이 덮어쓰이지 않도록 잠시 멈춰뒀어요. <strong className="text-ink font-normal">새로고침</strong>하면 최신 내용을 불러오고, <strong className="text-ink font-normal">나중에</strong>를 누르면 이 알림만 닫아요.</span>
           </span>
           <div className="flex flex-col gap-2 flex-shrink-0">
             <button
@@ -165,9 +175,11 @@ export default function AppShell({ data, children }: Props) {
 
       {/* 백업 알림 — 가는 띠 */}
       {backupStale && !isGuestInvitation && (
-        <div className="px-6 py-3 border-b border-hair flex items-center justify-between gap-3">
-          <span className="text-[12px] text-soft">오래 백업을 안 했어요</span>
-          <Link to="/settings#data-backup" className="text-[12px] underline underline-offset-4 text-ink min-h-11 flex items-center">
+        <div className="anim-drop px-6 py-3 border-b border-hair flex items-center justify-between gap-3">
+          <span className="text-[12px] text-soft leading-relaxed">
+            준비 내용이 이 휴대폰에만 있어요. 한 번 내려받아 두면 기기를 바꿔도 안심이에요.
+          </span>
+          <Link to="/settings#data-backup" className="text-[12px] underline underline-offset-4 text-ink min-h-11 flex items-center flex-shrink-0">
             내려받기
           </Link>
         </div>
@@ -183,7 +195,7 @@ export default function AppShell({ data, children }: Props) {
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
-                  `relative min-h-11 flex items-center justify-center py-4 text-[11px] tracking-wide transition ${
+                  `relative min-h-11 flex items-center justify-center py-4 text-[12px] tracking-wide transition ${
                     isActive ? "text-ink" : "text-soft"
                   }`
                 }
@@ -191,16 +203,31 @@ export default function AppShell({ data, children }: Props) {
                 {({ isActive }) => (
                   <>
                     {isActive && (
-                      <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-px bg-ink" />
+                      <span className="anim-fade absolute top-0 left-1/2 -translate-x-1/2 w-8 h-px bg-ink" />
                     )}
                     {item.label}
                   </>
                 )}
               </NavLink>
             ))}
+            <button
+              onClick={() => setMenuOpen(true)}
+              aria-haspopup="dialog"
+              aria-expanded={menuOpen}
+              className={`relative min-h-11 flex items-center justify-center py-4 text-[12px] tracking-wide transition ${
+                isMoreActive || menuOpen ? "text-ink" : "text-soft"
+              }`}
+            >
+              {isMoreActive && (
+                <span className="anim-fade absolute top-0 left-1/2 -translate-x-1/2 w-8 h-px bg-ink" />
+              )}
+              더보기
+            </button>
           </div>
         </nav>
       )}
+
+      <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} data={data} />
     </div>
   );
 }
@@ -227,7 +254,7 @@ function SaveBadge({ status, mode }: { status: "idle" | "saving" | "saved" | "er
     error: { text: "⚠ 저장 실패", cls: "text-gold" },
   } as const;
   const m = map[status as "saving" | "saved" | "error"];
-  return <span className={`eyebrow ${m.cls}`}>{m.text}</span>;
+  return <span className={`anim-pop eyebrow ${m.cls}`}>{m.text}</span>;
 }
 
 function isBackupStale(lastBackupAt?: string): boolean {
@@ -235,5 +262,5 @@ function isBackupStale(lastBackupAt?: string): boolean {
   // lastBackupAt 없음 = 한 번도 백업한 적 없는 데이터. 그래도 즉시 알림은 노이즈 →
   // 호출부에서 "의미있는 데이터가 있을 때만" 조건으로 한 번 더 거른다.
   if (d === null) return true;
-  return d >= 7;
+  return d >= 14;
 }

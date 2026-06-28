@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import type { WeddingData, WeddingVenue, VenueHallType } from "../lib/schema";
+import type { ContractCheck, WeddingData, WeddingVenue, VenueHallType } from "../lib/schema";
 import {
   VENUE_CATALOG,
   HALL_TYPE_LABEL,
@@ -9,12 +9,29 @@ import {
   VENUE_PRICE_NOTE,
 } from "../data/venueCatalog";
 import VendorActions from "../components/VendorActions";
+import MapEmbed from "../components/MapEmbed";
 import Modal from "../components/Modal";
+import FreshnessBadge from "../components/FreshnessBadge";
+import {
+  upcomingBalances,
+  venueCapacityFit,
+  expectedHeadcount,
+  formatKRW,
+  type BalanceDue,
+} from "../lib/derived";
 
 type Props = { data: WeddingData; update: (patch: any) => void };
 type Tab = "mine" | "catalog";
 
 const STATUS_OPTIONS: WeddingVenue["status"][] = ["관심", "투어", "계약"];
+const CONTRACT_FIELDS: { key: keyof ContractCheck; label: string; placeholder: string }[] = [
+  { key: "quote", label: "견적 기준", placeholder: "예: 토 12시, 보증 250명, 식대 13만원, 대관료 포함" },
+  { key: "payment", label: "결제 일정", placeholder: "예: 계약금 100만원, 잔금 D-7, 카드 가능 여부" },
+  { key: "cancellation", label: "취소·변경", placeholder: "예: D-90 전 전액 환불, 이후 위약금 단계별 적용" },
+  { key: "included", label: "포함 항목", placeholder: "예: 생화 장식, 혼구용품, 음주류, 폐백실, 빔 사용" },
+  { key: "extras", label: "별도 비용", placeholder: "예: 부가세, 봉사료, 주차권, 셔틀, 원판 추가" },
+  { key: "evidence", label: "증빙 보관", placeholder: "예: 계약서 PDF는 드라이브 / 견적 캡처는 카톡방 고정" },
+];
 
 const REGION_GROUPS: { key: string; label: string; match: (r?: string) => boolean }[] = [
   { key: "all",    label: "전체",        match: () => true },
@@ -42,6 +59,12 @@ export default function Venues({ data, update }: Props) {
     for (const v of myVenues) if (v.status) r[v.status]++;
     return r;
   }, [myVenues]);
+
+  const venueBalances = useMemo(
+    () => upcomingBalances(data).filter((b) => b.targetPath === "/venues"),
+    [data]
+  );
+  const headcount = useMemo(() => expectedHeadcount(data), [data]);
 
   const filteredCatalog = useMemo(() => {
     const rm = REGION_GROUPS.find((g) => g.key === region)?.match ?? (() => true);
@@ -116,8 +139,8 @@ export default function Venues({ data, update }: Props) {
   return (
     <div className="page pt-8 pb-10 space-y-8">
       <div>
-        <div className="eyebrow-gold mb-2">Venues</div>
-        <h1 className="font-serif text-[2rem] leading-none">예식장</h1>
+        <div className="eyebrow-gold mb-2">장소 찾기</div>
+        <h1 className="h-page">예식장</h1>
       </div>
 
       {showStarter ? (
@@ -128,13 +151,13 @@ export default function Venues({ data, update }: Props) {
           <div className="flex items-center gap-6 border-b border-hair pb-3">
             <button
               onClick={() => setTab("mine")}
-              className={`text-[12px] tracking-wide pb-1 transition ${tab === "mine" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+              className={`tracking-wide ${tab === "mine" ? "seg-active" : "seg"}`}
             >
               내 후보 · <span className="tabular-nums">{myVenues.length}</span>
             </button>
             <button
               onClick={() => setTab("catalog")}
-              className={`text-[12px] tracking-wide pb-1 transition ${tab === "catalog" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+              className={`tracking-wide ${tab === "catalog" ? "seg-active" : "seg"}`}
             >
               카탈로그 · <span className="tabular-nums">{VENUE_CATALOG.length}</span>
             </button>
@@ -145,8 +168,8 @@ export default function Venues({ data, update }: Props) {
             className="w-full text-left border-y border-hair py-4 flex items-baseline justify-between gap-4"
           >
             <span>
-              <span className="eyebrow-gold block mb-1">기본 후보</span>
-              <span className="font-serif text-[17px] text-ink">예식장 기준 잡기</span>
+              <span className="eyebrow block mb-1">기본 후보</span>
+              <span className="font-serif text-[18px] text-ink break-keep">예식장 기준 잡기</span>
             </span>
             <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
           </button>
@@ -161,8 +184,34 @@ export default function Venues({ data, update }: Props) {
                 <span className="ml-auto"><span className="tabular-nums text-gold">{haveStatusCount["계약"]}</span> <span className="text-soft">계약</span></span>
               </div>
 
+              {venueBalances.length > 0 && (
+                <div className="border-y border-hair py-4">
+                  <div className="eyebrow mb-3">다음 납부</div>
+                  <ul className="space-y-2">
+                    {venueBalances.slice(0, 3).map((b) => (
+                      <li
+                        key={b.name}
+                        className="flex items-baseline justify-between gap-4 text-[13px]"
+                      >
+                        <span className="text-ink break-keep">
+                          {b.name} <span className="text-soft">잔금</span>{" "}
+                          <span className="tabular-nums">{formatKRW(b.amount)}</span>
+                        </span>
+                        <span
+                          className={`tabular-nums whitespace-nowrap flex-shrink-0 ${
+                            b.daysLeft <= 14 ? "text-gold" : "text-soft"
+                          }`}
+                        >
+                          {dDayLabel(b.daysLeft)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               <div className="flex items-baseline justify-between">
-                <h2 className="eyebrow-gold">내 후보</h2>
+                <h2 className="eyebrow">내 후보</h2>
                 <button onClick={() => setShowAdd(true)} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
                   + 직접 추가
                 </button>
@@ -171,7 +220,7 @@ export default function Venues({ data, update }: Props) {
               {myVenues.length === 0 ? (
                 <div className="py-10 text-center text-soft text-[13px] border-y border-hair">
                   아직 담아둔 식장이 없어요.<br />
-                  <button onClick={() => setTab("catalog")} className="mt-3 text-ink underline underline-offset-4 hover:text-gold text-[12px]">
+                  <button onClick={() => setTab("catalog")} className="mt-3 text-ink underline underline-offset-4 hover:text-gold text-[13px]">
                     카탈로그에서 골라 담기 →
                   </button>
                 </div>
@@ -181,13 +230,13 @@ export default function Venues({ data, update }: Props) {
                     <div className="flex items-center gap-6 border-b border-hair pb-3">
                       <button
                         onClick={() => setMineView("list")}
-                        className={`text-[12px] tracking-wide pb-1 transition ${mineView === "list" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                        className={`tracking-wide ${mineView === "list" ? "seg-active" : "seg"}`}
                       >
                         목록
                       </button>
                       <button
                         onClick={() => setMineView("compare")}
-                        className={`text-[12px] tracking-wide pb-1 transition ${mineView === "compare" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                        className={`tracking-wide ${mineView === "compare" ? "seg-active" : "seg"}`}
                       >
                         나란히 비교
                       </button>
@@ -201,6 +250,9 @@ export default function Venues({ data, update }: Props) {
                         <MyVenueRow
                           key={v.id}
                           v={v}
+                          registered={!!v.name.trim() && v.name.trim() === (data.invitation.venue ?? "").trim()}
+                          headcount={headcount}
+                          balance={venueBalances.find((b) => b.name === v.name)}
                           onUpdate={(patch) => updateVenue(v.id, patch)}
                           onRemove={() => removeVenue(v.id)}
                           onApply={() => applyToInvitation(v)}
@@ -215,16 +267,23 @@ export default function Venues({ data, update }: Props) {
 
           {tab === "catalog" && (
             <>
-              {/* 안내 */}
-              <p className="text-[12px] text-soft leading-relaxed border-b border-hair pb-4">
-                {VENUE_PRICE_NOTE}
-              </p>
+              {/* 골라 담기 안내 — 카탈로그가 '고르는 곳'임을 또렷이 */}
+              <div className="border-y border-hair py-4">
+                <div className="eyebrow-gold mb-1.5">골라 담기</div>
+                <p className="font-serif text-[17px] text-ink leading-snug break-keep">
+                  마음에 드는 곳을 담으면 <span className="text-gold">‘내 후보’</span>에서 비교돼요
+                </p>
+                <p className="mt-2 text-[12px] text-soft leading-relaxed">
+                  {VENUE_PRICE_NOTE}<br />
+                  최신 확인일이 없는 항목은 출발점으로만 보고, 공식 채널에서 다시 확인하세요. Wedding OS는 식장과 제휴·광고 관계가 없습니다.
+                </p>
+              </div>
 
               {/* 홀 형식 필터 */}
               <div className="flex gap-5 overflow-x-auto pb-2 -mx-6 px-6 scrollbar-hide">
                 <button
                   onClick={() => setHallFilter("all")}
-                  className={`text-[12px] tracking-wide whitespace-nowrap pb-1 transition ${hallFilter === "all" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                  className={`tracking-wide whitespace-nowrap ${hallFilter === "all" ? "seg-active" : "seg"}`}
                 >
                   전체
                 </button>
@@ -232,7 +291,7 @@ export default function Venues({ data, update }: Props) {
                   <button
                     key={t}
                     onClick={() => setHallFilter(t)}
-                    className={`text-[12px] tracking-wide whitespace-nowrap pb-1 transition ${hallFilter === t ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                    className={`tracking-wide whitespace-nowrap ${hallFilter === t ? "seg-active" : "seg"}`}
                   >
                     {HALL_TYPE_LABEL[t]}
                   </button>
@@ -245,7 +304,7 @@ export default function Venues({ data, update }: Props) {
                   <button
                     key={g.key}
                     onClick={() => setRegion(g.key)}
-                    className={`text-[11.5px] tracking-wide whitespace-nowrap pb-1 transition ${region === g.key ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                    className={`tracking-wide whitespace-nowrap ${region === g.key ? "seg-active" : "seg"}`}
                   >
                     {g.label}
                   </button>
@@ -264,7 +323,7 @@ export default function Venues({ data, update }: Props) {
 
               {/* 결과 */}
               {filteredCatalog.length === 0 ? (
-                <p className="text-center text-[12.5px] text-soft py-8">
+                <p className="text-center text-[13px] text-soft py-8">
                   조건에 맞는 식장이 없어요.
                 </p>
               ) : (
@@ -276,7 +335,7 @@ export default function Venues({ data, update }: Props) {
                 </ul>
               )}
 
-              <p className="text-[10.5px] text-soft text-center leading-relaxed pt-2">
+              <p className="text-[11px] text-soft text-center leading-relaxed pt-2">
                 가격 범위는 공개 정보 추정치 — 시즌·요일·메뉴별 변동 큼. 최종 결정 전 직접 문의 필수.<br />
                 표시 삭제·정정 요청은{" "}
                 <a href="mailto:yclee913@gmail.com" rel="noopener noreferrer" className="underline underline-offset-2 text-ink">yclee913@gmail.com</a>
@@ -309,7 +368,7 @@ export default function Venues({ data, update }: Props) {
                   {g.cons.map((c, i) => <li key={i}>· {c}</li>)}
                 </ul>
               </div>
-              <div className="pl-4 border-l-2 border-gold/50 text-[12.5px] text-soft leading-relaxed">
+              <div className="pl-4 border-l-2 border-gold/50 text-[13px] text-soft leading-relaxed">
                 {g.tip}
               </div>
             </div>
@@ -341,8 +400,8 @@ function VenueStarter({
     <section className="border-y border-hair py-5 space-y-5">
       <div className="flex items-baseline justify-between gap-4">
         <div>
-          <div className="eyebrow-gold mb-2">기본 후보</div>
-          <h2 className="font-serif text-xl text-ink">예식장 기준 잡기</h2>
+          <div className="eyebrow mb-2">기본 후보</div>
+          <h2 className="font-serif text-[18px] text-ink break-keep">예식장 기준 잡기</h2>
         </div>
         <button onClick={onClose} className="text-[12px] text-soft underline underline-offset-4 hover:text-ink">
           닫기
@@ -391,7 +450,7 @@ function VenueStarter({
             </span>
             <div className="flex-1 min-w-0">
               <div className="font-serif text-[15px] text-ink">{venue.name}</div>
-              <div className="text-[11.5px] text-soft leading-relaxed mt-1">
+              <div className="text-[12px] text-soft leading-relaxed mt-1">
                 {[venue.region, venue.hallType ? HALL_TYPE_LABEL[venue.hallType] : undefined, venue.foodType ? FOOD_TYPE_LABEL[venue.foodType] : undefined].filter(Boolean).join(" · ")}
               </div>
               <div className="eyebrow mt-2">
@@ -413,7 +472,7 @@ function VenueStarter({
       <button
         onClick={() => onApply(picks)}
         disabled={picks.length === 0}
-        className="btn-primary w-full py-3 text-[12.5px] disabled:opacity-40"
+        className="btn-primary w-full py-3 text-[13px] disabled:opacity-40"
       >
         후보 {picks.length}곳 담기 →
       </button>
@@ -432,12 +491,7 @@ function StarterOption({ label, children }: { label: string; children: React.Rea
 
 function Segment({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button
-      onClick={onClick}
-      className={`text-[12px] tracking-wide pb-1 transition ${
-        active ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
-      }`}
-    >
+    <button onClick={onClick} className={`tracking-wide ${active ? "seg-active" : "seg"}`}>
       {children}
     </button>
   );
@@ -494,7 +548,7 @@ function CatalogRow({ v, added, onAdd }: { v: WeddingVenue; added: boolean; onAd
             {v.hallType && <span>· {HALL_TYPE_LABEL[v.hallType]}</span>}
             {v.foodType && <span>· {FOOD_TYPE_LABEL[v.foodType]}</span>}
           </div>
-          <div className="text-[11.5px] text-soft mt-1.5 tabular-nums">
+          <div className="text-[12px] text-soft mt-1.5 tabular-nums">
             {(v.capacityMin || v.capacityMax) && (
               <>하객 {v.capacityMin ?? "?"}~{v.capacityMax ?? "?"}명 </>
             )}
@@ -503,13 +557,16 @@ function CatalogRow({ v, added, onAdd }: { v: WeddingVenue; added: boolean; onAd
             )}
           </div>
           {v.notes && (
-            <div className="text-[11.5px] text-soft mt-1 italic leading-relaxed">{v.notes}</div>
+            <div className="text-[12px] text-soft mt-1 italic leading-relaxed">{v.notes}</div>
           )}
+          <div className="mt-2">
+            <FreshnessBadge lastVerified={v.lastVerified} />
+          </div>
         </div>
         <button
           onClick={onAdd}
           disabled={added}
-          className={`text-[11.5px] tracking-wide whitespace-nowrap flex-shrink-0 underline underline-offset-4 ${added ? "text-soft" : "text-gold hover:text-ink"}`}
+          className={`min-h-9 px-3 text-[12px] tracking-wide whitespace-nowrap flex-shrink-0 border transition ${added ? "border-hair text-soft" : "border-gold text-gold hover:bg-gold hover:text-paper"}`}
         >
           {added ? "✓ 담음" : "+ 담기"}
         </button>
@@ -522,14 +579,23 @@ function CatalogRow({ v, added, onAdd }: { v: WeddingVenue; added: boolean; onAd
 }
 
 function MyVenueRow({
-  v, onUpdate, onRemove, onApply,
+  v, registered, headcount, balance, onUpdate, onRemove, onApply,
 }: {
   v: WeddingVenue;
+  registered?: boolean;
+  headcount: number;
+  balance?: BalanceDue;
   onUpdate: (patch: Partial<WeddingVenue>) => void;
   onRemove: () => void;
   onApply: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const updateContract = (patch: Partial<ContractCheck>) => {
+    onUpdate({ contract: cleanContract({ ...(v.contract ?? {}), ...patch }) });
+  };
+  const fit = venueCapacityFit(v, headcount);
+  const showDDay =
+    v.status === "계약" && (v.balanceKRW ?? 0) > 0 && !!v.balanceDueAt && !!balance;
   return (
     <li className="py-5">
       <div className="flex items-baseline justify-between gap-3">
@@ -539,6 +605,13 @@ function MyVenueRow({
             {v.region && <span>{v.region}</span>}
             {v.hallType && <span>· {HALL_TYPE_LABEL[v.hallType]}</span>}
             {v.status && <span className="text-gold">· {v.status}</span>}
+            {registered && <span className="text-sage">· ✓ 청첩장 등록</span>}
+            {fit !== "unknown" && (
+              <span className={CAPACITY_FIT_TONE[fit]}>· {CAPACITY_FIT_LABEL[fit]}</span>
+            )}
+            {showDDay && (
+              <span className="text-gold tabular-nums">· {dDayLabel(balance!.daysLeft)}</span>
+            )}
           </div>
         </button>
         <button onClick={onRemove} className="text-soft hover:text-ink text-sm flex-shrink-0">×</button>
@@ -552,7 +625,7 @@ function MyVenueRow({
               <button
                 key={s}
                 onClick={() => onUpdate({ status: s })}
-                className={`text-[12px] tracking-wide pb-1 transition ${v.status === s ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                className={`tracking-wide ${v.status === s ? "seg-active" : "seg"}`}
               >
                 {s}
               </button>
@@ -572,12 +645,77 @@ function MyVenueRow({
           <div>
             <label className="label">메모 (식대 견적·실장 이름·인상)</label>
             <textarea
-              className="input-boxed text-[12.5px] min-h-[60px]"
+              className="input-boxed text-[13px] min-h-[60px]"
               value={v.notes ?? ""}
               onChange={(e) => onUpdate({ notes: e.target.value })}
               placeholder="예: 토요일 12시 13만원, 보증 250명, 평일 12만원 가능"
             />
           </div>
+
+          {/* 계약 관리 — 담당자 연락처·계약금·잔금 */}
+          <div className="pt-4 border-t border-hair space-y-4">
+            <div className="eyebrow-gold">계약 관리</div>
+
+            {(v.depositKRW ?? 0) > 0 && (v.balanceKRW ?? 0) > 0 && v.balanceDueAt && (
+              <div className="text-[13px] text-soft tabular-nums break-keep border-b border-hair pb-3">
+                <span className="text-ink">선금 {formatKRW(v.depositKRW!)}</span>
+                {" · "}
+                <span className="text-ink">잔금 {formatKRW(v.balanceKRW!)}</span>
+                {" · "}
+                잔금일 {v.balanceDueAt.slice(0, 10)}
+              </div>
+            )}
+
+            <div>
+              <label className="label">담당자·업체 연락처</label>
+              <input
+                type="text"
+                className="input text-[13px]"
+                value={v.contact ?? ""}
+                onChange={(e) => onUpdate({ contact: e.target.value || undefined })}
+                placeholder="예: 김실장 010-0000-0000"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="label">계약금 (원)</label>
+                <input
+                  type="number"
+                  min={0}
+                  className="input text-[13px] tabular-nums"
+                  value={v.depositKRW ?? ""}
+                  onChange={(e) => onUpdate({ depositKRW: parseWon(e.target.value) })}
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className="label">잔금 (원)</label>
+                <input
+                  type="number"
+                  min={0}
+                  className="input text-[13px] tabular-nums"
+                  value={v.balanceKRW ?? ""}
+                  onChange={(e) => onUpdate({ balanceKRW: parseWon(e.target.value) })}
+                  placeholder="0"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="label">잔금 납부일</label>
+              <input
+                type="date"
+                className="input text-[13px]"
+                value={v.balanceDueAt ?? ""}
+                onChange={(e) => onUpdate({ balanceDueAt: e.target.value || undefined })}
+              />
+            </div>
+          </div>
+
+          <ContractFields contract={v.contract} onUpdate={updateContract} />
+
+          <MapEmbed query={[v.name, v.region].filter(Boolean).join(" ")} label={`${v.name} 지도`} />
 
           <VendorActions name={v.name} region={v.region} officialUrl={v.link} />
 
@@ -590,6 +728,56 @@ function MyVenueRow({
       )}
     </li>
   );
+}
+
+function ContractFields({
+  contract,
+  onUpdate,
+}: {
+  contract?: ContractCheck;
+  onUpdate: (patch: Partial<ContractCheck>) => void;
+}) {
+  return (
+    <details className="border-y border-hair py-3">
+      <summary className="cursor-pointer list-none flex items-baseline justify-between gap-4">
+        <span>
+          <span className="eyebrow-gold block mb-1">계약 체크</span>
+          <span className="text-[12px] text-soft">{contractProgress(contract)} · 확인한 것만 적어두세요</span>
+        </span>
+        <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
+      </summary>
+      <div className="mt-4 space-y-3">
+        <p className="text-[11.5px] text-soft leading-relaxed">
+          모든 칸을 채울 필요는 없어요. 나중에 분쟁이 생기거나 가족과 공유할 때 헷갈리기 쉬운 조건만 남기면 충분합니다.
+        </p>
+        {CONTRACT_FIELDS.map((field) => (
+          <div key={field.key}>
+            <label className="label">{field.label}</label>
+            <textarea
+              className="input-boxed text-[12.5px] min-h-[44px]"
+              value={contract?.[field.key] ?? ""}
+              onChange={(e) => onUpdate({ [field.key]: e.target.value } as Partial<ContractCheck>)}
+              placeholder={field.placeholder}
+            />
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function contractProgress(contract?: ContractCheck): string {
+  const count = CONTRACT_FIELDS.filter((field) => contract?.[field.key]?.trim()).length;
+  return `확인 ${count}/${CONTRACT_FIELDS.length}`;
+}
+
+function cleanContract(contract: ContractCheck): ContractCheck | undefined {
+  const next = Object.fromEntries(
+    Object.entries(contract)
+      .map(([key, value]) => [key, typeof value === "string" ? value.trim() : value])
+      .filter(([, value]) => Boolean(value))
+  ) as ContractCheck;
+  return Object.keys(next).length > 0 ? next : undefined;
 }
 
 // 담아둔 식장 후보를 한눈에 — 식대·인원·상태를 나란히 놓고 비교한다.
@@ -611,8 +799,12 @@ function VenueCompare({ venues }: { venues: WeddingVenue[] }) {
     },
     { label: "상태", get: (v) => v.status || "—" },
     { label: "답사일", get: (v) => v.visitedAt || "—" },
+    { label: "계약 체크", get: (v) => contractProgress(v.contract) },
   ];
+  // 위치 비교용 — 이름·지역이 있는 후보만 지도 노출. 멀리 떨어진 후보를 한 화면에서 가늠.
+  const mappable = venues.filter((v) => [v.name, v.region].filter(Boolean).join(" ").trim());
   return (
+    <div className="space-y-5">
     <div className="overflow-x-auto -mx-6 px-6 scrollbar-hide">
       <table className="border-collapse">
         <thead>
@@ -634,7 +826,7 @@ function VenueCompare({ venues }: { venues: WeddingVenue[] }) {
               {venues.map((v) => (
                 <td
                   key={v.id}
-                  className={`py-3 px-3 text-[12.5px] align-top whitespace-nowrap ${
+                  className={`py-3 px-3 text-[13px] align-top whitespace-nowrap ${
                     row.label === "상태" && v.status === "계약" ? "text-gold" : "text-ink/90"
                   }`}
                 >
@@ -645,6 +837,25 @@ function VenueCompare({ venues }: { venues: WeddingVenue[] }) {
           ))}
         </tbody>
       </table>
+    </div>
+
+    {mappable.length > 0 && (
+      <div>
+        <div className="eyebrow mb-2">위치 비교</div>
+        <div className="flex gap-3 overflow-x-auto -mx-6 px-6 scrollbar-hide">
+          {mappable.map((v) => (
+            <div key={v.id} className="w-[200px] flex-shrink-0">
+              <div className="text-[12px] text-ink truncate mb-1.5 break-keep">{v.name}</div>
+              <MapEmbed
+                query={[v.name, v.region].filter(Boolean).join(" ")}
+                heightClass="h-32"
+                label={`${v.name} 지도`}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
     </div>
   );
 }
@@ -664,7 +875,7 @@ function CustomAdd({ onAdd }: { onAdd: (v: Omit<WeddingVenue, "id">) => void }) 
         <div className="flex flex-wrap gap-5">
           <button
             onClick={() => setHallType(undefined)}
-            className={`text-[12px] tracking-wide pb-1 ${!hallType ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+            className={`tracking-wide ${!hallType ? "seg-active" : "seg"}`}
           >
             미정
           </button>
@@ -672,7 +883,7 @@ function CustomAdd({ onAdd }: { onAdd: (v: Omit<WeddingVenue, "id">) => void }) 
             <button
               key={t}
               onClick={() => setHallType(t)}
-              className={`text-[12px] tracking-wide pb-1 ${hallType === t ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+              className={`tracking-wide ${hallType === t ? "seg-active" : "seg"}`}
             >
               {HALL_TYPE_LABEL[t]}
             </button>
@@ -682,7 +893,7 @@ function CustomAdd({ onAdd }: { onAdd: (v: Omit<WeddingVenue, "id">) => void }) 
       <input className="input text-[13px]" placeholder="홈페이지·예약 링크 (선택)" value={link} onChange={(e) => setLink(e.target.value)} />
       <textarea className="input-boxed text-[13px] min-h-[60px]" placeholder="메모" value={notes} onChange={(e) => setNotes(e.target.value)} />
       <button
-        className="btn-primary w-full py-3 text-[12.5px]"
+        className="btn-primary w-full py-3 text-[13px]"
         onClick={() => {
           if (!name.trim()) return;
           onAdd({
@@ -702,7 +913,38 @@ function CustomAdd({ onAdd }: { onAdd: (v: Omit<WeddingVenue, "id">) => void }) 
   );
 }
 
+// 수용 여유도 칩 — venueCapacityFit 결과를 한 줄 라벨/톤으로. gold 는 초과·미달(주의)만.
+const CAPACITY_FIT_LABEL: Record<Exclude<ReturnType<typeof venueCapacityFit>, "unknown">, string> = {
+  under: "보증인원 미달",
+  tight: "수용 근접",
+  ok: "수용 여유",
+  over: "인원 초과",
+};
+const CAPACITY_FIT_TONE: Record<Exclude<ReturnType<typeof venueCapacityFit>, "unknown">, string> = {
+  under: "text-gold",
+  tight: "text-soft",
+  ok: "text-soft",
+  over: "text-gold",
+};
+
+// 잔금일까지의 D-day 라벨 — daysLeft 는 upcomingBalances 가 계산한 값(음수=지남).
+function dDayLabel(daysLeft: number): string {
+  if (daysLeft < 0) return `${-daysLeft}일 지남`;
+  if (daysLeft === 0) return "오늘";
+  return `D-${daysLeft}`;
+}
+
 function fmtMan(n?: number): string {
   if (!n) return "?";
   return Math.round(n / 10000).toString();
+}
+
+// 금액 입력 파싱 (원 단위) — 빈 칸은 undefined, "0"은 0 유지, 음수·비정상값은 거부.
+// Budget.tsx 의 parseAmount 와 동일한 규약: 입력값을 원(KRW) 그대로 저장.
+function parseWon(raw: string): number | undefined {
+  const t = raw.trim();
+  if (t === "") return undefined;
+  const n = Number(t);
+  if (!Number.isFinite(n) || n < 0) return undefined;
+  return n;
 }

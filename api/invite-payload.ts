@@ -11,7 +11,10 @@ declare const process: { env: Record<string, string | undefined> };
 function err(message: string, status: number): Response {
   return new Response(JSON.stringify({ error: message }), {
     status,
-    headers: { "content-type": "application/json; charset=utf-8" },
+    headers: {
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "private, no-store, max-age=0",
+    },
   });
 }
 

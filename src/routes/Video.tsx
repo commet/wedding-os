@@ -332,7 +332,7 @@ export default function Video({ data, update }: Props) {
   return (
     <div className="page pt-8 pb-10 space-y-8">
       <div>
-        <div className="eyebrow-gold mb-2">Ceremony Video</div>
+        <div className="eyebrow-gold mb-2">영상 만들기</div>
         <h1 className="font-serif text-[2rem] leading-none">식전영상</h1>
       </div>
 
@@ -1035,9 +1035,7 @@ function PhotoChips<T extends string>({
           <button
             key={o.value}
             onClick={() => onChange(o.value)}
-            className={`text-[12px] tracking-wide pb-1 transition ${
-              value === o.value ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
-            }`}
+            className={`tracking-wide ${value === o.value ? "seg-active" : "seg"}`}
           >
             {o.label}
           </button>

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import type { WeddingData, SdmVendor, SdmCategory } from "../lib/schema";
+import type { ContractCheck, WeddingData, SdmVendor, SdmCategory } from "../lib/schema";
 import {
   SDM_GUIDE,
   SDM_CATALOG,
@@ -9,6 +9,15 @@ import {
 } from "../data/sdmCatalog";
 import Modal from "../components/Modal";
 import VendorActions from "../components/VendorActions";
+import { koBreak } from "../lib/typography";
+import { formatKRW, upcomingBalances } from "../lib/derived";
+
+// D-day 표기 — upcomingBalances 의 daysLeft 를 사람이 읽는 문구로. (음수=지남)
+function dDayLabel(daysLeft: number): string {
+  if (daysLeft < 0) return `${-daysLeft}일 지남`;
+  if (daysLeft === 0) return "오늘";
+  return `D-${daysLeft}`;
+}
 
 type Props = { data: WeddingData; update: (patch: any) => void; initialCategory?: SdmCategory };
 
@@ -20,6 +29,14 @@ const CAT_LABEL: Record<SdmCategory, string> = {
 };
 
 const STATUS_OPTIONS: SdmVendor["status"][] = ["관심", "상담", "계약"];
+const CONTRACT_FIELDS: { key: keyof ContractCheck; label: string; placeholder: string }[] = [
+  { key: "quote", label: "견적 기준", placeholder: "예: 토탈 패키지, 원장/실장 지정, 촬영 컷 수, 드레스 피팅 횟수" },
+  { key: "payment", label: "결제 일정", placeholder: "예: 계약금 30만원, 잔금 촬영 D-7, 현금영수증 가능" },
+  { key: "cancellation", label: "취소·변경", placeholder: "예: 일정 변경 1회 가능, 취소 위약금은 계약서 3조 확인" },
+  { key: "included", label: "포함 항목", placeholder: "예: 원본 파일, 보정본 20장, 헬퍼비 별도, 부케 대여 포함" },
+  { key: "extras", label: "별도 비용", placeholder: "예: 헬퍼비, 출장비, 앨범 추가, 야외 촬영 추가금" },
+  { key: "evidence", label: "증빙 보관", placeholder: "예: 계약서 PDF는 드라이브 / 카톡 견적 캡처 저장" },
+];
 
 const SEOUL = ["청담","강남","신사동","압구정","송파","강북","홍대","이태원"];
 
@@ -41,10 +58,17 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
   const [cat, setCat] = useState<SdmCategory>(initialCategory);
   const [region, setRegion] = useState<string>("all");
   const [query, setQuery] = useState("");
+  const [catalogOpen, setCatalogOpen] = useState(() => data.sdm.every((vendor) => vendor.category !== initialCategory));
   const [showAdd, setShowAdd] = useState(false);
   const [showChannels, setShowChannels] = useState(false);
 
   const inCat = data.sdm.filter((v) => v.category === cat);
+
+  // 다음 납부 — 스드메/스냅 잔금만, 잔금일 순. (읽기 전용)
+  const sdmBalances = useMemo(
+    () => upcomingBalances(data).filter((b) => b.targetPath === "/sdm" || b.targetPath === "/snap"),
+    [data],
+  );
 
   const filteredCatalog = useMemo(() => {
     const regionMatch = REGION_GROUPS.find((g) => g.key === region)?.match ?? (() => true);
@@ -100,8 +124,8 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
   return (
     <div className="page pt-8 pb-10 space-y-8">
       <div>
-        <div className="eyebrow-gold mb-2">{snapOnly ? "Wedding Day Snap" : "Studio · Dress · Makeup"}</div>
-        <h1 className="font-serif text-[2rem] leading-none">{snapOnly ? "본식 스냅" : "스드메"}</h1>
+        <div className="eyebrow-gold mb-2">{snapOnly ? "본식 촬영" : "스튜디오 · 드레스 · 메이크업"}</div>
+        <h1 className="font-serif text-[2rem] leading-none">{koBreak(snapOnly ? "본식 스냅" : "스드메")}</h1>
       </div>
 
       {/* 카테고리 — underline 탭 */}
@@ -110,10 +134,8 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
         {categories.map((c) => (
           <button
             key={c}
-            onClick={() => setCat(c)}
-            className={`text-[12px] tracking-wide whitespace-nowrap pb-1 transition ${
-              cat === c ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
-            }`}
+            onClick={() => { setCat(c); setCatalogOpen(data.sdm.every((vendor) => vendor.category !== c)); }}
+            className={`tracking-wide whitespace-nowrap ${cat === c ? "seg-active" : "seg"}`}
           >
             {CAT_LABEL[c]}
           </button>
@@ -128,7 +150,7 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
           <span className="text-soft text-[12px] group-open:rotate-180 transition">▾</span>
         </summary>
         <div className="mt-4 space-y-4">
-          <p className="text-[13px] leading-relaxed text-soft">{guide.tip}</p>
+          <p className="text-[13px] leading-loose text-soft">{guide.tip}</p>
           <div>
             <div className="eyebrow mb-2">체크포인트</div>
             <ul className="text-[13px] space-y-1.5 text-ink/90">
@@ -140,11 +162,37 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
         </div>
       </details>
 
+      {/* 다음 납부 — 스드메/스냅 잔금 임박 (읽기 전용) */}
+      {sdmBalances.length > 0 && (
+        <div className="border-y border-hair py-4">
+          <div className="eyebrow mb-3">다음 납부</div>
+          <ul className="space-y-2">
+            {sdmBalances.slice(0, 3).map((b) => (
+              <li
+                key={`${b.targetPath}-${b.name}-${b.dueAt}`}
+                className="flex items-baseline justify-between gap-3 text-[13px]"
+              >
+                <span className="text-ink break-keep min-w-0 truncate">
+                  {b.name} 잔금 <span className="tabular-nums">{formatKRW(b.amount)}</span>
+                </span>
+                <span
+                  className={`tabular-nums whitespace-nowrap flex-shrink-0 ${
+                    b.daysLeft <= 14 ? "text-gold" : "text-soft"
+                  }`}
+                >
+                  {dDayLabel(b.daysLeft)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* 내 후보 */}
       {inCat.length > 0 && (
         <section>
           <div className="flex items-baseline justify-between mb-4">
-            <h2 className="section-title">내 후보 · <span className="tabular-nums">{inCat.length}</span></h2>
+            <h2 className="section-title">{koBreak("내 후보 · ")}<span className="tabular-nums">{inCat.length}</span></h2>
             <button onClick={() => setShowAdd(true)} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">+ 직접 추가</button>
           </div>
           <div className="group-card px-4">
@@ -152,6 +200,7 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
               <MyVendorCard
                 key={v.id}
                 v={v}
+                dueDaysLeft={sdmBalances.find((b) => b.name === v.name)?.daysLeft}
                 onUpdate={(patch) => updateVendor(v.id, patch)}
                 onRemove={() => remove(v.id)}
               />
@@ -162,13 +211,20 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
 
       {/* 검색 + 지역 필터 */}
       <section className="space-y-5">
-        <div className="flex items-baseline justify-between">
-          <h2 className="section-title">자주 언급되는 곳들</h2>
-          {inCat.length === 0 && (
-            <button onClick={() => setShowAdd(true)} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">+ 직접 추가</button>
-          )}
+        <div className="border-y border-hair py-4">
+          <button onClick={() => setCatalogOpen((open) => !open)} className="flex w-full items-center justify-between gap-4 text-left">
+            <span>
+              <span className="section-title block">업체 후보 더 찾아보기</span>
+              <span className="mt-1 block text-[11.5px] text-soft">지역과 분위기로 목록을 검색합니다.</span>
+            </span>
+            <span className="text-[12px] text-soft underline underline-offset-4">{catalogOpen ? "접기" : "열기"}</span>
+          </button>
         </div>
 
+        {catalogOpen && <>
+        {inCat.length === 0 && (
+          <div className="flex justify-end"><button onClick={() => setShowAdd(true)} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">+ 직접 추가</button></div>
+        )}
         <input
           className="input text-[13px]"
           placeholder="이름·컨셉으로 검색 (예: 자연광, 빈티지)"
@@ -181,9 +237,7 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
             <button
               key={g.key}
               onClick={() => setRegion(g.key)}
-              className={`text-[11.5px] tracking-wide whitespace-nowrap pb-1 transition ${
-                region === g.key ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
-              }`}
+              className={`tracking-wide whitespace-nowrap ${region === g.key ? "seg-active" : "seg"}`}
             >
               {g.label}
             </button>
@@ -205,10 +259,11 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
         <p className="eyebrow text-center">
           총 <span className="tabular-nums">{filteredCatalog.length}</span>곳 표시 · 전체 <span className="tabular-nums">{SDM_CATALOG.filter((e) => e.category === cat).length}</span>
         </p>
+        </>}
       </section>
 
       {/* 지방 안내 */}
-      {!SEOUL.some((s) => region === s || region === "all") && region !== "all" && region !== "nationwide" && (
+      {catalogOpen && !SEOUL.some((s) => region === s || region === "all") && region !== "all" && region !== "nationwide" && (
         <div className="py-5 border-t border-b border-hair text-[12px] text-soft leading-relaxed space-y-2">
           <p><b className="text-ink">지방은 이 목록보다 카카오맵 + 결혼 카페가 훨씬 정확해요.</b></p>
           <p>각 카드의 [지도] 버튼으로 지역명·후기를 함께 검색하시고,
@@ -217,11 +272,11 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
       )}
 
       {/* 가격대 + 면책 */}
-      <div className="py-5 border-t border-hair text-[11.5px] text-soft leading-relaxed space-y-3">
+      {catalogOpen && <div className="py-5 border-t border-hair text-[11.5px] text-soft leading-relaxed space-y-3">
         <p>{SDM_PRICE_RANGE_NOTE}</p>
         <p>
           이 목록은 결혼 준비 단계에서의 출발점일 뿐이에요. 완전한 리스트도, 순위도, 추천도 아닙니다.
-          업체 이전·실장 이동·이름 변경이 잦으니 최종 결정 전 직접 확인이 꼭 필요해요.
+          검증일이 따로 없는 목록이고, 업체 이전·실장 이동·이름 변경이 잦으니 최종 결정 전 직접 확인이 꼭 필요해요.
           <strong className="text-ink"> 어떤 업체와도 제휴·후원·광고 관계 없음</strong>.
         </p>
         <p>
@@ -229,16 +284,16 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
           <a href="mailto:yclee913@gmail.com" rel="noopener noreferrer" className="underline underline-offset-2 text-ink">yclee913@gmail.com</a>
           {" "}으로 — 24시간 내 처리해드립니다.
         </p>
-      </div>
+      </div>}
 
       {/* 더 알아보기 */}
-      <button
+      {catalogOpen && <button
         onClick={() => setShowChannels(true)}
         className="block w-full text-left py-5 border-t border-b border-hair active:opacity-60 transition"
       >
         <div className="font-serif text-[15px] text-ink">더 자세히 알아보려면 →</div>
         <p className="text-[12px] text-soft mt-1">결혼 카페 · 인스타 · 유튜브 — 사람들이 실제 정보 얻는 곳</p>
-      </button>
+      </button>}
 
       <Modal open={showAdd} onClose={() => setShowAdd(false)} title={`${CAT_LABEL[cat]} 직접 추가`}>
         <CustomAdd category={cat} onAdd={addCustom} />
@@ -282,14 +337,14 @@ function CatalogCard({
       <div className="flex items-baseline justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="font-serif text-[15px] text-ink">{entry.name}</div>
-          <div className="text-[12px] text-soft mt-1 leading-relaxed line-clamp-2">{entry.vibe}</div>
+          <div className="text-[12px] text-soft mt-1 leading-relaxed line-clamp-2 break-keep">{entry.vibe}</div>
           {entry.region && <div className="eyebrow mt-2">{entry.region}</div>}
         </div>
         <button
           onClick={onAdd}
           disabled={added}
           className={`text-[11.5px] tracking-wide whitespace-nowrap flex-shrink-0 underline underline-offset-4 ${
-            added ? "text-soft" : "text-gold hover:text-ink"
+            added ? "text-ink" : "text-gold hover:text-ink"
           }`}
         >
           {added ? "✓ 담음" : "+ 담기"}
@@ -303,17 +358,34 @@ function CatalogCard({
 }
 
 function MyVendorCard({
-  v, onUpdate, onRemove,
+  v, dueDaysLeft, onUpdate, onRemove,
 }: {
   v: SdmVendor;
+  dueDaysLeft?: number;
   onUpdate: (patch: Partial<SdmVendor>) => void;
   onRemove: () => void;
 }) {
+  const updateContract = (patch: Partial<ContractCheck>) => {
+    onUpdate({ contract: cleanContract({ ...(v.contract ?? {}), ...patch }) });
+  };
+  // 계약 + 잔금 남음 + 잔금일 있음 → 요약에 D-day 칩. daysLeft 는 upcomingBalances 가 계산한 값을 그대로 재사용.
+  const showDueChip =
+    v.status === "계약" &&
+    (v.balanceKRW ?? 0) > 0 &&
+    !!v.balanceDueAt &&
+    dueDaysLeft !== undefined;
   return (
-    <div className="py-5 space-y-3">
+    <div className="py-4 space-y-3">
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
-          <div className="font-serif text-[15px] text-ink">{v.name}</div>
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <span className="font-serif text-[15px] text-ink break-keep">{v.name}</span>
+            {showDueChip && (
+              <span className="text-[10.5px] tracking-eyebrow uppercase text-gold tabular-nums whitespace-nowrap">
+                {dDayLabel(dueDaysLeft!)}
+              </span>
+            )}
+          </div>
           {v.region && <div className="eyebrow mt-1">{v.region}</div>}
         </div>
         <button onClick={onRemove} className="text-soft hover:text-ink text-sm">×</button>
@@ -326,36 +398,151 @@ function MyVendorCard({
           <button
             key={s}
             onClick={() => onUpdate({ status: s })}
-            className={`text-[12px] tracking-wide pb-1 transition ${
-              v.status === s ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
-            }`}
+            className={`tracking-wide ${v.status === s ? "seg-active" : "seg"}`}
           >
             {s}
           </button>
         ))}
       </div>
       <textarea
-        className="input-boxed text-[12.5px] min-h-[50px]"
+        className="input-boxed text-[13px] min-h-[50px]"
         placeholder="메모 (가격·실장 이름·인상 등)"
         value={v.notes ?? ""}
         onChange={(e) => onUpdate({ notes: e.target.value })}
       />
       <div className="grid grid-cols-2 gap-x-4">
         <input
-          className="input text-[12.5px]"
+          className="input text-[13px]"
           placeholder="가격 메모"
           value={v.priceRange ?? ""}
           onChange={(e) => onUpdate({ priceRange: e.target.value })}
         />
         <input
-          className="input text-[12.5px]"
+          className="input text-[13px]"
           placeholder="링크 (인스타·홈피)"
           value={v.link ?? ""}
           onChange={(e) => onUpdate({ link: e.target.value })}
         />
       </div>
+
+      {/* 계약 관리 — 상담·계약 단계에서만 노출 */}
+      {v.status !== "관심" && (
+        <div className="pt-3 mt-1 border-t border-hair space-y-3">
+          <div className="eyebrow">계약 관리</div>
+          {/* 읽기 전용 원장 한 줄 — 선금·잔금·잔금일이 모두 채워졌을 때만 */}
+          {(v.depositKRW ?? 0) > 0 && (v.balanceKRW ?? 0) > 0 && v.balanceDueAt && (
+            <div className="text-[12px] text-soft tabular-nums break-keep">
+              선금 {formatKRW(v.depositKRW!)} · 잔금 {formatKRW(v.balanceKRW!)} · 잔금일 {v.balanceDueAt.slice(0, 10)}
+            </div>
+          )}
+          <input
+            className="input text-[13px]"
+            placeholder="담당자·업체 연락처"
+            value={v.contact ?? ""}
+            onChange={(e) => onUpdate({ contact: e.target.value })}
+          />
+          <div className="grid grid-cols-2 gap-x-4">
+            <div>
+              <label className="label">계약금 (원)</label>
+              <input
+                type="number"
+                min={0}
+                className="input text-[13px] tabular-nums"
+                placeholder="0"
+                value={v.depositKRW ?? ""}
+                onChange={(e) => onUpdate({ depositKRW: parseAmount(e.target.value) })}
+              />
+            </div>
+            <div>
+              <label className="label">잔금 (원)</label>
+              <input
+                type="number"
+                min={0}
+                className="input text-[13px] tabular-nums"
+                placeholder="0"
+                value={v.balanceKRW ?? ""}
+                onChange={(e) => onUpdate({ balanceKRW: parseAmount(e.target.value) })}
+              />
+            </div>
+          </div>
+          {(v.depositKRW || v.balanceKRW) ? (
+            <div className="eyebrow tabular-nums">
+              합계 {formatKRW((v.depositKRW ?? 0) + (v.balanceKRW ?? 0))}
+            </div>
+          ) : null}
+          <div>
+            <label className="label">잔금 납부일</label>
+            <input
+              type="date"
+              className="input text-[13px] tabular-nums"
+              value={v.balanceDueAt ?? ""}
+              onChange={(e) => onUpdate({ balanceDueAt: e.target.value || undefined })}
+            />
+          </div>
+          <ContractFields contract={v.contract} onUpdate={updateContract} />
+        </div>
+      )}
     </div>
   );
+}
+
+function ContractFields({
+  contract,
+  onUpdate,
+}: {
+  contract?: ContractCheck;
+  onUpdate: (patch: Partial<ContractCheck>) => void;
+}) {
+  return (
+    <details className="border-y border-hair py-3">
+      <summary className="cursor-pointer list-none flex items-baseline justify-between gap-4">
+        <span>
+          <span className="eyebrow-gold block mb-1">계약 체크</span>
+          <span className="text-[12px] text-soft">{contractProgress(contract)} · 확인한 것만 적어두세요</span>
+        </span>
+        <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
+      </summary>
+      <div className="mt-4 space-y-3">
+        <p className="text-[11.5px] text-soft leading-relaxed">
+          모든 칸을 채울 필요는 없어요. 패키지에 포함되는 것과 별도 비용처럼 나중에 헷갈릴 조건만 남기면 충분합니다.
+        </p>
+        {CONTRACT_FIELDS.map((field) => (
+          <div key={field.key}>
+            <label className="label">{field.label}</label>
+            <textarea
+              className="input-boxed text-[12.5px] min-h-[44px]"
+              value={contract?.[field.key] ?? ""}
+              onChange={(e) => onUpdate({ [field.key]: e.target.value } as Partial<ContractCheck>)}
+              placeholder={field.placeholder}
+            />
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function contractProgress(contract?: ContractCheck): string {
+  const count = CONTRACT_FIELDS.filter((field) => contract?.[field.key]?.trim()).length;
+  return `확인 ${count}/${CONTRACT_FIELDS.length}`;
+}
+
+function cleanContract(contract: ContractCheck): ContractCheck | undefined {
+  const next = Object.fromEntries(
+    Object.entries(contract)
+      .map(([key, value]) => [key, typeof value === "string" ? value.trim() : value])
+      .filter(([, value]) => Boolean(value))
+  ) as ContractCheck;
+  return Object.keys(next).length > 0 ? next : undefined;
+}
+
+// 금액 입력 파싱 — Budget.tsx 와 동일 규칙(원 단위 그대로 저장). 빈 칸 undefined, 음수 거부.
+function parseAmount(raw: string): number | undefined {
+  const t = raw.trim();
+  if (t === "") return undefined;
+  const n = Number(t);
+  if (!Number.isFinite(n) || n < 0) return undefined;
+  return n;
 }
 
 function CustomAdd({
@@ -371,10 +558,10 @@ function CustomAdd({
   const [notes, setNotes] = useState("");
   return (
     <div className="space-y-3">
-      <input className="input text-sm" placeholder="업체 이름" value={name} onChange={(e) => setName(e.target.value)} />
-      <input className="input text-sm" placeholder="지역 (예: 청담)" value={region} onChange={(e) => setRegion(e.target.value)} />
-      <input className="input text-sm" placeholder="홈페이지·인스타 링크" value={link} onChange={(e) => setLink(e.target.value)} />
-      <textarea className="input text-sm min-h-[80px]" placeholder="메모" value={notes} onChange={(e) => setNotes(e.target.value)} />
+      <input className="input text-[13px]" placeholder="업체 이름" value={name} onChange={(e) => setName(e.target.value)} />
+      <input className="input text-[13px]" placeholder="지역 (예: 청담)" value={region} onChange={(e) => setRegion(e.target.value)} />
+      <input className="input text-[13px]" placeholder="홈페이지·인스타 링크" value={link} onChange={(e) => setLink(e.target.value)} />
+      <textarea className="input text-[13px] min-h-[80px]" placeholder="메모" value={notes} onChange={(e) => setNotes(e.target.value)} />
       <button
         className="btn-primary w-full"
         onClick={() => {

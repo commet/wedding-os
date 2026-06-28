@@ -5,6 +5,7 @@
 
 import { Link } from "react-router-dom";
 import CipherPeek from "../components/CipherPeek";
+import { koBreak } from "../lib/typography";
 
 const REPO = "https://github.com/commet/wedding-os/blob/master";
 
@@ -12,9 +13,9 @@ export default function Trust() {
   return (
     <div className="page pt-8 pb-12 max-w-app mx-auto text-[13px] leading-relaxed">
       <div className="mb-2">
-        <div className="eyebrow-gold mb-2">Trust · 직접 확인</div>
+        <div className="eyebrow-gold mb-2">보안 직접 확인</div>
         <h1 className="font-serif text-[2rem] leading-[1.1]">
-          내용은 운영자도<br />못 읽습니다.
+          {koBreak("내용은 운영자도")}<br />{koBreak("못 읽습니다.")}
         </h1>
       </div>
       <p className="text-soft mt-3 mb-2">
@@ -82,29 +83,33 @@ export default function Trust() {
       {/* 04 — 오픈소스 코드 핀 */}
       <Section num="04" title="코드로 확인하기">
         <p className="text-soft mb-3">
-          당신 브라우저에서 도는 코드는 전부 공개돼 있습니다. 전문가라면 직접 읽고 검증할 수 있어요.
+          당신 브라우저에서 도는 코드는 전부 공개돼 있어요. 꼭 읽지 않아도 괜찮지만,
+          원하면 직접 열어 검증할 수 있습니다.
         </p>
-        <ul className="space-y-2">
-          <li>
-            <a href={`${REPO}/src/lib/inviteCrypto.ts`} target="_blank" rel="noopener noreferrer"
-               className="underline underline-offset-2 text-ink">inviteCrypto.ts</a>
-            <span className="text-soft"> — 암호화(AES-GCM-256). 키 생성·암복호화 전부.</span>
-          </li>
-          <li>
-            <a href={`${REPO}/api/invite-publish.ts`} target="_blank" rel="noopener noreferrer"
-               className="underline underline-offset-2 text-ink">api/invite-publish.ts</a>
-            <span className="text-soft"> — 서버는 암호문만 받습니다. 키는 받지 않아요.</span>
-          </li>
-          <li>
-            <a href={`${REPO}/src/lib/inviteHosting.ts`} target="_blank" rel="noopener noreferrer"
-               className="underline underline-offset-2 text-ink">inviteHosting.ts</a>
-            <span className="text-soft"> — 키는 링크의 <code className="bg-cream px-1">#</code> 뒤에만 붙습니다.</span>
-          </li>
-          <li>
-            <a href="https://github.com/commet/wedding-os" target="_blank" rel="noopener noreferrer"
-               className="underline underline-offset-2 text-ink">전체 저장소 →</a>
-          </li>
-        </ul>
+        <a href="https://github.com/commet/wedding-os" target="_blank" rel="noopener noreferrer"
+           className="underline underline-offset-2 text-ink">전체 저장소 열기 →</a>
+        <details className="mt-3">
+          <summary className="cursor-pointer list-none text-[13px] text-soft underline underline-offset-4 hover:text-ink">
+            전문가용 — 핵심 파일 바로 보기
+          </summary>
+          <ul className="mt-3 space-y-2 border-l border-hair pl-4">
+            <li>
+              <a href={`${REPO}/src/lib/inviteCrypto.ts`} target="_blank" rel="noopener noreferrer"
+                 className="underline underline-offset-2 text-ink">inviteCrypto.ts</a>
+              <span className="text-soft"> — 암호화(AES-GCM-256). 키 생성·암복호화 전부.</span>
+            </li>
+            <li>
+              <a href={`${REPO}/api/invite-publish.ts`} target="_blank" rel="noopener noreferrer"
+                 className="underline underline-offset-2 text-ink">api/invite-publish.ts</a>
+              <span className="text-soft"> — 서버는 암호문만 받습니다. 키는 받지 않아요.</span>
+            </li>
+            <li>
+              <a href={`${REPO}/src/lib/inviteHosting.ts`} target="_blank" rel="noopener noreferrer"
+                 className="underline underline-offset-2 text-ink">inviteHosting.ts</a>
+              <span className="text-soft"> — 키는 링크의 <code className="bg-cream px-1">#</code> 뒤에만 붙습니다.</span>
+            </li>
+          </ul>
+        </details>
       </Section>
 
       {/* 05 — 3단 스펙트럼 */}
@@ -159,7 +164,7 @@ function Tier({ name, line, who, star }: { name: string; line: string; who: stri
   return (
     <div className="border-l-2 border-hair pl-4">
       <div className="flex items-baseline gap-2 mb-1">
-        <h3 className="font-serif text-[16px] text-ink">{name}</h3>
+        <h3 className="font-serif text-[16px] text-ink">{koBreak(name)}</h3>
         {star && <span className="eyebrow-gold">추천</span>}
       </div>
       <p className="text-[13px] text-ink mb-1">{line}</p>
@@ -173,7 +178,7 @@ function Section({ num, title, children, last }: { num: string; title: string; c
     <section className={`py-7 ${last ? "" : "border-b border-hair"}`}>
       <div className="flex items-baseline gap-4 mb-4">
         <span className="font-serif text-soft text-base tabular-nums w-6 flex-shrink-0">{num}</span>
-        <h2 className="font-serif text-[17px] text-ink">{title}</h2>
+        <h2 className="font-serif text-[17px] text-ink">{koBreak(title)}</h2>
       </div>
       <div className="pl-10">{children}</div>
     </section>

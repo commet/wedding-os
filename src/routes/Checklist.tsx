@@ -4,6 +4,8 @@ import type { WeddingData, CheckItem, ChecklistSection } from "../lib/schema";
 import { defaultChecklist, recalcDueDates } from "../data/checklistTemplate";
 import { daysSince } from "../lib/freshness";
 import { GIFT_TIER_LABEL, GIFT_IDEAS, GIFT_TIP } from "../data/giftCatalog";
+import { koBreak } from "../lib/typography";
+import { buildChecklistSheet, shareOrDownloadText } from "../lib/textExport";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type View = "category" | "timeline";
@@ -13,6 +15,7 @@ export default function Checklist({ data, update }: Props) {
   const [query, setQuery] = useState("");
   const [incompleteOnly, setIncompleteOnly] = useState(true);
   const [deleted, setDeleted] = useState<{ sid: string; item: CheckItem; index: number } | null>(null);
+  const [exportToast, setExportToast] = useState<string | null>(null);
   const sections = data.checklist;
   const weddingDate = data.invitation.date;
 
@@ -39,6 +42,20 @@ export default function Checklist({ data, update }: Props) {
 
   const loadDefault = () => {
     update((prev: WeddingData) => ({ ...prev, checklist: defaultChecklist(prev.invitation.date) }));
+  };
+
+  const exportChecklist = async () => {
+    const r = await shareOrDownloadText({
+      title: "체크리스트",
+      text: buildChecklistSheet(data),
+      filename: "체크리스트.txt",
+    });
+    setExportToast(
+      r === "shared" ? "공유 시트를 열었어요" :
+      r === "copied" ? "파일로 저장하고 클립보드에 복사했어요" :
+      "파일로 저장했어요",
+    );
+    window.setTimeout(() => setExportToast(null), 2600);
   };
 
   const recalc = () => {
@@ -110,22 +127,18 @@ export default function Checklist({ data, update }: Props) {
     return (
       <div className="page pt-20 pb-10 text-center space-y-8">
         <div>
-          <div className="eyebrow-gold mb-4">Checklist</div>
-          <h2 className="display-sm mb-4">
-            놓치는 것 없이,<br />
-            <span className="italic font-light text-gold">한눈에.</span>
-          </h2>
-          <p className="text-[13px] text-soft leading-relaxed">
-            표준 타임라인을 불러오면 결혼식 날짜에 맞춰<br />
-            할 일마다 마감일이 자동으로 잡혀요.
+          <div className="eyebrow-gold mb-4">준비 일정</div>
+          <h1 className="display-sm mb-4 [text-wrap:balance] max-w-[18rem] mx-auto">{koBreak("할 일을 날짜에 맞춰")} <span className="font-light">{koBreak("정리해드릴게요.")}</span></h1>
+          <p className="text-[15px] text-soft leading-[1.85]">
+            기본 목록을 불러오면 예식 날짜에 맞춰<br />할 일과 마감일이 정리됩니다.
           </p>
         </div>
         {!weddingDate && (
-          <p className="text-[11.5px] text-gold leading-relaxed">
+          <p className="text-[12px] text-soft leading-relaxed">
             먼저 <Link to="/invitation" className="underline underline-offset-2">청첩장</Link>에서 결혼식 날짜를 입력하면 더 정확해요.
           </p>
         )}
-        <button onClick={loadDefault} className="btn-primary px-8 py-3.5 text-[12.5px]">
+        <button onClick={loadDefault} className="btn-primary px-8 py-3.5 text-[13px]">
           준비 타임라인 불러오기
         </button>
       </div>
@@ -135,9 +148,9 @@ export default function Checklist({ data, update }: Props) {
   return (
     <div className="page pt-8 pb-6 space-y-6">
       <div>
-        <div className="eyebrow-gold mb-2">Checklist</div>
+        <div className="eyebrow-gold mb-2">준비 일정</div>
         <div className="flex items-baseline justify-between">
-          <h1 className="font-serif text-[2rem] leading-none">체크리스트</h1>
+          <h1 className="font-serif text-[2rem] leading-none">{koBreak("체크리스트")}</h1>
           <span className="font-serif text-lg text-soft tabular-nums">{doneCount}<span className="text-soft/60"> / {allItems.length}</span></span>
         </div>
       </div>
@@ -151,21 +164,26 @@ export default function Checklist({ data, update }: Props) {
       <div className="flex items-center gap-6 border-b border-hair pb-3">
         <button
           onClick={() => setView("timeline")}
-          className={`text-[12px] tracking-wide transition pb-1 ${view === "timeline" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+          className={`tracking-wide ${view === "timeline" ? "seg-active" : "seg"}`}
         >
           일정순
         </button>
         <button
           onClick={() => setView("category")}
-          className={`text-[12px] tracking-wide transition pb-1 ${view === "category" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+          className={`tracking-wide ${view === "category" ? "seg-active" : "seg"}`}
         >
           카테고리
         </button>
-        {weddingDate && (
-          <button onClick={recalc} className="ml-auto text-[11px] text-soft underline underline-offset-4 hover:text-ink">
-            날짜 기준 재계산
+        <div className="ml-auto flex items-center gap-4">
+          <button onClick={exportChecklist} className="text-[11px] text-soft underline underline-offset-4 hover:text-ink">
+            내보내기
           </button>
-        )}
+          {weddingDate && (
+            <button onClick={recalc} className="text-[11px] text-soft underline underline-offset-4 hover:text-ink">
+              날짜 기준 재계산
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
@@ -186,7 +204,7 @@ export default function Checklist({ data, update }: Props) {
       </div>
 
       {view === "timeline" ? (
-        <TimelineView items={visibleItems} onToggle={toggleItem} onSetDue={setDue} onDelete={deleteItem} />
+        <TimelineView items={visibleItems} onToggle={toggleItem} onSetDue={setDue} onDelete={deleteItem} expandAll={query.trim().length > 0} />
       ) : (
         <CategoryView
           sections={sections.map((section) => ({
@@ -198,13 +216,19 @@ export default function Checklist({ data, update }: Props) {
       )}
 
       {visibleItems.length === 0 && (
-        <p className="py-10 text-center text-[13px] text-soft">조건에 맞는 할 일이 없어요.</p>
+        <p className="py-10 text-center text-[15px] text-soft leading-[1.85]">조건에 맞는 할 일이 없어요.</p>
       )}
 
       {deleted && (
-        <div role="status" className="fixed left-1/2 bottom-24 z-40 -translate-x-1/2 w-[min(90vw,420px)] bg-ink text-paper px-4 py-3 flex items-center justify-between gap-4 shadow-xl">
+        <div role="status" className="anim-sheet fixed left-1/2 bottom-24 z-40 -translate-x-1/2 w-[min(90vw,420px)] bg-ink text-paper px-4 py-3 flex items-center justify-between gap-4 border border-hair">
           <span className="text-[12px] truncate">‘{deleted.item.text}’ 삭제됨</span>
           <button onClick={undoDelete} className="min-h-11 px-2 text-[12px] font-medium underline underline-offset-4">실행 취소</button>
+        </div>
+      )}
+
+      {exportToast && (
+        <div role="status" className="anim-pop fixed inset-x-0 bottom-24 z-40 flex justify-center px-6 pointer-events-none">
+          <div className="bg-ink text-paper text-[12px] px-4 py-2.5">{exportToast}</div>
         </div>
       )}
 
@@ -244,7 +268,7 @@ function GiftPanel() {
           <button
             key={t}
             onClick={() => setTier(t)}
-            className={`text-[12px] tracking-wide pb-1 transition ${tier === t ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+            className={`tracking-wide ${tier === t ? "seg-active" : "seg"}`}
           >
             {GIFT_TIER_LABEL[t].range.split(" ")[0]}
           </button>
@@ -264,19 +288,19 @@ function GiftPanel() {
             </div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 pt-1">
               <div>
-                <div className="eyebrow-gold mb-0.5">장점</div>
-                <div className="text-[11.5px] text-soft leading-relaxed">{g.pros}</div>
+                <div className="eyebrow mb-0.5">장점</div>
+                <div className="text-[12px] text-soft leading-relaxed">{g.pros}</div>
               </div>
               <div>
                 <div className="eyebrow mb-0.5">아쉬운 점</div>
-                <div className="text-[11.5px] text-soft leading-relaxed">{g.cons}</div>
+                <div className="text-[12px] text-soft leading-relaxed">{g.cons}</div>
               </div>
             </div>
           </li>
         ))}
       </ul>
 
-      <p className="text-[10.5px] text-soft text-center pt-2">
+      <p className="text-[11px] text-soft text-center pt-2">
         업체 추천이 아닌 카테고리 가이드. 표시 삭제·정정 요청은{" "}
         <a href="mailto:yclee913@gmail.com" rel="noopener noreferrer" className="underline underline-offset-2 text-ink">yclee913@gmail.com</a>.
       </p>
@@ -311,12 +335,13 @@ const BUCKET_META: Record<string, { label: string; color: string }> = {
 const BUCKET_ORDER = ["overdue", "week", "month", "later", "nodate", "done"] as const;
 
 function TimelineView({
-  items, onToggle, onSetDue, onDelete,
+  items, onToggle, onSetDue, onDelete, expandAll,
 }: {
   items: FlatItem[];
   onToggle: (sid: string, iid: string) => void;
   onSetDue: (sid: string, iid: string, d: string) => void;
   onDelete: (sid: string, iid: string) => void;
+  expandAll: boolean;
 }) {
   const grouped = useMemo(() => {
     const g: Record<string, FlatItem[]> = {};
@@ -335,24 +360,50 @@ function TimelineView({
       {BUCKET_ORDER.map((bucket) => {
         const list = grouped[bucket];
         if (!list || list.length === 0) return null;
-        const meta = BUCKET_META[bucket];
-        return (
-          <section key={bucket}>
-            <div className="flex items-baseline justify-between mb-2">
-              <h2 className={`section-title ${meta.color === "text-soft" ? "!text-soft" : ""}`}>
-                {meta.label}
-              </h2>
-              <span className="eyebrow tabular-nums">{list.length}</span>
-            </div>
-            <div className="divide-y divide-hair">
-              {list.map((it) => (
-                <TimelineRow key={it.id} item={it} onToggle={onToggle} onSetDue={onSetDue} onDelete={onDelete} />
-              ))}
-            </div>
-          </section>
-        );
+        return <TimelineGroup key={bucket} bucket={bucket} list={list} expandAll={expandAll} onToggle={onToggle} onSetDue={onSetDue} onDelete={onDelete} />;
       })}
     </div>
+  );
+}
+
+function TimelineGroup({ bucket, list, expandAll, onToggle, onSetDue, onDelete }: {
+  bucket: typeof BUCKET_ORDER[number];
+  list: FlatItem[];
+  expandAll: boolean;
+  onToggle: (sid: string, iid: string) => void;
+  onSetDue: (sid: string, iid: string, d: string) => void;
+  onDelete: (sid: string, iid: string) => void;
+}) {
+  const collapsible = bucket === "later" || bucket === "done" || (bucket === "nodate" && list.length > 8);
+  const [open, setOpen] = useState(!collapsible);
+  useEffect(() => { if (expandAll) setOpen(true); }, [expandAll]);
+  const meta = BUCKET_META[bucket];
+  const rows = (
+    <div className="divide-y divide-hair">
+      {list.map((item) => <TimelineRow key={item.id} item={item} onToggle={onToggle} onSetDue={onSetDue} onDelete={onDelete} />)}
+    </div>
+  );
+
+  if (!collapsible) {
+    return (
+      <section>
+        <div className="mb-2 flex items-baseline justify-between">
+          <h2 className="section-title">{meta.label}</h2>
+          <span className="eyebrow tabular-nums">{list.length}</span>
+        </div>
+        {rows}
+      </section>
+    );
+  }
+
+  return (
+    <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between border-b border-hair py-2">
+        <h2 className="section-title !text-soft">{meta.label} <span className="ml-1 font-normal tabular-nums">{list.length}</span></h2>
+        <span className="text-[12px] text-soft">{open ? "접기" : "보기"}</span>
+      </summary>
+      <div className="pt-2">{rows}</div>
+    </details>
   );
 }
 
@@ -404,7 +455,7 @@ function TimelineRow({
           )}
         </div>
       </div>
-      <button onClick={() => onDelete(sid, item.id)} aria-label={`${item.text} 삭제`} className="text-soft hover:text-ink text-sm min-w-11 min-h-11">×</button>
+      <button onClick={() => onDelete(sid, item.id)} aria-label={`${item.text} 삭제`} className="text-soft hover:text-ink text-base min-w-11 min-h-11">×</button>
     </div>
   );
 }
@@ -436,7 +487,7 @@ function CategoryView({
             <button
               key={section.id}
               onClick={() => setSelectedId(section.id)}
-              className={`text-left border p-3 transition ${active ? "border-ink bg-cream/60" : "border-hair bg-transparent hover:border-mute"}`}
+              className={`text-left border p-3 transition ${active ? "border-ink" : "border-hair hover:border-mute"}`}
             >
               <div className="font-serif text-[14px] text-ink truncate">{section.title}</div>
               <div className="eyebrow mt-2 tabular-nums">{done}/{section.items.length} · {pct}%</div>
@@ -511,10 +562,10 @@ function SectionCard({
                     type="date"
                     value={item.dueDate ?? ""}
                     onChange={(e) => onSetDue(section.id, item.id, e.target.value)}
-                    className="text-[11px] text-soft w-7 opacity-60 bg-transparent"
+                    className="text-[11px] text-soft w-7 bg-transparent"
                     title="마감일"
                   />
-                  <button onClick={() => onDelete(section.id, item.id)} aria-label={`${item.text} 삭제`} className="text-soft hover:text-ink text-sm min-w-11 min-h-11">×</button>
+                  <button onClick={() => onDelete(section.id, item.id)} aria-label={`${item.text} 삭제`} className="text-soft hover:text-ink text-base min-w-11 min-h-11">×</button>
                 </li>
               );
             })}

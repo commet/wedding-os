@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useWeddingData } from "./lib/storage";
 import AppShell from "./components/AppShell";
+import ErrorBoundary from "./components/ErrorBoundary";
 // 첫 진입 셸 — 랜딩(/)·홈(/dashboard)만 즉시 떠야 하므로 eager.
 // 나머지는 메뉴/탭 누른 뒤에야 보이므로 라우트별 lazy 로 분할 — 초기 번들 ↓.
 import Welcome from "./routes/Welcome";
@@ -12,11 +13,11 @@ const Rings = lazy(() => import("./routes/Rings"));
 const Trip = lazy(() => import("./routes/Trip"));
 const Sdm = lazy(() => import("./routes/Sdm"));
 const Checklist = lazy(() => import("./routes/Checklist"));
+const Ceremony = lazy(() => import("./routes/Ceremony"));
 const Venues = lazy(() => import("./routes/Venues"));
 const Budget = lazy(() => import("./routes/Budget"));
 const Guests = lazy(() => import("./routes/Guests"));
 const Share = lazy(() => import("./routes/Share"));
-const Agent = lazy(() => import("./routes/Agent"));
 const AiSettings = lazy(() => import("./routes/AiSettings"));
 const Setup = lazy(() => import("./routes/Setup"));
 const Settings = lazy(() => import("./routes/Settings"));
@@ -32,7 +33,6 @@ const Video = lazy(() => import("./routes/Video"));
 const HostedInvitation = lazy(() => import("./routes/HostedInvitation"));
 
 export default function App() {
-  const { data, loading, update } = useWeddingData();
   const location = useLocation();
 
   // 호스팅 발행 청첩장(/i/<code>) — 게스트 전용. 앱 셸·데이터 없이 단독 렌더.
@@ -61,6 +61,12 @@ export default function App() {
       </Suspense>
     );
   }
+
+  return <WeddingAppRoutes location={location} />;
+}
+
+function WeddingAppRoutes({ location }: { location: ReturnType<typeof useLocation> }) {
+  const { data, loading, update } = useWeddingData();
 
   if (loading) {
     return (
@@ -102,8 +108,9 @@ export default function App() {
 
   return (
     <AppShell data={data!} update={update}>
-      <Suspense fallback={<div className="px-5 py-20 text-center text-soft">불러오는 중…</div>}>
-        <Routes>
+      <ErrorBoundary key={location.pathname}>
+        <Suspense fallback={<div className="px-5 py-20 text-center text-soft">불러오는 중…</div>}>
+          <Routes>
           <Route path="/" element={<Welcome data={data!} update={update} />} />
           <Route path="/setup" element={<Setup data={data!} update={update} />} />
           <Route path="/dashboard" element={<Dashboard data={data!} update={update} />} />
@@ -116,13 +123,13 @@ export default function App() {
           <Route path="/flights" element={<Navigate to="/trip" replace />} />
           <Route path="/honeymoon" element={<Navigate to="/trip" replace />} />
           <Route path="/checklist" element={<Checklist data={data!} update={update} />} />
+          <Route path="/ceremony" element={<Ceremony data={data!} update={update} />} />
           <Route path="/invitation" element={<Invitation data={data!} update={update} />} />
           <Route path="/i" element={<Invitation data={data!} update={update} />} />
           <Route path="/venues" element={<Venues data={data!} update={update} />} />
           <Route path="/budget" element={<Budget data={data!} update={update} />} />
           <Route path="/guests" element={<Guests data={data!} update={update} />} />
           <Route path="/share" element={<Share data={data!} update={update} />} />
-          <Route path="/agent" element={<Agent data={data!} />} />
           <Route path="/ai" element={<AiSettings data={data!} />} />
           <Route path="/video" element={<Video data={data!} update={update} />} />
           <Route path="/settings" element={<Settings data={data!} update={update} />} />
@@ -131,8 +138,9 @@ export default function App() {
           <Route path="/trust" element={<Trust />} />
           <Route path="/start-hosted" element={<HostedStart data={data!} update={update} />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
-      </Suspense>
+          </Routes>
+        </Suspense>
+      </ErrorBoundary>
     </AppShell>
   );
 }

@@ -17,6 +17,7 @@ import { generateWeddingId, generateWeddingKeyRaw, buildRecoveryLink } from "../
 import { authAvailable, currentAccessToken, currentUserId } from "../lib/auth";
 import { createHostedStorage } from "../lib/storage.hosted";
 import { migrateImagesIdbToDataUrl, stripUnresolvedIdb } from "../lib/imageStore";
+import { koBreak } from "../lib/typography";
 
 type Props = { data: WeddingData; update: (patch: any) => void };
 
@@ -104,7 +105,7 @@ export default function HostedStart({ data, update }: Props) {
     return (
       <div className="page max-w-app mx-auto pt-16 pb-16 text-center">
         <div className="eyebrow-gold mb-3">함께 편집</div>
-        <h1 className="font-serif text-[1.9rem] leading-tight mb-4">아직 준비 중이에요</h1>
+        <h1 className="font-serif text-[1.9rem] leading-tight mb-4">{koBreak("아직 준비 중이에요")}</h1>
         <p className="text-[13px] text-soft leading-relaxed mb-8">
           온라인 함께 편집 기능은 곧 열려요. 지금까지 입력한 내용은 <b className="text-ink">이 기기에 안전하게 저장</b>돼 있어요 —
           그대로 계속 쓰시면 됩니다.
@@ -121,7 +122,7 @@ export default function HostedStart({ data, update }: Props) {
       <div className="page max-w-app mx-auto pt-12 pb-16">
         <div className="eyebrow-gold mb-3">함께 편집 · 다른 기기</div>
         <h1 className="font-serif text-[2rem] leading-[1.12] mb-5">
-          배우자와 함께,<br />다른 기기에서도.
+          {koBreak("배우자와 함께,")}<br />{koBreak("다른 기기에서도.")}
         </h1>
         <ul className="space-y-3 text-[13px] text-soft leading-relaxed mb-8 border-y border-hair py-6">
           <li>· 링크 하나로 <b className="text-ink">둘이 같이 편집</b>해요.</li>
@@ -144,7 +145,7 @@ export default function HostedStart({ data, update }: Props) {
     <div className="page max-w-app mx-auto pt-12 pb-16">
       <div className="eyebrow-gold mb-3">준비됐어요</div>
       <h1 className="font-serif text-[1.9rem] leading-[1.12] mb-4">
-        이 링크를<br /><span className="text-gold">배우자에게</span> 보내세요.
+        {koBreak("이 링크를")}<br /><span className="text-gold">배우자에게</span> {koBreak("보내세요.")}
       </h1>
       <p className="text-[13px] text-soft leading-relaxed mb-5">
         이 링크로 <b className="text-ink">둘이 같이 편집</b>하고, 기기를 바꿔도 <b className="text-ink">이어서</b> 써요.

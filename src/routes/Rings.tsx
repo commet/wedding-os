@@ -9,22 +9,29 @@ import VendorActions from "../components/VendorActions";
 import SafeImg from "../components/SafeImg";
 import { ringPriceCheckPrompt, BridgePrompt } from "../lib/chatbotBridge";
 import { todayISO } from "../lib/freshness";
+import { koBreak } from "../lib/typography";
 
-// 브랜드별 공식 사이트 — 모델 페이지는 변동이 잦아 메인 도메인만.
-// (curl 403도 실제 브라우저에서는 정상 동작)
+// 브랜드별 공식 웨딩/브라이덜 섹션. 개별 모델 페이지보다 덜 깨지는 진입점.
 const BRAND_SITES: Record<string, string> = {
-  "티파니": "https://www.tiffany.com/",
-  "까르띠에": "https://www.cartier.com/",
-  "샤넬": "https://www.chanel.com/",
-  "불가리": "https://www.bulgari.com/",
-  "부쉐론": "https://www.boucheron.com/",
-  "쇼메": "https://www.chaumet.com/",
-  "피아제": "https://www.piaget.com/",
-  "반 클리프 아펠": "https://www.vancleefarpels.com/",
-  "드 비어스": "https://www.debeers.com/",
-  "타사키": "https://www.tasaki.co.kr/",
-  "쇼파드": "https://www.chopard.com/",
+  "티파니": "https://www.tiffany.kr/engagement/wedding-band-sets/",
+  "까르띠에": "https://www.cartier.com/ko-kr/%EC%A3%BC%EC%96%BC%EB%A6%AC/%EC%9B%A8%EB%94%A9-%EB%B0%B4%EB%93%9C/",
+  "샤넬": "https://www.chanel.com/kr/fine-jewelry/bridal-exclusive-countries/c/3x2x10/",
+  "불가리": "https://www.bulgari.com/ko-kr/engagement-and-wedding/wedding-bands/",
+  "부쉐론": "https://www.boucheron.com/ko/jewelry/bridal/wedding-bands.html",
+  "쇼메": "https://www.chaumet.com/kr_kr/bridal/women-wedding-bands",
+  "피아제": "https://www.piaget.com/kr-ko/jewelry/wedding/wedding-rings",
+  "반 클리프 아펠": "https://www.vancleefarpels.com/kr/ko/collections/engagement/wedding-bands.html",
+  "드 비어스": "https://www.debeers.com/en-us/engagement-bridal/wedding-bands/",
+  "타사키": "https://www.tasaki.co.kr/bridal/wedding-bands/",
+  "쇼파드": "https://www.chopard.com/ko-kr/jewellery-wedding-rings",
 };
+
+const RESEARCH_LINKS = [
+  ...Object.entries(BRAND_SITES).map(([label, href]) => ({ label, href, group: "브랜드" })),
+  { label: "종로 결혼반지", href: "https://map.kakao.com/link/search/%EC%A2%85%EB%A1%9C%20%EA%B2%B0%ED%98%BC%EB%B0%98%EC%A7%80", group: "지역" },
+  { label: "종로 귀금속거리", href: "https://map.kakao.com/link/search/%EC%A2%85%EB%A1%9C%20%EA%B7%80%EA%B8%88%EC%86%8D%EA%B1%B0%EB%A6%AC", group: "지역" },
+  { label: "예물 후기 검색", href: "https://www.google.com/search?q=%EC%A2%85%EB%A1%9C+%EC%98%88%EB%AC%BC+%EA%B2%B0%ED%98%BC%EB%B0%98%EC%A7%80+%ED%9B%84%EA%B8%B0", group: "후기" },
+];
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type Who = "groom" | "bride";
@@ -34,6 +41,7 @@ type StarterRingPick = { ring: Ring; reason: string };
 
 // 카탈로그 자동 시드를 기기당 한 번만 — 사용자가 목록을 비운 뒤 재진입해도 되살아나지 않게.
 const RINGS_SEEDED_KEY = "wedding-os/rings-seeded";
+const RINGS_INTRO_DISMISSED_KEY = "wedding-os/rings-intro-dismissed/v1";
 const CATALOG_BY_ID = new Map(RING_CATALOG.map((ring) => [ring.id, ring]));
 const OLD_RING_CATALOG_ID_MAP: Record<string, string> = {
   "ring-1": "ring-3",
@@ -76,6 +84,14 @@ export default function Rings({ data, update }: Props) {
   const [brandFilter, setBrandFilter] = useState<string>("전체");
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [showStarter, setShowStarter] = useState(() => searchParams.get("starter") === "1");
+  const [introDismissed, setIntroDismissed] = useState(() => {
+    try { return !!localStorage.getItem(RINGS_INTRO_DISMISSED_KEY); } catch { return false; }
+  });
+
+  function dismissIntro() {
+    setIntroDismissed(true);
+    try { localStorage.setItem(RINGS_INTRO_DISMISSED_KEY, "1"); } catch { /* noop */ }
+  }
 
   // 처음 진입 시 카탈로그 25개 자동 노출 — 단 '한 번만'.
   // 사용자가 반지를 모두 지운 뒤 다시 들어와도 카탈로그가 되살아나지 않도록
@@ -203,14 +219,30 @@ export default function Rings({ data, update }: Props) {
   return (
     <div className="page pt-8 pb-10 space-y-8">
       <div>
-        <div className="eyebrow-gold mb-2">Rings</div>
+        <div className="eyebrow-gold mb-3">반지 후보</div>
         <div className="flex items-baseline justify-between">
-          <h1 className="font-serif text-[2rem] leading-none">결혼반지</h1>
+          <h1 className="h-page">{koBreak("결혼반지")}</h1>
           <button onClick={() => setShowAdd(true)} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
             + 직접 추가
           </button>
         </div>
       </div>
+
+      {/* 첫 진입 안내 — 카탈로그가 미리 채워진 이유를 한 번만 설명 */}
+      {!introDismissed && rings.length > 0 && (
+        <div className="anim-drop border-y border-hair py-4 flex items-start gap-3">
+          <p className="flex-1 text-[12.5px] leading-[1.85] text-soft break-keep">
+            <span className="text-ink">둘러보기예요</span> — 마음에 드는 디자인은 <span className="text-gold">♥</span>, 아닌 건 넘기면 후보가 좁혀져요.
+          </p>
+          <button
+            onClick={dismissIntro}
+            className="text-[11px] tracking-wide text-mute hover:text-ink shrink-0 pt-0.5"
+            aria-label="안내 닫기"
+          >
+            닫기
+          </button>
+        </div>
+      )}
 
       {/* 신랑/신부 — underline 탭 */}
       <div className="flex items-baseline justify-between border-b border-hair pb-3">
@@ -218,13 +250,13 @@ export default function Rings({ data, update }: Props) {
         <div className="flex gap-5">
           <button
             onClick={() => setWho("bride")}
-            className={`text-[12px] transition pb-1 ${who === "bride" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+            className={who === "bride" ? "seg-active" : "seg"}
           >
             신부
           </button>
           <button
             onClick={() => setWho("groom")}
-            className={`text-[12px] transition pb-1 ${who === "groom" ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+            className={who === "groom" ? "seg-active" : "seg"}
           >
             신랑
           </button>
@@ -239,17 +271,19 @@ export default function Rings({ data, update }: Props) {
           className="w-full text-left border-y border-hair py-4 flex items-baseline justify-between gap-4"
         >
           <span>
-            <span className="eyebrow-gold block mb-1">기본 후보</span>
-            <span className="font-serif text-[17px] text-ink">반지 기준 잡기</span>
+            <span className="eyebrow block mb-1">기본 후보</span>
+            <span className="font-serif text-[18px] text-ink break-keep">반지 기준 잡기</span>
           </span>
           <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
         </button>
       )}
 
+      {!showStarter && <RingResearchHub />}
+
       {/* Top — 번호 매겨진 hairline 리스트 */}
       {!showStarter && top5.length > 0 && (
         <section>
-          <h2 className="eyebrow-gold mb-4">우리의 Top {top5.length}</h2>
+          <h2 className="eyebrow mb-4">우리의 Top {top5.length}</h2>
           <ul className="divide-y divide-hair border-y border-hair">
             {top5.map((ring, i) => (
               <li key={ring.id} className="flex items-center gap-4 py-4">
@@ -284,9 +318,7 @@ export default function Rings({ data, update }: Props) {
             <button
               key={b}
               onClick={() => setBrandFilter(b)}
-              className={`text-[12px] tracking-wide whitespace-nowrap pb-1 transition ${
-                brandFilter === b ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
-              }`}
+              className={`tracking-wide whitespace-nowrap ${brandFilter === b ? "seg-active" : "seg"}`}
             >
               {b}
             </button>
@@ -304,11 +336,11 @@ export default function Rings({ data, update }: Props) {
             className="w-full text-left flex items-baseline justify-between gap-4"
           >
             <span>
-              <span className="eyebrow-gold block mb-1">
+              <span className="eyebrow block mb-1">
                 반지 카탈로그 · <span className="tabular-nums">{catalogOpen ? visible.length : rings.length}</span>
               </span>
-              <span className="text-[12px] text-soft">
-                전체 후보는 필요할 때만 펼쳐서 비교합니다.
+              <span className="text-[13px] text-soft leading-relaxed break-keep">
+                빠진 모델이 많을 수 있어요. 취향 저장용 출발점으로만 보고 공식 판매처에서 최신 가격을 확인하세요.
               </span>
             </span>
             <span className="text-[12px] text-soft underline underline-offset-4 flex-shrink-0">
@@ -318,6 +350,10 @@ export default function Rings({ data, update }: Props) {
         </div>
         {catalogOpen && (
           <>
+            <p className="pt-3 text-[11.5px] text-soft leading-relaxed break-keep">
+              여기 담긴 건 흔히 찾는 브랜드 위주의 <b className="text-ink">대표 예시</b>예요. 실제 디자인·라인업은 훨씬 다양하니,
+              마음에 드는 게 없으면 위의 <button type="button" onClick={() => setShowAdd(true)} className="underline underline-offset-2 text-ink hover:text-gold">직접 추가</button>로 담거나 매장·브랜드 사이트에서 더 찾아보세요.
+            </p>
             <div className="flex justify-end pt-3">
               <button onClick={resetCatalog} className="text-[11px] text-soft underline underline-offset-4 hover:text-ink">
                 처음 상태로
@@ -353,6 +389,32 @@ export default function Rings({ data, update }: Props) {
   );
 }
 
+function RingResearchHub() {
+  return (
+    <section className="border-y border-hair py-4">
+      <div className="mb-3">
+        <div className="eyebrow-gold mb-1">공식/지역 탐색</div>
+        <p className="text-[11.5px] text-soft leading-relaxed">
+          카탈로그에 없는 웨딩밴드는 여기서 직접 확인하세요. 제휴·광고 링크가 아닙니다.
+        </p>
+      </div>
+      <div className="flex gap-5 overflow-x-auto pb-1 -mx-6 px-6 scrollbar-hide">
+        {RESEARCH_LINKS.map((link) => (
+          <a
+            key={`${link.group}-${link.label}`}
+            href={link.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="whitespace-nowrap text-[12px] text-ink underline underline-offset-4 hover:text-gold"
+          >
+            <span className="text-soft">{link.group}</span> · {link.label}
+          </a>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function RingCard({
   ring, who, onToggle, onCheck, onRemove, onUpdate,
 }: {
@@ -378,7 +440,7 @@ function RingCard({
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <div className="eyebrow text-soft mb-1">{ring.brand}</div>
-              <div className="font-serif text-[17px] text-ink truncate">{ring.model}</div>
+              <div className="font-serif text-[18px] text-ink truncate">{koBreak(ring.model)}</div>
               {ring.material && <div className="text-[11px] text-soft mt-1">{ring.material}</div>}
             </div>
             <button onClick={onRemove} className="text-soft hover:text-ink text-sm px-1">×</button>
@@ -411,7 +473,7 @@ function RingCard({
       </div>
 
       {(starredByOther || likedByOther) && (
-        <div className="mt-2 text-[10.5px] tracking-wide text-soft">
+        <div className="mt-2 text-[11px] tracking-wide text-soft">
           {otherLabel}: {starredByOther && "★"} {likedByOther && "♥"}
         </div>
       )}
@@ -425,7 +487,7 @@ function RingCard({
       </div>
 
       {ring.notes && (
-        <p className="mt-3 text-[11.5px] text-soft leading-relaxed whitespace-pre-line line-clamp-2">
+        <p className="mt-3 text-[12px] text-soft leading-relaxed whitespace-pre-line line-clamp-2 break-keep">
           {ring.notes}
         </p>
       )}
@@ -435,13 +497,13 @@ function RingCard({
           메모 / 이미지 수정
         </summary>
         <input
-          className="input text-[11.5px] mt-3"
+          className="input text-[12px] mt-3"
           placeholder="이미지 URL (공식 사이트·직접 업로드한 이미지 링크)"
           value={ring.imageUrl ?? ""}
           onChange={(e) => onUpdate({ imageUrl: e.target.value.trim() || undefined })}
         />
         <textarea
-          className="input-boxed text-[11.5px] mt-3 min-h-[44px]"
+          className="input-boxed text-[12px] mt-3 min-h-[44px]"
           placeholder="메모 (반지 호수·각인 문구·매장·견적 비교)"
           value={ring.notes ?? ""}
           onChange={(e) => onUpdate({ notes: e.target.value })}
@@ -494,8 +556,8 @@ function RingImageFrame({
         className={ringImageClass(ring)}
         fallback={
           <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-cream via-white to-gold/10 text-center px-2">
-            <span className="font-serif text-[20px] leading-none text-gold">{ring.brand.slice(0, 1)}</span>
-            <span className="mt-1 text-[9px] leading-tight text-soft line-clamp-2">{ring.model}</span>
+            <span className="font-serif text-[16px] leading-none text-gold">{ring.brand.slice(0, 1)}</span>
+            <span className="mt-1 text-[10px] leading-tight text-soft line-clamp-2">{ring.model}</span>
           </div>
         }
       />
@@ -624,15 +686,15 @@ function RingStarter({
     <section className="border-y border-hair py-5 space-y-5">
       <div className="flex items-baseline justify-between gap-4">
         <div>
-          <div className="eyebrow-gold mb-2">기본 후보</div>
-          <h2 className="font-serif text-xl text-ink">반지 기준 잡기</h2>
+          <div className="eyebrow mb-2">기본 후보</div>
+          <h2 className="font-serif text-[18px] text-ink break-keep">반지 기준 잡기</h2>
         </div>
         <button onClick={onClose} className="text-[12px] text-soft underline underline-offset-4 hover:text-ink">
           닫기
         </button>
       </div>
 
-      <p className="text-[12px] text-soft leading-relaxed">
+      <p className="text-[15px] text-soft leading-relaxed break-keep">
         조건 몇 개만 골라 먼저 비교할 후보를 잡습니다. 가격은 상담 전 감을 잡는 기준이라,
         마음에 드는 후보는 {whoLabel}의 좋아요로 표시하고 매장 상담 전에 다시 확인하세요.
       </p>
@@ -669,12 +731,12 @@ function RingStarter({
               <div className="text-[11px] text-soft mt-1">
                 {[ring.material, ring.hasDiamond ? "다이아" : "심플", ring.priceKRW ? `${Math.round(ring.priceKRW / 10000)}만원대` : undefined].filter(Boolean).join(" · ")}
               </div>
-              <p className="text-[11px] text-soft leading-relaxed mt-1">{reason}</p>
+              <p className="text-[11px] text-soft leading-relaxed mt-1 break-keep">{reason}</p>
             </div>
           </div>
         ))}
         {picks.length === 0 && (
-          <p className="py-4 text-[12px] text-soft leading-relaxed">
+          <p className="py-4 text-[15px] text-soft leading-relaxed break-keep">
             조건에 맞는 후보가 없습니다. 예산이나 소재 조건을 조금 넓혀보세요.
           </p>
         )}
@@ -683,7 +745,7 @@ function RingStarter({
       <button
         onClick={() => onApply(picks.map(({ ring }) => ring))}
         disabled={picks.length === 0}
-        className="btn-primary w-full py-3 text-[12.5px] disabled:opacity-40"
+        className="btn-primary w-full py-3 text-[13px] disabled:opacity-40"
       >
         후보 {picks.length}개 표시하기 →
       </button>
@@ -702,12 +764,7 @@ function StarterOption({ label, children }: { label: string; children: React.Rea
 
 function Segment({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button
-      onClick={onClick}
-      className={`text-[12px] tracking-wide pb-1 transition ${
-        active ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
-      }`}
-    >
+    <button onClick={onClick} className={`tracking-wide ${active ? "seg-active" : "seg"}`}>
       {children}
     </button>
   );
@@ -825,6 +882,9 @@ function AddRingModal({ open, onClose, update }: { open: boolean; onClose: () =>
   return (
     <Modal open={open} onClose={onClose} title="반지 직접 추가">
       <div className="space-y-3">
+        <p className="text-[12px] text-soft leading-relaxed break-keep">
+          매장 명함이나 화면 캡처에서 보이는 만큼만 옮겨 적으면 돼요. 나머지는 나중에 채워도 됩니다.
+        </p>
         <div>
           <label className="label">브랜드</label>
           <input className="input" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="예: 티파니" />
@@ -842,8 +902,8 @@ function AddRingModal({ open, onClose, update }: { open: boolean; onClose: () =>
           <input className="input" type="number" value={priceKRW} onChange={(e) => setPriceKRW(e.target.value)} placeholder="1850000" />
         </div>
         <div>
-          <label className="label">이미지 URL (선택)</label>
-          <input className="input" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://...jpg" />
+          <label className="label">이미지 링크 <span className="text-mute normal-case tracking-normal">· 선택</span></label>
+          <input className="input" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="매장·브랜드 사이트의 사진 주소" />
         </div>
         <button onClick={submit} className="btn-primary w-full">추가하기</button>
       </div>

@@ -15,10 +15,10 @@ const OWNER_KEY = "wedding-os/owner/v1";
 
 test.describe("critical product flows", () => {
   test("builds a personalized local workspace through the Wedding OS Agent", async ({ page }) => {
-    await resetBrowserStorage(page);
     await page.goto("/");
+    await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
+    await page.reload();
 
-    await expect(page.getByRole("heading", { name: "막막한 준비를 두 분의 순서로 바꿔드릴게요." })).toBeVisible();
     await page.getByRole("button", { name: "에이전트와 시작하기 →" }).click();
     await page.getByPlaceholder("예: 김민준").fill("김민준");
     await page.getByPlaceholder("예: 이서연").fill("이서연");
@@ -32,7 +32,11 @@ test.describe("critical product flows", () => {
     await page.getByRole("button", { name: "이 순서로 준비 시작하기 →" }).click();
 
     await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(page.getByRole("link", { name: /01 서울 강남구 예식장 후보 추리기 AI/ })).toBeVisible();
+    await expect(page.getByText("WEDDY · 정리 중").first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "서울 강남구 예식장 후보 추리기" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "예상 하객은 어느 정도로 잡을까요?" })).toBeVisible();
+    await page.getByRole("button", { name: /200명 안팎/ }).click();
+    await expect(page.getByText("예상 하객 200명과 식대 기준을 준비판에 반영했어요.")).toBeVisible();
 
     const stored = await readStoredData(page);
     expect(stored.preferences.mode).toBe("local");
@@ -40,10 +44,20 @@ test.describe("critical product flows", () => {
     expect(stored.invitation.groomName).toBe("김민준");
     expect(stored.invitation.brideName).toBe("이서연");
     expect(stored.checklist.length).toBeGreaterThan(0);
+    expect(stored.checklist.some((section) => section.title === "에이전트 첫 정리")).toBe(true);
+    expect(stored.venues?.length).toBeGreaterThan(0);
+    expect(stored.venues?.[0]?.notes).toContain("보증인원");
+    expect(stored.budget?.length).toBeGreaterThan(0);
+    expect(stored.budget?.some((item) => item.category === "예식장 식대")).toBe(true);
+    expect(stored.headcount?.estimates?.reduce((sum, item) => sum + item.expected, 0)).toBeGreaterThan(0);
+    expect(stored.ai?.dialogue?.some((item) => item.id === "headcount-scale" && item.answer === "200명 안팎")).toBe(true);
     expect(stored.ai?.profile?.priority).toBe("venue");
     expect(stored.ai?.profile?.region).toBe("서울 강남구");
     expect(stored.ai?.profile?.onboardedAt).toBeTruthy();
     expect(await page.evaluate((key) => localStorage.getItem(key), OWNER_KEY)).toBe("1");
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "예상 하객 200명 기준으로 예식장 다시 보기" })).toBeVisible();
+    expect((await readStoredData(page)).ai?.profile?.priority).toBe("venue");
   });
 
   test("keeps existing local data when moving from local mode into setup", async ({ page }) => {
@@ -89,7 +103,7 @@ test.describe("critical product flows", () => {
     const download = await downloadPromise;
     await download.delete().catch(() => undefined);
 
-    await expect(page.getByText("같이 쓰는 저장소에 저장하지 못했어요.")).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/저장소에 저장하지 못했어요/)).toBeVisible({ timeout: 15_000 });
 
     const stored = await readStoredData(page);
     expect(stored.preferences.mode).toBe("local");
@@ -152,7 +166,7 @@ test.describe("critical product flows", () => {
       ],
       invitationGreeting: "서로의 계절을 함께 건너온 두 사람이\n소중한 분들을 모시고 결혼식을 올립니다.",
     }));
-    await page.getByRole("button", { name: "검토하기 →" }).click();
+    await page.getByRole("button", { name: "초안 확인하기 →" }).click();
     await expect(page.getByText("적용 전 확인", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "이대로 반영 →" }).click();
 
@@ -176,7 +190,7 @@ test.describe("critical product flows", () => {
     });
 
     await expect(page.getByText("예산과 여행 후보를 먼저 잡으면 다음 결정이 쉬워집니다.")).toBeVisible();
-    await expect(page.getByRole("link", { name: /01 반지 예산 상한 정하기 AI/ })).toBeVisible();
+    await expect(page.getByText("반지 예산 상한 정하기")).toBeVisible();
   });
 
   test("lets the invitation editor apply an AI-refined greeting", async ({ page }) => {
@@ -192,7 +206,7 @@ test.describe("critical product flows", () => {
 
     const greeting = "오랜 시간 서로의 일상을 아껴온 두 사람이\n소중한 분들을 모시고 결혼식을 올립니다.\n따뜻한 마음으로 함께 축복해주시면 감사하겠습니다.";
     await page.getByPlaceholder("챗봇이 준 답변을 그대로 복사해서 붙여넣기…").fill(greeting);
-    await page.getByRole("button", { name: "검토하기 →" }).click();
+    await page.getByRole("button", { name: "초안 확인하기 →" }).click();
     await expect(page.getByText("적용 전 확인", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "이대로 반영 →" }).click();
 
@@ -409,7 +423,10 @@ test.describe("critical product flows", () => {
     await page.goto("/dashboard");
     const secondTab = await page.context().newPage();
     await secondTab.goto("/dashboard");
-    await expect(secondTab.getByText(seeded.invitation.groomName)).toBeVisible();
+    await expect(secondTab.getByText(
+      `${seeded.invitation.groomName} · ${seeded.invitation.brideName}`,
+      { exact: true },
+    )).toBeVisible();
 
     await page.evaluate(async () => {
       const storageModulePath = "/src/lib/storage.ts";
@@ -437,13 +454,38 @@ test.describe("critical product flows", () => {
     expect(stored.guests?.[0]?.name).toBe(seeded.guests?.[0]?.name);
   });
 
-  test("rejects unauthenticated managed AI and invitation publishing", async () => {
-    const aiResponse = await aiApi.fetch(new Request("https://wedding.test/api/ai", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ prompt: "test" }),
-    }));
-    expect(aiResponse.status).toBe(401);
+  test("allows limited managed AI trial but keeps deep AI and publishing protected", async () => {
+    const previousKey = process.env.ANTHROPIC_API_KEY;
+    const originalFetch = globalThis.fetch;
+    process.env.ANTHROPIC_API_KEY = "test-key";
+    globalThis.fetch = async (input) => {
+      const url = String(input);
+      if (url.includes("api.anthropic.com")) {
+        return new Response(JSON.stringify({ content: [{ type: "text", text: "trial-ok" }] }), { status: 200 });
+      }
+      return originalFetch(input);
+    };
+    try {
+      const aiResponse = await aiApi.fetch(new Request("https://wedding.test/api/ai", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ prompt: "test" }),
+      }));
+      expect(aiResponse.status).toBe(200);
+      expect(aiResponse.headers.get("set-cookie")).toContain("wos_ai_trial=");
+      expect(await aiResponse.json()).toEqual({ text: "trial-ok" });
+
+      const deepResponse = await aiApi.fetch(new Request("https://wedding.test/api/ai", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ prompt: "test", tier: "deep" }),
+      }));
+      expect(deepResponse.status).toBe(401);
+    } finally {
+      globalThis.fetch = originalFetch;
+      if (previousKey === undefined) delete process.env.ANTHROPIC_API_KEY;
+      else process.env.ANTHROPIC_API_KEY = previousKey;
+    }
 
     const publishResponse = await publishApi.fetch(new Request("https://wedding.test/api/invite-publish", {
       method: "POST",
@@ -462,11 +504,53 @@ test.describe("critical product flows", () => {
     expect(publishApiSource).toContain("meta.rsvpToken.length > 256");
     expect(publishApiSource).toContain("multipart/form-data");
     expect(publishApiSource).toContain('access: "public"');
-    expect(fs.readFileSync("api/og.tsx", "utf8")).toContain("heroImageUrl: og.heroImageUrl");
-    expect(fs.readFileSync("api/serve-invite.ts", "utf8")).toContain("new URL(`/api/og?code=");
+    const securitySource = fs.readFileSync("api/_security.ts", "utf8");
+    expect(securitySource).toContain("isSupabaseHost(url)");
+    expect(securitySource).toContain("jsonWithHeaders");
+    expect(securitySource).toContain("로그인 서버 설정이 올바르지 않습니다.");
+    const aiSource = fs.readFileSync("api/ai.ts", "utf8");
+    expect(aiSource).toContain("ai-trial-cookie-day");
+    expect(aiSource).toContain("ai-trial-local-day");
+    expect(aiSource).toContain("ai-trial-subnet-hour");
+    expect(aiSource).toContain("signedTrialCookie");
+    const authSource = fs.readFileSync("src/lib/auth.ts", "utf8");
+    expect(authSource).toContain("replaceExisting?: boolean");
+    expect(authSource).toContain("이미 연결된 청첩장이 있어요");
     for (const dynamicInvitePath of ["api/invite-payload.ts", "api/serve-invite.ts", "api/og.tsx"]) {
       expect(fs.readFileSync(dynamicInvitePath, "utf8")).toContain("no-store");
     }
+    const ogSource = fs.readFileSync("api/og.tsx", "utf8");
+    expect(ogSource).toContain("/rest/v1/rpc/get_public_invitation");
+    expect(ogSource).toContain("heroImageUrl: og.heroImageUrl");
+    expect(ogSource).not.toContain("/rest/v1/wedding_data");
+    expect(fs.readFileSync("api/serve-invite.ts", "utf8")).toContain("new URL(`/api/og?code=");
+  });
+
+  test("does not load private wedding data on public or auth-only routes", async () => {
+    const appSource = fs.readFileSync("src/App.tsx", "utf8");
+    const hookIndex = appSource.indexOf("useWeddingData()");
+    expect(hookIndex).toBeGreaterThan(0);
+    for (const routeGuard of [
+      'location.pathname.startsWith("/i/")',
+      'location.pathname === "/recover"',
+      'location.pathname === "/login"',
+    ]) {
+      const guardIndex = appSource.indexOf(routeGuard);
+      expect(guardIndex).toBeGreaterThan(0);
+      expect(guardIndex).toBeLessThan(hookIndex);
+    }
+
+    const storageSource = fs.readFileSync("src/lib/storage.ts", "utf8");
+    expect(storageSource).toContain("if (!userId || !hostedUserMatches(userId))");
+    expect(storageSource).toContain("getHostedConfig() && getHostedUserId() && (!userId || !hostedUserMatches(userId))");
+
+    const supabaseStorageSource = fs.readFileSync("src/lib/storage.supabase.ts", "utf8");
+    expect(supabaseStorageSource).toContain("if (!isSupabaseHost(url)) return");
+
+    const menuSheetSource = fs.readFileSync("src/components/MenuSheet.tsx", "utf8");
+    expect(menuSheetSource).toContain("previousFocus.current?.focus()");
+    expect(menuSheetSource).toContain('e.key !== "Tab"');
+    expect(menuSheetSource).toContain("panelRef.current?.focus()");
   });
 
   test("uses current AI provider contracts and parses their responses", async ({ page }) => {
@@ -516,7 +600,12 @@ test.describe("critical product flows", () => {
     });
     const managedAiSource = fs.readFileSync("api/ai.ts", "utf8");
     expect(managedAiSource).toContain('DEFAULT_MODEL = "claude-haiku-4-5-20251001"');
+    expect(managedAiSource).toContain('DEFAULT_DEEP_MODEL = "claude-sonnet-4-6"');
+    expect(managedAiSource).toContain('"ai-deep-user-hour"');
+    expect(managedAiSource).toContain('"ai-user-hour"');
     expect(managedAiSource).toContain("AbortSignal.timeout(55_000)");
+    const promptsSource = fs.readFileSync("src/lib/chatbotBridge.ts", "utf8");
+    expect(promptsSource).toContain('tier: "deep"');
   });
 
   test("provisions direct Supabase ownership explicitly and ships hosted migrations", async () => {
@@ -539,6 +628,9 @@ test.describe("critical product flows", () => {
     expect(vercelConfig).toContain("img-src 'self' https://images.unsplash.com data: blob:");
     expect(vercelConfig).toContain("media-src 'self' data: blob:");
     expect(vercelConfig).not.toContain("img-src 'self' https: data:");
+
+    const viteConfig = fs.readFileSync("vite.config.ts", "utf8");
+    expect(viteConfig).toContain("navigateFallbackDenylist: [/^\\/api\\//, /^\\/i\\//]");
   });
 });
 

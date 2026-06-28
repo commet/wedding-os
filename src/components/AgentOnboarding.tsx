@@ -6,8 +6,7 @@ import {
   AGENT_PRIORITIES,
   type AgentAnswers,
   type AgentPriority,
-  type AgentStorage,
-} from "../lib/agentDraft";
+} from "../lib/agentProfile";
 
 type Props = {
   data: WeddingData;
@@ -55,6 +54,23 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
     { label: "예식 날짜", value: answers.date || "아직 미정" },
     { label: "희망 지역", value: answers.region.trim() || "지역을 열어두고 찾기" },
   ], [answers]);
+  const generatedPreview = useMemo(() => {
+    const items = [
+      { label: "오늘의 첫 단계", value: selectedPriority.title },
+      { label: "체크리스트", value: "상황별 핵심 할 일 4개를 맨 위에 추가" },
+      { label: "예산표", value: "먼저 빠뜨리기 쉬운 항목만 선별" },
+    ];
+    if (answers.priority === "venue") {
+      items.push({
+        label: "예식장",
+        value: answers.region.trim() ? `${answers.region.trim()} 기준 후보와 상담 질문` : "후보 비교 기준과 상담 질문",
+      });
+    }
+    if (answers.priority === "trip") {
+      items.push({ label: "신혼여행", value: "처음 비교하기 좋은 지역 3곳" });
+    }
+    return items;
+  }, [answers.priority, answers.region, selectedPriority.title]);
 
   const next = () => setStep((value) => Math.min(TOTAL_STEPS, value + 1));
   const back = () => setStep((value) => Math.max(0, value - 1));
@@ -174,14 +190,18 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
           <AgentStep eyebrow="05 · 보관" title={koBreak("준비 내용을 어디에 보관할까요?")} message="지금 바로 시작할 수도, 로그인해 두 사람이 함께 쓸 수도 있어요.">
             <div className="mt-9 border-y border-hair divide-y divide-hair">
               <StorageChoice active={answers.storage === "local"} onClick={() => { set("storage", "local"); next(); }} title="우선 이 기기에서 시작" desc="가입 없이 바로 열고, 나중에 둘이 쓰기로 바꿀 수 있어요." badge="가장 빠름" />
-              <StorageChoice active={answers.storage === "hosted"} onClick={() => { if (hostedReady) { set("storage", "hosted"); next(); } }} title="처음부터 둘이 같이" desc={hostedReady ? "로그인 후 암호화된 준비판을 함께 편집해요." : "현재 배포에서 로그인 연결이 필요해요."} badge="추천" disabled={!hostedReady} />
+              <StorageChoice active={answers.storage === "hosted"} onClick={() => { if (hostedReady) { set("storage", "hosted"); next(); } }} title="처음부터 둘이 같이" desc={hostedReady ? "로그인 후 둘이 같은 준비판을 함께 편집해요. 내용은 안전하게 보호돼요." : "현재 배포에서 로그인 연결이 필요해요."} badge="추천" disabled={!hostedReady} />
             </div>
             <button onClick={onAdvanced} className="mt-5 min-h-11 text-[13px] text-soft underline underline-offset-2">내 저장소로 직접 운영</button>
           </AgentStep>
         )}
 
         {step === 6 && (
-          <AgentStep eyebrow="첫 브리핑" title={koBreak(`${coupleLabel} 두 분을 위한 시작 순서예요.`)} message="한꺼번에 다 하지 않아도 돼요. 첫 번째 일부터 함께 이어가요.">
+          <AgentStep
+            eyebrow="첫 브리핑"
+            title={koBreak(coupleLabel === "두 분" ? "두 분을 위한 시작 순서예요." : `${coupleLabel} 두 분을 위한 시작 순서예요.`)}
+            message={<>한꺼번에 다 하지 않아도 돼요. <span className="whitespace-nowrap">첫 번째 일부터 함께 이어가요.</span></>}
+          >
             <div className="mt-9 grid grid-cols-2 gap-x-6 gap-y-5 border-y border-hair px-1 py-6">
               {summary.map((item) => (
                 <div key={item.label}>
@@ -198,6 +218,17 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
                 <p className="mt-2 text-[13px] leading-[1.8] text-soft">{selectedPriority.reason}</p>
               </div>
             </div>
+            <div className="mt-7 border-y border-hair py-4">
+              <div className="eyebrow mb-3">준비판에 바로 생기는 것</div>
+              <div className="divide-y divide-hair">
+                {generatedPreview.map((item) => (
+                  <div key={item.label} className="grid grid-cols-[5.5rem_1fr] gap-3 py-3 text-[12.5px] leading-relaxed">
+                    <span className="text-soft">{item.label}</span>
+                    <span className="text-ink break-keep">{item.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
             <AgentPrimary onClick={() => onComplete(answers)}>
               {answers.storage === "hosted" ? "준비판 열고 함께 연결하기" : "이 순서로 준비 시작하기"}
             </AgentPrimary>
@@ -209,7 +240,7 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
   );
 }
 
-function AgentStep({ eyebrow, title, message, children }: { eyebrow: string; title: React.ReactNode; message?: string; children: React.ReactNode }) {
+function AgentStep({ eyebrow, title, message, children }: { eyebrow: string; title: React.ReactNode; message?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className="page-enter">
       <div className="eyebrow-gold mb-4">{eyebrow}</div>

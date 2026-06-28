@@ -1,6 +1,12 @@
-import { useMemo, useState } from "react";
-import type { WeddingData, Guest, GuestSide, GuestStatus } from "../lib/schema";
+import { Fragment, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import type { WeddingData, Guest, GuestSide, GuestStatus, GuestCategory } from "../lib/schema";
 import { listRsvps, type RsvpRow } from "../lib/storage.supabase";
+import { koBreak } from "../lib/typography";
+import {
+  contractedVenue, expectedHeadcount, venueCapacityFit, planningHeadcount,
+  headcountSummary, mealCostRange, formatKRW, GUEST_CATEGORIES, GUEST_CATEGORY_LABEL,
+} from "../lib/derived";
 
 type Props = { data: WeddingData; update: (patch: any) => void };
 type Filter = "all" | "groom" | "bride" | "attending" | "pending";
@@ -26,6 +32,7 @@ export default function Guests({ data, update }: Props) {
   const [addSide, setAddSide] = useState<GuestSide>("groom");
   const [rsvpStatus, setRsvpStatus] = useState<"idle" | "loading" | "ok" | "fail">("idle");
   const [rsvpMsg, setRsvpMsg] = useState("");
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -34,7 +41,7 @@ export default function Guests({ data, update }: Props) {
       if (filter === "bride" && g.side !== "bride") return false;
       if (filter === "attending" && g.status !== "참석") return false;
       if (filter === "pending" && (g.status === "참석" || g.status === "불참")) return false;
-      if (q && !(g.name.toLowerCase().includes(q) || (g.relation ?? "").toLowerCase().includes(q))) return false;
+      if (q && !(g.name.toLowerCase().includes(q) || (g.relation ?? "").toLowerCase().includes(q) || (g.group ?? "").toLowerCase().includes(q))) return false;
       return true;
     });
   }, [guests, filter, search]);
@@ -51,6 +58,35 @@ export default function Guests({ data, update }: Props) {
     const bride = guests.filter((g) => g.side === "bride").length;
     return { total, attending: attending.length, declined: declined.length, pending, partySum, giftSum, mealCount, groom, bride };
   }, [guests]);
+  const seatingGroups = useMemo(() => summarizeSeatingGroups(guests), [guests]);
+
+  const exportCsv = () => {
+    if (guests.length === 0) return;
+    const header = ["이름", "구분", "분류", "관계", "묶음", "상태", "동반인원", "축의금"];
+    const rows = guests.map((g) => [
+      g.name,
+      SIDE_LABEL[g.side],
+      g.category ? GUEST_CATEGORY_LABEL[g.category] : "",
+      g.relation ?? "",
+      g.group ?? "",
+      STATUS_LABEL[g.status],
+      String(g.partyCount ?? 1),
+      g.giftKRW != null ? String(g.giftKRW) : "",
+    ]);
+    const body = [header, ...rows]
+      .map((cols) => cols.map(csvCell).join(","))
+      .join("\r\n");
+    // UTF-8 BOM — Excel에서 한글이 깨지지 않도록.
+    const blob = new Blob(["﻿" + body], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "wedding-guests.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
 
   const addGuest = (name: string, side: GuestSide) => {
     const cleanName = name.trim();
@@ -75,6 +111,26 @@ export default function Guests({ data, update }: Props) {
       ...prev,
       guests: (prev.guests ?? []).map((g) => (g.id === id ? { ...g, ...patch } : g)),
     }));
+  };
+
+  // 일괄 상태 변경 — 지금 화면에 보이는(필터된) 하객에게만 적용. 초대장 보낸 날
+  // 한 번에 '초대 완료'로 넘기는 흐름을 위해. 되돌리기 어려우니 확인을 받는다.
+  const bulkSetStatus = (status: GuestStatus) => {
+    const ids = new Set(filtered.map((g) => g.id));
+    if (ids.size === 0) return;
+    if (!confirm(`지금 보이는 ${ids.size}명의 상태를 '${STATUS_LABEL[status]}'(으)로 바꿀까요?`)) return;
+    const today = new Date().toISOString().split("T")[0];
+    update((prev: WeddingData) => ({
+      ...prev,
+      guests: (prev.guests ?? []).map((g) => {
+        if (!ids.has(g.id)) return g;
+        const patch: Partial<Guest> = { status };
+        // '초대 완료'로 넘길 때 초대일이 비어 있으면 오늘로 채운다(행의 '초대 미전송' 해소).
+        if (status === "초대 완료" && !g.invitedAt) patch.invitedAt = today;
+        return { ...g, ...patch };
+      }),
+    }));
+    setBulkOpen(false);
   };
 
   const removeGuest = (id: string) => {
@@ -142,15 +198,14 @@ export default function Guests({ data, update }: Props) {
     return (
       <div className="page pt-20 pb-10 text-center space-y-8">
         <div>
-          <div className="eyebrow-gold mb-4">Guests</div>
-          <h2 className="display-sm mb-4">
-            누구를 모실까?<br />
-            <span className="italic font-light text-gold">한 명씩 적어가요.</span>
-          </h2>
-          <p className="text-[13px] text-soft leading-relaxed">
-            이름 · 관계 · 신랑/신부 측 · 축의금 · 식수까지<br />
-            한 번에 관리되고 자동으로 집계됩니다.
+          <div className="eyebrow-gold mb-4">하객 명단</div>
+          <h1 className="display-sm mb-4 [text-wrap:balance] max-w-[18rem] mx-auto">떠오르는 분부터 <span className="italic font-light">{koBreak("한 명씩 적어보세요.")}</span></h1>
+          <p className="text-[15px] text-soft leading-[1.85]">
+            이름과 어느 쪽 하객인지 먼저 적어두면 참석 여부와 식수는 자동으로 모입니다.
           </p>
+        </div>
+        <div className="text-left">
+          <HeadcountEstimator data={data} update={update} />
         </div>
         <GuestAddBlock
           side={addSide}
@@ -161,8 +216,8 @@ export default function Guests({ data, update }: Props) {
         />
         {data.preferences.mode === "supabase" && (
           <div className="border-y border-hair py-4">
-            <div className="eyebrow-gold mb-2">RSVP</div>
-            <p className={`text-[11.5px] leading-relaxed mb-3 ${rsvpStatus === "fail" ? "text-gold" : "text-soft"}`}>
+            <div className="eyebrow mb-2">RSVP</div>
+            <p className={`text-[12px] leading-relaxed mb-3 ${rsvpStatus === "fail" ? "text-ink" : "text-soft"}`}>
               {rsvpMsg || "청첩장으로 받은 응답이 있다면 하객 명단으로 가져올 수 있어요."}
             </p>
             <button
@@ -181,9 +236,11 @@ export default function Guests({ data, update }: Props) {
   return (
     <div className="page pt-8 pb-10 space-y-8">
       <div>
-        <div className="eyebrow-gold mb-2">Guests</div>
-        <h1 className="font-serif text-[2rem] leading-none">하객 명단</h1>
+        <div className="eyebrow-gold mb-2">초대와 참석</div>
+        <h1 className="h-page">하객 명단</h1>
       </div>
+
+      <HeadcountEstimator data={data} update={update} />
 
       {/* 통계 — hairline 그리드 */}
       <div className="grid grid-cols-2 gap-x-6 gap-y-5 border-y border-hair py-6">
@@ -197,13 +254,75 @@ export default function Guests({ data, update }: Props) {
         <Stat label="불참" value={stats.declined} muted />
       </div>
 
+      {seatingGroups.total > 0 && (
+        <details className="-mt-2 border-b border-hair pb-4">
+          <summary className="cursor-pointer list-none flex items-baseline justify-between gap-4">
+            <span>
+              <span className="eyebrow-gold block mb-1">테이블 배치 초안</span>
+              <span className="text-[12px] text-soft">
+                {seatingGroups.total}명 · 약 {seatingGroups.tableCount}테이블
+              </span>
+            </span>
+            <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
+          </summary>
+          <div className="mt-4 space-y-3">
+            <p className="text-[11.5px] text-soft leading-relaxed break-keep">
+              불참자를 제외하고 묶음·관계·분류 순서로 가볍게 나눈 초안이에요. 각 하객 상세의 묶음 칸에 “신랑 회사”, “신부 대학 친구”처럼 적으면 더 정확해져요.
+            </p>
+            <div className="divide-y divide-hair border-y border-hair">
+              {seatingGroups.rows.map((row) => (
+                <div key={row.label} className="py-2.5 flex items-baseline justify-between gap-4 text-[12.5px]">
+                  <span className="text-ink break-keep">{row.label}</span>
+                  <span className="text-soft tabular-nums whitespace-nowrap">
+                    {row.count}명 · {row.tables}테이블
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </details>
+      )}
+
+      {(() => {
+        const venue = contractedVenue(data);
+        const head = planningHeadcount(data);
+        const fit = venueCapacityFit(venue, head);
+        if (!venue || fit === "unknown") return null;
+        const tone = fit === "over" || fit === "under" ? "text-gold font-semibold" : "text-soft";
+        const label = fit === "over" ? "수용 인원 초과" : fit === "under" ? "최소 보증인원 미달" : fit === "tight" ? "수용 인원에 근접" : "수용 범위 안";
+        const range = `${venue.capacityMin ?? "?"}~${venue.capacityMax ?? "?"}명`;
+        return (
+          <Link to="/venues" className="row-tap -mt-2 flex items-baseline justify-between gap-3 border-b border-hair px-1 py-3">
+            <span className="eyebrow break-keep">{venue.name} · 예식장 여유도</span>
+            <span className={`text-[12px] break-keep ${tone}`}>초대 {head}명 / 수용 {range} · {label}</span>
+          </Link>
+        );
+      })()}
+
+      {(() => {
+        const { groom, bride } = stats;
+        if (groom === 0 || bride === 0) return null;
+        const larger = Math.max(groom, bride);
+        const smaller = Math.min(groom, bride);
+        const diff = larger - smaller;
+        // 한쪽이 1.6배 이상이면서 차이가 20명 이상일 때만 — 가볍게 한 번 짚어줍니다.
+        if (larger < smaller * 1.6 || diff < 20) return null;
+        const moreSide = groom > bride ? "신랑" : "신부";
+        const lessSide = groom > bride ? "신부" : "신랑";
+        return (
+          <p className="-mt-2 border-b border-hair px-1 py-3 text-[12px] text-soft leading-relaxed break-keep">
+            {moreSide} 측이 {lessSide} 측보다 {diff}명 많아요 — 양가 균형을 한 번 확인해 보세요.
+          </p>
+        );
+      })()}
+
       {/* 검색 + 추가 */}
       <div className="space-y-4">
         {data.preferences.mode === "supabase" && (
           <div className="border-y border-hair py-4 flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <div className="eyebrow-gold mb-1">RSVP</div>
-              <p className={`text-[11.5px] leading-relaxed ${rsvpStatus === "fail" ? "text-gold" : "text-soft"}`}>
+              <div className="eyebrow mb-1">RSVP</div>
+              <p className={`text-[12px] leading-relaxed ${rsvpStatus === "fail" ? "text-ink" : "text-soft"}`}>
                 {rsvpMsg || "청첩장 응답을 하객 명단으로 가져옵니다."}
               </p>
             </div>
@@ -222,20 +341,27 @@ export default function Guests({ data, update }: Props) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-4">
           <div className="flex gap-5 overflow-x-auto -mx-6 px-6 scrollbar-hide">
             {(["all", "groom", "bride", "attending", "pending"] as const).map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`text-[12px] tracking-wide whitespace-nowrap pb-1 transition ${
-                  filter === f ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
-                }`}
+                className={`whitespace-nowrap ${filter === f ? "seg-active" : "seg"}`}
               >
                 {f === "all" ? "전체" : f === "groom" ? "신랑" : f === "bride" ? "신부" : f === "attending" ? "참석" : "대기"}
               </button>
             ))}
           </div>
+          {guests.length > 0 && (
+            <button
+              type="button"
+              onClick={exportCsv}
+              className="text-[12px] underline underline-offset-4 text-soft hover:text-ink whitespace-nowrap flex-shrink-0"
+            >
+              내보내기 →
+            </button>
+          )}
         </div>
         <GuestAddBlock
           side={addSide}
@@ -243,11 +369,34 @@ export default function Guests({ data, update }: Props) {
           onAddOne={addGuest}
           onAddBulk={bulkAddGuests}
         />
+
+        {/* 일괄 상태 변경 — 초대장 발송 후 한 번에 정리 */}
+        {filtered.length > 1 && (
+          <div className="border-t border-hair pt-3">
+            <button
+              type="button"
+              onClick={() => setBulkOpen((o) => !o)}
+              className="flex w-full items-baseline justify-between text-left"
+            >
+              <span className="eyebrow break-keep">일괄 상태 변경 · 보이는 <span className="tabular-nums">{filtered.length}</span>명</span>
+              <span className="text-[11px] text-soft flex-shrink-0">{bulkOpen ? "닫기" : "열기"}</span>
+            </button>
+            {bulkOpen && (
+              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2">
+                {(Object.keys(STATUS_LABEL) as GuestStatus[]).map((s) => (
+                  <button key={s} type="button" onClick={() => bulkSetStatus(s)} className="seg">
+                    {STATUS_LABEL[s]}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 명단 */}
       {filtered.length === 0 ? (
-        <p className="text-center text-[12.5px] text-soft py-8">조건에 맞는 하객이 없어요.</p>
+        <p className="text-center text-[13px] text-soft py-8">조건에 맞는 하객이 없어요.</p>
       ) : (
         <ul className="group-card px-4">
           {filtered.map((g) => (
@@ -256,10 +405,132 @@ export default function Guests({ data, update }: Props) {
         </ul>
       )}
 
-      <p className="text-[10.5px] text-soft text-center pt-2">
+      <p className="text-[11px] text-soft text-center pt-2">
         축의금 · 식수 합계는 자동 계산. 혼자 쓰는 동안에는 이 기기에만 저장됩니다.
       </p>
     </div>
+  );
+}
+
+// 예상 인원 계산기 — 명단을 다 적기 전에도 측·분류별로 몇 명 올지 가늠하고,
+// 보증인원·식대·균형을 즉시 계산해 알려준다. 명단·회신이 들어오면 자동으로 reconcile.
+function HeadcountEstimator({ data, update }: { data: WeddingData; update: (patch: any) => void }) {
+  const sum = headcountSummary(data);
+  const hasEst = sum.estTotal > 0;
+  const [editing, setEditing] = useState(false);
+  const open = !hasEst || editing;
+
+  const venue = contractedVenue(data);
+  const planning = planningHeadcount(data);
+  const fit = venueCapacityFit(venue, planning);
+  const meal = mealCostRange(venue, planning);
+  const { groom, bride } = sum.estBySide;
+
+  const setEstimate = (side: "groom" | "bride", category: GuestCategory, raw: string) => {
+    const v = Math.max(0, Math.min(9999, Math.round(Number(raw) || 0)));
+    update((prev: WeddingData) => {
+      const list = (prev.headcount?.estimates ?? []).filter((e) => !(e.side === side && e.category === category));
+      if (v > 0) list.push({ side, category, expected: v });
+      return { ...prev, headcount: { estimates: list } };
+    });
+  };
+
+  // 에이전트의 상황 읽기 — 추정치에서 바로 reconcile.
+  const reads: string[] = [];
+  if (venue && fit === "over" && venue.capacityMax) {
+    reads.push(`계약한 ${venue.name} 보증 ${venue.capacityMax}명을 ${planning - venue.capacityMax}명 넘을 수 있어요 — 인원 조정이나 식장 재확인이 필요해요.`);
+  } else if (venue && fit === "under" && venue.capacityMin) {
+    reads.push(`최소 보증인원 ${venue.capacityMin}명보다 ${venue.capacityMin - planning}명 적어요 — 보증금 손해 가능성을 확인하세요.`);
+  }
+  if (meal) {
+    const m = meal.max ?? meal.min;
+    const per = venue?.mealPriceMax ?? venue?.mealPriceMin;
+    if (m && per) reads.push(`예상 식대 약 ${formatKRW(m)} (1인 ${Math.round(per / 10000)}만 기준).`);
+  }
+  if (groom > 0 && bride > 0) {
+    const diff = Math.abs(groom - bride);
+    if (Math.max(groom, bride) >= Math.min(groom, bride) * 1.5 && diff >= 20) {
+      reads.push(`${groom > bride ? "신랑" : "신부"} 측이 ${diff}명 많아요 — 양가 균형을 한 번 살펴보세요.`);
+    }
+  }
+  if (sum.listed > 0) {
+    reads.push(`명단엔 ${sum.listed}명 입력 · 참석 회신 ${sum.confirmed}명 — 회신이 들어오면 추정이 자동으로 좁혀져요.`);
+  } else if (hasEst) {
+    reads.push("아직 명단 전이에요. 이름·회신을 채우면 이 추정이 점점 정확해져요.");
+  }
+
+  return (
+    <section className="border border-hair bg-cream/30 px-5 py-5">
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <div className="eyebrow-gold mb-1.5">예상 인원</div>
+          <div className="font-serif text-[2rem] leading-none text-ink tabular-nums">
+            {planning}<span className="text-[14px] text-soft ml-1">명</span>
+          </div>
+        </div>
+        <div className="text-right text-[12px] text-soft tabular-nums leading-relaxed">
+          <div>신랑 {groom} · 신부 {bride}</div>
+          {sum.confirmed > 0 && <div className="text-gold">참석 확정 {sum.confirmed}</div>}
+        </div>
+      </div>
+
+      {!hasEst && (
+        <p className="mt-3 text-[12.5px] text-soft leading-relaxed break-keep">
+          명단을 다 적기 전에도, 분류별로 몇 명 올지 어림수로 잡아보세요. 보증인원·식대·균형을 바로 계산해 드려요.
+        </p>
+      )}
+
+      {reads.length > 0 && (
+        <ul className="mt-3.5 space-y-1.5 border-l-2 border-gold/60 pl-3">
+          {reads.map((r, i) => (
+            <li key={i} className="text-[12.5px] text-soft leading-relaxed break-keep">{r}</li>
+          ))}
+        </ul>
+      )}
+
+      {hasEst && (
+        <button onClick={() => setEditing((v) => !v)} className="mt-4 text-[12px] underline underline-offset-4 text-ink hover:text-gold">
+          {editing ? "분류별 입력 접기" : "분류별 예상 수정 →"}
+        </button>
+      )}
+
+      {open && (
+        <div className="mt-4 border-t border-hair pt-4">
+          <div className="grid grid-cols-[1fr_4.25rem_4.25rem] gap-x-3 gap-y-2 items-center">
+            <span className="eyebrow">분류</span>
+            <span className="eyebrow text-center">신랑</span>
+            <span className="eyebrow text-center">신부</span>
+            {sum.rows.map((row) => (
+              <Fragment key={row.category}>
+                <span className="text-[13px] text-ink break-keep">
+                  {row.label}
+                  {row.listed > 0 && <span className="text-[10px] text-soft tabular-nums ml-1.5">명단 {row.listed}</span>}
+                </span>
+                <input
+                  type="number" min={0} inputMode="numeric"
+                  aria-label={`${row.label} 신랑 측 예상`}
+                  className="input text-[13px] tabular-nums text-center py-1.5"
+                  value={row.groomEst || ""}
+                  onChange={(e) => setEstimate("groom", row.category, e.target.value)}
+                  placeholder="0"
+                />
+                <input
+                  type="number" min={0} inputMode="numeric"
+                  aria-label={`${row.label} 신부 측 예상`}
+                  className="input text-[13px] tabular-nums text-center py-1.5"
+                  value={row.brideEst || ""}
+                  onChange={(e) => setEstimate("bride", row.category, e.target.value)}
+                  placeholder="0"
+                />
+              </Fragment>
+            ))}
+          </div>
+          <p className="mt-3 text-[11px] text-soft leading-relaxed break-keep">
+            가족·친척·직장·학교·친구·지인으로 나눠 어림수로 적으면 돼요. 숫자는 언제든 고칠 수 있어요.
+          </p>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -271,6 +542,30 @@ function makeGuest(name: string, side: GuestSide): Guest {
     status: "초대 예정",
     partyCount: 1,
   };
+}
+
+function summarizeSeatingGroups(guests: Guest[]): {
+  total: number;
+  tableCount: number;
+  rows: { label: string; count: number; tables: number }[];
+} {
+  const grouped = new Map<string, number>();
+  for (const g of guests) {
+    if (g.status === "불참") continue;
+    const label =
+      g.group?.trim() ||
+      g.relation?.trim() ||
+      (g.category ? GUEST_CATEGORY_LABEL[g.category] : "") ||
+      SIDE_LABEL[g.side];
+    const count = Math.max(1, g.partyCount ?? 1);
+    grouped.set(label, (grouped.get(label) ?? 0) + count);
+  }
+  const rows = Array.from(grouped.entries())
+    .map(([label, count]) => ({ label, count, tables: Math.max(1, Math.ceil(count / 10)) }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+    .slice(0, 6);
+  const total = Array.from(grouped.values()).reduce((sum, count) => sum + count, 0);
+  return { total, tableCount: Math.max(1, Math.ceil(total / 10)), rows };
 }
 
 // 금액 입력 파싱 — 빈 칸은 undefined, "0"은 0으로 유지, 음수·비정상값은 거부.
@@ -307,9 +602,7 @@ function GuestAddBlock({
               key={s}
               type="button"
               onClick={() => onSideChange(s)}
-              className={`text-[12px] tracking-wide pb-1 transition ${
-                side === s ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"
-              }`}
+              className={side === s ? "seg-active" : "seg"}
             >
               {SIDE_LABEL[s]}
             </button>
@@ -339,7 +632,7 @@ function GuestAddBlock({
               disabled={!name.trim()}
               className={
                 primary
-                  ? "btn-primary px-8 py-3.5 text-[12.5px] disabled:opacity-40"
+                  ? "btn-primary px-8 py-3.5 text-[13px] disabled:opacity-40"
                   : "text-[12px] text-ink underline underline-offset-4 pb-3 hover:text-gold disabled:opacity-40 whitespace-nowrap"
               }
             >
@@ -389,6 +682,14 @@ function GuestAddBlock({
   );
 }
 
+// CSV 셀 이스케이프 — 쉼표·따옴표·줄바꿈이 있으면 큰따옴표로 감싸고 내부 따옴표는 두 번 반복.
+function csvCell(value: string): string {
+  if (/[",\r\n]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
 function guestMatchKey(name: string, side: GuestSide) {
   return `${name.trim().toLowerCase()}|${side}`;
 }
@@ -424,11 +725,11 @@ function Stat({ label, value, accent, muted, unit, hint }: { label: string; valu
   return (
     <div>
       <div className="eyebrow mb-1">{label}</div>
-      <div className={`font-serif tabular-nums ${accent ? "text-2xl text-ink" : muted ? "text-lg text-soft" : "text-xl text-ink"}`}>
+      <div className={`font-serif text-xl tabular-nums ${accent ? "text-ink font-semibold" : muted ? "text-soft" : "text-ink"}`}>
         {display}
         {unit && <span className="text-[11px] text-soft ml-1">{unit === "원" ? "만원" : unit}</span>}
       </div>
-      {hint && <div className="text-[10.5px] text-soft mt-0.5">{hint}</div>}
+      {hint && <div className="text-[11px] text-soft mt-0.5">{hint}</div>}
     </div>
   );
 }
@@ -437,15 +738,17 @@ function GuestRow({ g, onChange, onRemove }: { g: Guest; onChange: (p: Partial<G
   const [open, setOpen] = useState(false);
   return (
     <li className="py-3.5">
-      <button onClick={() => setOpen((o) => !o)} className="w-full text-left flex items-baseline justify-between gap-3">
+      <button onClick={() => setOpen((o) => !o)} className="row-tap w-full text-left flex items-baseline justify-between gap-3 -mx-4 px-4 py-1">
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline gap-2.5">
             <span className="font-serif text-[15px] text-ink truncate">{g.name}</span>
             <span className="eyebrow">{SIDE_LABEL[g.side]}</span>
           </div>
-          <div className="text-[11.5px] text-soft mt-1 space-x-2">
-            {g.relation && <span>{g.relation}</span>}
-            <span className={g.status === "참석" ? "text-gold" : ""}>· {STATUS_LABEL[g.status]}</span>
+          <div className="text-[12px] text-soft mt-1 space-x-2">
+            {g.category && <span>{GUEST_CATEGORY_LABEL[g.category]}</span>}
+            {g.relation && <span>{g.category ? "· " : ""}{g.relation}</span>}
+            {g.group && <span>· {g.group}</span>}
+            <span className={g.status === "참석" ? "text-ink" : ""}>· {STATUS_LABEL[g.status]}</span>
             {g.giftKRW != null && g.giftKRW > 0 && (
               <span className="tabular-nums">· {g.giftKRW.toLocaleString()}원</span>
             )}
@@ -468,6 +771,12 @@ function GuestRow({ g, onChange, onRemove }: { g: Guest; onChange: (p: Partial<G
             onChange={(e) => onChange({ relation: e.target.value })}
             placeholder="관계 (예: 회사 동료, 대학 동기, 친척)"
           />
+          <input
+            className="input text-[13px]"
+            value={g.group ?? ""}
+            onChange={(e) => onChange({ group: e.target.value || undefined })}
+            placeholder="테이블 묶음 (예: 신랑 회사, 신부 대학 친구)"
+          />
 
           <div>
             <label className="label">신랑/신부 측</label>
@@ -476,9 +785,24 @@ function GuestRow({ g, onChange, onRemove }: { g: Guest; onChange: (p: Partial<G
                 <button
                   key={s}
                   onClick={() => onChange({ side: s })}
-                  className={`text-[12px] tracking-wide pb-1 ${g.side === s ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                  className={g.side === s ? "seg-active" : "seg"}
                 >
                   {SIDE_LABEL[s]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="label">분류 <span className="text-mute normal-case tracking-normal">· 예상 인원에 반영</span></label>
+            <div className="flex flex-wrap gap-x-5 gap-y-2">
+              {GUEST_CATEGORIES.map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => onChange({ category: g.category === key ? undefined : key })}
+                  className={g.category === key ? "seg-active" : "seg"}
+                >
+                  {label}
                 </button>
               ))}
             </div>
@@ -491,7 +815,7 @@ function GuestRow({ g, onChange, onRemove }: { g: Guest; onChange: (p: Partial<G
                 <button
                   key={s}
                   onClick={() => onChange({ status: s })}
-                  className={`text-[12px] tracking-wide pb-1 ${g.status === s ? "text-ink border-b border-ink font-medium" : "text-soft hover:text-ink"}`}
+                  className={g.status === s ? "seg-active" : "seg"}
                 >
                   {STATUS_LABEL[s]}
                 </button>
@@ -531,7 +855,7 @@ function GuestRow({ g, onChange, onRemove }: { g: Guest; onChange: (p: Partial<G
             placeholder="연락처"
           />
 
-          <label className="flex items-center gap-2 text-[12.5px] text-soft">
+          <label className="flex items-center gap-2 text-[13px] text-soft">
             <input
               type="checkbox"
               checked={g.meal !== false}
@@ -542,14 +866,14 @@ function GuestRow({ g, onChange, onRemove }: { g: Guest; onChange: (p: Partial<G
           </label>
 
           <textarea
-            className="input-boxed text-[12.5px] min-h-[50px]"
+            className="input-boxed text-[13px] min-h-[50px]"
             value={g.notes ?? ""}
             onChange={(e) => onChange({ notes: e.target.value })}
             placeholder="메모"
           />
 
           <div className="flex items-center justify-between pt-2 border-t border-hair">
-            <span className="text-[10.5px] text-soft">
+            <span className="text-[11px] text-soft">
               {g.invitedAt ? `초대 ${g.invitedAt}` : "아직 초대장 미전송"}
             </span>
             <button onClick={onRemove} className="text-[11px] text-soft hover:text-gold underline underline-offset-4">

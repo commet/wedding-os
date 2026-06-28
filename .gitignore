@@ -13,4 +13,4 @@ tsconfig.tsbuildinfo
 *.tsbuildinfo
 playwright-report
 test-results
-artifacts/screenshots
+artifacts/

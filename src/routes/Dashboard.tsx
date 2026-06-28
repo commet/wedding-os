@@ -6,6 +6,15 @@ import { daysUntilISODate, parseISODateLocal } from "../lib/date";
 import ChatbotBridgeModal from "../components/ChatbotBridgeModal";
 import { type BridgePrompt, weddingPlanStarterPrompt } from "../lib/chatbotBridge";
 import { defaultData } from "../lib/schema";
+import { AGENT_PRIORITIES, type AgentPriority } from "../lib/agentProfile";
+import { applyAgentAnswer, nextAgentQuestion, type AgentLoopQuestion } from "../lib/agentLoop";
+import { AgentIdentity } from "../components/AgentIdentity";
+import { buildMenuGroups } from "../lib/menu";
+import {
+  budgetTotals, overdueChecklistCount, formatKRW, upcomingBalances, upcomingEvents,
+  weddingPhase, rsvpReadiness, mealBudgetCheck, contractedVenue, planningHeadcount, venueCapacityFit,
+} from "../lib/derived";
+import { koBreak } from "../lib/typography";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 
@@ -31,23 +40,11 @@ type StarterResult = {
   greeting: boolean;
 };
 
-type JourneyStep = {
-  to: string;
-  label: string;
-  detail: string;
-  done: boolean;
-};
-
-type QuickAction = {
-  to: string;
-  label: string;
-  detail: string;
-};
-
 export default function Dashboard({ data, update }: Props) {
   const [aiPrompt, setAiPrompt] = useState<BridgePrompt | null>(null);
   const [aiMessage, setAiMessage] = useState("");
   const [starterResult, setStarterResult] = useState<StarterResult | null>(null);
+  const [agentChoosing, setAgentChoosing] = useState(false);
   const dday = useMemo(() => {
     return daysUntilISODate(data.invitation.date);
   }, [data.invitation.date]);
@@ -56,22 +53,15 @@ export default function Dashboard({ data, update }: Props) {
   const checklistDone = data.checklist.reduce((n, s) => n + s.items.filter((i) => i.done).length, 0);
   const progress = checklistTotal > 0 ? Math.round((checklistDone / checklistTotal) * 100) : 0;
 
-  const empty = !data.invitation.groomName && !data.invitation.brideName;
+  const agentOnboarded = !!data.ai?.profile?.onboardedAt;
+  const empty = !agentOnboarded && !data.invitation.groomName && !data.invitation.brideName;
 
   const venueCount = (data.venues ?? []).length;
   const budgetCount = (data.budget ?? []).length;
   const guestCount = (data.guests ?? []).length;
   const guestAttending = (data.guests ?? []).filter((g) => g.status === "참석").length;
-  const guestMeals = (data.guests ?? [])
-    .filter((g) => g.status === "참석" && g.meal !== false)
-    .reduce((sum, g) => sum + Math.max(1, g.partyCount ?? 1), 0);
-  const unpaidBudgetCount = (data.budget ?? []).filter((b) => ((b.actual ?? b.planned ?? 0) > 0) && !b.paid).length;
-  const overBudgetCount = (data.budget ?? []).filter((b) => typeof b.planned === "number" && typeof b.actual === "number" && b.actual > b.planned).length;
   const sdmCount = data.sdm.filter((v) => v.category !== "snap").length;
   const snapCount = data.sdm.filter((v) => v.category === "snap").length;
-  const contractedVendorCount =
-    (data.venues ?? []).filter((v) => v.status === "계약").length +
-    data.sdm.filter((v) => v.status === "계약").length;
   const invitationReadyCount = [
     data.invitation.groomName,
     data.invitation.brideName,
@@ -79,25 +69,29 @@ export default function Dashboard({ data, update }: Props) {
     data.invitation.venue,
     data.invitation.greeting,
   ].filter(Boolean).length;
-  const coreProgress = Math.round(
-    ([
-      !!data.invitation.date,
-      !!data.invitation.venue || venueCount > 0,
-      checklistTotal > 0,
-      budgetCount > 0,
-      guestCount > 0,
-      invitationReadyCount >= 4,
-      data.rings.length > 0,
-      data.honeymoon.regions.length + data.flights.length + data.hotels.length > 0,
-    ].filter(Boolean).length / 8) * 100
-  );
-  const careCount = [
-    !data.invitation.date,
-    !data.invitation.venue && venueCount === 0,
-    guestCount === 0,
-    unpaidBudgetCount > 0,
-    overBudgetCount > 0,
-  ].filter(Boolean).length;
+  // 영역 간 위험 신호 — 서브페이지를 안 열어도 홈에서 한눈에.
+  const { overCount: overBudgetCount, overSum: overBudgetSum } = budgetTotals(data);
+  const overdueCount = overdueChecklistCount(data);
+  const balanceDueSoon = upcomingBalances(data).filter((b) => b.daysLeft <= 14)[0]; // 가장 임박한 잔금
+  const timeline = upcomingEvents(data); // 예식·마감·잔금·답사를 한 시간축으로
+
+  // 에이전트 '상황 읽기' — D-day 국면 + 부부 데이터에서 직접 추론한 신호들(읽기 전용, AI 비용 없음).
+  const phase = weddingPhase(dday);
+  const contractVenueForFit = contractedVenue(data);
+  const headcountForFit = planningHeadcount(data);
+  const capFit = venueCapacityFit(contractVenueForFit, headcountForFit);
+  const rsvp = rsvpReadiness(data);
+  const mealCheck = mealBudgetCheck(data);
+  // 회신 독려는 충분히 보냈는데 응답이 더딜 때만 — 거짓 경보 방지.
+  const rsvpNudge = rsvp.invited >= 20 && rsvp.rate !== null && rsvp.rate < 50 && (rsvp.daysSinceFirstInvite ?? 0) >= 14;
+  const capitalRisk = capFit === "over" || capFit === "under";
+  const hasRisk = overdueCount > 0 || overBudgetCount > 0 || !!balanceDueSoon || capitalRisk || rsvpNudge || !!mealCheck;
+  const agentQuestion = useMemo(() => nextAgentQuestion(data), [data]);
+  const agentCaption = hasRisk
+    ? "놓치기 쉬운 신호를 먼저 보고 있어요."
+    : agentQuestion
+      ? "다음 결정을 하나만 물어볼게요."
+      : "지금은 준비판을 조용히 정리해두고 있어요.";
 
   const setWeddingDate = (date: string) => {
     update((prev: WeddingData) => {
@@ -116,6 +110,29 @@ export default function Dashboard({ data, update }: Props) {
     setAiMessage("");
     setStarterResult(null);
     setAiPrompt(weddingPlanStarterPrompt(data));
+  };
+
+  const chooseAgentPriority = (priority: AgentPriority) => {
+    const choice = AGENT_PRIORITIES[priority];
+    update((prev: WeddingData) => ({
+      ...prev,
+      ai: {
+        ...(prev.ai ?? {}),
+        profile: { ...(prev.ai?.profile ?? {}), priority },
+        today: [
+          { title: choice.title, reason: choice.reason, targetPath: choice.targetPath },
+          ...(prev.ai?.today ?? []).filter((item) => item.targetPath !== choice.targetPath),
+        ].slice(0, 3),
+        updatedAt: new Date().toISOString(),
+      },
+    }));
+    setAgentChoosing(false);
+  };
+
+  const answerAgentQuestion = (question: AgentLoopQuestion, value: string) => {
+    const result = applyAgentAnswer(data, question, value);
+    update(() => result.next);
+    setAiMessage(result.message);
   };
 
   const applyAiStarter = (parsed: any) => {
@@ -274,7 +291,7 @@ export default function Dashboard({ data, update }: Props) {
       items.push({
         to: "/budget",
         title: "예산표 시작하기",
-        desc: "평균 항목을 넣어두면 견적을 받을 때 초과 위험이 바로 보입니다.",
+        desc: "비용 항목을 먼저 펼쳐두면 견적을 받을 때 빠진 항목과 초과 금액을 바로 확인할 수 있어요.",
         tag: "돈 관리",
       });
     }
@@ -318,7 +335,20 @@ export default function Dashboard({ data, update }: Props) {
         tag: "함께 편집",
       });
     }
-    return dedupeFocusItems(items).slice(0, 3);
+    const deduped = dedupeFocusItems(items);
+    // 반지는 중요한 시작 '킥'이지만 첫 번째(01)로는 띄우지 않는다 — 반지 관련 항목은
+    // 항상 마지막 네 번째 자리(04)로 내려 고정한다(노출은 유지).
+    const nonRings = deduped.filter((i) => i.to !== "/rings");
+    let ringItem = deduped.find((i) => i.to === "/rings");
+    if (!ringItem && data.rings.length === 0) {
+      ringItem = {
+        to: "/rings",
+        title: "반지 후보 풀 만들기",
+        desc: "브랜드·예산·소재 기준으로 볼 만한 후보를 빠르게 좁힙니다.",
+        tag: "후보 정리",
+      };
+    }
+    return ringItem ? [...nonRings.slice(0, 3), ringItem] : nonRings.slice(0, 4);
   }, [
     data.ai?.today,
     budgetCount,
@@ -372,93 +402,20 @@ export default function Dashboard({ data, update }: Props) {
     },
   ];
 
-  const journeySteps: JourneyStep[] = [
-    {
-      to: "/venues",
-      label: "큰 예약",
-      detail: contractedVendorCount > 0 ? `계약 ${contractedVendorCount}건` : venueCount > 0 ? `후보 ${venueCount}곳` : "예식장부터",
-      done: !!data.invitation.venue || contractedVendorCount > 0,
-    },
-    {
-      to: "/guests",
-      label: "사람",
-      detail: guestCount > 0 ? `${guestCount}명 · 식수 ${guestMeals}` : "명단 시작 전",
-      done: guestCount > 0 && guestAttending > 0,
-    },
-    {
-      to: "/invitation",
-      label: "초대",
-      detail: invitationReadyCount >= 4 ? "공유 준비" : `${invitationReadyCount}/5 입력`,
-      done: invitationReadyCount >= 4,
-    },
-    {
-      to: "/checklist",
-      label: "본식",
-      detail: checklistTotal > 0 ? `${progress}% 완료` : "일정판 필요",
-      done: checklistTotal > 0 && progress >= 50,
-    },
-  ];
+  // 헤드라인 준비도 — 영역별 부분 진행률(readiness)의 평균. 한 곳만 채워도 지표가 움직인다.
+  const readinessPercent = readiness.length
+    ? Math.round(readiness.reduce((sum, r) => sum + r.percent, 0) / readiness.length)
+    : 0;
 
-  const quickActions: QuickAction[] = [
-    {
-      to: focusItems[0]?.to ?? "/checklist",
-      label: "오늘 이어가기",
-      detail: focusItems[0]?.title ?? "먼저 할 일을 정리하세요",
-    },
-    {
-      to: "/agent",
-      label: "안심 체크",
-      detail: careCount > 0 ? `확인 ${careCount}개` : "오늘은 괜찮음",
-    },
-    {
-      to: "/budget",
-      label: "돈",
-      detail: unpaidBudgetCount > 0 ? `미결제 ${unpaidBudgetCount}개` : budgetCount > 0 ? "정리됨" : "예산 시작",
-    },
-    {
-      to: "/guests",
-      label: "하객",
-      detail: guestCount > 0 ? `${guestCount}명 · 참석 ${guestAttending}` : "명단 시작",
-    },
-  ];
-
-  // 메뉴 순서는 실제 결혼 준비 흐름을 따른다 — 먼저 큰 예약을 잡고(결정·예약),
-  // 청첩장·영상을 만들고(함께 만들기), 그 뒤 꾸준히 관리. 공유·AI는 도구로 분리.
-  const MENU_GROUPS: { title: string; items: { to: string; label: string; sub: string }[] }[] = [
-    {
-      title: "결정 · 예약",
-      items: [
-        { to: "/venues", label: "예식장", sub: venueCount > 0 ? `${venueCount}곳 담음` : "후보 비교 · 답사" },
-        { to: "/sdm", label: "스드메", sub: sdmCount > 0 ? `${sdmCount}곳 담음` : "스튜디오 · 드레스 · 메이크업" },
-        { to: "/snap", label: "본식 스냅", sub: snapCount > 0 ? `${snapCount}곳 담음` : "당일 촬영 · 원판 · 앨범" },
-        { to: "/rings", label: "결혼반지", sub: `${data.rings.length}개 후보` },
-        { to: "/trip", label: "신혼여행", sub: `${data.honeymoon.regions.length}곳 · 항공 ${data.flights.length} · 숙소 ${data.hotels.length}` },
-      ],
-    },
-    {
-      title: "함께 만들기",
-      items: [
-        { to: "/invitation", label: "모바일 청첩장", sub: "정보 입력 · 하객용 링크" },
-        { to: "/video", label: "식전영상", sub: "사진 · BGM · 자연어 편집" },
-      ],
-    },
-    {
-      title: "꾸준히 관리",
-      items: [
-        { to: "/checklist", label: "체크리스트", sub: checklistTotal > 0 ? `${checklistDone}/${checklistTotal} 완료 · ${progress}%` : "일정 · 할 일" },
-        { to: "/budget", label: "비용 관리", sub: budgetCount > 0 ? `${budgetCount}개 항목` : "예산 · 결제 · 초과 비용" },
-        { to: "/guests", label: "하객 명단", sub: guestCount > 0 ? `${guestCount}명 · 참석 ${guestAttending}` : "이름 · 축의금 · 식수" },
-      ],
-    },
-    {
-      title: "도구",
-      items: [
-        { to: "/agent", label: "안심 체크", sub: "공개 링크 · 돈 · 일정 · 저작권" },
-        { to: "/share", label: "공유 센터", sub: "청첩장 · 초대 링크 · 백업" },
-        { to: "/ai", label: "AI 연결", sub: "복붙 모드 · API 키 · 로컬 LLM" },
-      ],
-    },
-  ];
+  // 전역 메뉴 — AppShell "더보기" 시트와 동일한 단일 소스(lib/menu.ts)를 공유.
+  const MENU_GROUPS = buildMenuGroups(data);
+  const primaryFocus = focusItems[0] ?? {
+    to: "/checklist",
+    title: "오늘 할 일 확인하기",
+    desc: "완료한 일과 다음 일정을 가볍게 확인해보세요.",
+    tag: "다음 단계",
+  };
+  const coupleDisplay = [data.invitation.groomName, data.invitation.brideName].filter(Boolean).join(" · ") || "우리";
 
   return (
     <div className="pb-10">
@@ -466,11 +423,11 @@ export default function Dashboard({ data, update }: Props) {
       <section className="page pt-6 pb-6">
         {empty ? (
           <div className="border-y border-hair py-6">
-            <div className="eyebrow-gold mb-3">처음 1분</div>
-            <h1 className="font-serif text-[1.75rem] leading-[1.18] text-ink tracking-tight mb-3">
-              예식 날짜가<br />정해졌나요?
+            <div className="eyebrow mb-3">처음 1분</div>
+            <h1 className="display-sm mb-3">
+              {koBreak("예식 날짜가 정해졌나요?")}
             </h1>
-            <p className="text-[12.5px] text-soft leading-relaxed mb-5">
+            <p className="text-[15px] text-soft leading-relaxed mb-5">
               날짜를 넣으면 준비 일정을 맞춰드려요. 아직 미정이면 건너뛰고 바로 할 일부터 볼 수 있습니다.
             </p>
             <label className="block mb-4">
@@ -493,19 +450,18 @@ export default function Dashboard({ data, update }: Props) {
           </div>
         ) : (
           <>
-            <div className="eyebrow-gold mb-6">Our Wedding</div>
-            <p className="font-serif text-xl text-ink mb-8 tracking-wide">
-              {data.invitation.groomName}
-              <span className="mx-3 text-gold">·</span>
-              {data.invitation.brideName}
-            </p>
+            {/* 1) 정체성 — 누구의 준비판인가 */}
+            <div className="eyebrow-gold mb-4">두 분의 준비판</div>
+            <h1 className="font-serif text-[1.625rem] leading-[1.4] text-ink tracking-wide break-keep">
+              {koBreak(coupleDisplay)}
+            </h1>
 
+            {/* 2) 큰 숫자 — D-day */}
             {dday !== null && (
-              <div className="mb-8">
+              <div className="mt-6">
                 {dday > 0 ? (
                   <div className="font-serif text-[5rem] leading-none text-ink tracking-tight">
-                    D<span className="text-gold">−</span>
-                    <span className="tabular-nums">{dday}</span>
+                    D−<span className="tabular-nums">{dday}</span>
                   </div>
                 ) : dday === 0 ? (
                   <div className="font-serif text-[3.5rem] leading-none text-gold tracking-tight">
@@ -519,8 +475,9 @@ export default function Dashboard({ data, update }: Props) {
               </div>
             )}
 
-            <div className="space-y-1.5">
-              <p className="text-[13px] text-ink tracking-wide">
+            {/* 3) 사실 밴드 — 날짜·장소, 한 단 낮은 위계로 hairline 구분 */}
+            <div className="mt-7 border-t border-hair pt-4 space-y-1">
+              <p className="text-[13px] text-ink tracking-wide break-keep">
                 {formatWeddingDate(data.invitation.date) || "날짜 미정"}
                 {data.invitation.time && ` · ${data.invitation.time}`}
               </p>
@@ -529,112 +486,147 @@ export default function Dashboard({ data, update }: Props) {
               </p>
             </div>
 
-            <div className="mt-8 max-w-[18rem] mx-auto">
-              <div className="flex items-end justify-between mb-2">
+            {/* 4) 준비도 — 또 한 단 분리, 정제된 미터 */}
+            <div className="mt-6 border-t border-hair pt-5">
+              <div className="flex items-end justify-between mb-2.5">
                 <span className="eyebrow">전체 준비도</span>
-                <span className="font-serif text-2xl text-ink tabular-nums">{coreProgress}%</span>
+                <span className="font-serif text-2xl text-ink tabular-nums leading-none">
+                  {readinessPercent}<span className="text-[14px] text-soft ml-0.5">%</span>
+                </span>
               </div>
-              <ProgressLine value={coreProgress} />
+              <ReadinessMeter value={readinessPercent} />
             </div>
-            <button
-              data-testid="dashboard-ai-starter"
-              onClick={openAiStarter}
-              className="mt-7 text-[12.5px] text-ink underline underline-offset-4 hover:text-gold"
-            >
-              다음 할 일 정리하기 →
-            </button>
           </>
         )}
       </section>
 
       <div className="hairline" />
 
-      {!empty && (
-        <>
-          <section className="page py-7">
-            <div className="flex items-baseline justify-between mb-4">
-              <div>
-                <div className="eyebrow-gold mb-2">Journey</div>
-                <h2 className="font-serif text-xl text-ink">우리 준비 흐름</h2>
-              </div>
-              <Link to="/agent" className="text-[12px] text-soft underline underline-offset-4 hover:text-ink">
-                안심 체크
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-4 gap-2 mb-5">
-              {journeySteps.map((step, index) => (
-                <Link key={step.label} to={step.to} className="min-w-0 active:opacity-70">
-                  <div className={`h-1 mb-2 ${step.done ? "bg-ink" : index === 0 ? "bg-gold" : "bg-line"}`} />
-                  <div className="text-[11px] font-medium text-ink truncate">{step.label}</div>
-                  <div className="text-[10.5px] text-soft mt-1 truncate">{step.detail}</div>
-                </Link>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              {quickActions.map((action) => (
-                <Link key={action.label} to={action.to} className="border border-hair bg-paper px-4 py-3 active:opacity-70">
-                  <div className="font-serif text-[15px] text-ink leading-tight">{action.label}</div>
-                  <div className="text-[11.5px] text-soft mt-1 truncate">{action.detail}</div>
-                </Link>
-              ))}
-            </div>
-          </section>
-          <div className="hairline" />
-        </>
-      )}
-
-      {/* ─── 다음 행동 — 앱이 먼저 정리해주는 영역 ─── */}
+      {/* ─── Agent briefing — 지금 할 일 하나와 다음 순서 ─── */}
       <section id="today-focus" className="page py-9 scroll-mt-20">
-        <div className="flex items-baseline justify-between mb-5">
-          <div>
-            <div className="eyebrow-gold mb-2">Today</div>
-            <h2 className="font-serif text-xl text-ink">오늘 이어갈 일</h2>
-          </div>
-          <span className="text-[11px] text-soft">최대 3개만</span>
+        <div className="mb-7 flex items-end justify-between gap-4">
+          <AgentIdentity mood={agentQuestion ? "thinking" : hasRisk ? "watching" : "ready"} caption={agentCaption} />
+          <span className="eyebrow text-right">{coupleDisplay}<br />오늘의 브리핑</span>
         </div>
         {aiMessage && (
-          <p className="text-[11.5px] text-soft leading-relaxed -mt-2 mb-4">
+          <p className="mb-5 border-l border-gold pl-4 text-[13px] leading-[1.75] text-soft">
             {aiMessage}
           </p>
         )}
         {starterResult && <StarterResultPanel result={starterResult} />}
-        {data.ai?.starterSummary && (
-          <div className="border-l-2 border-hair pl-3 mb-4">
-            <div className="eyebrow-gold mb-1">정리 메모</div>
-            <p className="text-[12px] text-soft leading-relaxed">
-              {data.ai.starterSummary}
+        {agentChoosing ? (
+          <div className="page-enter">
+            <div className="eyebrow mb-3">우선순위 바꾸기</div>
+            <h2 className="mb-2 max-w-[19rem] font-serif text-[1.625rem] leading-[1.4] text-ink break-keep [text-wrap:balance]">{koBreak("지금 더 마음이 가는 일은 무엇인가요?")}</h2>
+            <p className="mb-6 text-[15px] leading-relaxed text-soft">고른 일을 첫 번째로 옮기고 다음 순서도 다시 맞출게요.</p>
+            <div className="space-y-2.5">
+              {(Object.entries(AGENT_PRIORITIES) as Array<[AgentPriority, (typeof AGENT_PRIORITIES)[AgentPriority]]>).map(([id, item]) => (
+                <button key={id} onClick={() => chooseAgentPriority(id)} className="flex min-h-[62px] w-full items-center justify-between gap-3 border-b border-hair px-1 py-3 text-left transition hover:border-gold">
+                  <span>
+                    <span className="block text-[13px] font-medium text-ink">{item.label}</span>
+                    <span className="mt-1 block text-[11px] leading-relaxed text-soft">{item.reason}</span>
+                  </span>
+                  <span className="text-gold">→</span>
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setAgentChoosing(false)} className="mt-4 min-h-11 text-[12px] text-soft underline underline-offset-4">지금 제안으로 돌아가기</button>
+          </div>
+        ) : (
+          <div className="page-enter">
+            {dday !== null && (
+              <div className="mb-3 flex items-baseline gap-2">
+                <span className="eyebrow-gold">{phase.label}</span>
+                {dday >= 0 && <span className="text-[11px] text-soft tabular-nums">D-{dday}</span>}
+              </div>
+            )}
+            <p className="mb-7 max-w-[21rem] text-[15px] leading-[1.8] text-soft">
+              {data.ai?.starterSummary || (dday !== null ? phase.focus : "현재 준비 상태를 보고, 다음 결정이 쉬워지는 순서로 정리했어요.")}
             </p>
+            {agentQuestion && (
+              <AgentQuestionCard question={agentQuestion} onAnswer={answerAgentQuestion} />
+            )}
+            {hasRisk && (
+              <div className="mb-7 border-y border-l-2 border-hair border-l-gold bg-cream/40">
+                {overdueCount > 0 && (
+                  <Link to="/checklist" className="row-tap flex items-center justify-between gap-3 border-b border-hair px-3 py-3 last:border-b-0">
+                    <span className="text-[13px] text-ink break-keep">지난 마감 <b className="font-semibold">{overdueCount}건</b>이 남아 있어요</span>
+                    <span className="flex-shrink-0 text-gold">→</span>
+                  </Link>
+                )}
+                {overBudgetCount > 0 && (
+                  <Link to="/budget" className="row-tap flex items-center justify-between gap-3 border-b border-hair px-3 py-3 last:border-b-0">
+                    <span className="text-[13px] text-ink break-keep">예산을 <b className="font-semibold">{overBudgetCount}건</b> 초과했어요 · +{formatKRW(overBudgetSum)}</span>
+                    <span className="flex-shrink-0 text-gold">→</span>
+                  </Link>
+                )}
+                {balanceDueSoon && (
+                  <Link to={balanceDueSoon.targetPath} className="row-tap flex items-center justify-between gap-3 border-b border-hair px-3 py-3 last:border-b-0">
+                    <span className="text-[13px] text-ink break-keep">{balanceDueSoon.name} 잔금 {balanceDueSoon.daysLeft < 0 ? `${-balanceDueSoon.daysLeft}일 지남` : balanceDueSoon.daysLeft === 0 ? "오늘" : `D-${balanceDueSoon.daysLeft}`} · {formatKRW(balanceDueSoon.amount)}</span>
+                    <span className="flex-shrink-0 text-gold">→</span>
+                  </Link>
+                )}
+                {capFit === "over" && (
+                  <Link to="/guests" className="row-tap flex items-center justify-between gap-3 border-b border-hair px-3 py-3 last:border-b-0">
+                    <span className="text-[13px] text-ink break-keep">초대 인원 <b className="font-semibold tabular-nums">{headcountForFit}명</b>이 {contractVenueForFit?.name} 수용(<span className="tabular-nums">{contractVenueForFit?.capacityMax}명</span>)을 넘을 수 있어요</span>
+                    <span className="flex-shrink-0 text-gold">→</span>
+                  </Link>
+                )}
+                {capFit === "under" && (
+                  <Link to="/venues" className="row-tap flex items-center justify-between gap-3 border-b border-hair px-3 py-3 last:border-b-0">
+                    <span className="text-[13px] text-ink break-keep">초대 인원 <span className="tabular-nums">{headcountForFit}명</span>이 최소 보증인원(<span className="tabular-nums">{contractVenueForFit?.capacityMin}명</span>)보다 적어요 · 보증금 확인</span>
+                    <span className="flex-shrink-0 text-gold">→</span>
+                  </Link>
+                )}
+                {rsvpNudge && (
+                  <Link to="/guests" className="row-tap flex items-center justify-between gap-3 border-b border-hair px-3 py-3 last:border-b-0">
+                    <span className="text-[13px] text-ink break-keep">청첩장 보낸 지 <span className="tabular-nums">{rsvp.daysSinceFirstInvite}일</span> · 회신 <b className="font-semibold tabular-nums">{rsvp.rate}%</b> · 미응답 <span className="tabular-nums">{rsvp.pending}명</span></span>
+                    <span className="flex-shrink-0 text-gold">→</span>
+                  </Link>
+                )}
+                {mealCheck?.kind === "missing" && (
+                  <Link to="/budget" className="row-tap flex items-center justify-between gap-3 border-b border-hair px-3 py-3 last:border-b-0">
+                    <span className="text-[13px] text-ink break-keep">예상 식대 약 <b className="font-semibold">{formatKRW(mealCheck.expected)}</b> · 예산표에 식대 항목이 없어요</span>
+                    <span className="flex-shrink-0 text-gold">→</span>
+                  </Link>
+                )}
+                {mealCheck?.kind === "low" && (
+                  <Link to="/budget" className="row-tap flex items-center justify-between gap-3 border-b border-hair px-3 py-3 last:border-b-0">
+                    <span className="text-[13px] text-ink break-keep">예산 식대(<span className="tabular-nums">{formatKRW(mealCheck.planned!)}</span>)가 예상(<span className="tabular-nums">{formatKRW(mealCheck.expected)}</span>)보다 적어요</span>
+                    <span className="flex-shrink-0 text-gold">→</span>
+                  </Link>
+                )}
+              </div>
+            )}
+            <div className="agent-briefing">
+              <div className="agent-briefing-number">01</div>
+              <div className="min-w-0">
+                <div className="eyebrow-gold mb-2">오늘의 첫 단계</div>
+                <h2 className="font-serif text-[1.625rem] leading-[1.4] text-ink break-keep">{primaryFocus.title}</h2>
+                <p className="mt-3 text-[15px] leading-[1.75] text-soft">{primaryFocus.desc}</p>
+                <Link to={primaryFocus.to} className="mt-5 inline-flex min-h-11 items-center border-b border-ink text-[12.5px] font-medium text-ink">
+                  에이전트와 이 일 시작하기&nbsp; →
+                </Link>
+              </div>
+            </div>
           </div>
         )}
-        <ul className="border-y border-hair divide-y divide-hair">
-          {focusItems.map((item, idx) => (
-            <li key={`${item.to}-${item.title}`}>
-              <Link to={item.to} className="flex items-start gap-4 py-4 active:opacity-70 transition">
-                <span className="font-serif text-soft text-base tabular-nums w-6 flex-shrink-0">
-                  {String(idx + 1).padStart(2, "0")}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline gap-2 mb-1">
-                    <span className="font-serif text-[16px] text-ink">{item.title}</span>
-                    <span className="eyebrow-gold">{item.tag}</span>
-                  </div>
-                  <p className="text-[12px] text-soft leading-relaxed">{item.desc}</p>
-                </div>
-                <span className="text-soft pt-1">→</span>
+        {!agentChoosing && focusItems.length > 1 && (
+          <div className="mt-7 border-t border-hair">
+            {focusItems.slice(1, 4).map((item, index) => (
+              <Link key={`${item.to}-${item.title}`} to={item.to} className="row-tap grid min-h-[70px] grid-cols-[2rem_1fr_auto] items-center gap-3 border-b border-hair py-3">
+                <span className="font-serif text-[14px] text-gold">0{index + 2}</span>
+                <span className="text-[13px] leading-relaxed text-ink">{item.title}</span>
+                <span className="text-soft">→</span>
               </Link>
-            </li>
-          ))}
-        </ul>
-        {empty && (
-          <button
-            data-testid="dashboard-ai-starter"
-            onClick={openAiStarter}
-            className="mt-5 text-[12px] text-soft underline underline-offset-4 hover:text-ink"
-          >
-            AI로 내 상황에 맞게 다시 정리
-          </button>
+            ))}
+          </div>
+        )}
+        {!agentChoosing && (
+          <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-1">
+            <button onClick={() => setAgentChoosing(true)} className="min-h-11 text-[12px] text-soft underline underline-offset-4 hover:text-ink">먼저 할 일 바꾸기</button>
+            <button data-testid="dashboard-ai-starter" onClick={openAiStarter} className="min-h-11 text-[12px] text-soft underline underline-offset-4 hover:text-ink">에이전트에게 계획 다시 부탁하기</button>
+          </div>
         )}
       </section>
 
@@ -644,8 +636,8 @@ export default function Dashboard({ data, update }: Props) {
         <details>
           <summary className="list-none cursor-pointer flex items-center justify-between gap-4 min-h-11">
             <span>
-              <span className="eyebrow-gold block mb-1">전체 준비 현황</span>
-              <span className="font-serif text-lg text-ink">{coreProgress}% 진행 중</span>
+              <span className="eyebrow block mb-1">영역별 현황</span>
+              <span className="font-serif text-2xl text-ink">{koBreak("어디까지 왔는지 보기")}</span>
             </span>
             <span className="text-[12px] text-soft underline underline-offset-4">펼쳐보기</span>
           </summary>
@@ -657,7 +649,7 @@ export default function Dashboard({ data, update }: Props) {
                   <span className="text-[12px] text-soft tabular-nums">{item.percent}%</span>
                 </div>
                 <ProgressLine value={item.percent} subtle />
-                <div className="text-[11px] text-soft mt-2 leading-tight">{item.detail}</div>
+                <div className="text-[12px] text-soft mt-2 leading-snug">{item.detail}</div>
               </Link>
             ))}
           </div>
@@ -667,20 +659,50 @@ export default function Dashboard({ data, update }: Props) {
 
       <div className="hairline" />
 
+      {!empty && timeline.length > 0 && (
+        <>
+          <section className="page py-9">
+            <div className="mb-5 flex items-baseline justify-between gap-4">
+              <div className="eyebrow-gold">다가오는 일정</div>
+              <Link to="/checklist" className="text-[11px] text-soft underline underline-offset-4 hover:text-ink">전체 일정 →</Link>
+            </div>
+            <ol>
+              {timeline.map((e, i) => (
+                <li key={`${e.kind}-${e.date}-${i}`} className="relative pl-8">
+                  <span
+                    aria-hidden="true"
+                    className={`absolute left-[6px] w-px bg-hair ${i === 0 ? "top-[1.05rem]" : "top-0"} ${i === timeline.length - 1 ? "h-[1.05rem]" : "bottom-0"}`}
+                  />
+                  <span aria-hidden="true" className="absolute left-0 top-[0.7rem] flex h-3.5 w-3.5 items-center justify-center">
+                    <span className={`w-[8px] h-[8px] rotate-45 border ${e.kind === "wedding" ? "bg-gold border-gold" : "border-mute bg-paper"}`} />
+                  </span>
+                  <Link to={e.targetPath} className="row-tap flex items-baseline gap-2 border-b border-hair py-3 last:border-b-0">
+                    <span className="w-12 flex-shrink-0 text-[12px] text-soft tabular-nums">{e.date.slice(5).replace("-", ".")}</span>
+                    <span className={`min-w-0 truncate break-keep text-[14px] ${e.kind === "wedding" ? "font-serif text-ink" : "text-ink"}`}>{e.label}</span>
+                    <span className={`ml-auto flex-shrink-0 text-[12px] tabular-nums ${e.daysLeft <= 14 ? "text-gold font-medium" : "text-soft"}`}>{e.daysLeft === 0 ? "오늘" : `D-${e.daysLeft}`}</span>
+                  </Link>
+                </li>
+              ))}
+            </ol>
+          </section>
+          <div className="hairline" />
+        </>
+      )}
+
       {/* ─── 전체 메뉴는 접어서, 첫 화면 집중도를 유지 ─── */}
       <section className="page py-7">
         <details>
           <summary className="list-none cursor-pointer flex items-baseline justify-between gap-4">
             <span>
-              <span className="eyebrow-gold block mb-1">All sections</span>
-              <span className="font-serif text-lg text-ink">전체 메뉴</span>
+              <span className="eyebrow block mb-1">준비 도구</span>
+              <span className="font-serif text-lg text-ink">{koBreak("다른 메뉴 보기")}</span>
             </span>
             <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
           </summary>
           <div className="pt-7 space-y-8">
             {MENU_GROUPS.map((group) => (
               <div key={group.title}>
-                <h2 className="eyebrow-gold mb-3">{group.title}</h2>
+                <h2 className="eyebrow mb-3">{group.title}</h2>
                 <ul className="border-y border-hair divide-y divide-hair">
                   {group.items.map((item) => (
                     <li key={item.to}>
@@ -690,7 +712,7 @@ export default function Dashboard({ data, update }: Props) {
                       >
                         <div className="min-w-0">
                           <div className="font-serif text-[15px] text-ink leading-tight">{item.label}</div>
-                          <div className="text-[11px] text-soft mt-1 truncate">{item.sub}</div>
+                          <div className="text-[12px] text-soft mt-1 truncate">{item.sub}</div>
                         </div>
                         <span className="text-soft flex-shrink-0">→</span>
                       </Link>
@@ -709,6 +731,62 @@ export default function Dashboard({ data, update }: Props) {
         prompt={aiPrompt}
         onApply={applyAiStarter}
       />
+    </div>
+  );
+}
+
+function AgentQuestionCard({ question, onAnswer }: { question: AgentLoopQuestion; onAnswer: (question: AgentLoopQuestion, value: string) => void }) {
+  return (
+    <div className="mb-7 border-y border-hair bg-paper py-5">
+      <div className="mb-4 flex items-center gap-3">
+        <AgentIdentity compact mood="thinking" />
+        <div className="min-w-0">
+          <div className="eyebrow-gold">{question.eyebrow}</div>
+          <div className="mt-1 text-[11px] leading-snug text-soft">답을 고르면 제가 준비판에 바로 반영할게요.</div>
+        </div>
+      </div>
+      <h2 className="font-serif text-[20px] leading-[1.45] text-ink break-keep">{question.title}</h2>
+      <p className="mt-2 text-[13px] leading-[1.75] text-soft">{question.body}</p>
+      <div className="mt-5 divide-y divide-hair border-y border-hair">
+        {question.options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onAnswer(question, option.value)}
+            className="row-tap flex min-h-[62px] w-full items-center justify-between gap-3 py-3 text-left"
+          >
+            <span className="min-w-0">
+              <span className="block text-[13px] font-medium text-ink break-keep">{option.label}</span>
+              {option.desc && <span className="mt-1 block text-[11.5px] leading-relaxed text-soft break-keep">{option.desc}</span>}
+            </span>
+            <span className="flex-shrink-0 text-gold">→</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// 헤드라인 준비도 미터 — 막대 그 자체보다 한 톤 정제. 금색 그라데이션 채움 +
+// 사분위 눈금 + 진행 머리의 다이아 마커(식순 타임라인과 같은 모티프). 슬림하게.
+function ReadinessMeter({ value }: { value: number }) {
+  const pct = Math.max(0, Math.min(100, value));
+  return (
+    <div className="relative h-[6px] bg-hair">
+      <div
+        className="absolute inset-y-0 left-0 bg-gradient-to-r from-gold/55 to-gold transition-all duration-500"
+        style={{ width: `${pct}%` }}
+      />
+      {[25, 50, 75].map((q) => (
+        <span key={q} aria-hidden="true" className="absolute inset-y-0 w-px bg-paper/70" style={{ left: `${q}%` }} />
+      ))}
+      {pct > 1 && pct < 99 && (
+        <span
+          aria-hidden="true"
+          className="absolute top-1/2 w-2.5 h-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 bg-gold border border-paper"
+          style={{ left: `${pct}%` }}
+        />
+      )}
     </div>
   );
 }
@@ -734,7 +812,7 @@ function StarterResultPanel({ result }: { result: StarterResult }) {
     <div className="mb-5 border-y border-hair py-4">
       <div className="grid grid-cols-2 gap-3">
         {rows.map((row) => (
-          <Link key={row.label} to={row.to} className="bg-cream/45 px-3 py-3 active:opacity-70 transition">
+          <Link key={row.label} to={row.to} className="border border-hair px-3 py-3 active:opacity-70 transition">
             <div className="eyebrow mb-2">{row.label}</div>
             <div className="font-serif text-2xl text-ink tabular-nums">
               {row.value}
@@ -743,7 +821,7 @@ function StarterResultPanel({ result }: { result: StarterResult }) {
           </Link>
         ))}
         {result.greeting && (
-          <Link to="/invitation" className="bg-cream/45 px-3 py-3 active:opacity-70 transition">
+          <Link to="/invitation" className="border border-hair px-3 py-3 active:opacity-70 transition">
             <div className="eyebrow mb-2">청첩장 문안</div>
             <div className="font-serif text-[16px] text-ink">초안 반영</div>
           </Link>
@@ -763,7 +841,6 @@ const SAFE_TARGET_PATHS = new Set([
   "/trip",
   "/venues",
   "/share",
-  "/agent",
   "/setup",
   "/settings",
 ]);

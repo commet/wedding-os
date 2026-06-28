@@ -6,6 +6,7 @@ import { todayISO } from "../lib/freshness";
 import { clearOwner, getOrCreateOwnerToken, getHostedConfig, isOwner } from "../lib/security";
 import { buildRecoveryLink } from "../lib/recovery";
 import { authAvailable, currentEmail, hasLinkedAccount, linkedAccountKnownOnDevice, signOut, deleteLinkedAccount } from "../lib/auth";
+import { koBreak } from "../lib/typography";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 
@@ -64,7 +65,8 @@ export default function Settings({ data, update }: Props) {
   const reset = async () => {
     if (!confirm(
       "정말 모든 데이터를 지울까요?\n\n" +
-      "발행한 청첩장·받은 RSVP, 간편 모드 서버 데이터, 로그인 연결까지 함께 삭제되며 되돌릴 수 없어요.",
+      "발행한 청첩장·받은 RSVP, 간편 모드 서버 데이터, 로그인 연결까지 함께 삭제되며 되돌릴 수 없어요.\n\n" +
+      "지우기 전에 백업 파일을 먼저 내려받아 두면 마음이 놓여요.",
     )) return;
     setWiping(true);
     const email = authAvailable() ? await currentEmail() : null;
@@ -102,7 +104,7 @@ export default function Settings({ data, update }: Props) {
   };
 
   const switchMode = () => {
-    if (!confirm("모드를 다시 선택하시겠어요? 현재 데이터는 그대로 유지됩니다.")) return;
+    if (!confirm("저장 방식을 다시 선택하시겠어요?\n입력한 내용은 그대로 유지돼요.")) return;
     update((prev: WeddingData) => ({
       ...prev,
       preferences: { ...prev.preferences, mode: null },
@@ -140,43 +142,39 @@ export default function Settings({ data, update }: Props) {
   return (
     <div className="page pt-8 pb-10 space-y-10">
       <div>
-        <div className="eyebrow-gold mb-2">More</div>
-        <h1 className="font-serif text-[2rem] leading-none">더보기</h1>
+        <div className="eyebrow-gold mb-2">Wedding OS</div>
+        <h1 className="h-page">설정</h1>
       </div>
 
-      <Section title="저장 방식">
-        <p className="text-[13px] text-soft">
-          현재 · <b className="text-ink">{currentMode}</b>
-        </p>
-        {data.preferences.mode === "local" && authAvailable() && (
-          <Link to="/start-hosted" className="block mt-3 text-[12.5px] text-ink underline underline-offset-4 hover:text-gold">
-            👫 배우자와 함께 편집 · 다른 기기에서 이어서 →
-          </Link>
-        )}
-        <button onClick={switchMode} className="block text-[12px] underline underline-offset-4 text-soft hover:text-ink mt-3">
-          저장 방식 다시 선택 →
-        </button>
-      </Section>
+      {data.preferences.mode === "hosted" && (
+        <>
+          <Bucket>계정</Bucket>
+          <Section title={koBreak("복구 링크 · 배우자 초대")}>
+            <p className="text-[15px] text-soft leading-[1.85] mb-3">
+              기기를 바꿔도 이 링크로 복구하고, 배우자에게 보내면 함께 편집해요.
+              내용은 암호화돼 운영자도 못 보지만, <b className="text-ink">이 링크를 가진 사람은 전부 보고 고칠 수 있어요.</b>
+            </p>
+            <button onClick={copyRecoveryLink} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
+              {inviteCopied ? "복사됨" : "복구 링크 복사 →"}
+            </button>
+            <p className="text-[11px] text-soft mt-3 leading-relaxed">
+              배우자에게만 1:1로. 단톡방·SNS·공개된 곳엔 올리지 마세요.
+            </p>
+            <LoginStatus />
+          </Section>
+        </>
+      )}
 
-      <Section title="PDF로 저장 (인쇄)">
-        <p className="text-[12.5px] text-soft leading-relaxed">
-          청첩장이나 체크리스트를 PDF로 저장하고 싶을 때 —
-          각 페이지에서 <b className="text-ink">Cmd/Ctrl + P</b> 로 인쇄 → <b className="text-ink">"PDF로 저장"</b> 을 선택하세요.
-          인쇄 친화 스타일이 자동 적용됩니다.
-        </p>
-        <p className="text-[11px] text-soft mt-2">
-          모바일은 일반적으로 브라우저 메뉴 → 공유 → 프린트 흐름.
-        </p>
-      </Section>
+      <Bucket>데이터</Bucket>
 
       <div id="data-backup" className="scroll-mt-20">
-      <Section title="데이터 백업">
-        <p className="text-[12.5px] text-soft mb-4 leading-relaxed">
-          모든 데이터를 한 파일(JSON)로 내보내거나, 다시 불러올 수 있어요.
+      <Section title={koBreak("데이터 백업")}>
+        <p className="text-[15px] text-soft mb-4 leading-[1.85]">
+          준비 데이터를 파일로 보관하거나 다른 기기에서 다시 불러옵니다.
         </p>
         <div className="flex gap-6">
           <button onClick={handleExport} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
-            내려받기 (백업) →
+          백업 파일 내려받기 →
           </button>
           <input
             ref={fileRef}
@@ -194,13 +192,13 @@ export default function Settings({ data, update }: Props) {
           </button>
         </div>
         {data.preferences.lastBackupAt && (
-          <p className="eyebrow mt-3">
+          <p className="eyebrow mt-4">
             마지막 백업 · <span className="tabular-nums">{data.preferences.lastBackupAt}</span>
           </p>
         )}
         {hasCorruptLocalBackup() && (
           <div className="mt-4 border border-gold/30 bg-gold/5 p-3">
-            <p className="text-[11.5px] text-ink leading-relaxed mb-2">손상된 이전 로컬 데이터 원문을 보존하고 있습니다.</p>
+            <p className="text-[12px] text-ink leading-relaxed mb-2">손상된 이전 로컬 데이터 원문을 보존하고 있습니다.</p>
             <button onClick={downloadCorruptLocalBackup} className="text-[12px] underline underline-offset-4 text-ink">
               손상 원문 내려받기 →
             </button>
@@ -209,28 +207,70 @@ export default function Settings({ data, update }: Props) {
       </Section>
       </div>
 
-      <Section title="공유 센터">
-        <p className="text-[12.5px] text-soft mb-4 leading-relaxed">
-          하객 명단, 예산, 체크리스트, 청첩장 문안을 Excel/CSV/이미지/인쇄용 파일로 꺼낼 수 있어요.
+      <Section title={koBreak("저장 방식")}>
+        <p className="text-[13px] text-soft">
+          현재 · <b className="text-ink">{currentMode}</b>
+        </p>
+        <details className="mt-3 text-[12px]">
+          <summary className="cursor-pointer list-none underline underline-offset-4 text-soft hover:text-ink">
+            각 방식이 뭐가 달라요?
+          </summary>
+          <div className="mt-2.5 space-y-2 text-soft leading-relaxed border-l border-hair pl-4">
+            <p><b className="text-ink">내 휴대폰에 저장</b> — 이 기기에만 저장돼요. 다른 기기에서 보려면 백업이나 복구 링크가 필요해요.</p>
+            <p><b className="text-ink">간편 (운영자 호스팅)</b> — 우리 서버에 안전하게 보관하고, 링크 하나로 배우자와 함께 편집해요.</p>
+            <p><b className="text-ink">내 저장소로 직접 운영</b> — 내 Supabase 계정에 직접 보관해요. 모든 권한이 나에게 있고, 설정에 몇 단계가 필요해요.</p>
+          </div>
+        </details>
+        {data.preferences.mode === "local" && authAvailable() && (
+          <Link to="/start-hosted" className="block mt-3 text-[12px] text-ink underline underline-offset-4 hover:text-gold">
+            👫 배우자와 함께 편집 · 다른 기기에서 이어서 →
+          </Link>
+        )}
+        <button onClick={switchMode} className="block text-[12px] underline underline-offset-4 text-soft hover:text-ink mt-3">
+          저장 방식 다시 선택 →
+        </button>
+        <p className="text-[11px] text-soft mt-2 leading-relaxed">
+          저장 방식을 바꿔도 입력한 내용은 그대로 유지돼요.
+        </p>
+      </Section>
+
+      <Section title={koBreak("PDF로 저장")}>
+        <details>
+          <summary className="min-h-11 cursor-pointer text-[12px] text-ink underline underline-offset-4">기기별 저장 방법 보기</summary>
+          <div className="mt-3 border-l border-hair pl-4 text-[12px] leading-[1.75] text-soft">
+            <p>컴퓨터: 각 페이지에서 <b className="text-ink">Cmd/Ctrl + P</b>를 누른 뒤 ‘PDF로 저장’을 선택하세요.</p>
+            <p className="mt-2">휴대폰: 브라우저의 공유 메뉴에서 ‘프린트’를 선택하세요.</p>
+          </div>
+        </details>
+      </Section>
+
+      <Section title={koBreak("위험한 작업")}>
+        <p className="text-[12px] text-soft mb-3 leading-relaxed">
+          지우기 전에, 위 ‘데이터 백업’에서 파일을 먼저 내려받아 두면 마음이 놓여요.
+        </p>
+        <button onClick={reset} disabled={wiping} className="text-[12px] underline underline-offset-4 text-soft hover:text-ink disabled:opacity-50">
+          {wiping ? "지우는 중…" : "모든 데이터 지우기 →"}
+        </button>
+        <p className="text-[11px] text-soft mt-2 leading-relaxed">
+          발행한 청첩장·간편 모드 서버 데이터·로그인 연결까지 함께 삭제됩니다.
+        </p>
+      </Section>
+
+      <Bucket>도구</Bucket>
+
+      <Section title={koBreak("공유 센터")}>
+        <p className="text-[15px] text-soft mb-4 leading-[1.85]">
+          청첩장 공유, 편집 초대, Excel·CSV 내보내기를 한곳에서 관리합니다.
         </p>
         <Link to="/share" className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
           공유 센터 열기 →
         </Link>
       </Section>
 
-      <Section title="안심 체크">
-        <p className="text-[12px] text-soft leading-relaxed">
-          공개 링크, 개인정보, 저작권, 예산 초과, 기한 지난 할 일을 한 화면에서 확인합니다.
-        </p>
-        <Link to="/agent" className="text-[12px] underline underline-offset-4 text-ink hover:text-gold inline-block mt-3">
-          안심 체크 열기 →
-        </Link>
-      </Section>
-
-      <Section title="AI 편집 방식">
-        <p className="text-[12px] text-soft leading-relaxed">
-          챗봇 복붙, 본인 API 키, 로그인 후 Wedding OS AI 중에서 선택할 수 있습니다.
-          Wedding OS AI를 선택하면 프롬프트가 운영자 서버를 거쳐 Anthropic으로 전송됩니다.
+      <Section title={koBreak("AI 편집 방식")}>
+        <p className="text-[15px] text-soft leading-[1.85]">
+          앱에서 바로 쓰는 AI, 외부 챗봇 복사, 개인 API 연결 중에서 선택합니다.
+          Wedding OS AI는 프롬프트가 운영자 서버와 Anthropic을 거치므로, 계좌·하객 명단·복구 링크는 보내지 마세요.
         </p>
         <Link to="/ai" className="text-[12px] underline underline-offset-4 text-ink hover:text-gold inline-block mt-3">
           AI 연결 설정 →
@@ -238,8 +278,8 @@ export default function Settings({ data, update }: Props) {
       </Section>
 
       {data.preferences.mode === "supabase" && (
-        <Section title="직접 저장소 연결 정보">
-          <div className="space-y-1.5 text-[11.5px] text-soft">
+        <Section title={koBreak("직접 저장소 연결 정보")}>
+          <div className="space-y-1.5 text-[12px] text-soft">
             <p className="break-all">저장소 URL · <span className="text-ink">{data.preferences.supabase?.url}</span></p>
             <p>anon key · <span className="text-ink">••••••{data.preferences.supabase?.anonKey.slice(-6)}</span></p>
           </div>
@@ -247,10 +287,10 @@ export default function Settings({ data, update }: Props) {
             셋업 가이드 다시 보기 →
           </Link>
           <div className="pt-4 mt-4 border-t border-hair space-y-2">
-            <p className="text-[11.5px] text-soft leading-relaxed">
+            <p className="text-[12px] text-soft leading-relaxed">
               다른 기기에서 함께 편집하려면 편집 초대 링크를 보내세요. 이 링크는 하객에게 보내는 청첩장
               링크가 <b className="text-ink">아니라</b>, 모든 데이터를 보고 고칠 수 있는{" "}
-              <b className="text-gold">오너 권한 링크</b>예요. 배우자에게 1:1로만 보내고,
+              <b className="text-ink">오너 권한 링크</b>예요. 배우자에게 1:1로만 보내고,
               단톡방·SNS·캡처로 공유하지 마세요.
             </p>
             <button onClick={copyEditorInvite} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
@@ -261,39 +301,16 @@ export default function Settings({ data, update }: Props) {
         </Section>
       )}
 
-      {data.preferences.mode === "hosted" && (
-        <Section title="복구 링크 · 배우자 초대">
-          <p className="text-[12.5px] text-soft leading-relaxed mb-3">
-            기기를 바꿔도 이 링크로 복구하고, 배우자에게 보내면 함께 편집해요.
-            내용은 암호화돼 운영자도 못 보지만, <b className="text-ink">이 링크를 가진 사람은 전부 보고 고칠 수 있어요.</b>
-          </p>
-          <button onClick={copyRecoveryLink} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
-            {inviteCopied ? "복사됨" : "복구 링크 복사 →"}
-          </button>
-          <p className="text-[11px] text-soft mt-3 leading-relaxed">
-            배우자에게만 1:1로. 단톡방·SNS·공개된 곳엔 올리지 마세요.
-          </p>
-          <LoginStatus />
-        </Section>
-      )}
+      <Bucket>정보</Bucket>
 
-      <Section title="문의 / 오류 신고">
-        <p className="text-[12.5px] text-soft mb-4 leading-relaxed">
+      <Section title={koBreak("문의 / 오류 신고")}>
+        <p className="text-[15px] text-soft mb-4 leading-[1.85]">
           이상하거나 안 되는 흐름이 있으면 알려주세요.
           화면 이름과 상황을 같이 보내주시면 빠르게 확인할 수 있어요.
         </p>
-        <Link to="/contact" className="btn-primary px-6 py-3 text-[12px]">
+        <Link to="/contact" className="text-[12px] text-ink hover:text-gold underline underline-offset-4 inline-block py-2">
           문의하기 →
         </Link>
-      </Section>
-
-      <Section title="위험한 작업">
-        <button onClick={reset} disabled={wiping} className="text-[12px] underline underline-offset-4 text-gold hover:text-ink disabled:opacity-50">
-          {wiping ? "지우는 중…" : "모든 데이터 지우기 →"}
-        </button>
-        <p className="text-[11px] text-soft mt-2 leading-relaxed">
-          발행한 청첩장·간편 모드 서버 데이터·로그인 연결까지 함께 삭제됩니다.
-        </p>
       </Section>
 
       <p className="text-center text-[11px] text-soft pt-4 border-t border-hair space-x-3">
@@ -329,7 +346,7 @@ function LoginStatus() {
   const doSignOut = async () => {
     if (!confirm(
       "로그아웃하면 공용 기기에서 다른 사람이 보지 못하도록 이 기기의 결혼 데이터와 사진을 모두 지웁니다.\n\n" +
-      "다시 사용하려면 로그인 복구 암호문구 또는 복구 링크가 필요합니다. 계속할까요?",
+      "다시 사용하려면 로그인 복구 비밀번호 또는 복구 링크가 필요합니다. 계속할까요?",
     )) return;
     try {
       // 세션보다 로컬 평문을 먼저 제거한다. 중간 실패가 나도 로그아웃 상태에 데이터가 남지 않게 한다.
@@ -353,7 +370,7 @@ function LoginStatus() {
     <div className="pt-4 mt-4 border-t border-hair">
       {email ? (
         <div className="space-y-2">
-          <p className="text-[11.5px] text-soft">
+          <p className="text-[12px] text-soft">
             로그인됨 · <b className="text-ink">{email}</b>{linked ? " · 복구 연결됨" : ""}
           </p>
           <div className="flex gap-5">
@@ -369,7 +386,7 @@ function LoginStatus() {
         </div>
       ) : (
         <div>
-          <p className="text-[11.5px] text-soft leading-relaxed mb-2">
+          <p className="text-[12px] text-soft leading-relaxed mb-2">
             링크를 따로 안 챙겨도, 로그인으로 연결해두면 기기를 바꿔도 복구돼요.
           </p>
           <Link to="/login" className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
@@ -381,10 +398,15 @@ function LoginStatus() {
   );
 }
 
+// 설정 항목 묶음 머리말 — 계정 / 데이터 / 도구 / 정보.
+function Bucket({ children }: { children: React.ReactNode }) {
+  return <div className="eyebrow-gold pt-2 -mb-4">{children}</div>;
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="py-2">
-      <h3 className="section-title mb-3">{title}</h3>
+      <h2 className="section-title mb-3">{title}</h2>
       {children}
       <div className="hairline mt-8" />
     </section>
@@ -404,9 +426,9 @@ function OwnerToggle() {
 
   return (
     <div className="pt-4 mt-4 border-t border-hair space-y-2">
-      <p className="text-[11.5px] text-soft">
+      <p className="text-[12px] text-soft">
         이 기기는 현재{" "}
-        <b className={owner ? "text-gold" : "text-soft"}>{owner ? "편집 가능" : "보기 전용"}</b>
+        <b className={owner ? "text-ink" : "text-soft"}>{owner ? "편집 가능" : "보기 전용"}</b>
         예요.
       </p>
       {owner ? (
@@ -414,7 +436,7 @@ function OwnerToggle() {
           이 기기를 보기 전용으로 바꾸기 →
         </button>
       ) : (
-        <p className="text-[11.5px] text-soft leading-relaxed">
+        <p className="text-[12px] text-soft leading-relaxed">
           편집 권한이 필요하면 부부의 기존 편집 기기에서 [편집 초대 링크]를 받아 다시 열어주세요.
         </p>
       )}

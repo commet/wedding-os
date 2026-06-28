@@ -34,7 +34,7 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html,svg,woff2}"],
         // /api/og 와 supabase 는 절대 캐시하지 말 것 (동적 데이터, 매번 fresh)
         navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/api\//],
+        navigateFallbackDenylist: [/^\/api\//, /^\/i\//],
         runtimeCaching: [
           {
             // /api/* (Vercel Edge Functions, 예: og) — 항상 네트워크. SW 가 가로채 캐시하면 OG 가 깨짐.

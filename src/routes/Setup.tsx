@@ -5,6 +5,7 @@ import { exportData } from "../lib/storage";
 import { createSupabaseStorage, pingSupabase } from "../lib/storage.supabase";
 import { isSupabaseHost, markOwner, getOrCreateOwnerToken, getOrCreateDirectRsvpToken } from "../lib/security";
 import { migrateImagesIdbToDataUrl } from "../lib/imageStore";
+import { koBreak } from "../lib/typography";
 import SchemaText from "../supabase-schema-text";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
@@ -83,7 +84,7 @@ export default function Setup({ data, update }: Props) {
     // 도메인 화이트리스트 — 공식 Supabase 호스트만 허용. 피싱 사이트 차단.
     if (!isSupabaseHost(cleanUrl)) {
       setPingStatus("fail");
-      setPingMsg("Supabase 공식 URL 형식이 아니에요. https://xxxx.supabase.co 또는 .supabase.in 만 허용됩니다.");
+      setPingMsg("주소가 Supabase 형식과 달라요. ① Project URL 칸에 https://xxxx.supabase.co (또는 .supabase.in) 주소가 그대로 들어갔는지 확인해주세요.");
       return;
     }
     const r = await pingSupabase(cleanUrl, anonKey.trim());
@@ -91,7 +92,7 @@ export default function Setup({ data, update }: Props) {
       setPingStatus("ok");
     } else {
       setPingStatus("fail");
-      setPingMsg(r.reason ?? "연결 실패");
+      setPingMsg(r.reason ?? "저장소에 연결되지 않았어요. 아래 순서대로 한 번씩만 확인해보세요.");
     }
   };
 
@@ -99,7 +100,7 @@ export default function Setup({ data, update }: Props) {
     const cleanUrl = url.trim();
     const cleanKey = anonKey.trim();
     if (!isSupabaseHost(cleanUrl)) {
-      alert("Supabase URL 형식이 잘못됐어요. xxxx.supabase.co 형태여야 합니다.");
+      alert("저장소 주소를 다시 확인해주세요. 4단계 ① Project URL 칸에 https://xxxx.supabase.co 형태의 주소가 그대로 들어가야 해요.");
       return;
     }
     const supabaseConf = {
@@ -174,13 +175,15 @@ export default function Setup({ data, update }: Props) {
       markOwner();
       const saved = await driver.save(nextData);
       if (!saved.ok) {
-        throw new Error(saved.conflict ? "이미 다른 편집 데이터가 있어요. 새로고침 후 다시 시도해주세요." : "같이 쓰는 저장소에 저장하지 못했어요.");
+        throw new Error(saved.conflict
+          ? "저장소에 이미 다른 편집 내용이 들어와 있어요. 화면을 새로고침해 최신 상태를 받은 뒤 다시 시도해주세요. 이 기기의 데이터는 그대로 있어요."
+          : "저장소에 저장하지 못했어요. 인터넷 연결을 확인하고 잠시 뒤 다시 시도해주세요. 계속 안 되면 4단계의 주소·키가 맞는지 다시 확인해주세요. 이 기기의 데이터는 그대로 있어요.");
       }
 
       setFinishMsg("저장된 데이터를 다시 확인하는 중...");
       const loaded = await driver.load();
       if (!loaded?.data) {
-        throw new Error("저장된 데이터를 다시 확인하지 못했어요. 기존 로컬 데이터는 그대로 남아 있습니다.");
+        throw new Error("저장은 됐는데 다시 읽어오는 단계에서 막혔어요. 잠시 뒤 [백업 후 완료]를 한 번 더 눌러주세요. 계속 같은 메시지가 나오면 상단 [도움 받기]로 알려주세요. 기존 로컬 데이터는 그대로 남아 있어요.");
       }
 
       update(() => nextData);
@@ -188,7 +191,7 @@ export default function Setup({ data, update }: Props) {
       navigate("/dashboard");
     } catch (e: any) {
       setFinishStatus("fail");
-      setFinishMsg(e?.message ?? "전환에 실패했어요. 기존 로컬 데이터는 그대로 남아 있습니다.");
+      setFinishMsg(e?.message ?? "전환 중간에 멈췄어요. 잠시 뒤 다시 시도하고, 계속 같으면 상단 [도움 받기]로 알려주세요. 기존 로컬 데이터는 그대로 남아 있어요.");
     }
   };
 
@@ -196,8 +199,8 @@ export default function Setup({ data, update }: Props) {
     <div className="page pt-8 pb-10 space-y-8 max-w-app mx-auto">
       <div className="flex items-baseline justify-between">
         <div>
-          <div className="eyebrow-gold mb-2">Setup Guide</div>
-          <h1 className="font-serif text-[2rem] leading-none">직접 저장소 셋업</h1>
+          <div className="eyebrow-gold mb-2">직접 저장소</div>
+          <h1 className="font-serif text-[2rem] leading-none">{koBreak("직접 저장소 셋업")}</h1>
         </div>
         <a
           href={`mailto:yclee913@gmail.com?subject=${encodeURIComponent(`[Wedding OS] 셋업 ${step}단계 도움 요청`)}&body=${encodeURIComponent(`안녕하세요,\n\n셋업 ${step}단계에서 막혔어요. 다음 부분이 헷갈려요:\n\n[여기에 상황 적기]\n\n---\n현재 단계: ${step} / 5\n`)}`}
@@ -407,7 +410,7 @@ function NavButtons({
 // ─── Step 1: 가입 ───
 function Step1({ onNext }: { onNext: () => void }) {
   return (
-    <StepCard icon="01" title="저장소 계정 만들기">
+    <StepCard icon="01" title={koBreak("저장소 계정 만들기")}>
       <p className="text-sm text-soft leading-relaxed">
         Supabase라는 외부 서비스를 써서 결혼식 정보·청첩장·하객 RSVP를 저장하고 동기화합니다.
         작은 개인 사이트는 보통 무료 플랜 범위에서 시작할 수 있지만,
@@ -444,7 +447,7 @@ function Step1({ onNext }: { onNext: () => void }) {
 // ─── Step 2: 프로젝트 ───
 function Step2({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
   return (
-    <StepCard icon="02" title="새 저장 공간 만들기">
+    <StepCard icon="02" title={koBreak("새 저장 공간 만들기")}>
       <p className="text-sm text-soft leading-relaxed">
         Supabase 대시보드에서 결혼식 정보를 담을 빈 공간을 만들어요.
       </p>
@@ -484,7 +487,7 @@ function Step3({
   onBack: () => void;
 }) {
   return (
-    <StepCard icon="03" title="테이블 만들기 (SQL 한 번)">
+    <StepCard icon="03" title={koBreak("테이블 만들기 (SQL 한 번)")}>
       <p className="text-sm text-soft leading-relaxed">
         결혼식 정보를 담을 표(테이블)를 만들어요. 직접 만들 필요 없이,
         준비해둔 명령어를 복사 → 붙여넣기 → 실행, 끝.
@@ -532,7 +535,7 @@ function Step4({
   const valid = url.startsWith("https://") && anonKey.length > 20;
 
   return (
-    <StepCard icon="04" title="연결 정보 가져오기">
+    <StepCard icon="04" title={koBreak("연결 정보 가져오기")}>
       <p className="text-sm text-soft leading-relaxed">
         방금 만든 프로젝트의 "주소"와 "키"를 우리 도구에 알려주면,
         둘이 같은 데이터를 보고 편집할 수 있게 돼요.
@@ -562,7 +565,7 @@ function Step4({
         />
       </div>
       <div>
-        <label className="label">② anon (public) key</label>
+        <label className="label">② 공개 키 <span className="text-mute normal-case tracking-normal">(anon public)</span></label>
         <input
           className="input text-[12px]"
           value={anonKey}
@@ -572,10 +575,12 @@ function Step4({
         <p className="text-[11px] text-soft mt-1">긴 문자열이에요 (eyJ 로 시작).</p>
       </div>
 
-      <div className="pl-4 border-l-2 border-gold text-[12px] space-y-1 leading-relaxed">
-        <p className="text-ink"><b>service_role 키는 절대 입력하지 마세요.</b></p>
-        <p className="text-soft">service_role 은 모든 데이터에 접근할 수 있는 마스터 키예요.
-          반드시 <b className="text-ink">anon (public)</b> 키만!</p>
+      <div className="pl-4 border-l-2 border-sage/60 text-[12px] space-y-1 leading-relaxed">
+        <p className="text-ink"><b>안심하세요 —</b> 위 화면의 <b>anon public</b> 키 하나만 쓰면 돼요.</p>
+        <p className="text-soft">
+          바로 아래 <b className="text-ink">service_role</b> 키는 쓰지 않아요. 모든 데이터에 접근하는
+          관리자용이라, 공개되는 앱에는 넣지 않습니다.
+        </p>
       </div>
 
       <div className="pl-4 border-l-2 border-gold/50 text-[12px] leading-relaxed text-soft">
@@ -599,12 +604,17 @@ function Step4({
       )}
       {status === "fail" && (
         <div className="pl-4 border-l-2 border-gold text-[12.5px]">
-          <p className="text-ink font-medium">연결 실패</p>
+          <p className="text-ink font-medium">아직 연결되지 않았어요</p>
           <p className="text-[11.5px] text-soft mt-1">{msg}</p>
           <p className="text-[11.5px] text-soft mt-2 leading-relaxed">
-            · 3단계 SQL 이 정말 실행됐는지 다시 확인<br />
-            · 키를 정확히 복사했는지 확인 (공백·줄바꿈 X)<br />
-            · service_role 이 아닌 <b className="text-ink">anon public</b> 키인지
+            급한 문제는 아니에요. 아래를 위에서부터 하나씩 확인하면 대부분 풀려요.<br />
+            <b className="text-ink">1.</b> ① 주소와 ② 키를 다시 붙여넣기 — 앞뒤 공백·줄바꿈이 섞이지 않게.<br />
+            <b className="text-ink">2.</b> ② 키가 <b className="text-ink">anon public</b> 키가 맞는지 (service_role 아님, eyJ 로 시작).<br />
+            <b className="text-ink">3.</b> 3단계 SQL 이 초록색 Success 로 끝났는지 — 안 됐으면 다시 실행.<br />
+            <b className="text-ink">4.</b> 위 세 가지를 맞춘 뒤 [연결 확인]을 다시 눌러주세요.
+          </p>
+          <p className="text-[11.5px] text-soft mt-2 leading-relaxed">
+            그래도 안 되면 화면 상단 <b className="text-ink">[도움 받기]</b> 로 어떤 메시지가 떴는지만 적어 보내주세요.
           </p>
         </div>
       )}

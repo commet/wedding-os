@@ -60,6 +60,15 @@ type Invitation = {
   heroImageUrl?: string;
 };
 
+function isSupabaseHost(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" && /^[A-Za-z0-9-]+\.supabase\.(co|in)$/.test(u.host);
+  } catch {
+    return false;
+  }
+}
+
 // '간편 발행' 청첩장 — Vercel Blob 의 meta.json 에서 ogMeta 만 읽는다 (이름·날짜·선택 공개 썸네일).
 // 본문은 암호문이라 어차피 읽을 수 없고, 카드에는 어차피 안 들어간다.
 async function loadFromBlob(code: string): Promise<Invitation | null> {
@@ -92,21 +101,23 @@ async function loadInvitation(): Promise<Invitation | null> {
     (typeof process !== "undefined" && (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL)) || "";
   const key =
     (typeof process !== "undefined" && (process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY)) || "";
-  if (!url || !key) return null;
+  if (!url || !key || !isSupabaseHost(url)) return null;
 
   try {
     const res = await fetch(
-      `${url}/rest/v1/wedding_data?id=eq.default&select=data`,
+      `${url.replace(/\/+$/, "")}/rest/v1/rpc/get_public_invitation`,
       {
+        method: "POST",
         headers: {
+          "content-type": "application/json",
           apikey: key,
           Authorization: `Bearer ${key}`,
         },
+        body: JSON.stringify({ p_id: "default" }),
       }
     );
     if (!res.ok) return null;
-    const rows = (await res.json()) as Array<{ data?: { invitation?: Invitation } }>;
-    return rows[0]?.data?.invitation ?? null;
+    return (await res.json()) as Invitation;
   } catch {
     return null;
   }

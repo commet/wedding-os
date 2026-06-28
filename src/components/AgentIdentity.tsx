@@ -1,23 +1,61 @@
+import weddyDone from "../assets/weddy/done.png";
+import weddyIcon from "../assets/weddy/icon.png";
+import weddyReady from "../assets/weddy/ready.png";
+import weddyThinking from "../assets/weddy/thinking.png";
+
 type MarkProps = {
   compact?: boolean;
+  mood?: "ready" | "thinking" | "watching" | "done";
+  caption?: string;
 };
 
-export function AgentIdentity({ compact = false }: MarkProps) {
+const MOOD_LABEL = {
+  ready: "대기 중",
+  thinking: "정리 중",
+  watching: "살피는 중",
+  done: "완료",
+};
+
+const MOOD_IMAGE: Record<NonNullable<MarkProps["mood"]>, string> = {
+  ready: weddyReady,
+  thinking: weddyThinking,
+  watching: weddyReady,
+  done: weddyDone,
+};
+
+export function AgentIdentity({ compact = false, mood = "ready", caption }: MarkProps) {
   return (
-    <div className="flex items-stretch gap-2.5">
-      <span aria-hidden="true" className="w-px self-stretch bg-gold/70" />
+    <div className="flex items-center gap-3">
+      <AgentMark compact={compact} mood={mood} />
       <div className="py-0.5">
         <div
           className={`${compact ? "text-[9px] tracking-[0.2em]" : "text-[10px] tracking-[0.22em]"} font-medium leading-none text-gold`}
         >
-          준비 에이전트
+          WEDDY · {MOOD_LABEL[mood]}
         </div>
         <div
           className={`${compact ? "text-[15px] mt-1" : "text-[19px] mt-1.5"} font-serif leading-none tracking-[-0.01em] text-ink`}
         >
-          Wedding OS
+          준비 에이전트
         </div>
+        {caption && !compact && (
+          <div className="mt-1 text-[11px] leading-snug text-soft">{caption}</div>
+        )}
       </div>
     </div>
+  );
+}
+
+function AgentMark({ compact, mood }: { compact: boolean; mood: NonNullable<MarkProps["mood"]> }) {
+  const size = compact ? "h-9 w-9" : "h-11 w-11";
+  const image = compact && mood === "ready" ? weddyIcon : MOOD_IMAGE[mood];
+  return (
+    <span
+      aria-hidden="true"
+      className={`agent-mark ${size} ${mood === "thinking" ? "agent-mark-thinking" : ""}`}
+    >
+      <span className="agent-mark-glow" />
+      <img className="agent-mark-img" src={image} alt="" draggable={false} />
+    </span>
   );
 }

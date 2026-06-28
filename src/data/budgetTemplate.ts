@@ -18,10 +18,12 @@ export const BUDGET_TEMPLATE: BudgetGroup[] = [
     title: "예식장",
     items: [
       { category: "예식장 대관·홀비", avgKRW: 3_000_000, notes: "보증인원 외 별도 항목인 경우" },
-      { category: "예식장 식대", avgKRW: 18_000_000, notes: "9만원 × 200명 기준 (호텔은 13~20만원)" },
+      { category: "예식장 식대", avgKRW: 18_000_000, notes: "9만원 × 200명 기준. 지역·시즌·요일에 따라 크게 달라짐" },
       { category: "부가세·봉사료·음주류", avgKRW: 1_500_000, notes: "견적서에 포함/별도 여부 확인" },
       { category: "주차·셔틀·버스", avgKRW: 500_000, notes: "지방 하객·혼주 이동이 있으면 별도 확인" },
       { category: "폐백실·혼주대기실 등 부대비", avgKRW: 500_000 },
+      { category: "외부업체 반입료", avgKRW: 500_000, notes: "스냅·영상·사회자·플라워·답례품 반입 가능 여부와 함께 확인" },
+      { category: "메뉴 업그레이드·음주류 추가", avgKRW: 800_000, notes: "시식 후 변경 시 1인 단가가 달라질 수 있음" },
       { category: "계약금·취소 위약금", avgKRW: 0, notes: "비용보다 조건 확인용 항목" },
     ],
   },

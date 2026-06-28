@@ -101,6 +101,7 @@ export async function signOut(): Promise<void> {
 export async function linkAccount(
   bundle: RecoveryBundle,
   passphrase: string,
+  options: { replaceExisting?: boolean } = {},
 ): Promise<{ ok: boolean; error?: string }> {
   const c = getAuthClient();
   if (!c) return { ok: false, error: "로그인을 사용할 수 없어요." };
@@ -108,6 +109,11 @@ export async function linkAccount(
   if (!uid) return { ok: false, error: "먼저 로그인해주세요." };
   if (!hostedUserMatches(uid)) return { ok: false, error: "This device is bound to a different account." };
   if (!bindHostedUser(uid)) return { ok: false, error: "Could not securely bind this device to the account." };
+  if (!options.replaceExisting) {
+    const { data: existing, error: existingError } = await c.from("wos_accounts").select("user_id").eq("user_id", uid).maybeSingle();
+    if (existingError) return { ok: false, error: existingError.message };
+    if (existing) return { ok: false, error: "이미 연결된 청첩장이 있어요. 교체 확인 후 다시 시도해주세요." };
+  }
   const { blob, salt } = await wrapBundle(bundle, passphrase);
   const { error } = await c.from("wos_accounts").upsert({ user_id: uid, blob, salt });
   if (!error) markLinkedAccount(true);

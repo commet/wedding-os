@@ -2,7 +2,7 @@
 //
 // POST : 하객이 RSVP 를 보낸다. body = 암호화된 RSVP 바이트.
 //        하객 브라우저가 청첩장과 같은 키(링크 #)로 암호화해 올리므로 운영자는 못 읽는다.
-// GET  : 부부(오너)가 받은 RSVP 를 가져간다. ?owner=<base64url ownerToken> 으로 권한 검증.
+// GET  : 부부(오너)가 받은 RSVP 를 가져간다. x-owner-token 헤더로 권한 검증.
 //        암호화된 RSVP 들을 base64 배열로 돌려주고, 복호화는 오너 브라우저에서 한다.
 
 import { put, get } from "@vercel/blob";

@@ -59,12 +59,14 @@ function notifyQuotaError() {
   // setTimeout으로 비동기 — setData 콜백 안에서 alert가 React 경고 안 뜨도록
   setTimeout(() => {
     alert(
-      "⚠️ 사진을 더 저장할 공간이 부족해요.\n\n" +
-      "휴대폰 저장 한도(약 5MB)에 도달했어요.\n" +
-      "→ 사진을 일부 지우거나\n" +
-      "→ [더보기 → 데이터 백업]으로 내려받은 다음,\n" +
-      "   [내 사이트 만들기] 모드로 전환하시면\n" +
-      "   더 많은 사진을 쓸 수 있어요."
+      "이 기기에 담을 공간이 거의 찼어요.\n\n" +
+      "지금은 모든 걸 이 휴대폰 안에만 보관하고 있어서,\n" +
+      "저장 한도(약 5MB)에 가까워지면 사진을 더 넣기 어려워요.\n\n" +
+      "이렇게 해보세요\n" +
+      "· 안 쓰는 사진을 조금 정리하거나\n" +
+      "· [설정 → 데이터 백업]으로 지금까지의 내용을 먼저 내려받은 뒤,\n" +
+      "  [설정 → 저장 방식 다시 선택]에서 '내 사이트 만들기' 모드로 옮기면\n" +
+      "  사진을 훨씬 넉넉하게 쓸 수 있어요."
     );
   }, 50);
 }
@@ -234,6 +236,36 @@ function migrate(raw: unknown): WeddingData {
       supabase: sanitizeSupabaseConfig(prefsRaw.supabase),
       lastBackupAt: typeof prefsRaw.lastBackupAt === "string" ? prefsRaw.lastBackupAt : undefined,
     },
+    ai: (() => {
+      const rawAi = isPlainObject(data.ai) ? data.ai : {};
+      const rawProfile = isPlainObject(rawAi.profile) ? rawAi.profile : {};
+      // 'budget' 우선순위는 폐기됨 — 옛 데이터는 'venue' 로 끌어올린다.
+      const rawPriority = String(rawProfile.priority);
+      const priority = rawPriority === "budget"
+        ? "venue" as const
+        : (["venue", "invitation", "rings", "trip"].includes(rawPriority)
+            ? rawPriority as "venue" | "invitation" | "rings" | "trip"
+            : undefined);
+      return {
+        starterSummary: typeof rawAi.starterSummary === "string" ? rawAi.starterSummary : undefined,
+        today: Array.isArray(rawAi.today)
+          ? rawAi.today.filter(isPlainObject).slice(0, 3).map((item) => ({
+              title: typeof item.title === "string" ? item.title.slice(0, 200) : "",
+              reason: typeof item.reason === "string" ? item.reason.slice(0, 500) : undefined,
+              targetPath: typeof item.targetPath === "string" ? item.targetPath.slice(0, 100) : undefined,
+            })).filter((item) => item.title)
+          : undefined,
+        updatedAt: typeof rawAi.updatedAt === "string" ? rawAi.updatedAt : undefined,
+        profile: {
+          priority,
+          budgetKRW: typeof rawProfile.budgetKRW === "number" && rawProfile.budgetKRW > 0
+            ? Math.min(rawProfile.budgetKRW, 10_000_000_000)
+            : undefined,
+          region: typeof rawProfile.region === "string" ? rawProfile.region.slice(0, 80) : undefined,
+          onboardedAt: typeof rawProfile.onboardedAt === "string" ? rawProfile.onboardedAt : undefined,
+        },
+      };
+    })(),
     invitation:  { ...base.invitation,  ...(isPlainObject(data.invitation) ? data.invitation : {}) },
     rings:       (Array.isArray(data.rings)   ? data.rings.filter(isPlainObject)   : []) as WeddingData["rings"],
     sdm:         (Array.isArray(data.sdm)     ? data.sdm.filter(isPlainObject)     : []) as WeddingData["sdm"],
@@ -254,6 +286,8 @@ function migrate(raw: unknown): WeddingData {
     venues:      (Array.isArray(data.venues)   ? data.venues.filter(isPlainObject)   : []) as WeddingData["venues"],
     budget:      (Array.isArray(data.budget)   ? data.budget.filter(isPlainObject)   : []) as WeddingData["budget"],
     guests:      (Array.isArray(data.guests)   ? data.guests.filter(isPlainObject)   : []) as WeddingData["guests"],
+    headcount:   sanitizeHeadcount(data.headcount),
+    ceremony:    (Array.isArray(data.ceremony) ? data.ceremony.filter(isPlainObject) : undefined) as WeddingData["ceremony"],
     video: (() => {
       const v = isPlainObject(data.video) ? data.video : {};
       return {
@@ -265,6 +299,29 @@ function migrate(raw: unknown): WeddingData {
     })(),
     publish: sanitizePublish(data.publish),
   };
+}
+
+// 예상 인원 검증 — side·category 가 유효하고 expected 가 정상 수일 때만 통과.
+function sanitizeHeadcount(h: unknown): WeddingData["headcount"] {
+  if (!isPlainObject(h) || !Array.isArray(h.estimates)) return undefined;
+  const cats = new Set(["family", "relative", "work", "school", "friend", "acquaintance"]);
+  const estimates = h.estimates
+    .filter(isPlainObject)
+    .filter((e) => (e.side === "groom" || e.side === "bride") && cats.has(String(e.category)))
+    .map((e) => ({
+      side: e.side,
+      category: e.category,
+      expected: typeof e.expected === "number" && e.expected > 0 ? Math.min(Math.round(e.expected), 9999) : 0,
+    }))
+    .filter((e) => e.expected > 0);
+  const giftAvg = Array.isArray(h.giftAvg)
+    ? h.giftAvg
+        .filter(isPlainObject)
+        .filter((g) => cats.has(String(g.category)) && typeof g.krw === "number" && g.krw >= 0)
+        .map((g) => ({ category: g.category, krw: Math.min(Math.round(g.krw as number), 100_000_000) }))
+    : [];
+  if (!estimates.length && !giftAvg.length) return undefined;
+  return { estimates, ...(giftAvg.length ? { giftAvg } : {}) } as WeddingData["headcount"];
 }
 
 // 발행 자격증명 검증 — code·keyRaw 가 문자열일 때만 통과. 손상 시 undefined(미발행 취급).
@@ -362,7 +419,7 @@ export function useWeddingData() {
         if (fromLocal.data.preferences.mode === "hosted" && getHostedUserId()) {
           const userId = await currentUserId();
           if (cancelled) return;
-          if (userId && !hostedUserMatches(userId)) {
+          if (!userId || !hostedUserMatches(userId)) {
             setData(demoData());
             setLoading(false);
             if (window.location.pathname !== "/login") window.location.replace("/login");
@@ -407,7 +464,7 @@ export function useWeddingData() {
     if (!client) return;
     const { data: listener } = client.auth.onAuthStateChange((_event, session) => {
       const userId = session?.user?.id;
-      if (getHostedConfig() && userId && !hostedUserMatches(userId)) {
+      if (getHostedConfig() && getHostedUserId() && (!userId || !hostedUserMatches(userId))) {
         window.location.replace("/login");
       }
     });
@@ -730,6 +787,13 @@ function assertImportFieldTypes(value: unknown): void {
     if (!Array.isArray(list) || !list.every(isPlainObject)) throw new Error(`백업의 ${key} 목록 형식이 올바르지 않습니다.`);
     return list;
   };
+  const optionalRecord = (record: Record<string, unknown>, key: string) => {
+    const item = record[key];
+    if (item === undefined) return undefined;
+    if (!isPlainObject(item)) throw new Error(`백업의 ${key} 형식이 올바르지 않습니다.`);
+    return item;
+  };
+  const contractFields = ["contact", "quote", "payment", "cancellation", "included", "extras", "evidence"];
 
   records("rings").forEach((item) => {
     scalar(item, ["id", "brand", "model", "material", "imageUrl", "imageFit", "notes", "link", "lastVerified", "source"], ["priceKRW"], ["hasDiamond"]);
@@ -739,16 +803,24 @@ function assertImportFieldTypes(value: unknown): void {
       }
     }
   });
-  records("sdm").forEach((item) => scalar(item, ["id", "category", "name", "priceRange", "region", "notes", "link", "status"]));
+  records("sdm").forEach((item) => {
+    scalar(item, ["id", "category", "name", "priceRange", "region", "notes", "link", "status", "contact", "balanceDueAt"], ["depositKRW", "balanceKRW"]);
+    const contract = optionalRecord(item, "contract");
+    if (contract) scalar(contract, contractFields);
+  });
   records("hotels").forEach((item) => {
     scalar(item, ["id", "name", "location", "notes", "lastVerified", "source"]);
     nestedRecords(item, "rooms").forEach((room) => scalar(room, ["type"], ["pricePerNight"], ["breakfast"]));
     nestedRecords(item, "otaPrices").forEach((price) => scalar(price, ["ota", "url"], ["price"]));
   });
   records("flights").forEach((item) => scalar(item, ["id", "airline", "flightNumber", "from", "to", "departAt", "arriveAt", "notes", "link", "lastVerified", "source"], ["priceKRW"]));
-  records("venues").forEach((item) => scalar(item, ["id", "name", "region", "hallType", "foodType", "link", "notes", "status", "visitedAt", "lastVerified", "source"], ["capacityMin", "capacityMax", "mealPriceMin", "mealPriceMax"]));
+  records("venues").forEach((item) => {
+    scalar(item, ["id", "name", "region", "hallType", "foodType", "link", "notes", "status", "visitedAt", "lastVerified", "source", "contact", "balanceDueAt"], ["capacityMin", "capacityMax", "mealPriceMin", "mealPriceMax", "depositKRW", "balanceKRW"]);
+    const contract = optionalRecord(item, "contract");
+    if (contract) scalar(contract, contractFields);
+  });
   records("budget").forEach((item) => scalar(item, ["id", "category", "notes"], ["planned", "actual", "avgKRW"], ["paid"]));
-  records("guests").forEach((item) => scalar(item, ["id", "name", "relation", "side", "phone", "email", "status", "notes", "invitedAt"], ["partyCount", "giftKRW"], ["meal"]));
+  records("guests").forEach((item) => scalar(item, ["id", "name", "relation", "group", "side", "category", "phone", "email", "status", "notes", "invitedAt"], ["partyCount", "giftKRW"], ["meal"]));
 
   records("checklist").forEach((section) => {
     scalar(section, ["id", "icon", "title"]);
@@ -783,8 +855,9 @@ function assertImportFieldTypes(value: unknown): void {
     nestedRecords(value.ai, "today").forEach((item) => scalar(item, ["title", "reason", "targetPath"]));
     if (value.ai.profile !== undefined) {
       if (!isPlainObject(value.ai.profile)) throw new Error("백업의 AI 프로필 형식이 올바르지 않습니다.");
-      scalar(value.ai.profile, ["priority", "region", "onboardedAt"]);
+      scalar(value.ai.profile, ["priority", "region", "onboardedAt"], ["budgetKRW"]);
     }
+    nestedRecords(value.ai, "dialogue").forEach((item) => scalar(item, ["id", "question", "answer", "answeredAt"]));
   }
 
   if (isPlainObject(value.invitation)) {

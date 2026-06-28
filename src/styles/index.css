@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 접근성 — 모션 민감 사용자를 위해 애니메이션/트랜지션 무력화 (WCAG 2.3.3) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 @layer base {
   html, body {
     -webkit-text-size-adjust: 100%;
@@ -37,6 +47,22 @@
     background: theme('colors.gold');
     color: white;
   }
+
+  /* ───── 한글 줄바꿈 원칙 ─────
+     keep-all: 어절(띄어쓰기 단위) 중간은 절대 끊지 않는다.
+     제목 balance: 줄들을 균등 길이로 재배치 → "한 명씩" 의 "한" 만 윗줄에
+       외톨이로 남는 현상을 없앤다(끝줄 짧은 음절 방지).
+     본문 pretty: 마지막 줄에 단어 하나만 떨어지는 orphan 을 방지.
+     :where() 로 특이도 0 → 필요한 곳은 유틸/인라인으로 쉽게 덮어쓸 수 있다.
+     미지원 브라우저는 자동으로 일반 줄바꿈으로 안전하게 폴백한다. */
+  :where(h1, h2, h3, h4, h5, h6) {
+    word-break: keep-all;
+    text-wrap: balance;
+  }
+  :where(p, li, dd, dt, blockquote, figcaption) {
+    word-break: keep-all;
+    text-wrap: pretty;
+  }
 }
 
 @media print {
@@ -52,11 +78,11 @@
   /* ───── 버튼 ─────
      박스형 라운드 대신 더 sharp 한 모서리, 흐름이 부드럽게. */
   .btn-primary {
-    @apply inline-flex items-center justify-center bg-ink text-paper px-6 py-3.5 font-medium tracking-wide leading-none active:opacity-80 transition rounded-none;
+    @apply inline-flex items-center justify-center bg-ink text-paper px-6 py-3 min-h-11 font-medium tracking-wide leading-none transition-[opacity,transform] duration-150 hover:opacity-90 active:opacity-80 active:scale-[0.985] rounded-none;
     letter-spacing: 0.05em;
   }
   .btn-secondary {
-    @apply inline-flex items-center justify-center bg-transparent border-b border-ink text-ink px-1 py-2 font-medium leading-none active:opacity-60 transition;
+    @apply inline-flex items-center justify-center bg-transparent border-b border-ink text-ink px-1 py-2 font-medium leading-none transition-opacity duration-150 hover:opacity-80 active:opacity-60;
     letter-spacing: 0.05em;
   }
   .btn-ghost {
@@ -77,21 +103,30 @@
     @apply block text-[11px] tracking-eyebrow uppercase text-soft mb-2;
   }
 
-  /* ───── 타이포그래피 ───── */
+  /* ───── 타이포그래피 ─────
+     한글 제목은 break-keep 으로 어절 단위 줄바꿈(단어 중간 안 끊김).
+     위계: display(42) / display-sm(28) / h-section(24) / section-title(13) / body(15) / meta(12) / eyebrow(11) */
   .eyebrow {
-    @apply text-[11px] tracking-eyebrow uppercase text-soft font-medium;
+    @apply text-[11px] tracking-eyebrow uppercase text-soft font-medium break-keep;
   }
   .eyebrow-gold {
-    @apply text-[11px] tracking-eyebrow uppercase text-gold font-medium;
+    @apply text-[11px] tracking-eyebrow uppercase text-gold font-medium break-keep;
   }
   .display {
-    @apply font-serif text-[2.625rem] leading-[1.1] tracking-tight text-ink;
+    @apply font-serif text-[2.625rem] leading-[1.1] tracking-tight text-ink break-keep;
+    text-wrap: balance;
   }
   .display-sm {
-    @apply font-serif text-[1.75rem] leading-[1.15] tracking-tight text-ink;
+    @apply font-serif text-[1.75rem] leading-[1.2] tracking-tight text-ink break-keep;
+    text-wrap: balance;
+  }
+  .h-page {
+    @apply font-serif text-[26px] leading-[1.4] tracking-tight text-ink break-keep;
+    text-wrap: balance;
   }
   .h-section {
-    @apply font-serif text-2xl leading-tight text-ink;
+    @apply font-serif text-2xl leading-snug text-ink break-keep;
+    text-wrap: balance;
   }
   .h-meta {
     @apply text-[11px] tracking-eyebrow uppercase text-soft;
@@ -109,7 +144,18 @@
      섹션/그룹 제목 — 본문보다 크고 진하게. eyebrow(11px)를 제목으로 쓰면
      위계가 역전돼 '체계 없는' 느낌이 나므로, 화면 섹션 제목은 이걸 쓴다. */
   .section-title {
-    @apply text-[13px] font-semibold text-ink leading-tight;
+    @apply text-[13px] font-semibold text-ink leading-tight break-keep;
+  }
+  /* 탭/필터 — 비활성은 명확히 흐리게(soft), 활성은 ink+밑줄. 어포던스 일관화. */
+  .seg {
+    @apply text-[13px] text-soft border-b border-transparent pb-2 transition-colors duration-150 hover:text-ink;
+  }
+  .seg-active {
+    @apply text-[13px] text-ink font-medium border-b border-ink pb-2;
+  }
+  /* 탭 가능한 행 — press/hover 피드백 표준 */
+  .row-tap {
+    @apply transition-colors duration-150 hover:bg-cream/40 active:bg-cream/60;
   }
   /* 그룹 컨테이너 — 관련 항목을 은은한 면으로 묶어 '한 덩어리'가 보이게.
      안의 항목은 .group-row 로 밀집 배치. */
@@ -178,9 +224,70 @@
   animation: pageFade 0.32s ease-out both;
 }
 
+/* ───── 공유 모션 어휘 ─────
+   조용한 에디토리얼 톤 — 과하지 않게, 짧고 부드럽게. */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes sheetUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideDownIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes badgePop {
+  0% { opacity: 0; transform: scale(0.96); }
+  60% { opacity: 1; transform: scale(1.02); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.anim-fade { animation: fadeIn 0.2s ease-out both; }
+.anim-sheet { animation: sheetUp 0.3s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+.anim-drop { animation: slideDownIn 0.28s ease-out both; }
+.anim-pop { animation: badgePop 0.28s ease-out both; }
+
 .agent-canvas {
   position: relative;
   background: theme('colors.paper');
+}
+.agent-mark {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in srgb, theme('colors.gold') 62%, theme('colors.paper'));
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 32% 25%, rgba(255,255,255,0.88), transparent 34%),
+    linear-gradient(145deg, color-mix(in srgb, theme('colors.paper') 92%, white), color-mix(in srgb, theme('colors.gold') 20%, theme('colors.paper')));
+  box-shadow: 0 10px 30px rgba(111, 86, 50, 0.11);
+}
+.agent-mark-glow {
+  position: absolute;
+  inset: -5px;
+  border-radius: inherit;
+  border: 1px solid rgba(184, 134, 70, 0.12);
+}
+.agent-mark-img {
+  position: relative;
+  z-index: 1;
+  width: 94%;
+  height: 94%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+}
+@keyframes agentBreathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-1px) scale(1.018); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .agent-mark-thinking {
+    animation: agentBreathe 2.6s ease-in-out infinite;
+  }
 }
 .agent-briefing {
   display: grid;
