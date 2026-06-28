@@ -7,7 +7,7 @@ import { Link } from "react-router-dom";
 import CipherPeek from "../components/CipherPeek";
 import { koBreak } from "../lib/typography";
 
-const REPO = "https://github.com/commet/wedding-os/blob/master";
+const REPO = "https://github.com/commet/wedding-os/blob/main";
 
 export default function Trust() {
   return (
