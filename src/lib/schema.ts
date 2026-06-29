@@ -115,10 +115,10 @@ export type WeddingVenue = Verifiable & {
   foodType?: VenueFoodType;
   capacityMin?: number;     // 최소 보증인원
   capacityMax?: number;     // 최대 수용 인원
-  capacitySource?: "official" | "public" | "estimate" | "mixed";
+  capacitySource?: "official" | "public" | "user" | "estimate" | "mixed";
   mealPriceMin?: number;    // 식대 시작가 (원)
   mealPriceMax?: number;    // 식대 상한가 (원)
-  mealPriceSource?: "official" | "public" | "estimate";
+  mealPriceSource?: "official" | "public" | "user" | "estimate";
   link?: string;
   notes?: string;
   status?: "관심" | "투어" | "계약";
@@ -178,7 +178,7 @@ export type HeadcountEstimate = {
 // studio/dress/makeup = 스드메, snap = 본식 당일 스냅
 export type SdmCategory = "studio" | "dress" | "makeup" | "snap";
 
-export type SdmVendor = {
+export type SdmVendor = Verifiable & {
   id: string;
   category: SdmCategory;
   name: string;

@@ -803,7 +803,7 @@ function assertImportFieldTypes(value: unknown): void {
     }
   });
   records("sdm").forEach((item) => {
-    scalar(item, ["id", "category", "name", "priceRange", "region", "notes", "link", "status", "contact", "balanceDueAt"], ["depositKRW", "balanceKRW"]);
+    scalar(item, ["id", "category", "name", "priceRange", "region", "notes", "link", "status", "contact", "balanceDueAt", "lastVerified", "source"], ["depositKRW", "balanceKRW"]);
     const contract = optionalRecord(item, "contract");
     if (contract) scalar(contract, contractFields);
   });

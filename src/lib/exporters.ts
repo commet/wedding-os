@@ -330,6 +330,7 @@ function venueRows(items: WeddingVenue[]): Row[] {
     별도비용: v.contract?.extras,
     증빙보관: v.contract?.evidence,
     링크: v.link,
+    확인일: v.lastVerified,
     출처: v.source,
     메모: v.notes,
   }));
@@ -353,6 +354,8 @@ function sdmRows(items: SdmVendor[]): Row[] {
     별도비용: v.contract?.extras,
     증빙보관: v.contract?.evidence,
     링크: v.link,
+    확인일: v.lastVerified,
+    출처: v.source,
     메모: v.notes,
   }));
 }

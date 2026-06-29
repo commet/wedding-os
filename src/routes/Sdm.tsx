@@ -12,6 +12,14 @@ import VendorActions from "../components/VendorActions";
 import { koBreak } from "../lib/typography";
 import { formatKRW, upcomingBalances } from "../lib/derived";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
+import FreshnessBadge from "../components/FreshnessBadge";
+import ResearchInputPanel, { type ResearchSection } from "../components/ResearchInputPanel";
+import {
+  emptySdmResearchDraft,
+  parseSdmResearchText,
+  sdmResearchDraftToPatch,
+  type SdmResearchDraft,
+} from "../lib/researchCapture";
 
 // D-day 표기 — upcomingBalances 의 daysLeft 를 사람이 읽는 문구로. (음수=지남)
 function dDayLabel(daysLeft: number): string {
@@ -37,6 +45,36 @@ const CONTRACT_FIELDS: { key: keyof ContractCheck; label: string; placeholder: s
   { key: "included", label: "포함 항목", placeholder: "예: 원본 파일, 보정본 20장, 헬퍼비 별도, 부케 대여 포함" },
   { key: "extras", label: "별도 비용", placeholder: "예: 헬퍼비, 출장비, 앨범 추가, 야외 촬영 추가금" },
   { key: "evidence", label: "증빙 보관", placeholder: "예: 계약서 PDF는 드라이브 / 카톡 견적 캡처 저장" },
+];
+
+const SDM_RESEARCH_SECTIONS: ResearchSection<SdmResearchDraft>[] = [
+  {
+    title: "근거",
+    helper: "업체 후기 원문은 보관하지 않고, 확인한 가격·조건·출처만 남겨요.",
+    fields: [
+      { key: "source", label: "출처·근거", placeholder: "공식 페이지, 인스타, 상담 링크, 전화 상담 등" },
+      { key: "lastVerified", label: "확인일", kind: "date", span: "half" },
+      { key: "contact", label: "담당자·연락처", span: "half", placeholder: "예: 김실장 010-0000-0000" },
+    ],
+  },
+  {
+    title: "상담 요약",
+    fields: [
+      { key: "priceRange", label: "가격·패키지", kind: "textarea", placeholder: "예: 토탈 250~320만원, 원본 포함, 헬퍼비 별도" },
+      { key: "notes", label: "내 메모", kind: "textarea", placeholder: "컨셉, 응대, 촬영 톤처럼 직접 확인한 사실" },
+    ],
+  },
+  {
+    title: "계약 조건",
+    fields: [
+      { key: "quote", label: "견적 기준", kind: "textarea", placeholder: "패키지명, 작가·실장 지정, 촬영/피팅 횟수" },
+      { key: "payment", label: "결제 일정", kind: "textarea", placeholder: "계약금, 잔금일, 카드·현금영수증" },
+      { key: "cancellation", label: "취소·변경", kind: "textarea", placeholder: "일정 변경, 환불, 위약금 조건" },
+      { key: "included", label: "포함 항목", kind: "textarea", placeholder: "원본, 보정본, 앨범, 액자, 피팅 등" },
+      { key: "extras", label: "별도 비용", kind: "textarea", placeholder: "헬퍼비, 출장비, 원본비, 추가 보정 등" },
+      { key: "evidence", label: "증빙 보관", kind: "textarea", placeholder: "계약서, 견적서, 캡처 위치" },
+    ],
+  },
 ];
 
 const LOCAL_REGION_KEYS = new Set(["bundang", "busan", "daegu", "etc-local"]);
@@ -179,6 +217,7 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
           { label: "계약 조건 3칸 이상 기록", detail: "견적 기준, 포함 항목, 별도 비용, 취소 조건을 우선 남겨요.", done: contractedCount === 0 || contractGapCount === 0 },
         ]}
         actions={[
+          { label: "조사 입력 모드 →", onClick: () => setShowAdd(true), tone: inCat.length === 0 ? "primary" : "quiet" },
           { label: "업체 후보 열기 →", onClick: () => setCatalogOpen(true), tone: "primary" },
           ...(inCat.length > 0 && consultCount === 0 ? [{ label: "첫 후보를 상담으로 표시 →", onClick: promoteFirstVendor }] : []),
           { label: "후기 채널 보기", onClick: () => setShowChannels(true) },
@@ -406,6 +445,36 @@ function CatalogCard({
   );
 }
 
+function SdmResearchInput({
+  vendor,
+  onUpdate,
+  defaultOpen = false,
+  applyLabel,
+}: {
+  vendor: Partial<SdmVendor>;
+  onUpdate: (patch: Partial<SdmVendor>) => void;
+  defaultOpen?: boolean;
+  applyLabel?: string;
+}) {
+  const [draft, setDraft] = useState<SdmResearchDraft>(() => emptySdmResearchDraft(vendor));
+  return (
+    <ResearchInputPanel
+      title="조사 입력"
+      subtitle="가격·포함 항목·별도 비용을 상담 기준으로 정리합니다."
+      rawPlaceholder={
+        "예: 토탈 패키지 280만원 / 원본 포함 / 보정 20장 / 헬퍼비 별도 / 계약금 30만원 / 잔금 촬영 D-7 / 출처 URL"
+      }
+      draft={draft}
+      sections={SDM_RESEARCH_SECTIONS}
+      onDraftChange={setDraft}
+      onParse={parseSdmResearchText}
+      onApply={() => onUpdate(sdmResearchDraftToPatch(draft))}
+      applyLabel={applyLabel}
+      defaultOpen={defaultOpen}
+    />
+  );
+}
+
 function MyVendorCard({
   v, dueDaysLeft, onUpdate, onRemove,
 }: {
@@ -435,11 +504,16 @@ function MyVendorCard({
               </span>
             )}
           </div>
-          {v.region && <div className="eyebrow mt-1">{v.region}</div>}
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+            {v.region && <div className="eyebrow">{v.region}</div>}
+            {(v.lastVerified || v.source) && <FreshnessBadge lastVerified={v.lastVerified} />}
+          </div>
         </div>
         <button onClick={onRemove} aria-label={`${v.name} 삭제`} className="flex min-h-11 min-w-11 items-center justify-center text-soft hover:text-ink text-sm">×</button>
       </div>
-      <VendorActions name={v.name} region={v.region} officialUrl={v.link} />
+      <VendorActions name={v.name} region={v.region} officialUrl={v.link} sourceUrl={v.source} />
+
+      <SdmResearchInput vendor={v} onUpdate={onUpdate} />
 
       <div className="flex items-baseline gap-5">
         <span className="eyebrow">상태</span>
@@ -608,29 +682,42 @@ function CustomAdd({
   const [name, setName] = useState("");
   const [region, setRegion] = useState("");
   const [link, setLink] = useState("");
-  const [notes, setNotes] = useState("");
+  const [draft, setDraft] = useState<SdmResearchDraft>(() => emptySdmResearchDraft());
+  const submit = () => {
+    if (!name.trim()) return;
+    const patch = sdmResearchDraftToPatch(draft);
+    onAdd({
+      category,
+      name: name.trim(),
+      region: region.trim() || undefined,
+      link: link.trim() || undefined,
+      status: "관심",
+      ...patch,
+    });
+    setName("");
+    setRegion("");
+    setLink("");
+    setDraft(emptySdmResearchDraft());
+  };
   return (
     <div className="space-y-3">
       <input className="input text-[13px]" placeholder="업체 이름" value={name} onChange={(e) => setName(e.target.value)} />
       <input className="input text-[13px]" placeholder="지역 (예: 청담)" value={region} onChange={(e) => setRegion(e.target.value)} />
       <input className="input text-[13px]" placeholder="홈페이지·인스타 링크" value={link} onChange={(e) => setLink(e.target.value)} />
-      <textarea className="input text-[13px] min-h-[80px]" placeholder="메모" value={notes} onChange={(e) => setNotes(e.target.value)} />
-      <button
-        className="btn-primary w-full"
-        onClick={() => {
-          if (!name.trim()) return;
-          onAdd({
-            category,
-            name: name.trim(),
-            region: region.trim() || undefined,
-            link: link.trim() || undefined,
-            notes: notes.trim() || undefined,
-            status: "관심",
-          });
-        }}
-      >
-        추가
-      </button>
+      <ResearchInputPanel
+        title="조사 입력"
+        subtitle="상담 메모를 붙여넣어 가격·포함·별도 비용을 정리합니다."
+        rawPlaceholder={
+          "예: 280만원 패키지 / 원본 포함 / 보정 20장 / 헬퍼비 별도 / 계약금 30만원 / 출처 URL"
+        }
+        draft={draft}
+        sections={SDM_RESEARCH_SECTIONS}
+        onDraftChange={setDraft}
+        onParse={parseSdmResearchText}
+        onApply={submit}
+        applyLabel="업체 추가 →"
+        defaultOpen
+      />
     </div>
   );
 }

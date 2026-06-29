@@ -13,7 +13,14 @@ import MapEmbed from "../components/MapEmbed";
 import Modal from "../components/Modal";
 import FreshnessBadge from "../components/FreshnessBadge";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
+import ResearchInputPanel, { type ResearchSection } from "../components/ResearchInputPanel";
 import { safeHref } from "../lib/security";
+import {
+  emptyVenueResearchDraft,
+  parseVenueResearchText,
+  venueResearchDraftToPatch,
+  type VenueResearchDraft,
+} from "../lib/researchCapture";
 import {
   upcomingBalances,
   venueCapacityFit,
@@ -33,6 +40,56 @@ const CONTRACT_FIELDS: { key: keyof ContractCheck; label: string; placeholder: s
   { key: "included", label: "포함 항목", placeholder: "예: 생화 장식, 혼구용품, 음주류, 폐백실, 빔 사용" },
   { key: "extras", label: "별도 비용", placeholder: "예: 부가세, 봉사료, 주차권, 셔틀, 원판 추가" },
   { key: "evidence", label: "증빙 보관", placeholder: "예: 계약서 PDF는 드라이브 / 견적 캡처는 카톡방 고정" },
+];
+
+const VENUE_RESEARCH_SECTIONS: ResearchSection<VenueResearchDraft>[] = [
+  {
+    title: "근거",
+    helper: "후기 원문이 아니라 확인 가능한 출처와 확인일만 남겨요.",
+    fields: [
+      { key: "source", label: "출처·근거", placeholder: "공식 페이지, 상담 링크, 전화 상담 등" },
+      { key: "lastVerified", label: "확인일", kind: "date", span: "half" },
+      { key: "region", label: "지역", span: "half", placeholder: "예: 청담" },
+    ],
+  },
+  {
+    title: "비교 기준",
+    fields: [
+      {
+        key: "hallType",
+        label: "홀 형식",
+        kind: "select",
+        span: "half",
+        options: (Object.entries(HALL_TYPE_LABEL) as Array<[VenueHallType, string]>)
+          .map(([value, label]) => ({ value, label })),
+      },
+      {
+        key: "foodType",
+        label: "음식",
+        kind: "select",
+        span: "half",
+        options: Object.entries(FOOD_TYPE_LABEL).map(([value, label]) => ({ value, label })),
+      },
+      { key: "capacityMin", label: "보증 인원", kind: "number", span: "half", inputMode: "numeric", placeholder: "200" },
+      { key: "capacityMax", label: "최대 인원", kind: "number", span: "half", inputMode: "numeric", placeholder: "500" },
+      { key: "mealPriceMin", label: "식대 시작", kind: "number", span: "half", inputMode: "numeric", placeholder: "130000" },
+      { key: "mealPriceMax", label: "식대 상한", kind: "number", span: "half", inputMode: "numeric", placeholder: "160000" },
+      { key: "contact", label: "담당자·연락처", placeholder: "예: 김실장 010-0000-0000" },
+      { key: "notes", label: "내 메모", kind: "textarea", placeholder: "교통, 주차, 음식 인상처럼 직접 확인한 사실" },
+    ],
+  },
+  {
+    title: "계약 조건",
+    helper: "상담 후 흔들리기 쉬운 조건만 짧게 남기면 충분합니다.",
+    fields: [
+      { key: "quote", label: "견적 기준", kind: "textarea", placeholder: "요일·시간·보증·식대·대관료 기준" },
+      { key: "payment", label: "결제 일정", kind: "textarea", placeholder: "계약금, 잔금일, 카드·현금영수증" },
+      { key: "cancellation", label: "취소·변경", kind: "textarea", placeholder: "환불, 위약금, 일정 변경 조건" },
+      { key: "included", label: "포함 항목", kind: "textarea", placeholder: "생화, 음주류, 폐백실, 주차 등" },
+      { key: "extras", label: "별도 비용", kind: "textarea", placeholder: "부가세, 봉사료, 셔틀, 주차권 등" },
+      { key: "evidence", label: "증빙 보관", kind: "textarea", placeholder: "계약서, 견적서, 캡처 위치" },
+    ],
+  },
 ];
 
 const REGION_GROUPS: { key: string; label: string; match: (r?: string) => boolean }[] = [
@@ -186,6 +243,7 @@ export default function Venues({ data, update }: Props) {
           { label: "계약 전 핵심 조건 남기기", detail: "견적 기준, 결제 일정, 취소·변경, 별도 비용을 텍스트로 남겨요.", done: !!contracted && contractChecked >= 3 },
         ]}
         actions={[
+          { label: "조사 입력 모드 →", onClick: () => setShowAdd(true), tone: myVenues.length === 0 ? "primary" : "quiet" },
           { label: "조건으로 후보 추리기 →", onClick: () => { setShowStarter(true); setTab("catalog"); }, tone: "primary" },
           ...(myVenues.length > 0 && tourCount === 0 ? [{ label: "첫 후보를 투어로 표시 →", onClick: promoteFirstVenueToTour }] : []),
           ...(contracted && !data.invitation.venue ? [{ label: "계약 식장을 청첩장에 넣기 →", onClick: () => applyToInvitation(contracted), tone: "primary" as const }] : []),
@@ -751,6 +809,36 @@ function CatalogRow({ v, added, onAdd }: { v: WeddingVenue; added: boolean; onAd
   );
 }
 
+function VenueResearchInput({
+  venue,
+  onUpdate,
+  defaultOpen = false,
+  applyLabel,
+}: {
+  venue: Partial<WeddingVenue>;
+  onUpdate: (patch: Partial<WeddingVenue>) => void;
+  defaultOpen?: boolean;
+  applyLabel?: string;
+}) {
+  const [draft, setDraft] = useState<VenueResearchDraft>(() => emptyVenueResearchDraft(venue));
+  return (
+    <ResearchInputPanel
+      title="조사 입력"
+      subtitle="상담·홈페이지·직접 조사 내용을 구조화합니다."
+      rawPlaceholder={
+        "예: 보증 250명 / 최대 500명 / 식대 13~16만원 / 뷔페 / 계약금 100만원 / 잔금 D-7 / 별도 봉사료 있음 / 확인일 2026.06.29 / 출처 URL"
+      }
+      draft={draft}
+      sections={VENUE_RESEARCH_SECTIONS}
+      onDraftChange={setDraft}
+      onParse={parseVenueResearchText}
+      onApply={() => onUpdate(venueResearchDraftToPatch(draft))}
+      applyLabel={applyLabel}
+      defaultOpen={defaultOpen}
+    />
+  );
+}
+
 function MyVenueRow({
   v, registered, headcount, balance, onUpdate, onRemove, onApply,
 }: {
@@ -820,8 +908,10 @@ function MyVenueRow({
             />
           </div>
 
+          <VenueResearchInput venue={v} onUpdate={onUpdate} />
+
           <div>
-            <label className="label">메모 (식대 견적·실장 이름·인상)</label>
+            <label className="label">자유 메모</label>
             <textarea
               className="input-boxed text-[13px] min-h-[60px]"
               value={v.notes ?? ""}
@@ -1045,53 +1135,39 @@ function VenueCompare({ venues }: { venues: WeddingVenue[] }) {
 
 function CustomAdd({ onAdd }: { onAdd: (v: Omit<WeddingVenue, "id">) => void }) {
   const [name, setName] = useState("");
-  const [region, setRegion] = useState("");
-  const [hallType, setHallType] = useState<WeddingVenue["hallType"]>(undefined);
   const [link, setLink] = useState("");
-  const [notes, setNotes] = useState("");
+  const [draft, setDraft] = useState<VenueResearchDraft>(() => emptyVenueResearchDraft());
+  const submit = () => {
+    if (!name.trim()) return;
+    const patch = venueResearchDraftToPatch(draft);
+    onAdd({
+      name: name.trim(),
+      link: link.trim() || undefined,
+      status: "관심",
+      ...patch,
+    });
+    setName("");
+    setLink("");
+    setDraft(emptyVenueResearchDraft());
+  };
   return (
     <div className="space-y-4">
       <input className="input text-[13px]" placeholder="식장 이름" value={name} onChange={(e) => setName(e.target.value)} />
-      <input className="input text-[13px]" placeholder="지역 (예: 청담)" value={region} onChange={(e) => setRegion(e.target.value)} />
-      <div>
-        <label className="label">홀 형식</label>
-        <div className="flex flex-wrap gap-5">
-          <button
-            onClick={() => setHallType(undefined)}
-            className={`tracking-wide ${!hallType ? "seg-active" : "seg"}`}
-          >
-            미정
-          </button>
-          {(Object.keys(HALL_TYPE_LABEL) as Array<keyof typeof HALL_TYPE_LABEL>).map((t) => (
-            <button
-              key={t}
-              onClick={() => setHallType(t)}
-              className={`tracking-wide ${hallType === t ? "seg-active" : "seg"}`}
-            >
-              {HALL_TYPE_LABEL[t]}
-            </button>
-          ))}
-        </div>
-      </div>
       <input className="input text-[13px]" placeholder="홈페이지·예약 링크 (선택)" value={link} onChange={(e) => setLink(e.target.value)} />
-      <textarea className="input-boxed text-[13px] min-h-[60px]" placeholder="메모" value={notes} onChange={(e) => setNotes(e.target.value)} />
-      <button
-        className="btn-primary w-full py-3 text-[13px]"
-        onClick={() => {
-          if (!name.trim()) return;
-          onAdd({
-            name: name.trim(),
-            region: region.trim() || undefined,
-            hallType,
-            link: link.trim() || undefined,
-            notes: notes.trim() || undefined,
-            status: "관심",
-          });
-          setName(""); setRegion(""); setLink(""); setNotes("");
-        }}
-      >
-        추가 →
-      </button>
+      <ResearchInputPanel
+        title="조사 입력"
+        subtitle="알아낸 내용을 붙여넣으면 비교표와 계약 체크에 맞게 정리합니다."
+        rawPlaceholder={
+          "예: 청담 / 호텔 / 보증 250명 / 최대 500명 / 식대 13~16만원 / 계약금 100만원 / 포함 생화·주차 / 출처 URL"
+        }
+        draft={draft}
+        sections={VENUE_RESEARCH_SECTIONS}
+        onDraftChange={setDraft}
+        onParse={parseVenueResearchText}
+        onApply={submit}
+        applyLabel="후보 추가 →"
+        defaultOpen
+      />
     </div>
   );
 }
@@ -1145,6 +1221,7 @@ function venueSourceLabel(v: WeddingVenue): string {
   const capacity =
     v.capacitySource === "official" ? "수용 공식"
     : v.capacitySource === "public" ? "수용 공개정보"
+    : v.capacitySource === "user" ? "수용 내 조사"
     : v.capacitySource === "mixed" ? "수용 일부 공식"
     : v.capacitySource === "estimate" ? "수용 추정"
     : hasCapacity ? "수용 추정"
@@ -1152,6 +1229,7 @@ function venueSourceLabel(v: WeddingVenue): string {
   const meal =
     v.mealPriceSource === "official" ? "식대 공식"
     : v.mealPriceSource === "public" ? "식대 공개정보"
+    : v.mealPriceSource === "user" ? "식대 내 조사"
     : v.mealPriceSource === "estimate" || v.mealPriceMin || v.mealPriceMax ? "식대 추정"
     : "식대 직접 확인";
   return `${capacity} · ${meal}`;
