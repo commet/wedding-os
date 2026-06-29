@@ -314,8 +314,10 @@ function venueRows(items: WeddingVenue[]): Row[] {
     음식: v.foodType,
     최소인원: v.capacityMin,
     최대인원: v.capacityMax,
+    수용출처: v.capacitySource,
     식대시작: v.mealPriceMin,
     식대상한: v.mealPriceMax,
+    식대출처: v.mealPriceSource,
     답사일: v.visitedAt,
     담당자: v.contact,
     계약금: v.depositKRW,
@@ -328,6 +330,7 @@ function venueRows(items: WeddingVenue[]): Row[] {
     별도비용: v.contract?.extras,
     증빙보관: v.contract?.evidence,
     링크: v.link,
+    출처: v.source,
     메모: v.notes,
   }));
 }

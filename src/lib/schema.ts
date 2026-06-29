@@ -115,10 +115,10 @@ export type WeddingVenue = Verifiable & {
   foodType?: VenueFoodType;
   capacityMin?: number;     // 최소 보증인원
   capacityMax?: number;     // 최대 수용 인원
-  capacitySource?: "official" | "estimate" | "mixed";
+  capacitySource?: "official" | "public" | "estimate" | "mixed";
   mealPriceMin?: number;    // 식대 시작가 (원)
   mealPriceMax?: number;    // 식대 상한가 (원)
-  mealPriceSource?: "official" | "estimate";
+  mealPriceSource?: "official" | "public" | "estimate";
   link?: string;
   notes?: string;
   status?: "관심" | "투어" | "계약";

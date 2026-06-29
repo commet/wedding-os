@@ -8,10 +8,11 @@ type Props = {
   query?: string;        // 검색에 사용할 추가 키워드 (예: 반지 모델)
   region?: string;       // 카카오맵 검색에 도움
   officialUrl?: string;  // 공식 사이트 (있으면) — 사용자 입력일 수 있어 sanitize
+  sourceUrl?: string;    // 가격·수용 정보 출처 (있으면) — 사용자 입력일 수 있어 sanitize
   size?: "sm" | "xs";
 };
 
-export default function VendorActions({ name, query, region, officialUrl, size = "xs" }: Props) {
+export default function VendorActions({ name, query, region, officialUrl, sourceUrl, size = "xs" }: Props) {
   const fullQuery = query ? `${name} ${query}` : name;
   const mapQuery = region ? `${name} ${region}` : name;
   // 인스타는 explore/tags 패턴이 비로그인 상태에서도 200. 핸들 추측보다 안전.
@@ -21,6 +22,7 @@ export default function VendorActions({ name, query, region, officialUrl, size =
   const instagram = `https://www.instagram.com/explore/tags/${encodeURIComponent(tag)}/`;
   const kakaoMap = `https://map.kakao.com/link/search/${encodeURIComponent(mapQuery)}`;
   const officialSafe = safeHref(officialUrl);
+  const sourceSafe = safeHref(sourceUrl);
 
   const cls = size === "sm" ? "text-[12px] px-3" : "text-[11.5px] px-2.5";
   const linkClass = `${cls} inline-flex min-h-11 items-center justify-center border border-hair bg-paper tracking-wide transition hover:border-ink hover:text-ink active:opacity-70`;
@@ -31,6 +33,12 @@ export default function VendorActions({ name, query, region, officialUrl, size =
         <a href={officialSafe} target="_blank" rel="noopener noreferrer"
            className={`${linkClass} text-gold`}>
           공식 ↗
+        </a>
+      )}
+      {sourceSafe && sourceSafe !== officialSafe && (
+        <a href={sourceSafe} target="_blank" rel="noopener noreferrer"
+           className={`${linkClass} text-gold`}>
+          출처 ↗
         </a>
       )}
       <a href={google} target="_blank" rel="noopener noreferrer"

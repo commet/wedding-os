@@ -13,6 +13,7 @@ import MapEmbed from "../components/MapEmbed";
 import Modal from "../components/Modal";
 import FreshnessBadge from "../components/FreshnessBadge";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
+import { safeHref } from "../lib/security";
 import {
   upcomingBalances,
   venueCapacityFit,
@@ -37,9 +38,9 @@ const CONTRACT_FIELDS: { key: keyof ContractCheck; label: string; placeholder: s
 const REGION_GROUPS: { key: string; label: string; match: (r?: string) => boolean }[] = [
   { key: "all",    label: "전체",        match: () => true },
   { key: "gangnam",label: "강남·청담",   match: (r) => !!r && (r.includes("강남") || r.includes("청담") || r.includes("신사") || r.includes("삼성") || r.includes("논현") || r.includes("역삼") || r.includes("반포") || r.includes("서초") || r.includes("선릉") || r.includes("대치")) },
-  { key: "central",label: "광화문·중구", match: (r) => !!r && (r.includes("광화문") || r.includes("중구") || r.includes("정동") || r.includes("소공") || r.includes("장충") || r.includes("동대문") || r.includes("시청") || r.includes("서대문") || r.includes("남산")) },
-  { key: "han",    label: "한남·여의도", match: (r) => !!r && (r.includes("한남") || r.includes("여의도") || r.includes("영등포") || r.includes("용산") || r.includes("잠실") || r.includes("송파")) },
-  { key: "etc",    label: "그 외 서울",  match: (r) => !!r && (r.includes("공덕") || r.includes("성북") || r.includes("잠원") || r.includes("양재") || r.includes("광장동") || r.includes("강북") || r.includes("마포") || r.includes("강서") || r.includes("마곡") || r.includes("천호") || r.includes("강동") || r.includes("신도림") || r.includes("구로")) },
+  { key: "central",label: "광화문·중구", match: (r) => !!r && (r.includes("광화문") || r.includes("중구") || r.includes("정동") || r.includes("소공") || r.includes("장충") || r.includes("동대문") || r.includes("시청") || r.includes("서대문") || r.includes("남산") || r.includes("종로") || r.includes("삼청")) },
+  { key: "han",    label: "한남·여의도", match: (r) => !!r && (r.includes("한남") || r.includes("여의도") || r.includes("영등포") || r.includes("용산") || r.includes("잠실") || r.includes("송파") || r.includes("문정") || r.includes("강변")) },
+  { key: "etc",    label: "그 외 서울",  match: (r) => !!r && (r.includes("공덕") || r.includes("성북") || r.includes("잠원") || r.includes("양재") || r.includes("광장동") || r.includes("강북") || r.includes("마포") || r.includes("강서") || r.includes("마곡") || r.includes("천호") || r.includes("강동") || r.includes("신도림") || r.includes("구로") || r.includes("문래")) },
   { key: "gyeonggi", label: "경기·인천", match: (r) => !!r && (r.includes("일산") || r.includes("경기") || r.includes("분당") || r.includes("판교") || r.includes("인천") || r.includes("수원") || r.includes("송도") || r.includes("영종")) },
   { key: "busan", label: "부산·울산", match: (r) => !!r && (r.includes("부산") || r.includes("해운대") || r.includes("울산")) },
   { key: "daegu", label: "대구", match: (r) => !!r && r.includes("대구") },
@@ -515,7 +516,7 @@ function VenueStarter({
               <div className="eyebrow mt-2">
                 하객 {formatCapacity(venue)}
                 {(venue.mealPriceMin || venue.mealPriceMax) && (
-                  <span> · 식대 {fmtMan(venue.mealPriceMin)}~{fmtMan(venue.mealPriceMax)}만원</span>
+                  <span> · 식대 {formatMealPrice(venue)}</span>
                 )}
               </div>
               <div className="text-[11px] text-soft mt-1">{venueSourceLabel(venue)}</div>
@@ -613,6 +614,7 @@ function VenueMapExplorer({
   const selectedQuery = [selected.name, selected.region].filter(Boolean).join(" ");
   const added = addedNames.has(selected.name);
   const previewVenues = venues.slice(0, 24);
+  const selectedSourceUrl = safeHref(selected.source);
 
   return (
     <section className="border-y border-hair py-4 space-y-4">
@@ -649,6 +651,7 @@ function VenueMapExplorer({
           <MapSearchLink label="카카오맵" url={kakaoMapSearchUrl(selectedQuery)} />
           <MapSearchLink label="네이버지도" url={naverMapSearchUrl(selectedQuery)} />
           <MapSearchLink label="구글지도" url={googleMapSearchUrl(selectedQuery)} />
+          {selectedSourceUrl && <MapSearchLink label="출처" url={selectedSourceUrl} />}
         </div>
       </div>
 
@@ -722,7 +725,7 @@ function CatalogRow({ v, added, onAdd }: { v: WeddingVenue; added: boolean; onAd
               <>하객 {formatCapacity(v)} </>
             )}
             {(v.mealPriceMin || v.mealPriceMax) && (
-              <span>· 식대 {fmtMan(v.mealPriceMin)}~{fmtMan(v.mealPriceMax)}만원</span>
+              <span>· 식대 {formatMealPrice(v)}</span>
             )}
           </div>
           <div className="text-[11px] text-soft mt-1">{venueSourceLabel(v)}</div>
@@ -742,7 +745,7 @@ function CatalogRow({ v, added, onAdd }: { v: WeddingVenue; added: boolean; onAd
         </button>
       </div>
       <div className="mt-2">
-        <VendorActions name={v.name} region={v.region} officialUrl={v.link} />
+        <VendorActions name={v.name} region={v.region} officialUrl={v.link} sourceUrl={v.source} />
       </div>
     </li>
   );
@@ -782,6 +785,11 @@ function MyVenueRow({
             {showDDay && (
               <span className="text-gold tabular-nums">· {dDayLabel(balance!.daysLeft)}</span>
             )}
+          </div>
+          <div className="mt-1.5 flex flex-wrap gap-x-2 gap-y-1 text-[11.5px] leading-relaxed text-soft tabular-nums">
+            {(v.capacityMin || v.capacityMax) && <span>하객 {formatCapacity(v)}</span>}
+            {(v.mealPriceMin || v.mealPriceMax) && <span>식대 {formatMealPrice(v)}</span>}
+            <span>{venueSourceLabel(v)}</span>
           </div>
         </button>
         <button onClick={onRemove} aria-label={`${v.name} 삭제`} className="flex min-h-11 min-w-11 flex-shrink-0 items-center justify-center text-soft hover:text-ink text-sm">×</button>
@@ -887,7 +895,7 @@ function MyVenueRow({
 
           <MapEmbed query={[v.name, v.region].filter(Boolean).join(" ")} label={`${v.name} 지도`} />
 
-          <VendorActions name={v.name} region={v.region} officialUrl={v.link} />
+          <VendorActions name={v.name} region={v.region} officialUrl={v.link} sourceUrl={v.source} />
 
           <div className="pt-2 flex items-center gap-6 border-t border-hair">
             <button onClick={onApply} className="text-[12px] underline underline-offset-4 text-gold hover:text-ink">
@@ -969,7 +977,7 @@ function VenueCompare({ venues }: { venues: WeddingVenue[] }) {
     {
       label: "식대",
       get: (v) =>
-        v.mealPriceMin || v.mealPriceMax ? `${fmtMan(v.mealPriceMin)}~${fmtMan(v.mealPriceMax)}만` : "—",
+        v.mealPriceMin || v.mealPriceMax ? formatMealPrice(v) : "—",
     },
     { label: "출처", get: venueSourceLabel },
     { label: "상태", get: (v) => v.status || "—" },
@@ -1123,16 +1131,27 @@ function formatCapacity(v: WeddingVenue): string {
   return "직접 확인";
 }
 
+function formatMealPrice(v: WeddingVenue): string {
+  const min = v.mealPriceMin;
+  const max = v.mealPriceMax;
+  if (min && max) return min === max ? `${fmtMan(min)}만원` : `${fmtMan(min)}~${fmtMan(max)}만원`;
+  if (min) return `${fmtMan(min)}만원부터`;
+  if (max) return `최대 ${fmtMan(max)}만원`;
+  return "직접 확인";
+}
+
 function venueSourceLabel(v: WeddingVenue): string {
   const hasCapacity = Boolean(v.capacityMin || v.capacityMax);
   const capacity =
     v.capacitySource === "official" ? "수용 공식"
+    : v.capacitySource === "public" ? "수용 공개정보"
     : v.capacitySource === "mixed" ? "수용 일부 공식"
     : v.capacitySource === "estimate" ? "수용 추정"
     : hasCapacity ? "수용 추정"
     : "수용 직접 확인";
   const meal =
     v.mealPriceSource === "official" ? "식대 공식"
+    : v.mealPriceSource === "public" ? "식대 공개정보"
     : v.mealPriceSource === "estimate" || v.mealPriceMin || v.mealPriceMax ? "식대 추정"
     : "식대 직접 확인";
   return `${capacity} · ${meal}`;

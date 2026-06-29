@@ -814,7 +814,7 @@ function assertImportFieldTypes(value: unknown): void {
   });
   records("flights").forEach((item) => scalar(item, ["id", "airline", "flightNumber", "from", "to", "departAt", "arriveAt", "notes", "link", "lastVerified", "source"], ["priceKRW"]));
   records("venues").forEach((item) => {
-    scalar(item, ["id", "name", "region", "hallType", "foodType", "link", "notes", "status", "visitedAt", "lastVerified", "source", "contact", "balanceDueAt"], ["capacityMin", "capacityMax", "mealPriceMin", "mealPriceMax", "depositKRW", "balanceKRW"]);
+    scalar(item, ["id", "name", "region", "hallType", "foodType", "capacitySource", "mealPriceSource", "link", "notes", "status", "visitedAt", "lastVerified", "source", "contact", "balanceDueAt"], ["capacityMin", "capacityMax", "mealPriceMin", "mealPriceMax", "depositKRW", "balanceKRW"]);
     const contract = optionalRecord(item, "contract");
     if (contract) scalar(contract, contractFields);
   });
