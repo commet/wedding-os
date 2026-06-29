@@ -741,6 +741,8 @@ function FlightAddForm({ onAdd }: { onAdd: (f: Flight) => void }) {
         onParse={parseFlightResearchText}
         onApply={submit}
         applyLabel="항공편 추가 →"
+        applyDisabled={!draft.airline?.trim()}
+        applyHint="항공사 이름을 확인하면 항공편으로 저장할 수 있어요."
         defaultOpen
       />
     </div>
@@ -999,6 +1001,8 @@ function HotelAddForm({ onAdd }: { onAdd: (h: Hotel) => void }) {
         onParse={parseHotelResearchText}
         onApply={submit}
         applyLabel="숙소 추가 →"
+        applyDisabled={!draft.name?.trim()}
+        applyHint="숙소 이름을 확인하면 후보로 저장할 수 있어요."
         defaultOpen
       />
     </div>

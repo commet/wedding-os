@@ -35,6 +35,8 @@ type Props<T extends object> = {
   onParse: (raw: string) => Partial<T>;
   onApply?: () => void;
   applyLabel?: string;
+  applyDisabled?: boolean;
+  applyHint?: string;
   defaultOpen?: boolean;
 };
 
@@ -48,6 +50,8 @@ export default function ResearchInputPanel<T extends object>({
   onParse,
   onApply,
   applyLabel = "조사 내용 저장 →",
+  applyDisabled = false,
+  applyHint,
   defaultOpen = false,
 }: Props<T>) {
   const [open, setOpen] = useState(defaultOpen);
@@ -150,9 +154,19 @@ export default function ResearchInputPanel<T extends object>({
           </div>
 
           {onApply && (
-            <button type="button" onClick={onApply} className="btn-primary w-full py-3 text-[13px]">
-              {applyLabel}
-            </button>
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={onApply}
+                disabled={applyDisabled}
+                className="btn-primary w-full py-3 text-[13px] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {applyLabel}
+              </button>
+              {applyDisabled && applyHint && (
+                <p className="text-[11.5px] text-soft leading-relaxed">{applyHint}</p>
+              )}
+            </div>
           )}
         </div>
       )}

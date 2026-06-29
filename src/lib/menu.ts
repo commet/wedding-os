@@ -1,4 +1,5 @@
 import type { WeddingData } from "./schema";
+import { PLANNING_STATE_LABEL, planningStatusReport } from "./derived";
 
 export type MenuItem = { to: string; label: string; sub: string };
 export type MenuGroup = { title: string; items: MenuItem[] };
@@ -11,47 +12,46 @@ export type MenuGroup = { title: string; items: MenuItem[] };
  * 청첩장·영상을 만들고(함께 만들기), 그 뒤 꾸준히 관리. 도구·설정은 뒤로.
  */
 export function buildMenuGroups(data: WeddingData): MenuGroup[] {
-  const venueCount = (data.venues ?? []).length;
-  const sdmCount = data.sdm.filter((v) => v.category !== "snap").length;
   const snapCount = data.sdm.filter((v) => v.category === "snap").length;
-  const budgetCount = (data.budget ?? []).length;
-  const guestCount = (data.guests ?? []).length;
-  const guestAttending = (data.guests ?? []).filter((g) => g.status === "참석").length;
-  const checklistTotal = data.checklist.reduce((n, s) => n + s.items.length, 0);
-  const checklistDone = data.checklist.reduce((n, s) => n + s.items.filter((i) => i.done).length, 0);
-  const progress = checklistTotal > 0 ? Math.round((checklistDone / checklistTotal) * 100) : 0;
+  const status = planningStatusReport(data);
+  const byKey = new Map(status.sections.map((section) => [section.key, section]));
+  const sub = (key: string, fallback: string) => {
+    const section = byKey.get(key);
+    if (!section) return fallback;
+    return `${PLANNING_STATE_LABEL[section.state]} · ${section.detail}`;
+  };
 
   return [
     {
       title: "결정 · 예약",
       items: [
-        { to: "/venues", label: "예식장", sub: venueCount > 0 ? `${venueCount}곳 담음` : "후보 비교 · 답사" },
-        { to: "/sdm", label: "스드메", sub: sdmCount > 0 ? `${sdmCount}곳 담음` : "스튜디오 · 드레스 · 메이크업" },
+        { to: "/venues", label: "예식장", sub: sub("venues", "후보 비교 · 답사") },
+        { to: "/sdm", label: "스드메", sub: sub("sdm", "스튜디오 · 드레스 · 메이크업") },
         { to: "/snap", label: "본식 스냅", sub: snapCount > 0 ? `${snapCount}곳 담음` : "당일 촬영 · 원판 · 앨범" },
-        { to: "/rings", label: "결혼반지", sub: `${data.rings.length}개 후보` },
-        { to: "/trip", label: "신혼여행", sub: `${data.honeymoon.regions.length}곳 · 항공 ${data.flights.length} · 숙소 ${data.hotels.length}` },
+        { to: "/rings", label: "결혼반지", sub: sub("rings", "취향 후보 · 가격") },
+        { to: "/trip", label: "신혼여행", sub: sub("trip", "지역 · 항공 · 숙소") },
       ],
     },
     {
       title: "함께 만들기",
       items: [
-        { to: "/invitation", label: "모바일 청첩장", sub: "정보 입력 · 하객용 링크" },
-        { to: "/ceremony", label: "식순", sub: `당일 진행표 · 음악 · 담당${(data.ceremony?.length ?? 0) > 0 ? ` · ${data.ceremony!.length}단계` : ""}` },
-        { to: "/video", label: "식전영상", sub: "사진 · BGM · 자연어 편집" },
+        { to: "/invitation", label: "모바일 청첩장", sub: sub("invitation", "정보 입력 · 하객용 링크") },
+        { to: "/ceremony", label: "식순", sub: sub("ceremony", "당일 진행표 · 음악 · 담당") },
+        { to: "/video", label: "식전영상", sub: sub("video", "사진 · BGM · 자연어 편집") },
       ],
     },
     {
       title: "꾸준히 관리",
       items: [
-        { to: "/checklist", label: "체크리스트", sub: checklistTotal > 0 ? `${checklistDone}/${checklistTotal} 완료 · ${progress}%` : "일정 · 할 일" },
-        { to: "/budget", label: "비용 관리", sub: budgetCount > 0 ? `${budgetCount}개 항목` : "예산 · 결제 · 초과 비용" },
-        { to: "/guests", label: "하객 명단", sub: guestCount > 0 ? `${guestCount}명 · 참석 ${guestAttending}` : "이름 · 축의금 · 식수" },
+        { to: "/checklist", label: "체크리스트", sub: sub("checklist", "일정 · 할 일") },
+        { to: "/budget", label: "비용 관리", sub: sub("budget", "예산 · 결제 · 초과 비용") },
+        { to: "/guests", label: "하객 명단", sub: sub("guests", "이름 · 축의금 · 식수") },
       ],
     },
     {
       title: "도구",
       items: [
-        { to: "/share", label: "공유 센터", sub: "청첩장 · 초대 링크 · 백업" },
+        { to: "/share", label: "공유 센터", sub: sub("share", "청첩장 · 초대 링크 · 백업") },
         {
           to: "/start-hosted",
           label: "함께 편집",

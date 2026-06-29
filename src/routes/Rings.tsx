@@ -992,6 +992,8 @@ function AddRingModal({ open, onClose, update }: { open: boolean; onClose: () =>
           onParse={parseRingResearchText}
           onApply={submit}
           applyLabel="반지 추가 →"
+          applyDisabled={!draft.brand?.trim() || !draft.model?.trim()}
+          applyHint="브랜드와 모델명을 확인하면 후보로 저장할 수 있어요."
           defaultOpen
         />
       </div>

@@ -1166,6 +1166,8 @@ function CustomAdd({ onAdd }: { onAdd: (v: Omit<WeddingVenue, "id">) => void }) 
         onParse={parseVenueResearchText}
         onApply={submit}
         applyLabel="후보 추가 →"
+        applyDisabled={!name.trim()}
+        applyHint="식장 이름을 먼저 적어주세요."
         defaultOpen
       />
     </div>

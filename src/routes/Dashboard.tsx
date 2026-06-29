@@ -13,6 +13,8 @@ import { buildMenuGroups } from "../lib/menu";
 import {
   budgetTotals, overdueChecklistCount, formatKRW, upcomingBalances, upcomingEvents,
   weddingPhase, rsvpReadiness, mealBudgetCheck, contractedVenue, planningHeadcount, venueCapacityFit,
+  planningStatusReport, PLANNING_STATE_LABEL,
+  type PlanningSectionStatus, type PlanningStatusState,
 } from "../lib/derived";
 import { koBreak } from "../lib/typography";
 
@@ -23,13 +25,6 @@ type FocusItem = {
   title: string;
   desc: string;
   tag: string;
-};
-
-type ReadinessItem = {
-  to: string;
-  label: string;
-  percent: number;
-  detail: string;
 };
 
 type StarterResult = {
@@ -49,19 +44,11 @@ export default function Dashboard({ data, update }: Props) {
     return daysUntilISODate(data.invitation.date);
   }, [data.invitation.date]);
 
-  const checklistTotal = data.checklist.reduce((n, s) => n + s.items.length, 0);
-  const checklistDone = data.checklist.reduce((n, s) => n + s.items.filter((i) => i.done).length, 0);
-  const progress = checklistTotal > 0 ? Math.round((checklistDone / checklistTotal) * 100) : 0;
-
   const agentOnboarded = !!data.ai?.profile?.onboardedAt;
   const empty = !agentOnboarded && !data.invitation.groomName && !data.invitation.brideName;
 
   const venueCount = (data.venues ?? []).length;
   const budgetCount = (data.budget ?? []).length;
-  const guestCount = (data.guests ?? []).length;
-  const guestAttending = (data.guests ?? []).filter((g) => g.status === "참석").length;
-  const sdmCount = data.sdm.filter((v) => v.category !== "snap").length;
-  const snapCount = data.sdm.filter((v) => v.category === "snap").length;
   const invitationReadyCount = [
     data.invitation.groomName,
     data.invitation.brideName,
@@ -87,6 +74,10 @@ export default function Dashboard({ data, update }: Props) {
   const capitalRisk = capFit === "over" || capFit === "under";
   const hasRisk = overdueCount > 0 || overBudgetCount > 0 || !!balanceDueSoon || capitalRisk || rsvpNudge || !!mealCheck;
   const agentQuestion = useMemo(() => nextAgentQuestion(data), [data]);
+  const statusReport = useMemo(() => planningStatusReport(data), [data]);
+  const readiness = statusReport.sections;
+  const readinessPercent = statusReport.overallPercent;
+  const nextStatus = statusReport.nextSections[0];
   const agentCaption = hasRisk
     ? "놓치기 쉬운 신호를 먼저 보고 있어요."
     : agentQuestion
@@ -259,7 +250,7 @@ export default function Dashboard({ data, update }: Props) {
     setAiMessage(added > 0 ? "시작점을 만들었어요. 아래에서 바로 이어갈 수 있습니다." : "답변은 받았지만 반영할 항목이 없었어요.");
   };
 
-  const focusItems = useMemo<FocusItem[]>(() => {
+ const focusItems = useMemo<FocusItem[]>(() => {
     const items: FocusItem[] = [];
     const aiToday = (data.ai?.today ?? [])
       .map((item) => ({
@@ -271,6 +262,14 @@ export default function Dashboard({ data, update }: Props) {
       .filter((item) => item.title)
       .slice(0, 3);
     items.push(...aiToday);
+    if (nextStatus) {
+      items.push({
+        to: nextStatus.to,
+        title: nextStatus.nextAction,
+        desc: `${nextStatus.label} · ${nextStatus.detail}`,
+        tag: PLANNING_STATE_LABEL[nextStatus.state],
+      });
+    }
     if (!data.invitation.date) {
       items.push({
         to: "/invitation",
@@ -357,55 +356,12 @@ export default function Dashboard({ data, update }: Props) {
     data.hotels.length,
     data.invitation.date,
     data.invitation.venue,
+    nextStatus,
     data.preferences.mode,
     data.rings.length,
     invitationReadyCount,
     venueCount,
   ]);
-
-  const readiness: ReadinessItem[] = [
-    {
-      to: "/checklist",
-      label: "체크리스트",
-      percent: progress,
-      detail: checklistTotal > 0 ? `${checklistDone}/${checklistTotal} 완료` : "기본판 필요",
-    },
-    {
-      to: "/invitation",
-      label: "청첩장",
-      percent: Math.round((invitationReadyCount / 5) * 100),
-      detail: invitationReadyCount >= 4 ? "공유 준비 중" : "기본 정보 입력",
-    },
-    {
-      to: "/venues",
-      label: "예식장",
-      percent: data.invitation.venue || venueCount > 0 ? 70 : 0,
-      detail: venueCount > 0 ? `${venueCount}곳 후보` : data.invitation.venue ? "장소 입력됨" : "후보 없음",
-    },
-    {
-      to: "/budget",
-      label: "예산",
-      percent: budgetCount > 0 ? 60 : 0,
-      detail: budgetCount > 0 ? `${budgetCount}개 항목` : "템플릿 필요",
-    },
-    {
-      to: "/guests",
-      label: "하객",
-      percent: guestCount > 0 ? Math.min(85, 30 + guestAttending * 5) : 0,
-      detail: guestCount > 0 ? `${guestCount}명 · 참석 ${guestAttending}` : "명단 시작 전",
-    },
-    {
-      to: "/trip",
-      label: "신혼여행",
-      percent: data.honeymoon.regions.length > 0 ? 45 : 0,
-      detail: data.honeymoon.regions.length > 0 ? `${data.honeymoon.regions.length}곳 후보` : "지역 비교 전",
-    },
-  ];
-
-  // 헤드라인 준비도 — 영역별 부분 진행률(readiness)의 평균. 한 곳만 채워도 지표가 움직인다.
-  const readinessPercent = readiness.length
-    ? Math.round(readiness.reduce((sum, r) => sum + r.percent, 0) / readiness.length)
-    : 0;
 
   // 전역 메뉴 — AppShell "더보기" 시트와 동일한 단일 소스(lib/menu.ts)를 공유.
   const MENU_GROUPS = buildMenuGroups(data);
@@ -495,6 +451,7 @@ export default function Dashboard({ data, update }: Props) {
                 </span>
               </div>
               <ReadinessMeter value={readinessPercent} />
+              <StatusSummary counts={statusReport.counts} next={nextStatus} />
             </div>
           </>
         )}
@@ -637,27 +594,17 @@ export default function Dashboard({ data, update }: Props) {
       {!empty && <>
       <div className="hairline" />
       <section className="page py-7">
-        <details>
-          <summary className="list-none cursor-pointer flex items-center justify-between gap-4 min-h-11">
-            <span>
-              <span className="eyebrow block mb-1">영역별 현황</span>
-              <span className="font-serif text-2xl text-ink">{koBreak("어디까지 왔는지 보기")}</span>
-            </span>
-            <span className="text-[12px] text-soft underline underline-offset-4">펼쳐보기</span>
-          </summary>
-          <div className="grid grid-cols-2 gap-3 pt-5">
-            {readiness.map((item) => (
-              <Link key={item.label} to={item.to} className="border border-hair bg-paper p-3 active:opacity-70 transition">
-                <div className="flex items-baseline justify-between gap-2 mb-3">
-                  <span className="font-serif text-[15px] text-ink">{item.label}</span>
-                  <span className="text-[12px] text-soft tabular-nums">{item.percent}%</span>
-                </div>
-                <ProgressLine value={item.percent} subtle />
-                <div className="text-[12px] text-soft mt-2 leading-snug">{item.detail}</div>
-              </Link>
-            ))}
+        <div className="mb-5 flex items-end justify-between gap-4">
+          <div>
+            <div className="eyebrow block mb-1">영역별 status</div>
+            <h2 className="font-serif text-2xl text-ink">{koBreak("남은 일이 보이게")}</h2>
           </div>
-        </details>
+          <span className="text-right text-[11px] leading-relaxed text-soft">
+            완료 {statusReport.counts.done}<br />
+            확인 필요 {statusReport.counts.attention}
+          </span>
+        </div>
+        <StatusBoard sections={readiness} />
       </section>
       </>}
 
@@ -792,6 +739,95 @@ function ReadinessMeter({ value }: { value: number }) {
         />
       )}
     </div>
+  );
+}
+
+function StatusSummary({
+  counts,
+  next,
+}: {
+  counts: Record<PlanningStatusState, number>;
+  next?: PlanningSectionStatus;
+}) {
+  return (
+    <div className="mt-4 border-y border-hair py-3">
+      <div className="grid grid-cols-3 gap-3">
+        <StatusCount label="확인 필요" value={counts.attention} tone={counts.attention > 0 ? "warn" : "muted"} />
+        <StatusCount label="진행 중" value={counts.active + counts.empty} tone="normal" />
+        <StatusCount label="완료" value={counts.done} tone="muted" />
+      </div>
+      {next && (
+        <Link to={next.to} className="row-tap mt-3 flex min-h-11 items-center justify-between gap-3 border-t border-hair pt-3">
+          <span className="min-w-0">
+            <span className="block text-[11px] tracking-eyebrow uppercase text-gold">{next.label} · 다음</span>
+            <span className="mt-1 block truncate text-[13px] text-ink">{next.nextAction}</span>
+          </span>
+          <span className="flex-shrink-0 text-soft">→</span>
+        </Link>
+      )}
+    </div>
+  );
+}
+
+function StatusCount({ label, value, tone }: { label: string; value: number; tone: "normal" | "warn" | "muted" }) {
+  return (
+    <div>
+      <div className="eyebrow mb-1">{label}</div>
+      <div
+        className={`font-serif text-[19px] leading-none tabular-nums ${
+          tone === "warn" ? "text-gold" : tone === "muted" ? "text-soft" : "text-ink"
+        }`}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function StatusBoard({ sections }: { sections: PlanningSectionStatus[] }) {
+  return (
+    <div className="divide-y divide-hair border-y border-hair">
+      {sections.map((section) => (
+        <Link
+          key={section.key}
+          to={section.to}
+          className="row-tap grid min-h-[86px] grid-cols-[minmax(0,1fr)_3.7rem] items-center gap-4 py-4"
+        >
+          <span className="min-w-0">
+            <span className="mb-2 flex items-center justify-between gap-3">
+              <span className="font-serif text-[16px] leading-tight text-ink">{section.label}</span>
+              <StatePill state={section.state} />
+            </span>
+            <ProgressLine value={section.percent} subtle />
+            <span className="mt-2 block text-[12px] leading-relaxed text-soft">
+              {section.detail} · <span className="text-ink">{section.nextAction}</span>
+            </span>
+          </span>
+          <span className="text-right">
+            <span className={`block font-serif text-[22px] leading-none tabular-nums ${section.state === "attention" ? "text-gold" : "text-ink"}`}>
+              {section.percent}
+            </span>
+            <span className="mt-1 block text-[11px] text-soft">%</span>
+          </span>
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+function StatePill({ state }: { state: PlanningStatusState }) {
+  const tone =
+    state === "attention"
+      ? "text-gold before:bg-gold"
+      : state === "done"
+        ? "text-sage before:bg-sage"
+        : state === "empty"
+          ? "text-soft before:bg-mute"
+          : "text-ink before:bg-ink";
+  return (
+    <span className={`inline-flex flex-shrink-0 items-center gap-1.5 text-[10.5px] tracking-eyebrow uppercase ${tone} before:block before:h-1.5 before:w-1.5 before:rotate-45`}>
+      {PLANNING_STATE_LABEL[state]}
+    </span>
   );
 }
 

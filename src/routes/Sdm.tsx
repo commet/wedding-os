@@ -716,6 +716,8 @@ function CustomAdd({
         onParse={parseSdmResearchText}
         onApply={submit}
         applyLabel="업체 추가 →"
+        applyDisabled={!name.trim()}
+        applyHint="업체 이름을 먼저 적어주세요."
         defaultOpen
       />
     </div>

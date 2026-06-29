@@ -78,6 +78,12 @@ export default function Invitation({ data, update }: Props) {
 
   const [shareText, setShareText] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
+  const openPublishEditor = () => {
+    setTab("edit");
+    window.setTimeout(() => {
+      document.getElementById("publish-invitation")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 0);
+  };
 
   const markShareCopied = () => {
     setShareCopied(true);
@@ -247,6 +253,18 @@ export default function Invitation({ data, update }: Props) {
                   닫기
                 </button>
               </div>
+            </div>
+          )}
+          {!isGuestRoute && !guest && (
+            <div className="page pt-4">
+              <InvitationPreviewAgent
+                data={data}
+                tab={tab}
+                onEdit={() => setTab("edit")}
+                onGuest={() => setTab("guest")}
+                onPublish={openPublishEditor}
+                onShare={() => { void share(); }}
+              />
             </div>
           )}
           <Preview
@@ -441,6 +459,67 @@ export function RsvpModal({
         </div>
       )}
     </Modal>
+  );
+}
+
+function InvitationPreviewAgent({
+  data,
+  tab,
+  onEdit,
+  onGuest,
+  onPublish,
+  onShare,
+}: {
+  data: WeddingData;
+  tab: Tab;
+  onEdit: () => void;
+  onGuest: () => void;
+  onPublish: () => void;
+  onShare: () => void;
+}) {
+  const inv = data.invitation;
+  const readiness = invitationReadiness(data);
+  const publishReady = !!inv.groomName && !!inv.brideName && !!inv.date && !!inv.venue;
+  const hasStory = !!inv.greeting.trim() && !!inv.heroImageUrl;
+  const contracted = contractedVenue(data);
+  const missing = readiness.missing.join(", ") || "없음";
+  const canUseContractedVenue = !inv.venue.trim() && !!contracted;
+
+  return (
+    <ProcessAgentPanel
+      title={
+        !publishReady
+          ? "공유 전에 빠진 칸을 확인하는 중"
+          : data.publish
+            ? "하객 시점까지 마지막 점검 중"
+            : "하객용 링크 발행만 남았어요"
+      }
+      summary={
+        !publishReady
+          ? `아직 ${readiness.total - readiness.filled}가지가 비어 있어요. 지금 빠진 항목은 ${missing}입니다.`
+          : data.publish
+            ? "기본 정보와 링크는 준비됐어요. 하객 시점으로 열어 RSVP와 지도 안내가 자연스러운지만 보면 됩니다."
+            : "청첩장 핵심 정보는 채워졌어요. 사진, 모시는 글, 지도 안내를 확인한 뒤 링크를 만들면 됩니다."
+      }
+      mood={!publishReady ? "watching" : data.publish ? "ready" : "thinking"}
+      metrics={[
+        { label: "기본 정보", value: `${readiness.filled}/${readiness.total}`, tone: readiness.filled < readiness.total ? "warn" : "normal" },
+        { label: "식장", value: inv.venue ? "있음" : canUseContractedVenue ? "후보 있음" : "없음", tone: inv.venue ? "normal" : "warn" },
+        { label: "링크", value: data.publish ? "발행" : "전", tone: data.publish ? "normal" : publishReady ? "warn" : "muted" },
+      ]}
+      steps={[
+        { label: "이름·날짜·식장 확인", detail: "하객이 가장 먼저 보는 정보라 비어 있으면 공유 전에 막습니다.", done: publishReady },
+        { label: "모시는 글과 대표 사진 확인", detail: "초안 느낌이 남지 않도록 문장과 첫 사진을 같이 봅니다.", done: hasStory },
+        { label: "하객 시점 확인", detail: "발행 전에는 실제 하객 화면처럼 한 번 열어 흐름을 봅니다.", done: tab === "guest" },
+        { label: "하객용 링크 발행", detail: "내용이 준비되면 편집 초대 링크가 아니라 하객용 링크를 만듭니다.", done: !!data.publish },
+      ]}
+      actions={[
+        ...(!publishReady ? [{ label: "빠진 정보 채우기 →", onClick: onEdit, tone: "primary" as const }] : []),
+        ...(publishReady && !data.publish ? [{ label: "발행 준비하러 가기 →", onClick: onPublish, tone: "primary" as const }] : []),
+        ...(tab !== "guest" ? [{ label: "하객 시점 보기", onClick: onGuest }] : []),
+        ...(data.publish ? [{ label: "공유 실행", onClick: onShare }] : []),
+      ]}
+    />
   );
 }
 

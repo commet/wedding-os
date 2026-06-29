@@ -127,6 +127,8 @@ export default function Checklist({ data, update }: Props) {
   const overdueCount = allItems.filter((item) => bucketOf(item) === "overdue").length;
   const weekCount = allItems.filter((item) => bucketOf(item) === "week").length;
   const nodateCount = allItems.filter((item) => bucketOf(item) === "nodate").length;
+  const isSearching = query.trim().length > 0;
+  const triageTimeline = view === "timeline" && !isSearching && visibleItems.length > TRIAGE_THRESHOLD;
 
   if (sections.length === 0) {
     return (
@@ -255,8 +257,22 @@ export default function Checklist({ data, update }: Props) {
         </label>
       </div>
 
+      {triageTimeline && (
+        <div className="border-y border-hair py-3 text-[12px] leading-relaxed text-soft">
+          <span className="font-medium text-ink">WEDDY가 급한 것부터 접어뒀어요.</span>{" "}
+          각 묶음은 처음 {TRIAGE_LIMIT}개만 보이고, 검색하면 전체가 펼쳐집니다.
+        </div>
+      )}
+
       {view === "timeline" ? (
-        <TimelineView items={visibleItems} onToggle={toggleItem} onSetDue={setDue} onDelete={deleteItem} expandAll={query.trim().length > 0} />
+        <TimelineView
+          items={visibleItems}
+          onToggle={toggleItem}
+          onSetDue={setDue}
+          onDelete={deleteItem}
+          expandAll={isSearching}
+          triage={triageTimeline}
+        />
       ) : (
         <CategoryView
           sections={sections.map((section) => ({
@@ -385,15 +401,18 @@ const BUCKET_META: Record<string, { label: string; color: string }> = {
   done: { label: "완료", color: "text-soft" },
 };
 const BUCKET_ORDER = ["overdue", "week", "month", "later", "nodate", "done"] as const;
+const TRIAGE_LIMIT = 5;
+const TRIAGE_THRESHOLD = 28;
 
 function TimelineView({
-  items, onToggle, onSetDue, onDelete, expandAll,
+  items, onToggle, onSetDue, onDelete, expandAll, triage,
 }: {
   items: FlatItem[];
   onToggle: (sid: string, iid: string) => void;
   onSetDue: (sid: string, iid: string, d: string) => void;
   onDelete: (sid: string, iid: string) => void;
   expandAll: boolean;
+  triage: boolean;
 }) {
   const grouped = useMemo(() => {
     const g: Record<string, FlatItem[]> = {};
@@ -412,28 +431,61 @@ function TimelineView({
       {BUCKET_ORDER.map((bucket) => {
         const list = grouped[bucket];
         if (!list || list.length === 0) return null;
-        return <TimelineGroup key={bucket} bucket={bucket} list={list} expandAll={expandAll} onToggle={onToggle} onSetDue={onSetDue} onDelete={onDelete} />;
+        return (
+          <TimelineGroup
+            key={bucket}
+            bucket={bucket}
+            list={list}
+            expandAll={expandAll}
+            limit={triage ? TRIAGE_LIMIT : undefined}
+            onToggle={onToggle}
+            onSetDue={onSetDue}
+            onDelete={onDelete}
+          />
+        );
       })}
     </div>
   );
 }
 
-function TimelineGroup({ bucket, list, expandAll, onToggle, onSetDue, onDelete }: {
+function TimelineGroup({ bucket, list, expandAll, limit, onToggle, onSetDue, onDelete }: {
   bucket: typeof BUCKET_ORDER[number];
   list: FlatItem[];
   expandAll: boolean;
+  limit?: number;
   onToggle: (sid: string, iid: string) => void;
   onSetDue: (sid: string, iid: string, d: string) => void;
   onDelete: (sid: string, iid: string) => void;
 }) {
   const collapsible = bucket === "later" || bucket === "done" || (bucket === "nodate" && list.length > 8);
   const [open, setOpen] = useState(!collapsible);
-  useEffect(() => { if (expandAll) setOpen(true); }, [expandAll]);
+  const [showAll, setShowAll] = useState(false);
+  useEffect(() => {
+    if (expandAll) {
+      setOpen(true);
+      setShowAll(true);
+      return;
+    }
+    if (limit && list.length > limit) setShowAll(false);
+  }, [expandAll, limit, list.length]);
   const meta = BUCKET_META[bucket];
+  const capped = !showAll && !!limit && list.length > limit;
+  const visibleRows = capped ? list.slice(0, limit) : list;
   const rows = (
-    <div className="divide-y divide-hair">
-      {list.map((item) => <TimelineRow key={item.id} item={item} onToggle={onToggle} onSetDue={onSetDue} onDelete={onDelete} />)}
-    </div>
+    <>
+      <div className="divide-y divide-hair">
+        {visibleRows.map((item) => <TimelineRow key={item.id} item={item} onToggle={onToggle} onSetDue={onSetDue} onDelete={onDelete} />)}
+      </div>
+      {capped && (
+        <button
+          type="button"
+          onClick={() => setShowAll(true)}
+          className="mt-3 min-h-11 text-[12px] font-medium text-ink underline underline-offset-4"
+        >
+          나머지 {list.length - visibleRows.length}개 보기
+        </button>
+      )}
+    </>
   );
 
   if (!collapsible) {
