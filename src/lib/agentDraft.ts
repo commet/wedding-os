@@ -199,6 +199,7 @@ function buildStarterChecklist(answers: AgentAnswers) {
       { text: "청첩장에 들어갈 이름·날짜·장소·혼주 표기 방식 확인", ddayOffset: -75, priority: "red" },
       { text: "계좌·연락처·오시는 길 공개 범위 정하기", ddayOffset: -70, priority: "yellow" },
       { text: "RSVP는 이름·측·참석 여부·인원·식사 메모처럼 필요한 정보만 받기", ddayOffset: -35, priority: "yellow" },
+      { text: "혼인신고서에 필요한 등록기준지·본·증인 2명 서명 확인", ddayOffset: -14, priority: "yellow" },
     ],
     rings: [
       { text: "반지 예산 상한과 선호 소재 합의하기", ddayOffset: -160, priority: "yellow" },
