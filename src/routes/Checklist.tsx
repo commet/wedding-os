@@ -6,6 +6,7 @@ import { daysSince } from "../lib/freshness";
 import { GIFT_TIER_LABEL, GIFT_IDEAS, GIFT_TIP } from "../data/giftCatalog";
 import { koBreak } from "../lib/typography";
 import { buildChecklistSheet, shareOrDownloadText } from "../lib/textExport";
+import ProcessAgentPanel from "../components/ProcessAgentPanel";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type View = "category" | "timeline";
@@ -39,6 +40,7 @@ export default function Checklist({ data, update }: Props) {
     [sections]
   );
   const doneCount = allItems.filter((i) => i.done).length;
+  const incompleteCount = allItems.length - doneCount;
 
   const loadDefault = () => {
     update((prev: WeddingData) => ({ ...prev, checklist: defaultChecklist(prev.invitation.date) }));
@@ -122,6 +124,9 @@ export default function Checklist({ data, update }: Props) {
       (!needle || `${item.text} ${item.section}`.toLocaleLowerCase("ko").includes(needle)),
     );
   }, [allItems, incompleteOnly, query]);
+  const overdueCount = allItems.filter((item) => bucketOf(item) === "overdue").length;
+  const weekCount = allItems.filter((item) => bucketOf(item) === "week").length;
+  const nodateCount = allItems.filter((item) => bucketOf(item) === "nodate").length;
 
   if (sections.length === 0) {
     return (
@@ -138,6 +143,22 @@ export default function Checklist({ data, update }: Props) {
             먼저 <Link to="/invitation" className="underline underline-offset-2">청첩장</Link>에서 결혼식 날짜를 입력하면 더 정확해요.
           </p>
         )}
+        <ProcessAgentPanel
+          title="날짜가 생기면 준비 순서를 바로 짭니다"
+          summary="체크리스트는 할 일을 많이 보여주는 화면이 아니라, 지금 시점에 늦은 것과 이번 주 할 일을 먼저 꺼내는 운영판입니다."
+          metrics={[
+            { label: "할 일", value: "0개", tone: "warn" },
+            { label: "예식일", value: weddingDate ? "있음" : "미정", tone: weddingDate ? "normal" : "muted" },
+            { label: "기준", value: weddingDate ? "D-day" : "템플릿", tone: weddingDate ? "normal" : "muted" },
+          ]}
+          steps={[
+            { label: "예식 날짜 입력", detail: "날짜가 있으면 모든 D-day 항목이 실제 마감일로 바뀝니다.", done: !!weddingDate },
+            { label: "기본 타임라인 불러오기", detail: "처음부터 완벽히 고르지 말고, 지우면서 두 분 일정으로 맞추면 됩니다." },
+          ]}
+          actions={[
+            { label: "준비 타임라인 불러오기 →", onClick: loadDefault, tone: "primary" },
+          ]}
+        />
         <button onClick={loadDefault} className="btn-primary px-8 py-3.5 text-[13px]">
           준비 타임라인 불러오기
         </button>
@@ -159,6 +180,37 @@ export default function Checklist({ data, update }: Props) {
       <div className="w-full h-px bg-line relative">
         <div className="absolute top-0 left-0 h-px bg-ink transition-all" style={{ width: `${allItems.length ? (doneCount / allItems.length) * 100 : 0}%` }} />
       </div>
+
+      <ProcessAgentPanel
+        title={overdueCount > 0 ? "지난 마감부터 끌어올리는 중" : weekCount > 0 ? "이번 주 할 일을 추리는 중" : "다음 마감까지 조용히 정렬 중"}
+        summary={
+          overdueCount > 0
+            ? `${overdueCount}개 항목이 마감일을 지났어요. 완료했으면 체크하고, 아니면 날짜를 다시 잡는 게 먼저입니다.`
+            : weekCount > 0
+              ? `이번 주 안에 볼 일이 ${weekCount}개 있습니다. 미완료 일정순으로 좁혀서 하나씩 처리하면 됩니다.`
+              : "마감이 급한 항목은 적어요. 날짜 없는 항목을 정리하면 이후 대시보드가 더 정확해집니다."
+        }
+        mood={overdueCount > 0 ? "watching" : weekCount > 0 ? "thinking" : "ready"}
+        metrics={[
+          { label: "완료", value: `${doneCount}/${allItems.length}` },
+          { label: "마감 지남", value: `${overdueCount}개`, tone: overdueCount > 0 ? "warn" : "muted" },
+          { label: "날짜 없음", value: `${nodateCount}개`, tone: nodateCount > 0 ? "warn" : "muted" },
+        ]}
+        steps={[
+          { label: "지난 마감 처리", detail: "끝낸 건 체크하고, 미룬 건 새 마감일을 잡아요.", done: overdueCount === 0 },
+          { label: "이번 주 항목만 좁히기", detail: "일정순 + 미완료만 보기로 오늘 할 일을 줄입니다.", done: weekCount === 0 },
+          { label: "날짜 없는 항목 정리", detail: "예식 날짜 기준 재계산 또는 수동 마감일을 넣어 흐름에 올립니다.", done: nodateCount === 0 },
+        ]}
+        actions={[
+          ...(incompleteCount > 0 ? [{
+            label: overdueCount > 0 || weekCount > 0 ? "미완료 일정순 보기 →" : "남은 할 일 일정순 보기 →",
+            onClick: () => { setView("timeline"); setIncompleteOnly(true); },
+            tone: "primary" as const,
+          }] : []),
+          ...(weddingDate ? [{ label: "날짜 기준 재계산", onClick: recalc }] : []),
+          { label: "검색 초기화", onClick: () => { setQuery(""); setIncompleteOnly(true); } },
+        ]}
+      />
 
       {/* 뷰 토글 — underline 탭 */}
       <div className="flex items-center gap-6 border-b border-hair pb-3">

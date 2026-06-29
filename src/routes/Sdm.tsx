@@ -11,6 +11,7 @@ import Modal from "../components/Modal";
 import VendorActions from "../components/VendorActions";
 import { koBreak } from "../lib/typography";
 import { formatKRW, upcomingBalances } from "../lib/derived";
+import ProcessAgentPanel from "../components/ProcessAgentPanel";
 
 // D-day 표기 — upcomingBalances 의 daysLeft 를 사람이 읽는 문구로. (음수=지남)
 function dDayLabel(daysLeft: number): string {
@@ -38,7 +39,7 @@ const CONTRACT_FIELDS: { key: keyof ContractCheck; label: string; placeholder: s
   { key: "evidence", label: "증빙 보관", placeholder: "예: 계약서 PDF는 드라이브 / 카톡 견적 캡처 저장" },
 ];
 
-const SEOUL = ["청담","강남","신사동","압구정","송파","강북","홍대","이태원"];
+const LOCAL_REGION_KEYS = new Set(["bundang", "busan", "daegu", "etc-local"]);
 
 const REGION_GROUPS: { key: string; label: string; match: (r?: string) => boolean }[] = [
   { key: "all",      label: "전체",      match: () => true },
@@ -78,6 +79,8 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
       .filter((e) => regionMatch(e.region))
       .filter((e) => !q || e.name.toLowerCase().includes(q) || e.vibe.toLowerCase().includes(q));
   }, [cat, region, query]);
+  const selectedRegionLabel = REGION_GROUPS.find((g) => g.key === region)?.label ?? "지역";
+  const localRegionSelected = catalogOpen && LOCAL_REGION_KEYS.has(region);
 
   const addFromCatalog = (entry: SdmCatalogEntry) => {
     if (data.sdm.some((v) => v.name === entry.name && v.category === entry.category)) return;
@@ -91,6 +94,7 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
           name: entry.name,
           region: entry.region,
           notes: entry.vibe,
+          link: entry.link,
           status: "관심",
         },
       ],
@@ -119,6 +123,23 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
   const remove = (id: string) =>
     update((prev: WeddingData) => ({ ...prev, sdm: prev.sdm.filter((v) => v.id !== id) }));
 
+  const consultCount = inCat.filter((v) => v.status === "상담" || v.status === "계약").length;
+  const contractedCount = inCat.filter((v) => v.status === "계약").length;
+  const contractGapCount = inCat.filter((v) => v.status === "계약" && contractFieldCount(v.contract) < 3).length;
+  const sdmAgentSummary = inCat.length === 0
+    ? `${CAT_LABEL[cat]} 후보가 아직 없어요. 먼저 2~3곳을 담고, 가격보다 포함 항목과 별도 비용을 같이 비교하면 됩니다.`
+    : contractedCount > 0
+      ? `계약한 ${CAT_LABEL[cat]} 업체가 ${contractedCount}곳 있어요. 잔금일과 포함/별도 비용을 남기면 예산과 체크리스트가 같이 맞춰집니다.`
+      : consultCount > 0
+        ? "상담 단계까지 왔어요. 패키지 이름보다 원본·보정·헬퍼비·출장비처럼 빠지기 쉬운 조건을 먼저 비교하세요."
+        : "후보는 담겼고 아직 상담 후보가 정해지지 않았어요. 한 곳만 상담 상태로 올려두면 계약 체크 흐름이 열립니다.";
+
+  const promoteFirstVendor = () => {
+    const target = inCat.find((v) => v.status === "관심") ?? inCat[0];
+    if (!target) return;
+    updateVendor(target.id, { status: "상담" });
+  };
+
   const guide = SDM_GUIDE[cat];
 
   return (
@@ -142,6 +163,27 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
         ))}
       </div>
       )}
+
+      <ProcessAgentPanel
+        title={inCat.length === 0 ? `${CAT_LABEL[cat]} 후보를 찾는 중` : contractedCount > 0 ? "계약 조건을 잠그는 중" : "상담 후보를 추리는 중"}
+        summary={sdmAgentSummary}
+        mood={contractGapCount > 0 || (inCat.length > 0 && consultCount === 0) ? "watching" : contractedCount > 0 ? "ready" : "thinking"}
+        metrics={[
+          { label: "후보", value: `${inCat.length}곳` },
+          { label: "상담", value: `${consultCount}곳`, tone: consultCount === 0 && inCat.length > 0 ? "warn" : "normal" },
+          { label: "계약", value: `${contractedCount}곳`, tone: contractGapCount > 0 ? "warn" : contractedCount ? "normal" : "muted" },
+        ]}
+        steps={[
+          { label: `${CAT_LABEL[cat]} 후보 2곳 이상 담기`, detail: "같은 가격대라도 포함 항목이 달라서 나란히 비교가 필요해요.", done: inCat.length >= 2 },
+          { label: "상담 후보 하나 정하기", detail: "상태를 ‘상담’으로 올리면 담당자·견적·계약 체크를 남길 흐름이 생깁니다.", done: consultCount > 0 },
+          { label: "계약 조건 3칸 이상 기록", detail: "견적 기준, 포함 항목, 별도 비용, 취소 조건을 우선 남겨요.", done: contractedCount === 0 || contractGapCount === 0 },
+        ]}
+        actions={[
+          { label: "업체 후보 열기 →", onClick: () => setCatalogOpen(true), tone: "primary" },
+          ...(inCat.length > 0 && consultCount === 0 ? [{ label: "첫 후보를 상담으로 표시 →", onClick: promoteFirstVendor }] : []),
+          { label: "후기 채널 보기", onClick: () => setShowChannels(true) },
+        ]}
+      />
 
       {/* 가이드 (접이식) — hairline */}
       <details className="border-b border-hair pb-5">
@@ -246,7 +288,9 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
 
         {filteredCatalog.length === 0 ? (
           <p className="text-center text-[12.5px] text-soft py-8">
-            조건에 맞는 곳이 없어요. 다른 지역·검색어를 시도해보세요.
+            {localRegionSelected
+              ? `${selectedRegionLabel}은 검증된 업체명이 아직 부족해요. 지역명만 붙인 후보는 넣지 않았으니, 아래 검색 안내로 먼저 확인해보세요.`
+              : "조건에 맞는 곳이 없어요. 다른 지역·검색어를 시도해보세요."}
           </p>
         ) : (
           <div className="group-card px-4">
@@ -263,11 +307,16 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
       </section>
 
       {/* 지방 안내 */}
-      {catalogOpen && !SEOUL.some((s) => region === s || region === "all") && region !== "all" && region !== "nationwide" && (
+      {localRegionSelected && (
         <div className="py-5 border-t border-b border-hair text-[12px] text-soft leading-relaxed space-y-2">
-          <p><b className="text-ink">지방은 이 목록보다 카카오맵 + 결혼 카페가 훨씬 정확해요.</b></p>
-          <p>각 카드의 [지도] 버튼으로 지역명·후기를 함께 검색하시고,
-            결혼 카페의 <b className="text-ink">지역 게시판</b>(다이렉트결혼준비 등)에서 실시간 후기를 보세요.</p>
+          <p><b className="text-ink">지방 SDM은 실시간 후기와 담당자 확인이 더 중요해요.</b></p>
+          <p>
+            Wedding OS에는 공식·반복 언급이 확인된 이름만 담습니다. 먼저{" "}
+            <b className="text-ink">{selectedRegionLabel} {CAT_LABEL[cat]} 후기</b>,{" "}
+            <b className="text-ink">{selectedRegionLabel} 웨딩 {CAT_LABEL[cat]}</b>로 검색하고,
+            결혼 카페의 지역 게시판에서 최근 6개월 후기를 확인하세요.
+          </p>
+          <p>마음에 드는 곳을 찾으면 [직접 추가]로 담아 상담·계약 체크리스트를 이어갈 수 있어요.</p>
         </div>
       )}
 
@@ -351,7 +400,7 @@ function CatalogCard({
         </button>
       </div>
       <div className="mt-3">
-        <VendorActions name={entry.name} region={entry.region} />
+        <VendorActions name={entry.name} region={entry.region} officialUrl={entry.link} />
       </div>
     </div>
   );
@@ -523,8 +572,12 @@ function ContractFields({
 }
 
 function contractProgress(contract?: ContractCheck): string {
-  const count = CONTRACT_FIELDS.filter((field) => contract?.[field.key]?.trim()).length;
+  const count = contractFieldCount(contract);
   return `확인 ${count}/${CONTRACT_FIELDS.length}`;
+}
+
+function contractFieldCount(contract?: ContractCheck): number {
+  return CONTRACT_FIELDS.filter((field) => contract?.[field.key]?.trim()).length;
 }
 
 function cleanContract(contract: ContractCheck): ContractCheck | undefined {

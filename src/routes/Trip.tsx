@@ -20,6 +20,7 @@ import {
 } from "../lib/chatbotBridge";
 import { todayISO } from "../lib/freshness";
 import { koBreak } from "../lib/typography";
+import ProcessAgentPanel from "../components/ProcessAgentPanel";
 
 type Props = { data: WeddingData; update: (patch: any) => void };
 type Tab = "destinations" | "flights" | "stays";
@@ -30,6 +31,16 @@ export default function Trip({ data, update }: Props) {
   const [searchParams] = useSearchParams();
   const [tab, setTab] = useState<Tab>("destinations");
   const [showStarter, setShowStarter] = useState(() => searchParams.get("starter") === "1");
+  const regionCount = data.honeymoon.regions.length;
+  const flightCount = data.flights.length;
+  const hotelCount = data.hotels.length;
+  const tripAgentSummary = regionCount === 0
+    ? "신혼여행은 지역을 먼저 고르는 게 아니라, 기간·예산·휴양/관광 비율을 정하고 후보를 줄이는 게 먼저예요."
+    : flightCount === 0
+      ? "여행지 후보가 생겼어요. 이제 항공 날짜와 도착 공항을 잡아야 실제 비용과 피로도가 보입니다."
+      : hotelCount === 0
+        ? "항공 후보까지 들어왔어요. 숙소 위치와 1박 단가를 확인하면 총예산 비교가 가능합니다."
+        : "지역·항공·숙소가 모두 들어왔어요. 이제 가격 신선도와 일정 메모를 갱신하면서 최종안을 좁히면 됩니다.";
 
   const applyTripStarter = (picks: HoneymoonPick[]) => {
     update((prev: WeddingData) => {
@@ -69,6 +80,28 @@ export default function Trip({ data, update }: Props) {
             <TabBtn active={tab === "flights"} onClick={() => setTab("flights")}>항공</TabBtn>
             <TabBtn active={tab === "stays"} onClick={() => setTab("stays")}>숙소</TabBtn>
           </div>
+
+          <ProcessAgentPanel
+            title={regionCount === 0 ? "여행 기준부터 잡는 중" : flightCount === 0 ? "항공으로 현실성을 보는 중" : hotelCount === 0 ? "숙소 단가를 붙이는 중" : "전체 여행안을 비교 중"}
+            summary={tripAgentSummary}
+            mood={regionCount > 0 && flightCount > 0 && hotelCount > 0 ? "ready" : "thinking"}
+            metrics={[
+              { label: "여행지", value: `${regionCount}곳`, tone: regionCount === 0 ? "warn" : "normal" },
+              { label: "항공", value: `${flightCount}개`, tone: regionCount > 0 && flightCount === 0 ? "warn" : flightCount ? "normal" : "muted" },
+              { label: "숙소", value: `${hotelCount}곳`, tone: flightCount > 0 && hotelCount === 0 ? "warn" : hotelCount ? "normal" : "muted" },
+            ]}
+            steps={[
+              { label: "여행지 후보 2~3곳 담기", detail: "비행시간과 예산감이 다른 후보를 섞으면 선택이 쉬워져요.", done: regionCount >= 2 },
+              { label: "항공 날짜와 도착지로 후보 만들기", detail: "항공이 붙어야 실제로 갈 수 있는 일정인지 보입니다.", done: flightCount > 0 },
+              { label: "숙소 1박 단가 확인", detail: "허니문 총예산은 숙소 위치와 박당 가격에서 크게 갈립니다.", done: hotelCount > 0 },
+            ]}
+            actions={[
+              { label: "여행 기준 잡기 →", onClick: () => setShowStarter(true), tone: "primary" },
+              ...(regionCount > 0 && flightCount === 0 ? [{ label: "항공 탭으로", onClick: () => setTab("flights"), tone: "primary" as const }] : []),
+              ...(flightCount > 0 && hotelCount === 0 ? [{ label: "숙소 탭으로", onClick: () => setTab("stays"), tone: "primary" as const }] : []),
+              { label: "여행지 탭", onClick: () => setTab("destinations") },
+            ]}
+          />
 
           <button
             onClick={() => setShowStarter(true)}

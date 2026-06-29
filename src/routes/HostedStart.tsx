@@ -7,6 +7,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { WeddingData } from "../lib/schema";
+import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import { defaultData } from "../lib/schema";
 import { defaultChecklist } from "../data/checklistTemplate";
 import {
@@ -33,6 +34,17 @@ export default function HostedStart({ data, update }: Props) {
   });
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
+  const portableItems =
+    (data.venues?.length ?? 0) +
+    (data.budget?.length ?? 0) +
+    (data.guests?.length ?? 0) +
+    data.rings.length +
+    data.sdm.length +
+    data.checklist.reduce((sum, section) => sum + section.items.length, 0) +
+    data.honeymoon.regions.length +
+    data.flights.length +
+    data.hotels.length +
+    (data.invitation.groomName || data.invitation.brideName || data.invitation.date || data.invitation.venue ? 1 : 0);
 
   const start = async () => {
     if (!authAvailable()) return; // 온라인 동기화 미설정 — 가장하지 않음
@@ -103,10 +115,28 @@ export default function HostedStart({ data, update }: Props) {
   // 온라인 동기화(운영자 Supabase)가 아직 연결 안 됨 — 가장하지 않고 정직하게.
   if (!authAvailable() && phase === "intro") {
     return (
-      <div className="page max-w-app mx-auto pt-16 pb-16 text-center">
+      <div className="page max-w-app mx-auto pt-16 pb-16 space-y-8">
         <div className="eyebrow-gold mb-3">함께 편집</div>
-        <h1 className="font-serif text-[1.9rem] leading-tight mb-4">{koBreak("아직 준비 중이에요")}</h1>
-        <p className="text-[13px] text-soft leading-relaxed mb-8">
+        <h1 className="font-serif text-[1.9rem] leading-tight">{koBreak("아직 준비 중이에요")}</h1>
+        <ProcessAgentPanel
+          title="온라인 함께 편집을 기다리는 중"
+          summary="지금은 이 기기의 로컬 데이터가 안전하게 유지되고 있어요. 온라인 저장소가 열리면 같은 데이터를 이어받아 편집 링크를 만들 수 있습니다."
+          mood="watching"
+          metrics={[
+            { label: "온라인", value: "대기", tone: "warn" },
+            { label: "이 기기", value: "저장" },
+            { label: "옮길 데이터", value: `${portableItems}개`, tone: portableItems > 0 ? "normal" : "muted" },
+          ]}
+          steps={[
+            { label: "현재 데이터 유지", detail: "준비 내용은 이 기기에 계속 남아 있습니다.", done: true },
+            { label: "함께 편집 가능 시 링크 생성", detail: "그때 복구 링크와 편집 링크를 한 번에 만들 수 있어요." },
+          ]}
+          actions={[
+            { label: "대시보드로 돌아가기 →", onClick: () => navigate("/dashboard"), tone: "primary" },
+            { label: "암호화 방식 확인 →", onClick: () => navigate("/trust") },
+          ]}
+        />
+        <p className="text-[13px] text-soft leading-relaxed">
           온라인 함께 편집 기능은 곧 열려요. 지금까지 입력한 내용은 <b className="text-ink">이 기기에 안전하게 저장</b>돼 있어요 —
           그대로 계속 쓰시면 됩니다.
         </p>
@@ -124,6 +154,26 @@ export default function HostedStart({ data, update }: Props) {
         <h1 className="font-serif text-[2rem] leading-[1.12] mb-5">
           {koBreak("배우자와 함께,")}<br />{koBreak("다른 기기에서도.")}
         </h1>
+        <ProcessAgentPanel
+          title="편집 링크를 만들 준비를 하고 있어요"
+          summary="WEDDY가 현재 데이터를 온라인용으로 옮길 수 있는지 확인한 뒤, 둘이 같이 쓰는 복구·편집 링크를 만듭니다."
+          mood="thinking"
+          metrics={[
+            { label: "로그인", value: "필요", tone: "warn" },
+            { label: "옮길 데이터", value: `${portableItems}개`, tone: portableItems > 0 ? "normal" : "muted" },
+            { label: "보안", value: "암호화" },
+          ]}
+          steps={[
+            { label: "로그인으로 소유자 확인", detail: "다른 기기 복구를 위해 먼저 계정을 확인합니다." },
+            { label: "사진과 준비 데이터를 온라인용으로 변환", detail: "변환할 수 없는 사진이 있으면 중간에 멈추고 알려줍니다." },
+            { label: "배우자에게 보낼 편집 링크 생성", detail: "하객용 청첩장 링크와 다른, 오너 권한 링크입니다." },
+          ]}
+          actions={[
+            { label: "링크 생성 시작 →", onClick: start, disabled: busy, tone: "primary" },
+            { label: "암호화 확인 →", onClick: () => navigate("/trust") },
+            { label: "나중에 대시보드로 →", onClick: () => navigate("/dashboard") },
+          ]}
+        />
         <ul className="space-y-3 text-[13px] text-soft leading-relaxed mb-8 border-y border-hair py-6">
           <li>· 링크 하나로 <b className="text-ink">둘이 같이 편집</b>해요.</li>
           <li>· 폰을 바꿔도 그 링크로 <b className="text-ink">그대로 이어서</b> 써요.</li>
@@ -147,6 +197,26 @@ export default function HostedStart({ data, update }: Props) {
       <h1 className="font-serif text-[1.9rem] leading-[1.12] mb-4">
         {koBreak("이 링크를")}<br /><span className="text-gold">배우자에게</span> {koBreak("보내세요.")}
       </h1>
+      <ProcessAgentPanel
+        title="함께 편집 링크가 준비됐어요"
+        summary="이 링크는 복구와 편집을 함께 할 수 있는 권한이에요. 배우자에게만 1:1로 보내고, 하객에게 보낼 링크는 청첩장 화면에서 따로 발행합니다."
+        mood="ready"
+        metrics={[
+          { label: "편집 링크", value: "완료" },
+          { label: "옮긴 데이터", value: `${portableItems}개`, tone: portableItems > 0 ? "normal" : "muted" },
+          { label: "공유 범위", value: "배우자" },
+        ]}
+        steps={[
+          { label: "복구·편집 링크 복사", detail: "기기를 바꿔도 같은 링크로 이어서 사용할 수 있습니다.", done: copied },
+          { label: "배우자에게만 전달", detail: "이 링크를 가진 사람은 준비 데이터를 보고 고칠 수 있습니다." },
+          { label: "하객용 청첩장 링크는 별도 발행", detail: "공개 링크는 청첩장 발행 화면에서 만듭니다." },
+        ]}
+        actions={[
+          { label: copied ? "초대 링크 복사됨" : "초대 링크 다시 복사 →", onClick: copy, tone: "primary" },
+          { label: "하객 링크 발행 →", onClick: () => navigate("/invitation?edit=publish#publish-invitation") },
+          { label: "홈으로 돌아가기 →", onClick: () => navigate("/dashboard") },
+        ]}
+      />
       <p className="text-[13px] text-soft leading-relaxed mb-5">
         이 링크로 <b className="text-ink">둘이 같이 편집</b>하고, 기기를 바꿔도 <b className="text-ink">이어서</b> 써요.
         안전한 곳에 보관하세요 — 운영자는 이 링크 없이는 내용을 못 봐요.

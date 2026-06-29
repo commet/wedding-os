@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { defaultModel, hasDirectAi, runAiPrompt } from "../lib/aiClient";
 import { type AiConfig, type AiProvider, getAiConfig, setAiConfig } from "../lib/security";
 import { currentAccessToken } from "../lib/auth";
+import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import { koBreak } from "../lib/typography";
 
 type Props = { data?: unknown };
@@ -125,6 +126,10 @@ export default function AiSettings(_: Props) {
     if (!model || model === defaultModel(provider)) setModel(defaultModel(id));
     if (id === "ollama" && !baseUrl) setBaseUrl("http://localhost:11434");
   };
+  const executionReady = provider === "bridge" || directReady;
+  const aiAgentSummary = executionReady
+    ? `${selected.label} 방식으로 준비됐어요. 실제 추천은 각 작업 화면에서 적용 전 확인 단계까지 거치게 됩니다.`
+    : `${selected.label} 방식은 아직 연결 정보가 부족해요. 키, 모델, URL을 확인한 뒤 저장과 테스트를 진행하면 됩니다.`;
 
   return (
     <div className="page pt-8 pb-10 space-y-9">
@@ -136,6 +141,28 @@ export default function AiSettings(_: Props) {
       <p className="text-[15px] text-soft leading-[1.85] border-b border-hair pb-5">
         AI는 선택 사항입니다. 연결하면 준비 순서, 청첩장 문안, 후보 비교처럼 막히기 쉬운 일을 앱 안에서 정리할 수 있어요.
       </p>
+
+      <ProcessAgentPanel
+        title={executionReady ? "AI 실행 방식을 정리했어요" : "AI 연결값을 기다리는 중"}
+        summary={aiAgentSummary}
+        mood={executionReady ? "ready" : "watching"}
+        metrics={[
+          { label: "방식", value: selected.label.replace("Wedding OS ", "WOS "), hint: provider === "bridge" ? "복붙" : "앱 안 실행" },
+          { label: "연결", value: executionReady ? "가능" : "대기", tone: executionReady ? "normal" : "warn" },
+          { label: "상태", value: status === "saved" ? "저장" : status === "ok" ? "성공" : status === "fail" ? "확인" : "대기", tone: status === "fail" ? "warn" : "normal" },
+        ]}
+        steps={[
+          { label: "비용과 개인정보 기준에 맞는 방식 선택", detail: "복붙 모드는 가장 보수적이고, 개인 API 키는 사용량 비용이 본인 계정에 청구됩니다.", done: !!provider },
+          { label: "앱 안 실행 방식이면 연결값 확인", detail: "키는 이 기기에만 저장되고 WeddingData 백업에는 들어가지 않습니다.", done: executionReady },
+          { label: "민감 정보는 프롬프트에서 빼기", detail: "계좌, 복구 링크, 하객 연락처는 꼭 필요할 때만 최소한으로 다룹니다.", done: true },
+        ]}
+        actions={[
+          { label: "복붙 모드로 전환 →", onClick: () => chooseProvider("bridge"), tone: provider === "bridge" ? "quiet" : "primary" },
+          { label: "Wedding OS AI 선택 →", onClick: () => chooseProvider("managed") },
+          { label: "설정 저장 →", onClick: save },
+          ...(provider !== "bridge" ? [{ label: "연결 테스트 →", onClick: test, disabled: !directReady || status === "testing" }] : []),
+        ]}
+      />
 
       <section className="border-y border-hair py-4 space-y-3">
         <div className="eyebrow-gold">AI로 보내기 전</div>

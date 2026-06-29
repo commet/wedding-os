@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { WeddingData } from "../lib/schema";
+import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import { exportData } from "../lib/storage";
 import { createSupabaseStorage, pingSupabase } from "../lib/storage.supabase";
 import { isSupabaseHost, markOwner, getOrCreateOwnerToken, getOrCreateDirectRsvpToken } from "../lib/security";
@@ -59,6 +60,18 @@ export default function Setup({ data, update }: Props) {
   const [finishStatus, setFinishStatus] = useState<"idle" | "working" | "fail">("idle");
   const [finishMsg, setFinishMsg] = useState("");
   const navigate = useNavigate();
+  const counts = dataCounts(data);
+  const transferableCount = Object.values(counts).reduce((sum, n) => sum + n, 0);
+  const connectionState =
+    pingStatus === "ok" ? "확인" :
+    pingStatus === "fail" ? "재확인" :
+    pingStatus === "checking" ? "검사 중" : "대기";
+  const continueSetup = () => setStep((current) => Math.min(5, current + 1));
+  const setupAgentSummary = step < 4
+    ? "직접 저장소는 고급 흐름이에요. WEDDY는 먼저 이 셋업이 정말 필요한지 확인하고, 필요하다면 SQL과 키 입력 순서로 안내합니다."
+    : pingStatus === "ok"
+      ? "저장소 연결이 확인됐어요. 이제 백업과 사진 변환 뒤 실제 데이터를 저장하면 됩니다."
+      : "아직 저장소 연결이 확인되지 않았어요. URL과 anon key를 검사한 뒤 마지막 배포 단계로 넘어가세요.";
 
   // 입력 바뀔 때마다 draft 갱신 — 새로고침/뒤로가기 후에도 복원
   useEffect(() => { saveDraft({ step, url, anonKey }); }, [step, url, anonKey]);
@@ -194,6 +207,14 @@ export default function Setup({ data, update }: Props) {
       setFinishMsg(e?.message ?? "전환 중간에 멈췄어요. 잠시 뒤 다시 시도하고, 계속 같으면 상단 [도움 받기]로 알려주세요. 기존 로컬 데이터는 그대로 남아 있어요.");
     }
   };
+  const setupPrimaryAction =
+    step < 3
+      ? { label: "이 셋업 계속하기 →", onClick: continueSetup, tone: "primary" as const }
+      : step === 3
+        ? { label: sqlCopied ? "SQL 다시 복사하기 →" : "SQL 복사하기 →", onClick: copySQL, tone: "primary" as const }
+        : step === 4
+          ? { label: "연결 검사 실행 →", onClick: checkConnection, disabled: pingStatus === "checking", tone: "primary" as const }
+          : { label: "백업 후 저장 시작 →", onClick: saveAndFinish, disabled: finishStatus === "working", tone: "primary" as const };
 
   return (
     <div className="page pt-8 pb-10 space-y-8 max-w-app mx-auto">
@@ -216,6 +237,28 @@ export default function Setup({ data, update }: Props) {
         대부분의 사용자는 이 단계가 필요 없습니다.<br />
         직접 운영하고 싶은 경우에만 백업 → 사진 변환 → 저장 → 다시 확인 순서로 진행해요.
       </p>
+
+      <ProcessAgentPanel
+        title={pingStatus === "ok" ? "직접 저장소 연결을 확인했어요" : "직접 운영이 필요한지 먼저 분기할게요"}
+        summary={setupAgentSummary}
+        mood={pingStatus === "fail" ? "watching" : pingStatus === "ok" ? "ready" : "thinking"}
+        metrics={[
+          { label: "단계", value: `${step}/5`, hint: STEPS[step - 1]?.label },
+          { label: "옮길 데이터", value: `${transferableCount}개`, tone: transferableCount > 0 ? "normal" : "muted" },
+          { label: "연결", value: connectionState, tone: pingStatus === "fail" ? "warn" : pingStatus === "ok" ? "normal" : "muted" },
+        ]}
+        steps={[
+          { label: "간편 링크로 충분한지 확인", detail: "청첩장 발행과 배우자 편집은 이 셋업 없이도 가능합니다.", done: true },
+          { label: "SQL을 복사해 내 저장소에 설치", detail: "오너 토큰과 RSVP 토큰은 복사 시점에 안전하게 삽입됩니다.", done: step > 3 },
+          { label: "URL과 anon key 연결 검사", detail: "공식 Supabase 도메인만 허용하고, 저장 전에 실제 연결을 확인합니다.", done: pingStatus === "ok" },
+          { label: "백업 후 데이터 저장", detail: "사진을 온라인용으로 변환하고 다시 읽어오는 것까지 확인합니다.", done: data.preferences.mode === "supabase" },
+        ]}
+        actions={[
+          setupPrimaryAction,
+          { label: "간편 링크로 전환 →", onClick: () => navigate("/start-hosted") },
+          { label: "청첩장 발행으로 이동 →", onClick: () => navigate("/invitation?edit=publish#publish-invitation") },
+        ]}
+      />
 
       <SetupChoiceNote />
 

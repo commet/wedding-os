@@ -7,6 +7,7 @@ import {
   contractedVenue, expectedHeadcount, venueCapacityFit, planningHeadcount,
   headcountSummary, mealCostRange, formatKRW, GUEST_CATEGORIES, GUEST_CATEGORY_LABEL,
 } from "../lib/derived";
+import ProcessAgentPanel from "../components/ProcessAgentPanel";
 
 type Props = { data: WeddingData; update: (patch: any) => void };
 type Filter = "all" | "groom" | "bride" | "attending" | "pending";
@@ -59,6 +60,47 @@ export default function Guests({ data, update }: Props) {
     return { total, attending: attending.length, declined: declined.length, pending, partySum, giftSum, mealCount, groom, bride };
   }, [guests]);
   const seatingGroups = useMemo(() => summarizeSeatingGroups(guests), [guests]);
+  const headSummary = useMemo(() => headcountSummary(data), [data]);
+  const notInvited = guests.filter((g) => g.status === "초대 예정").length;
+  const responded = stats.attending + stats.declined;
+  const unclassified = guests.filter((g) => !g.category).length;
+  const agentSummary = guests.length === 0
+    ? "명단을 다 쓰기 전에 하객 규모부터 잡아도 됩니다. 보증인원·식대·예산은 이 추정치로 먼저 계산돼요."
+    : responded === 0 && notInvited > 0
+      ? "명단은 생겼고 아직 초대/회신 단계 전이에요. 보낼 사람을 정리한 뒤 초대 완료 상태로 넘기면 RSVP 진행률을 볼 수 있습니다."
+      : stats.pending > 0
+        ? "회신 대기가 남아 있어요. 참석 확정, 식수, 좌석 묶음이 같이 바뀌므로 응답 회수부터 보는 게 좋아요."
+        : "참석 여부가 꽤 정리됐어요. 이제 식권 수와 테이블 묶음을 당일 운영으로 넘기면 됩니다.";
+
+  const seedHeadcount = () => {
+    update((prev: WeddingData) => {
+      const ratios: Record<GuestCategory, number> = {
+        family: 0.12,
+        relative: 0.18,
+        work: 0.24,
+        school: 0.12,
+        friend: 0.26,
+        acquaintance: 0.08,
+      };
+      const estimates = GUEST_CATEGORIES.flatMap(({ key }) => [
+        { side: "groom" as const, category: key, expected: Math.round(100 * ratios[key]) },
+        { side: "bride" as const, category: key, expected: Math.round(100 * ratios[key]) },
+      ]);
+      return { ...prev, headcount: { ...(prev.headcount ?? {}), estimates } };
+    });
+  };
+
+  const markAllScheduledInvited = () => {
+    if (notInvited === 0) return;
+    if (!confirm(`초대 예정 ${notInvited}명을 모두 '초대 완료'로 바꿀까요?`)) return;
+    const today = new Date().toISOString().split("T")[0];
+    update((prev: WeddingData) => ({
+      ...prev,
+      guests: (prev.guests ?? []).map((g) =>
+        g.status === "초대 예정" ? { ...g, status: "초대 완료" as const, invitedAt: g.invitedAt ?? today } : g
+      ),
+    }));
+  };
 
   const exportCsv = () => {
     if (guests.length === 0) return;
@@ -205,6 +247,22 @@ export default function Guests({ data, update }: Props) {
           </p>
         </div>
         <div className="text-left">
+          <ProcessAgentPanel
+            title="명단 전에도 식수를 먼저 추정할 수 있어요"
+            summary={agentSummary}
+            metrics={[
+              { label: "예상", value: `${planningHeadcount(data)}명`, tone: planningHeadcount(data) > 0 ? "normal" : "muted" },
+              { label: "명단", value: "0명", tone: "muted" },
+              { label: "회신", value: "0건", tone: "muted" },
+            ]}
+            steps={[
+              { label: "양가 하객 규모부터 잡기", detail: "신랑·신부 측을 분류별로 나누면 예식장 보증인원 판단이 시작됩니다.", done: headSummary.estTotal > 0 },
+              { label: "떠오르는 이름을 붙여넣기", detail: "정확한 관계·연락처는 나중에 상세에서 채워도 됩니다." },
+            ]}
+            actions={[
+              ...(headSummary.estTotal === 0 ? [{ label: "200명 기준으로 시작 →", onClick: seedHeadcount, tone: "primary" as const }] : []),
+            ]}
+          />
           <HeadcountEstimator data={data} update={update} />
         </div>
         <GuestAddBlock
@@ -239,6 +297,28 @@ export default function Guests({ data, update }: Props) {
         <div className="eyebrow-gold mb-2">초대와 참석</div>
         <h1 className="h-page">하객 명단</h1>
       </div>
+
+      <ProcessAgentPanel
+        title={stats.pending > 0 ? "회신 대기를 줄이는 중" : seatingGroups.total > 0 ? "좌석 묶음까지 읽는 중" : "명단을 식수로 바꾸는 중"}
+        summary={agentSummary}
+        mood={stats.pending > 0 || notInvited > 0 || unclassified > 0 ? "watching" : "ready"}
+        metrics={[
+          { label: "명단", value: `${stats.total}명` },
+          { label: "참석", value: `${stats.partySum}명`, hint: "동반 포함" },
+          { label: "대기", value: `${stats.pending}명`, tone: stats.pending > 0 ? "warn" : "muted" },
+        ]}
+        steps={[
+          { label: "추정 규모와 실제 명단 맞추기", detail: `현재 기준 ${planningHeadcount(data)}명으로 보증인원과 식대가 계산됩니다.`, done: headSummary.estTotal > 0 || guests.length > 0 },
+          { label: "초대 완료 상태로 넘기기", detail: "청첩장을 보낸 뒤 상태를 바꾸면 응답 대기가 보입니다.", done: notInvited === 0 },
+          { label: "분류와 묶음 채우기", detail: "축의금 가정, 좌석 초안, 양가 균형 판단에 함께 쓰입니다.", done: unclassified === 0 },
+        ]}
+        actions={[
+          ...(notInvited > 0 ? [{ label: "초대 예정 모두 완료 처리 →", onClick: markAllScheduledInvited, tone: "primary" as const }] : []),
+          ...(stats.pending > 0 ? [{ label: "대기자만 보기", onClick: () => setFilter("pending") }] : []),
+          ...(unclassified > 0 ? [{ label: "분류 빠진 사람 찾기", onClick: () => { setSearch(""); setFilter("all"); } }] : []),
+          ...(data.preferences.mode === "supabase" ? [{ label: "RSVP 응답 가져오기 →", onClick: importRsvps }] : []),
+        ]}
+      />
 
       <HeadcountEstimator data={data} update={update} />
 

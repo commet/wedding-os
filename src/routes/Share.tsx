@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import type { WeddingData } from "../lib/schema";
+import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import { exportData } from "../lib/storage";
 import {
   copyInvitationText,
@@ -12,7 +13,9 @@ import {
   downloadInvitationText,
   downloadPrintableHtml,
 } from "../lib/exporters";
-import { getOrCreateOwnerToken } from "../lib/security";
+import { getHostedConfig, getOrCreateOwnerToken } from "../lib/security";
+import { buildRecoveryLink } from "../lib/recovery";
+import { daysSince } from "../lib/freshness";
 import { koBreak } from "../lib/typography";
 
 type Props = { data: WeddingData; update: (patch: any) => void };
@@ -63,6 +66,27 @@ export default function Share({ data, update }: Props) {
       window.prompt("아래 편집 초대 링크를 복사해주세요:", url);
     }
   };
+  const hostedInviteUrl = () => {
+    const cfg = getHostedConfig();
+    if (!cfg) return "";
+    return buildRecoveryLink({
+      weddingId: cfg.weddingId,
+      ownerToken: getOrCreateOwnerToken(),
+      weddingKey: cfg.weddingKey,
+    });
+  };
+  const copyHostedInvite = async () => {
+    const url = hostedInviteUrl();
+    if (!url) {
+      window.location.href = "/start-hosted";
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      window.prompt("아래 편집·복구 링크를 복사해주세요:", url);
+    }
+  };
   const nativeShareEditorInvite = async () => {
     const url = editorInviteUrl();
     if (navigator.share) {
@@ -85,6 +109,16 @@ export default function Share({ data, update }: Props) {
     ].filter(Boolean).join("\n");
     await navigator.share?.({ title: "Wedding OS", text });
   };
+  const backupDays = daysSince(data.preferences.lastBackupAt);
+  const hasPublished = !!data.publish;
+  const hasHostedInvite = data.preferences.mode === "hosted" && !!getHostedConfig();
+  const canShareEditor = data.preferences.mode === "supabase" || hasHostedInvite;
+  const collaborateReady = data.preferences.mode === "hosted" || data.preferences.mode === "supabase";
+  const backupState =
+    backupDays === null ? "없음" : backupDays === 0 ? "오늘" : `${backupDays}일 전`;
+  const shareAgentSummary = hasPublished
+    ? "하객용 링크는 준비되어 있어요. 이제 최신 내용 재발행, 편집 초대, 백업을 분리해서 관리하면 됩니다."
+    : "아직 하객용 링크가 없어요. 먼저 청첩장 발행 화면을 열고, 그 다음 편집 링크와 백업을 챙기는 순서가 좋아요.";
 
   return (
     <div className="page pt-8 pb-10 space-y-9">
@@ -92,6 +126,39 @@ export default function Share({ data, update }: Props) {
         <div className="eyebrow-gold mb-2">링크와 파일</div>
         <h1 className="h-page">{koBreak("공유 센터")}</h1>
       </div>
+
+      <ProcessAgentPanel
+        title={hasPublished ? "공유 채널을 분리해 관리하는 중" : "하객용 링크 발행이 먼저예요"}
+        summary={shareAgentSummary}
+        mood={hasPublished ? "ready" : "thinking"}
+        metrics={[
+          { label: "하객 링크", value: hasPublished ? "발행" : "전", tone: hasPublished ? "normal" : "warn" },
+          { label: "편집 공유", value: collaborateReady ? "가능" : "로컬", tone: collaborateReady ? "normal" : "muted" },
+          { label: "백업", value: backupState, tone: backupDays === null || backupDays > 30 ? "warn" : "normal" },
+        ]}
+        steps={[
+          { label: "하객에게 보낼 청첩장 링크 준비", detail: "하객용 링크는 준비 데이터 전체가 열리지 않는 별도 화면입니다.", done: hasPublished },
+          { label: "함께 편집할 사람에게만 편집 권한 전달", detail: "편집 링크는 오너 권한이라 하객 채팅방에 보내면 안 됩니다.", done: collaborateReady },
+          { label: "내보내기 전에 최신 백업 확보", detail: "기기 이동이나 실수 삭제에 대비해 JSON 백업을 남깁니다.", done: backupDays !== null && backupDays <= 30 },
+        ]}
+        actions={[
+          {
+            label: hasPublished ? "하객 링크 관리 →" : "하객 링크 발행 →",
+            onClick: () => { window.location.href = "/invitation?edit=publish#publish-invitation"; },
+            tone: "primary",
+          },
+          { label: "문자용 문안 복사 →", onClick: () => run("청첩장 텍스트 복사", copyInvite) },
+          {
+            label: canShareEditor ? "편집 링크 복사 →" : "함께 편집 준비 →",
+            onClick: () => {
+              if (hasHostedInvite) void run("편집·복구 링크", copyHostedInvite);
+              else if (data.preferences.mode === "supabase") void run("편집 초대 링크", copyEditorInvite);
+              else window.location.href = "/start-hosted";
+            },
+          },
+          { label: "지금 백업 만들기 →", onClick: () => run("전체 데이터 백업", backup) },
+        ]}
+      />
 
       <div className="border-b border-hair pb-5 space-y-4">
         <p className="text-[15px] text-soft leading-[1.85]">
@@ -171,6 +238,13 @@ export default function Share({ data, update }: Props) {
               />
             )}
           </>
+        ) : hasHostedInvite ? (
+          <Action
+            title="편집·복구 링크 복사"
+            desc="배우자와 같이 편집하고, 기기를 바꿔도 이어서 쓸 수 있는 오너 권한 링크입니다."
+            onClick={() => run("편집·복구 링크", copyHostedInvite)}
+            primary
+          />
         ) : (
           <Action
             title="함께 편집할 링크 만들기"

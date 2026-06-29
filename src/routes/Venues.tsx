@@ -12,6 +12,7 @@ import VendorActions from "../components/VendorActions";
 import MapEmbed from "../components/MapEmbed";
 import Modal from "../components/Modal";
 import FreshnessBadge from "../components/FreshnessBadge";
+import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import {
   upcomingBalances,
   venueCapacityFit,
@@ -35,11 +36,16 @@ const CONTRACT_FIELDS: { key: keyof ContractCheck; label: string; placeholder: s
 
 const REGION_GROUPS: { key: string; label: string; match: (r?: string) => boolean }[] = [
   { key: "all",    label: "전체",        match: () => true },
-  { key: "gangnam",label: "강남·청담",   match: (r) => !!r && (r.includes("강남") || r.includes("청담") || r.includes("신사") || r.includes("삼성동") || r.includes("논현")) },
-  { key: "central",label: "광화문·중구", match: (r) => !!r && (r.includes("광화문") || r.includes("중구") || r.includes("정동") || r.includes("소공") || r.includes("장충") || r.includes("동대문")) },
-  { key: "han",    label: "한남·여의도", match: (r) => !!r && (r.includes("한남") || r.includes("여의도") || r.includes("용산")) },
+  { key: "gangnam",label: "강남·청담",   match: (r) => !!r && (r.includes("강남") || r.includes("청담") || r.includes("신사") || r.includes("삼성") || r.includes("논현") || r.includes("역삼") || r.includes("반포") || r.includes("서초")) },
+  { key: "central",label: "광화문·중구", match: (r) => !!r && (r.includes("광화문") || r.includes("중구") || r.includes("정동") || r.includes("소공") || r.includes("장충") || r.includes("동대문") || r.includes("시청") || r.includes("서대문")) },
+  { key: "han",    label: "한남·여의도", match: (r) => !!r && (r.includes("한남") || r.includes("여의도") || r.includes("용산") || r.includes("잠실") || r.includes("송파")) },
   { key: "etc",    label: "그 외 서울",  match: (r) => !!r && (r.includes("공덕") || r.includes("성북") || r.includes("잠원") || r.includes("양재") || r.includes("광장동") || r.includes("강북") || r.includes("마포")) },
-  { key: "gyeonggi", label: "경기·일산", match: (r) => !!r && (r.includes("일산") || r.includes("경기") || r.includes("분당") || r.includes("판교") || r.includes("인천")) },
+  { key: "gyeonggi", label: "경기·인천", match: (r) => !!r && (r.includes("일산") || r.includes("경기") || r.includes("분당") || r.includes("판교") || r.includes("인천") || r.includes("수원") || r.includes("송도") || r.includes("영종")) },
+  { key: "busan", label: "부산·울산", match: (r) => !!r && (r.includes("부산") || r.includes("해운대") || r.includes("울산")) },
+  { key: "daegu", label: "대구", match: (r) => !!r && r.includes("대구") },
+  { key: "chungcheong", label: "대전·충청", match: (r) => !!r && (r.includes("대전") || r.includes("충청")) },
+  { key: "honam", label: "광주·전라", match: (r) => !!r && (r.includes("광주") || r.includes("전라") || r.includes("여수")) },
+  { key: "gangwon-jeju", label: "강원·제주", match: (r) => !!r && (r.includes("강원") || r.includes("속초") || r.includes("제주") || r.includes("서귀포")) },
 ];
 
 export default function Venues({ data, update }: Props) {
@@ -65,6 +71,22 @@ export default function Venues({ data, update }: Props) {
     [data]
   );
   const headcount = useMemo(() => expectedHeadcount(data), [data]);
+  const contracted = useMemo(() => myVenues.find((v) => v.status === "계약"), [myVenues]);
+  const tourCount = haveStatusCount["투어"] + haveStatusCount["계약"];
+  const contractChecked = contracted ? contractFieldCount(contracted.contract) : 0;
+  const venueAgentSummary = myVenues.length === 0
+    ? "조건 몇 개만 정하면 상담해볼 후보를 바로 추릴 수 있어요. 먼저 후보를 담고, 그다음 투어와 계약 조건을 따라갑니다."
+    : contracted
+      ? `${contracted.name}을 계약 후보로 보고 있어요. 이제 청첩장 반영과 결제·취소 조건 기록을 같이 잠가두면 됩니다.`
+      : tourCount > 0
+        ? "답사/상담 단계까지 왔어요. 이제 견적 기준과 취소·변경 조건을 비교해야 계약 후 흔들리지 않습니다."
+        : "후보는 담겼고 아직 상담 후보가 정해지지 않았어요. 한 곳만 투어 상태로 올리면 다음 질문이 훨씬 선명해집니다.";
+
+  const promoteFirstVenueToTour = () => {
+    const target = myVenues.find((v) => v.status !== "투어" && v.status !== "계약") ?? myVenues[0];
+    if (!target) return;
+    updateVenue(target.id, { status: "투어" });
+  };
 
   const filteredCatalog = useMemo(() => {
     const rm = REGION_GROUPS.find((g) => g.key === region)?.match ?? (() => true);
@@ -142,6 +164,28 @@ export default function Venues({ data, update }: Props) {
         <div className="eyebrow-gold mb-2">장소 찾기</div>
         <h1 className="h-page">예식장</h1>
       </div>
+
+      <ProcessAgentPanel
+        title={myVenues.length === 0 ? "후보를 먼저 좁히는 중" : contracted ? "계약 이후 빠질 조건을 확인 중" : "상담 순서를 잡는 중"}
+        summary={venueAgentSummary}
+        mood={contracted && contractChecked >= 3 ? "ready" : "thinking"}
+        metrics={[
+          { label: "후보", value: `${myVenues.length}곳`, hint: myVenues.length >= 3 ? "비교 가능" : "3곳 권장" },
+          { label: "투어", value: `${tourCount}곳`, tone: tourCount === 0 && myVenues.length > 0 ? "warn" : "normal" },
+          { label: "계약 체크", value: contracted ? `${contractChecked}/6` : "대기", tone: contracted && contractChecked < 3 ? "warn" : contracted ? "normal" : "muted" },
+        ]}
+        steps={[
+          { label: "비교할 후보 3곳 담기", detail: "지역·식대·보증인원이 다른 후보를 섞으면 상담 기준이 또렷해져요.", done: myVenues.length >= 3 },
+          { label: "첫 답사/상담 후보 정하기", detail: "상태를 ‘투어’로 바꾸면 다음 납부와 상담 메모가 따라옵니다.", done: tourCount > 0 },
+          { label: "계약 전 핵심 조건 남기기", detail: "견적 기준, 결제 일정, 취소·변경, 별도 비용을 텍스트로 남겨요.", done: !!contracted && contractChecked >= 3 },
+        ]}
+        actions={[
+          { label: "조건으로 후보 추리기 →", onClick: () => { setShowStarter(true); setTab("catalog"); }, tone: "primary" },
+          ...(myVenues.length > 0 && tourCount === 0 ? [{ label: "첫 후보를 투어로 표시 →", onClick: promoteFirstVenueToTour }] : []),
+          ...(contracted && !data.invitation.venue ? [{ label: "계약 식장을 청첩장에 넣기 →", onClick: () => applyToInvitation(contracted), tone: "primary" as const }] : []),
+          { label: "카탈로그 열기", onClick: () => setTab("catalog") },
+        ]}
+      />
 
       {showStarter ? (
         <VenueStarter onApply={applyVenueStarter} onClose={() => setShowStarter(false)} />
@@ -572,7 +616,7 @@ function CatalogRow({ v, added, onAdd }: { v: WeddingVenue; added: boolean; onAd
         </button>
       </div>
       <div className="mt-2">
-        <VendorActions name={v.name} region={v.region} />
+        <VendorActions name={v.name} region={v.region} officialUrl={v.link} />
       </div>
     </li>
   );
@@ -767,8 +811,12 @@ function ContractFields({
 }
 
 function contractProgress(contract?: ContractCheck): string {
-  const count = CONTRACT_FIELDS.filter((field) => contract?.[field.key]?.trim()).length;
+  const count = contractFieldCount(contract);
   return `확인 ${count}/${CONTRACT_FIELDS.length}`;
+}
+
+function contractFieldCount(contract?: ContractCheck): number {
+  return CONTRACT_FIELDS.filter((field) => contract?.[field.key]?.trim()).length;
 }
 
 function cleanContract(contract: ContractCheck): ContractCheck | undefined {

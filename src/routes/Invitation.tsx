@@ -18,6 +18,7 @@ import { type BridgePrompt, invitationGreetingPrompt } from "../lib/chatbotBridg
 import { koBreak } from "../lib/typography";
 import { invitationReadiness, contractedVenue } from "../lib/derived";
 import MapEmbed from "../components/MapEmbed";
+import ProcessAgentPanel from "../components/ProcessAgentPanel";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type Tab = "edit" | "preview" | "guest";
@@ -1433,6 +1434,16 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
     saveStatus === "saved" ? "저장됨" :
     saveStatus === "error" ? "저장 실패" :
     mode === "local" ? "이 기기에 자동 저장" : "자동 저장";
+  const readiness = invitationReadiness(data);
+  const contracted = contractedVenue(data);
+  const canFillVenue = !inv.venue.trim() && !!contracted;
+  const publishReady = !!inv.groomName && !!inv.brideName && !!inv.date && !!inv.venue;
+  const applyContractedVenue = () => {
+    if (!contracted) return;
+    set("venue", contracted.name);
+    if (!inv.venueAddress && contracted.region) set("venueAddress", contracted.region);
+  };
+  const scrollToPublish = () => document.getElementById("publish-invitation")?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   return (
     <div className="page pt-2 pb-6">
@@ -1445,7 +1456,32 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
       {showQuickStart && <QuickStart inv={inv} set={set} onPreview={onPreview} contractedVenueName={contractedVenue(data)?.name} />}
 
       {!showQuickStart && <>
-      <EditAssist inv={inv} set={set} data={data} onPreview={onPreview} />
+      <ProcessAgentPanel
+        title={publishReady ? "공유 전 마지막 점검 중" : "청첩장 빈칸을 채우는 중"}
+        summary={
+          publishReady
+            ? "하객에게 보낼 기본 정보는 준비됐어요. 이제 대표 사진, 지도/주차 안내, 계좌 공개 범위를 확인하고 발행하면 됩니다."
+            : `공유까지 ${readiness.total - readiness.filled}가지만 더 채우면 됩니다. 빠진 항목은 ${readiness.missing.join(", ") || "없음"}입니다.`
+        }
+        mood={publishReady ? "ready" : "thinking"}
+        metrics={[
+          { label: "기본 정보", value: `${readiness.filled}/${readiness.total}`, tone: readiness.filled < readiness.total ? "warn" : "normal" },
+          { label: "사진", value: inv.heroImageUrl ? "있음" : "없음", tone: inv.heroImageUrl ? "normal" : "muted" },
+          { label: "발행", value: data.publish ? "완료" : "전", tone: data.publish ? "normal" : publishReady ? "warn" : "muted" },
+        ]}
+        steps={[
+          { label: "이름·날짜·식장 채우기", detail: "카톡 미리보기와 하객 문의에 가장 크게 영향을 줍니다.", done: publishReady },
+          { label: "모시는 글 검수", detail: "AI 문안은 초안일 뿐이라, 이름·계좌·개인정보가 섞이지 않았는지 봅니다.", done: !!inv.greeting.trim() },
+          { label: "대표 사진과 지도 확인", detail: "공개 링크에서 보이는 인상과 찾아오는 길을 마지막으로 봅니다.", done: !!inv.heroImageUrl && !!inv.venue },
+          { label: "하객용 링크 발행", detail: "발행 후에는 수정 내용 반영을 위해 재발행 버튼을 사용합니다.", done: !!data.publish },
+        ]}
+        actions={[
+          ...(canFillVenue ? [{ label: `계약한 ‘${contracted!.name}’ 넣기 →`, onClick: applyContractedVenue, tone: "primary" as const }] : []),
+          { label: "모시는 글 다듬기 →", onClick: () => setBridgePrompt(invitationGreetingPrompt(inv, "담백하고 정중하게")), tone: "primary" },
+          ...(onPreview ? [{ label: "미리보기로 확인", onClick: onPreview }] : []),
+          ...(publishReady ? [{ label: "발행 섹션으로", onClick: scrollToPublish }] : []),
+        ]}
+      />
 
       <div id="publish-invitation" className="scroll-mt-36">
         <Section title="하객용 링크 발행" defaultOpen={hasEssentials || location.search.includes("edit=publish")}>

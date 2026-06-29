@@ -6,6 +6,7 @@ import { koBreak } from "../lib/typography";
 import { parseISODateLocal } from "../lib/date";
 import { buildCeremonySheet, shareOrDownloadText } from "../lib/textExport";
 import { attendingCount, mealTicketCount } from "../lib/derived";
+import ProcessAgentPanel from "../components/ProcessAgentPanel";
 
 const KO_WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -87,6 +88,8 @@ export default function Ceremony({ data, update }: Props) {
   };
 
   const doneCount = steps.filter((s) => s.done).length;
+  const roleMissing = steps.filter((s) => !s.role?.trim()).length;
+  const musicMissing = steps.filter((s) => !s.music?.trim()).length;
 
   // 식순을 실제 예식 순간에 묶어주는 컨텍스트 한 줄 — 있는 정보만 모아 표기
   const inv = data.invitation;
@@ -123,6 +126,23 @@ export default function Ceremony({ data, update }: Props) {
             빈 순서로 시작 →
           </button>
         </div>
+        <ProcessAgentPanel
+          title="사회자에게 보낼 큐시트를 준비합니다"
+          summary="처음엔 기본 식순을 불러온 뒤, 주례 여부·축가·혼인서약처럼 실제 예식에 맞지 않는 단계만 지우면 됩니다."
+          metrics={[
+            { label: "단계", value: "0개", tone: "warn" },
+            { label: "예식 정보", value: contextParts.length ? "있음" : "미정", tone: contextParts.length ? "normal" : "muted" },
+            { label: "식권", value: `${mealTicketCount(data)}장`, tone: mealTicketCount(data) ? "normal" : "muted" },
+          ]}
+          steps={[
+            { label: "기본 식순 불러오기", detail: "입장부터 행진까지 표준 흐름을 먼저 깔아요." },
+            { label: "사회자·축가·음악 담당 정하기", detail: "담당이 비어 있으면 당일에 질문이 다시 돌아옵니다." },
+          ]}
+          actions={[
+            { label: "표준 흐름 채우기 →", onClick: loadDefault, tone: "primary" },
+            { label: "빈 순서로 시작", onClick: addStep },
+          ]}
+        />
       </div>
     );
   }
@@ -149,6 +169,33 @@ export default function Ceremony({ data, update }: Props) {
         <div
           className="h-full bg-gold transition-all"
           style={{ width: `${(doneCount / steps.length) * 100}%` }}
+        />
+      </div>
+
+      <div className="mt-6">
+        <ProcessAgentPanel
+          title={roleMissing > 0 || musicMissing > 0 ? "빈 담당과 음악을 찾는 중" : "사회자 공유 준비가 거의 끝났어요"}
+          summary={
+            roleMissing > 0 || musicMissing > 0
+              ? `담당이 비어 있는 단계 ${roleMissing}개, 음악이 비어 있는 단계 ${musicMissing}개가 있어요. 식장·사회자에게 보내기 전 이 두 칸을 먼저 채우면 됩니다.`
+              : "모든 단계에 담당과 음악이 잡혀 있어요. 리허설 때 한 번씩 체크하면서 실제 진행표로 쓰면 됩니다."
+          }
+          mood={roleMissing > 0 || musicMissing > 0 ? "watching" : "ready"}
+          metrics={[
+            { label: "확인", value: `${doneCount}/${steps.length}` },
+            { label: "담당 없음", value: `${roleMissing}개`, tone: roleMissing > 0 ? "warn" : "muted" },
+            { label: "음악 없음", value: `${musicMissing}개`, tone: musicMissing > 0 ? "warn" : "muted" },
+          ]}
+          steps={[
+            { label: "단계 순서 확정", detail: "주례 없는 식, 폐백 여부, 축가 순서를 식장과 맞춥니다.", done: steps.length > 0 },
+            { label: "담당자 채우기", detail: "사회·주례·축가·음향 담당을 각 단계에 남깁니다.", done: roleMissing === 0 },
+            { label: "사회자에게 보낼 시트 저장", detail: "식권·축의금 담당은 하객 데이터와 함께 당일 운영에서 봅니다.", done: doneCount === steps.length },
+          ]}
+          actions={[
+            { label: "진행표 내보내기 →", onClick: shareSheet, tone: "primary" },
+            { label: "단계 추가", onClick: addStep },
+            { label: "기본 식순으로 다시 채우기", onClick: loadDefault },
+          ]}
         />
       </div>
 

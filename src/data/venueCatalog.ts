@@ -65,26 +65,53 @@ export const VENUE_GUIDES: VenueGuide[] = [
 let n = 0;
 const id = () => `venue-${++n}`;
 const catalogLastVerified: string | undefined = undefined;
+const officialPageVerifiedAt = "2026-06-29";
 
 // 공개적으로 잘 알려진 곳 위주. 가격은 공개 후기/상담가 기반 추정치 — 계약 전 직접 문의 필수.
 export const VENUE_CATALOG: WeddingVenue[] = [
   // ─── 호텔 웨딩 (서울 5성) ───
-  { id: id(), name: "그랜드 인터컨티넨탈 서울 파르나스", region: "삼성동", hallType: "hotel", foodType: "course",
-    capacityMin: 200, capacityMax: 600, mealPriceMin: 130000, mealPriceMax: 200000, lastVerified: catalogLastVerified },
-  { id: id(), name: "신라호텔 서울", region: "장충동", hallType: "hotel", foodType: "course",
-    capacityMin: 200, capacityMax: 500, mealPriceMin: 140000, mealPriceMax: 210000, lastVerified: catalogLastVerified },
+  { id: id(), name: "그랜드 인터컨티넨탈 서울 파르나스", region: "서울 삼성동", hallType: "hotel", foodType: "course",
+    capacityMin: 200, capacityMax: 900, mealPriceMin: 130000, mealPriceMax: 200000, lastVerified: officialPageVerifiedAt,
+    link: "https://seoul.intercontinental.com/en/wedding/wedding/grand" },
+  { id: id(), name: "신라호텔 서울", region: "서울 장충동", hallType: "hotel", foodType: "course",
+    capacityMin: 200, capacityMax: 800, mealPriceMin: 140000, mealPriceMax: 210000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.shilla.net/seoul/meetingevent/mtGrandBallRoom.do" },
   { id: id(), name: "롯데호텔 서울", region: "소공동", hallType: "hotel", foodType: "course",
     capacityMin: 200, capacityMax: 500, mealPriceMin: 130000, mealPriceMax: 200000, lastVerified: catalogLastVerified },
   { id: id(), name: "그랜드 하얏트 서울", region: "한남동", hallType: "hotel", foodType: "course",
-    capacityMin: 200, capacityMax: 500, mealPriceMin: 130000, mealPriceMax: 200000, lastVerified: catalogLastVerified },
+    capacityMin: 200, capacityMax: 1000, mealPriceMin: 130000, mealPriceMax: 200000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.hyatt.com/grand-hyatt/en-US/selrs-grand-hyatt-seoul/weddings" },
   { id: id(), name: "콘래드 서울", region: "여의도", hallType: "hotel", foodType: "course",
     capacityMin: 150, capacityMax: 400, mealPriceMin: 120000, mealPriceMax: 180000, lastVerified: catalogLastVerified },
   { id: id(), name: "JW 메리어트 동대문 스퀘어", region: "동대문", hallType: "hotel", foodType: "course",
-    capacityMin: 150, capacityMax: 350, mealPriceMin: 120000, mealPriceMax: 180000, lastVerified: catalogLastVerified },
+    capacityMin: 150, capacityMax: 350, mealPriceMin: 120000, mealPriceMax: 180000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.marriott.com/en-us/hotels/seldp-jw-marriott-dongdaemun-square-seoul/weddings/" },
   { id: id(), name: "포시즌스 호텔 서울", region: "광화문", hallType: "hotel", foodType: "course",
-    capacityMin: 150, capacityMax: 350, mealPriceMin: 140000, mealPriceMax: 220000, lastVerified: catalogLastVerified },
+    capacityMin: 150, capacityMax: 440, mealPriceMin: 140000, mealPriceMax: 220000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.fourseasons.com/seoul/meetings-and-events/" },
   { id: id(), name: "노보텔 앰배서더 강남", region: "강남", hallType: "hotel", foodType: "buffet",
     capacityMin: 200, capacityMax: 500, mealPriceMin: 90000, mealPriceMax: 150000, lastVerified: catalogLastVerified },
+  { id: id(), name: "JW 메리어트 호텔 서울", region: "서울 반포", hallType: "hotel", foodType: "course",
+    capacityMin: 150, capacityMax: 400, mealPriceMin: 140000, mealPriceMax: 220000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.marriott.com/en-us/hotels/seljw-jw-marriott-hotel-seoul/events/weddings/venues/" },
+  { id: id(), name: "웨스틴 조선 서울", region: "서울 소공동", hallType: "hotel", foodType: "course",
+    capacityMin: 150, capacityMax: 450, mealPriceMin: 130000, mealPriceMax: 200000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.marriott.com/en-us/hotels/selwi-the-westin-josun-seoul/events/" },
+  { id: id(), name: "조선 팰리스 서울 강남", region: "서울 역삼", hallType: "hotel", foodType: "course",
+    capacityMin: 120, capacityMax: 300, mealPriceMin: 150000, mealPriceMax: 230000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.marriott.com/en-us/hotels/sellc-josun-palace-a-luxury-collection-hotel-seoul-gangnam/events/" },
+  { id: id(), name: "시그니엘 서울", region: "서울 잠실", hallType: "hotel", foodType: "course",
+    capacityMin: 100, capacityMax: 300, mealPriceMin: 160000, mealPriceMax: 250000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.lottehotel.com/seoul-signiel/en/wedding-convention/hotel-wedding/signiel-wedding" },
+  { id: id(), name: "더 플라자 서울", region: "서울 시청", hallType: "hotel", foodType: "course",
+    capacityMin: 150, capacityMax: 520, mealPriceMin: 130000, mealPriceMax: 200000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.hoteltheplaza.com/en/meeting_and_wedding/grandballroom.jsp" },
+  { id: id(), name: "롯데호텔 월드", region: "서울 잠실", hallType: "hotel", foodType: "course",
+    capacityMin: 300, capacityMax: 570, mealPriceMin: 120000, mealPriceMax: 190000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.lottehotel.com/world-hotel/ko/wedding-convention/hotel-wedding" },
+  { id: id(), name: "스위스 그랜드 호텔", region: "서울 서대문", hallType: "hotel", foodType: "course",
+    capacityMin: 200, capacityMax: 600, mealPriceMin: 90000, mealPriceMax: 150000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.swissgrand.co.kr/convention/grand-ballroom/" },
 
   // ─── 하우스 / 채플 (단독 사용) ───
   { id: id(), name: "라움 (RAUM)", region: "청담", hallType: "house", foodType: "course",
@@ -110,6 +137,75 @@ export const VENUE_CATALOG: WeddingVenue[] = [
   { id: id(), name: "SETEC", region: "삼성동", hallType: "convention", foodType: "buffet",
     capacityMin: 200, capacityMax: 500, mealPriceMin: 60000, mealPriceMax: 100000, lastVerified: catalogLastVerified },
 
+  // ─── 지역 거점 호텔·컨벤션 (공식 웨딩/연회 페이지 확인) ───
+  { id: id(), name: "그랜드 하얏트 인천", region: "인천 영종도", hallType: "hotel", foodType: "course",
+    capacityMin: 100, capacityMax: 540, mealPriceMin: 100000, mealPriceMax: 170000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.hyatt.com/grand-hyatt/en-US/inche-grand-hyatt-incheon/weddings" },
+  { id: id(), name: "쉐라톤 그랜드 인천", region: "인천 송도", hallType: "hotel", foodType: "course",
+    capacityMin: 70, capacityMax: 240, mealPriceMin: 90000, mealPriceMax: 150000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.marriott.com/en-us/hotels/selgi-sheraton-grand-incheon-hotel/events/meetings/weddings/" },
+  { id: id(), name: "파라다이스시티", region: "인천 영종도", hallType: "convention", foodType: "course",
+    capacityMin: 280, capacityMax: 970, mealPriceMin: 90000, mealPriceMax: 160000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.p-city.com/front/convention/facility",
+    notes: "대형 연회·컨벤션형. 실제 예식 운영 방식과 동시 행사 여부 확인" },
+  { id: id(), name: "라마다프라자 수원", region: "경기 수원", hallType: "general", foodType: "buffet",
+    capacityMin: 200, capacityMax: 900, mealPriceMin: 70000, mealPriceMax: 130000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.ramadaplazasuwon.com/view/viewLink.do?page=homepage%2FENG%2Fwedding%2Fgrand" },
+
+  { id: id(), name: "롯데호텔 부산", region: "부산 서면", hallType: "hotel", foodType: "course",
+    capacityMin: 150, capacityMax: 550, mealPriceMin: 100000, mealPriceMax: 170000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.lottehotel.com/busan-hotel/en/wedding-convention/hotel-wedding/crystal-ballroom" },
+  { id: id(), name: "시그니엘 부산", region: "부산 해운대", hallType: "hotel", foodType: "course",
+    capacityMin: 150, capacityMax: 990, mealPriceMin: 130000, mealPriceMax: 220000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.lottehotel.com/busan-signiel/en/wedding-convention/convention/grand-ballroom" },
+  { id: id(), name: "파크 하얏트 부산", region: "부산 해운대", hallType: "hotel", foodType: "course",
+    capacityMin: 80, capacityMax: 230, mealPriceMin: 110000, mealPriceMax: 190000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.hyatt.com/park-hyatt/en-US/busph-park-hyatt-busan/meetings" },
+  { id: id(), name: "윈덤 그랜드 부산", region: "부산 송도", hallType: "hotel", foodType: "course",
+    capacityMin: 150, capacityMax: 420, mealPriceMin: 80000, mealPriceMax: 140000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.wyndhamgrandbusan.com/en/index.php?pCode=MN0000026" },
+  { id: id(), name: "롯데호텔 울산", region: "울산 남구", hallType: "hotel", foodType: "course",
+    capacityMin: 150, capacityMax: 350, mealPriceMin: 90000, mealPriceMax: 150000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.lottehotel.com/ulsan-hotel/en/wedding-convention/hotel-wedding/grand-ballroom" },
+
+  { id: id(), name: "대구 메리어트 호텔", region: "대구 동구", hallType: "hotel", foodType: "course",
+    capacityMin: 80, capacityMax: 200, mealPriceMin: 90000, mealPriceMax: 150000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.marriott.com/en-us/hotels/taemc-daegu-marriott-hotel/events/" },
+  { id: id(), name: "호텔 인터불고 대구", region: "대구 수성구", hallType: "hotel", foodType: "course",
+    capacityMin: 200, capacityMax: 600, mealPriceMin: 70000, mealPriceMax: 130000, lastVerified: officialPageVerifiedAt,
+    link: "http://hotel-interburgo-daegu.com/en_m/contents/04_review/sub02.html" },
+  { id: id(), name: "호텔 인터불고 엑스코", region: "대구 북구", hallType: "general", foodType: "buffet",
+    capacityMin: 200, capacityMax: 500, mealPriceMin: 70000, mealPriceMax: 120000, lastVerified: officialPageVerifiedAt,
+    link: "http://m.ibhotel.com/convention/wedding/" },
+
+  { id: id(), name: "호텔 오노마 대전", region: "대전 유성구", hallType: "hotel", foodType: "course",
+    capacityMin: 120, capacityMax: 350, mealPriceMin: 90000, mealPriceMax: 150000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.marriott.com/en-us/hotels/cjjak-hotel-onoma-daejeon-autograph-collection/events/weddings/wedding-hall/" },
+  { id: id(), name: "롯데시티호텔 대전", region: "대전 유성구", hallType: "hotel", foodType: "course",
+    capacityMin: 100, capacityMax: 270, mealPriceMin: 80000, mealPriceMax: 130000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.lottehotel.com/daejeon-city/en/wedding-convention/hotel-wedding/crystal-ballroom" },
+
+  { id: id(), name: "홀리데이 인 광주", region: "광주 서구", hallType: "hotel", foodType: "course",
+    capacityMin: 100, capacityMax: 600, mealPriceMin: 70000, mealPriceMax: 130000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.ihg.com/holidayinn/hotels/us/en/gwangju/kwjsu/hoteldetail/events-facilities" },
+  { id: id(), name: "브리브 광주 바이 롯데호텔", region: "광주 서구", hallType: "hotel", foodType: "course",
+    capacityMin: 70, capacityMax: 170, mealPriceMin: 70000, mealPriceMax: 120000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.lottehotel.com/gwangju-breev/en/wedding-convention/convention/grand-ballroom" },
+
+  { id: id(), name: "롯데호텔 제주", region: "제주 중문", hallType: "hotel", foodType: "course",
+    capacityMin: 100, capacityMax: 600, mealPriceMin: 110000, mealPriceMax: 180000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.lottehotel.com/jeju-hotel/en/wedding-convention/convention/overview" },
+  { id: id(), name: "JW 메리어트 제주 리조트 & 스파", region: "제주 서귀포", hallType: "hotel", foodType: "course",
+    capacityMin: 100, capacityMax: 600, mealPriceMin: 130000, mealPriceMax: 220000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.marriott.com/en-us/hotels/cjuju-jw-marriott-jeju-resort-and-spa/weddings/" },
+  { id: id(), name: "해비치 호텔앤드리조트 제주", region: "제주 표선", hallType: "hotel", foodType: "course",
+    capacityMin: 80, capacityMax: 1000, mealPriceMin: 100000, mealPriceMax: 180000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.haevichi.com/jeju/en/wedding/indoor-wedding",
+    notes: "야외·실내 모두 상담 가능. 야외는 우천 백업과 이동 동선 확인" },
+  { id: id(), name: "롯데리조트 속초", region: "강원 속초", hallType: "convention", foodType: "buffet",
+    capacityMin: 200, capacityMax: 1000, mealPriceMin: 70000, mealPriceMax: 130000, lastVerified: officialPageVerifiedAt,
+    link: "https://www.lotteresort.com/sokcho/en/wedding-conference/grand-ballroom" },
+
   // ─── 일반 결혼식장 ───
   { id: id(), name: "더채플 강남", region: "강남", hallType: "general", foodType: "buffet",
     capacityMin: 150, capacityMax: 350, mealPriceMin: 60000, mealPriceMax: 90000, lastVerified: catalogLastVerified },
@@ -134,5 +230,6 @@ export const VENUE_CATALOG: WeddingVenue[] = [
 
 export const VENUE_PRICE_NOTE =
   "식대는 지역·요일·시간대·메뉴·보증인원에 따라 크게 달라집니다. " +
+  "공식 링크와 최신 확인일은 시설·수용 인원 확인용이며, 식대 범위는 상담 전 감을 잡는 추정치입니다. " +
   "상담 때는 식대뿐 아니라 부가세·봉사료·음주류·주차·셔틀·계약금 환불·취소 위약금까지 한 번에 확인하세요. " +
   "예식 장소, 식사 메뉴, 지불보증인원, 총액, 변경·해제 기준은 말로만 듣지 말고 계약서나 견적서에 남겨두세요.";

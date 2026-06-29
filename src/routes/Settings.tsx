@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import type { WeddingData } from "../lib/schema";
+import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import { clearLocalDeviceData, exportData, importData, purgeServerData, hasCorruptLocalBackup, downloadCorruptLocalBackup } from "../lib/storage";
-import { todayISO } from "../lib/freshness";
+import { daysSince, todayISO } from "../lib/freshness";
 import { clearOwner, getOrCreateOwnerToken, getHostedConfig, isOwner } from "../lib/security";
 import { buildRecoveryLink } from "../lib/recovery";
 import { authAvailable, currentEmail, hasLinkedAccount, linkedAccountKnownOnDevice, signOut, deleteLinkedAccount } from "../lib/auth";
@@ -138,6 +139,14 @@ export default function Settings({ data, update }: Props) {
       prompt("아래 복구 링크를 안전한 곳에 저장하세요:", url);
     }
   };
+  const backupDays = daysSince(data.preferences.lastBackupAt);
+  const backupState =
+    backupDays === null ? "없음" : backupDays === 0 ? "오늘" : `${backupDays}일 전`;
+  const collaborationReady = data.preferences.mode === "hosted" || data.preferences.mode === "supabase";
+  const settingsAgentSummary =
+    backupDays === null || backupDays > 30
+      ? "백업이 없거나 오래됐어요. 설정을 바꾸거나 공유하기 전에 먼저 백업 파일을 만들어두는 게 좋습니다."
+      : "백업 상태는 괜찮아요. 이제 공유 센터와 저장 방식, 복구 링크만 목적에 맞게 점검하면 됩니다.";
 
   return (
     <div className="page pt-8 pb-10 space-y-10">
@@ -145,6 +154,29 @@ export default function Settings({ data, update }: Props) {
         <div className="eyebrow-gold mb-2">Wedding OS</div>
         <h1 className="h-page">설정</h1>
       </div>
+
+      <ProcessAgentPanel
+        title={backupDays === null || backupDays > 30 ? "설정 변경 전 백업부터 볼게요" : "운영 상태를 점검했어요"}
+        summary={settingsAgentSummary}
+        mood={backupDays === null || backupDays > 30 ? "watching" : "ready"}
+        metrics={[
+          { label: "저장", value: data.preferences.mode ?? "미선택", hint: currentMode },
+          { label: "백업", value: backupState, tone: backupDays === null || backupDays > 30 ? "warn" : "normal" },
+          { label: "공동편집", value: collaborationReady ? "가능" : "로컬", tone: collaborationReady ? "normal" : "muted" },
+        ]}
+        steps={[
+          { label: "삭제·이동 전 최신 백업 확보", detail: "사진이 있으면 백업 생성에 잠깐 시간이 걸릴 수 있습니다.", done: backupDays !== null && backupDays <= 30 },
+          { label: "함께 편집할 방식 확인", detail: "하객용 링크와 편집 권한 링크는 서로 다른 용도입니다.", done: collaborationReady },
+          { label: "위험한 작업은 마지막에 실행", detail: "서버 데이터와 로그인 복구 정보까지 함께 지울 수 있어요.", done: true },
+        ]}
+        actions={[
+          { label: "지금 백업 만들기 →", onClick: handleExport, tone: "primary" },
+          { label: "공유 센터 점검 →", onClick: () => navigate("/share") },
+          ...(data.preferences.mode === "local" ? [{ label: "함께 편집 시작 →", onClick: () => navigate("/start-hosted") }] : []),
+          ...(data.preferences.mode === "hosted" ? [{ label: "복구 링크 복사 →", onClick: copyRecoveryLink }] : []),
+          ...(data.preferences.mode === "supabase" ? [{ label: "편집 권한 복사 →", onClick: copyEditorInvite }] : []),
+        ]}
+      />
 
       {data.preferences.mode === "hosted" && (
         <>

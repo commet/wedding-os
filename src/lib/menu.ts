@@ -52,6 +52,11 @@ export function buildMenuGroups(data: WeddingData): MenuGroup[] {
       title: "도구",
       items: [
         { to: "/share", label: "공유 센터", sub: "청첩장 · 초대 링크 · 백업" },
+        {
+          to: "/start-hosted",
+          label: "함께 편집",
+          sub: data.preferences.mode === "hosted" ? "편집·복구 링크" : "배우자 초대 · 다른 기기",
+        },
         { to: "/ai", label: "AI 연결", sub: "복붙 모드 · API 키 · 로컬 LLM" },
       ],
     },
@@ -59,6 +64,7 @@ export function buildMenuGroups(data: WeddingData): MenuGroup[] {
       title: "설정 · 정보",
       items: [
         { to: "/settings", label: "설정", sub: "저장 방식 · 백업 · 로그인" },
+        { to: "/setup", label: "직접 저장소", sub: "Supabase 직접 운영" },
         { to: "/trust", label: "투명성", sub: "운영자도 못 보는 구조" },
         { to: "/privacy", label: "개인정보 · 보안", sub: "처리방침 · 안내" },
         { to: "/contact", label: "문의", sub: "오류 신고 · 도움 요청" },

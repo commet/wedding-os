@@ -7,6 +7,7 @@ import {
   breakEven, expectedGiftIncome, type BreakEven, type GiftIncome,
 } from "../lib/derived";
 import { koBreak } from "../lib/typography";
+import ProcessAgentPanel from "../components/ProcessAgentPanel";
 
 type Props = { data: WeddingData; update: (patch: any) => void };
 type View = "all" | "current" | "unpaid" | "over";
@@ -74,6 +75,37 @@ export default function Budget({ data, update }: Props) {
     setCustomName("");
   };
 
+  const mealExpected = meal ? (meal.max ?? meal.min ?? 0) : 0;
+  const mealBudgetItem = items.find((item) => /식대|식사/.test(item.category));
+  const mealBudgetLow = mealExpected > 0 && ((mealBudgetItem?.planned ?? mealBudgetItem?.actual ?? 0) < mealExpected * 0.7);
+  const syncMealBudget = () => {
+    if (!mealExpected) return;
+    update((prev: WeddingData) => {
+      const budget = prev.budget ?? [];
+      const index = budget.findIndex((item) => /식대|식사/.test(item.category));
+      const note = `예상 식수 ${meal?.headcount ?? headcount}명 기준 · 계약 식장 단가에서 자동 계산`;
+      if (index >= 0) {
+        return {
+          ...prev,
+          budget: budget.map((item, i) => i === index ? { ...item, planned: mealExpected, notes: item.notes || note } : item),
+        };
+      }
+      return {
+        ...prev,
+        budget: [
+          ...budget,
+          {
+            id: `agent-meal-${Date.now()}`,
+            category: "[예식] 예식장 식대",
+            planned: mealExpected,
+            avgKRW: mealExpected,
+            notes: note,
+          },
+        ],
+      };
+    });
+  };
+
   // 그룹화 — 카테고리 prefix [그룹명] 기반
   const grouped = useMemo(() => {
     const m = new Map<string, BudgetItem[]>();
@@ -100,6 +132,22 @@ export default function Budget({ data, update }: Props) {
         <p className="text-[12.5px] text-soft leading-relaxed border-y border-hair py-4">
           {BUDGET_TOTAL_NOTE}
         </p>
+        <ProcessAgentPanel
+          title="예산표를 계약과 하객에 연결할 준비"
+          summary="처음에는 정확한 금액보다 빠진 항목을 줄이는 게 중요해요. 기본 항목을 깔고, 이후 식대·잔금·축의금 추정치를 자동으로 맞춰갑니다."
+          metrics={[
+            { label: "항목", value: "0개", tone: "warn" },
+            { label: "하객 기준", value: headcount ? `${headcount}명` : "미정", tone: headcount ? "normal" : "muted" },
+            { label: "계약 잔금", value: balances.length ? `${balances.length}건` : "없음", tone: balances.length ? "warn" : "muted" },
+          ]}
+          steps={[
+            { label: "기본 비용 항목 펼치기", detail: "식장·스드메·청첩장·신혼여행처럼 큰 덩어리를 먼저 깔아요.", done: false },
+            { label: "견적 받는 즉시 실제 지출로 교체하기", detail: "참고값은 감 잡기용이고, 계약 금액이 들어오면 그 값이 기준입니다." },
+          ]}
+          actions={[
+            { label: "기본 비용 항목 불러오기 →", onClick: loadDefault, tone: "primary" },
+          ]}
+        />
         <button onClick={loadDefault} className="btn-primary px-8 py-3.5 text-[12.5px]">
           기본 비용 항목 불러오기 →
         </button>
@@ -113,6 +161,34 @@ export default function Budget({ data, update }: Props) {
         <div className="eyebrow-gold mb-2">예산과 지출</div>
         <h1 className="h-page">{koBreak("비용 관리")}</h1>
       </div>
+
+      <ProcessAgentPanel
+        title={totals.overCount > 0 ? "초과 항목부터 다시 보는 중" : mealBudgetLow ? "식대 예산을 보정해야 해요" : "돈 흐름을 계약과 맞추는 중"}
+        summary={
+          totals.overCount > 0
+            ? `${totals.overCount}개 항목이 예상보다 커졌어요. 초과분을 먼저 보고 결제 완료와 잔금 일정을 맞춰보겠습니다.`
+            : mealBudgetLow
+              ? `계약 식장과 예상 하객 기준 식대가 약 ${formatKRW(mealExpected)}인데, 예산표의 식대가 비어 있거나 낮게 잡혀 있어요.`
+              : "예산표는 단순 가계부가 아니라 계약·하객·잔금이 만나는 통제판입니다. 지금은 미결제와 큰 비용 누락을 먼저 봅니다."
+        }
+        mood={totals.overCount > 0 || mealBudgetLow || totals.unpaidCount > 0 ? "watching" : "ready"}
+        metrics={[
+          { label: "예산", value: formatKRW(totals.planned), tone: totals.planned > 0 ? "normal" : "muted" },
+          { label: "실지출", value: formatKRW(totals.actual), tone: totals.actual > totals.planned && totals.planned > 0 ? "warn" : "normal" },
+          { label: "미결제", value: `${totals.unpaidCount}개`, tone: totals.unpaidCount > 0 ? "warn" : "muted" },
+        ]}
+        steps={[
+          { label: "기본 항목을 빠짐없이 펼치기", detail: "항목이 있어야 견적을 받았을 때 바로 교체할 수 있어요.", done: items.length >= 8 },
+          { label: "계약 잔금과 예산표 맞추기", detail: balances.length ? "예식장·스드메 잔금이 예산표와 별도로 잡혀 있어요." : "잔금일이 들어오면 이 화면에서 같이 보입니다.", done: balances.length === 0 || totals.unpaidCount > 0 },
+          { label: "식대 예산을 하객 기준으로 보정하기", detail: mealExpected ? `현재 계산값 ${formatKRW(mealExpected)}.` : "계약 식장과 예상 인원이 있으면 자동 계산됩니다.", done: !mealBudgetLow },
+        ]}
+        actions={[
+          ...(mealBudgetLow ? [{ label: "식대 예산 자동 맞추기 →", onClick: syncMealBudget, tone: "primary" as const }] : []),
+          ...(totals.unpaidCount > 0 ? [{ label: "미결제만 보기", onClick: () => setView("unpaid"), tone: "primary" as const }] : []),
+          ...(totals.overCount > 0 ? [{ label: "초과 항목 보기", onClick: () => setView("over"), tone: "warn" as const }] : []),
+          { label: "전체 보기", onClick: () => setView("all") },
+        ]}
+      />
 
       {/* 합계 요약 */}
       <div className="space-y-4 border-y border-hair py-6">

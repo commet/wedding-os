@@ -10,6 +10,7 @@ import SafeImg from "../components/SafeImg";
 import { ringPriceCheckPrompt, BridgePrompt } from "../lib/chatbotBridge";
 import { todayISO } from "../lib/freshness";
 import { koBreak } from "../lib/typography";
+import ProcessAgentPanel from "../components/ProcessAgentPanel";
 
 // 브랜드별 공식 웨딩/브라이덜 섹션. 개별 모델 페이지보다 덜 깨지는 진입점.
 const BRAND_SITES: Record<string, string> = {
@@ -144,6 +145,15 @@ export default function Rings({ data, update }: Props) {
   );
 
   const visible = brandFilter === "전체" ? rings : rings.filter((r) => r.brand === brandFilter);
+  const brideMarked = rings.filter((r) => (r.likedBy ?? []).includes("bride") || (r.starredBy ?? []).includes("bride")).length;
+  const groomMarked = rings.filter((r) => (r.likedBy ?? []).includes("groom") || (r.starredBy ?? []).includes("groom")).length;
+  const mutual = rings.filter((r) =>
+    ((r.likedBy ?? []).includes("bride") || (r.starredBy ?? []).includes("bride")) &&
+    ((r.likedBy ?? []).includes("groom") || (r.starredBy ?? []).includes("groom"))
+  );
+  const priceMissing = top5.find((r) => !r.priceKRW || !r.lastVerified);
+  const whoMarked = who === "bride" ? brideMarked : groomMarked;
+  const otherMarked = who === "bride" ? groomMarked : brideMarked;
 
   const toggle = (id: string, kind: "starred" | "liked") => {
     update((prev: WeddingData) => ({
@@ -262,6 +272,34 @@ export default function Rings({ data, update }: Props) {
           </button>
         </div>
       </div>
+
+      <ProcessAgentPanel
+        title={mutual.length > 0 ? "겹치는 취향을 후보로 좁히는 중" : whoMarked < 3 ? "먼저 취향 신호를 모으는 중" : "상대 선택을 기다리는 중"}
+        summary={
+          mutual.length > 0
+            ? `두 사람이 함께 표시한 후보가 ${mutual.length}개 있어요. 이제 가격 확인과 매장 동선을 잡으면 됩니다.`
+            : whoMarked < 3
+              ? `${who === "bride" ? "신부" : "신랑"} 쪽 표시가 아직 적어요. 마음에 드는 후보를 3개 정도 눌러야 취향이 읽힙니다.`
+              : "한쪽 취향은 충분히 보였어요. 이제 상대가 같은 방식으로 눌러야 겹치는 후보를 찾을 수 있습니다."
+        }
+        mood={mutual.length > 0 ? "ready" : "thinking"}
+        metrics={[
+          { label: "신부 표시", value: `${brideMarked}개`, tone: brideMarked < 3 ? "warn" : "normal" },
+          { label: "신랑 표시", value: `${groomMarked}개`, tone: groomMarked < 3 ? "warn" : "normal" },
+          { label: "겹침", value: `${mutual.length}개`, tone: mutual.length > 0 ? "normal" : "muted" },
+        ]}
+        steps={[
+          { label: "각자 마음에 드는 후보 3개 표시", detail: "좋아요는 넓게, 즐겨찾기는 진짜 후보에만 눌러요.", done: brideMarked >= 3 && groomMarked >= 3 },
+          { label: "둘 다 표시한 후보 확인", detail: "겹치는 후보가 매장 상담 우선순위가 됩니다.", done: mutual.length > 0 },
+          { label: "Top 후보 가격 재확인", detail: "카탈로그 가격은 참고용이라 공식 판매처 또는 매장에서 다시 확인해야 합니다.", done: top5.length > 0 && !priceMissing },
+        ]}
+        actions={[
+          { label: "취향 기준 열기 →", onClick: () => setShowStarter(true), tone: "primary" },
+          ...(otherMarked < 3 ? [{ label: `${who === "bride" ? "신랑" : "신부"} 선택으로 전환`, onClick: () => setWho(who === "bride" ? "groom" : "bride") }] : []),
+          ...(priceMissing ? [{ label: "Top 후보 가격 확인 →", onClick: () => openPriceCheck(priceMissing), tone: "primary" as const }] : []),
+          { label: "카탈로그 열기", onClick: () => setCatalogOpen(true) },
+        ]}
+      />
 
       {showStarter ? (
         <RingStarter who={who} onApply={applyStarter} onClose={() => setShowStarter(false)} />

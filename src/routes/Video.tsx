@@ -25,6 +25,7 @@ import {
   fmtDuration,
   type VideoTemplate,
 } from "../data/videoTemplates";
+import ProcessAgentPanel from "../components/ProcessAgentPanel";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 
@@ -328,6 +329,17 @@ export default function Video({ data, update }: Props) {
   const photoProgress = targetCount
     ? Math.min(100, Math.round((config.photos.length / targetCount) * 100))
     : 0;
+  const minPhotoCount = currentTemplate?.photoCountTotal.min ?? 12;
+  const endingReady = !!config.ending?.message?.trim() && !!config.ending?.date && !!config.ending?.venue;
+  const videoAgentSummary = !currentTemplate
+    ? "식전영상은 빈 캔버스에서 시작하면 막막해요. 먼저 템플릿을 고르면 챕터·길이·효과가 한 번에 잡힙니다."
+    : config.photos.length < minPhotoCount
+      ? `${currentTemplate.name} 템플릿 기준으로 최소 ${minPhotoCount}장 정도가 필요해요. 지금은 사진을 채우는 단계입니다.`
+      : hasUnassigned
+        ? "사진은 충분히 들어왔고, 아직 챕터에 배정되지 않은 사진이 있어요. 자동 분배 후 흐름을 보면 됩니다."
+        : endingReady
+          ? "템플릿, 사진, 엔딩 정보가 준비됐어요. 이제 재생 확인과 파일 내보내기만 남았습니다."
+          : "영상 본문은 잡혔고 엔딩 카드의 날짜·장소를 청첩장에서 가져오면 마무리가 쉬워집니다.";
 
   return (
     <div className="page pt-8 pb-10 space-y-8">
@@ -346,6 +358,29 @@ export default function Video({ data, update }: Props) {
           <li>· 식장에 미리 파일 형식(MP4 1920×1080) 확인 필수</li>
         </ul>
       </div>
+
+      <ProcessAgentPanel
+        title={!currentTemplate ? "영상 구조를 먼저 고르는 중" : config.photos.length < minPhotoCount ? "사진 수를 채우는 중" : hasUnassigned ? "챕터 배정을 정리하는 중" : "상영 전 검수 단계"}
+        summary={videoAgentSummary}
+        mood={currentTemplate && config.photos.length >= minPhotoCount && !hasUnassigned && endingReady ? "ready" : "thinking"}
+        metrics={[
+          { label: "템플릿", value: currentTemplate ? "선택" : "없음", tone: currentTemplate ? "normal" : "warn" },
+          { label: "사진", value: `${config.photos.length}/${targetCount || minPhotoCount}`, tone: config.photos.length < minPhotoCount ? "warn" : "normal" },
+          { label: "엔딩", value: endingReady ? "완료" : "미정", tone: endingReady ? "normal" : "muted" },
+        ]}
+        steps={[
+          { label: "템플릿으로 챕터 잡기", detail: "챕터와 사진 권장 수가 먼저 정해져야 편집 판단이 쉬워집니다.", done: !!currentTemplate },
+          { label: "최소 사진 수 채우기", detail: currentTemplate ? `${currentTemplate.name} 최소 ${minPhotoCount}장.` : "템플릿 선택 후 권장 수가 보입니다.", done: config.photos.length >= minPhotoCount },
+          { label: "미배정 사진을 챕터에 넣기", detail: "렌더링은 챕터 순서대로 묶여 보입니다.", done: !hasUnassigned },
+          { label: "엔딩 카드 정보 채우기", detail: "청첩장 날짜·시간·장소를 그대로 가져올 수 있어요.", done: endingReady },
+        ]}
+        actions={[
+          ...(!currentTemplate ? [{ label: "클래식 템플릿으로 시작 →", onClick: () => applyTemplate(VIDEO_TEMPLATES[0]), tone: "primary" as const }] : []),
+          ...(currentTemplate && config.photos.length < minPhotoCount ? [{ label: "사진 추가하기 →", onClick: () => openPhotoPicker(), tone: "primary" as const }] : []),
+          ...(hasUnassigned ? [{ label: "사진 자동 배정 →", onClick: autoAssignPhotosToChapters, tone: "primary" as const }] : []),
+          ...(!endingReady ? [{ label: "엔딩을 청첩장에서 채우기", onClick: pullEndingFromInvitation }] : []),
+        ]}
+      />
 
       {/* 미리보기 */}
       <div className="remotion-player overflow-hidden bg-ink">

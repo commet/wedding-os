@@ -79,6 +79,7 @@ export type SdmCatalogEntry = {
   name: string;
   vibe: string;
   region?: string;
+  link?: string;
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -154,7 +155,8 @@ export const SDM_CATALOG: SdmCatalogEntry[] = [
 
   // ══════ 💄 메이크업 ══════
   { id: "m-jeong",      category: "makeup", name: "정샘물",                       vibe: "원장 클래식, 대표 브랜드",            region: "신사동" },
-  { id: "m-jenny",      category: "makeup", name: "제니하우스",                    vibe: "체인, 안정적 품질",                   region: "전국" },
+  { id: "m-jenny",      category: "makeup", name: "제니하우스",                    vibe: "웨딩은 청담 본점 중심. 지역명 지점은 공식 채널 재확인", region: "전국",
+    link: "https://jennyhouse.co.kr/" },
   { id: "m-claire",     category: "makeup", name: "클레어 (Claire)",              vibe: "내추럴·청순",                         region: "강남" },
   { id: "m-bymom",      category: "makeup", name: "에이바이봄 (Abyom)",            vibe: "스튜디오 협업 많음",                  region: "강남" },
   { id: "m-momostud",   category: "makeup", name: "모모스튜디오",                   vibe: "트렌디·SNS 인기",                     region: "강남" },
@@ -162,7 +164,8 @@ export const SDM_CATALOG: SdmCatalogEntry[] = [
   { id: "m-blanc",      category: "makeup", name: "블랑드제이 (Blanc de J)",       vibe: "자연광 화보 톤",                      region: "강남" },
   { id: "m-yune",       category: "makeup", name: "윤스타일",                       vibe: "단아·전통",                           region: "강남" },
   { id: "m-mufe",       category: "makeup", name: "메이크업포에버 아카데미",        vibe: "글로벌 브랜드 직영",                  region: "강남" },
-  { id: "m-chahong",    category: "makeup", name: "차홍 (Cha Hong)",              vibe: "헤어+메이크업 토탈, 체인",            region: "전국" },
+  { id: "m-chahong",    category: "makeup", name: "차홍 (Cha Hong)",              vibe: "헤어 체인. 웨딩 메이크업 가능 지점·담당자 직접 확인", region: "전국",
+    link: "https://www.chahong.com/" },
   { id: "m-chloe",      category: "makeup", name: "끌로에 (Chloe) — 김선진",      vibe: "차분·고급스러움",                     region: "청담" },
   { id: "m-light",      category: "makeup", name: "라이트 (Light)",                vibe: "은은·자연광",                         region: "강남" },
   { id: "m-lamusemu",   category: "makeup", name: "라뮤즈 메이크업",                vibe: "라뮤즈 자매 브랜드",                  region: "청담" },
@@ -207,30 +210,10 @@ export const SDM_CATALOG: SdmCatalogEntry[] = [
   { id: "n-themovie",   category: "snap", name: "더무비 (The Movie)",              vibe: "영상 스냅(DVD) 위주",                 region: "강남" },
   { id: "n-cinema",     category: "snap", name: "시네마 스냅",                       vibe: "영화 같은 영상 결과물",                region: "강남" },
 
-  // ══════ 🗺️ 지방 — 표본 (전국 체인 + 지역 알려진 곳) ══════
-  // ※ 지방은 카탈로그가 얕습니다. 카카오맵 + 결혼 카페의 지역 게시판이 더 정확해요.
-
-  // 부산
-  { id: "s-busan-life", category: "studio", name: "라이프 스튜디오 부산",       vibe: "라이프 시리즈 부산 지점",              region: "부산" },
-  { id: "m-busan-jenny",category: "makeup", name: "제니하우스 부산",            vibe: "체인 지점, 안정적",                    region: "부산" },
-  { id: "m-busan-chah", category: "makeup", name: "차홍 부산",                  vibe: "헤어+메이크업 체인",                   region: "부산" },
-  { id: "d-busan-vera", category: "dress",  name: "베라왕 부산",                vibe: "Vera Wang 부산점",                     region: "부산" },
-  { id: "n-busan-snap", category: "snap",   name: "부산 본식 스냅 (로컬)",       vibe: "지역 작가 다수 — 카카오맵 검색",       region: "부산" },
-
-  // 대구
-  { id: "s-daegu-life", category: "studio", name: "라이프 스튜디오 대구",       vibe: "체인 지점",                            region: "대구" },
-  { id: "m-daegu-jenny",category: "makeup", name: "제니하우스 대구",            vibe: "체인 지점",                            region: "대구" },
-  { id: "m-daegu-chah", category: "makeup", name: "차홍 대구",                  vibe: "체인 지점",                            region: "대구" },
-
-  // 인천·분당·판교
-  { id: "s-bundang-life",category: "studio",name: "라이프 스튜디오 분당",       vibe: "체인 지점",                            region: "분당" },
-  { id: "m-bundang-jenny",category: "makeup",name:"제니하우스 분당",            vibe: "체인 지점",                            region: "분당" },
-  { id: "d-incheon-cls",category: "dress",  name: "송도 클래식 드레스",         vibe: "송도/인천 라인",                       region: "인천" },
-
-  // 대전·광주·제주
-  { id: "m-daejeon-jh", category: "makeup", name: "제니하우스 대전",            vibe: "체인 지점",                            region: "대전" },
-  { id: "m-gwangju-jh", category: "makeup", name: "제니하우스 광주",            vibe: "체인 지점",                            region: "광주" },
-  { id: "n-jeju-snap",  category: "snap",   name: "제주 야외 스냅 (로컬)",       vibe: "제주 야외·풀빌라 촬영 작가 다수",       region: "제주" },
+  // ══════ 🗺️ 지방 SDM에 대한 원칙 ══════
+  // 지역별 스드메·스냅은 샵 이전, 실장 이동, 작가 활동명이 자주 바뀝니다.
+  // 공식 지점/브랜드가 확인되지 않은 "부산 본식 스냅", "송도 드레스" 같은 일반명은
+  // 업체처럼 보이면 오히려 노이즈라서 목록에 넣지 않습니다. 지역 탐색은 RESEARCH_CHANNELS 안내를 따릅니다.
 ];
 
 export const SDM_PRICE_RANGE_NOTE =
@@ -238,6 +221,8 @@ export const SDM_PRICE_RANGE_NOTE =
 
 // 사람들이 추가 정보를 얻는 흔한 채널 — 객관적 안내
 export const RESEARCH_CHANNELS = [
+  { name: "네이버지도 웨딩 업체 검색", url: "https://map.naver.com/p/search/%EC%9B%A8%EB%94%A9" },
+  { name: "카카오맵 웨딩 업체 검색", url: "https://map.kakao.com/?q=%EC%9B%A8%EB%94%A9" },
   { name: "다이렉트결혼준비 (네이버 카페)", url: "https://cafe.naver.com/directwedding" },
   { name: "결준위 (네이버 카페)", url: "https://cafe.naver.com/wprep" },
   { name: "레몬테라스 결혼 게시판", url: "https://cafe.naver.com/remonterrace" },
