@@ -42,6 +42,7 @@ export default function ProcessAgentPanel({
   const otherActions = actions.filter((action) => action !== nextAction);
   const openStepCount = steps.filter((step) => !step.done).length;
   const previewMetrics = metrics.slice(0, 3);
+  const labelFor = (label: string) => label.replace(/\s*→\s*$/, "");
 
   return (
     <section className="border-y border-hair py-4 text-left">
@@ -67,7 +68,7 @@ export default function ProcessAgentPanel({
           {nextAction && (
             <button
               type="button"
-              aria-label={nextAction.label}
+              aria-label={labelFor(nextAction.label)}
               onClick={nextAction.onClick}
               disabled={nextAction.disabled}
               className={`group flex min-h-11 w-full items-center justify-between gap-4 border-t border-hair pt-3 text-left disabled:opacity-40 ${
@@ -75,7 +76,7 @@ export default function ProcessAgentPanel({
               }`}
             >
               <span className="min-w-0">
-                <span className="block text-[13px] font-medium leading-snug break-keep">{nextAction.label}</span>
+                <span className="block text-[13px] font-medium leading-snug break-keep">{labelFor(nextAction.label)}</span>
               </span>
               <span className="flex-shrink-0 text-soft transition group-hover:text-ink">→</span>
             </button>
@@ -90,7 +91,7 @@ export default function ProcessAgentPanel({
                   disabled={action.disabled}
                   className="min-h-11 text-[12px] text-ink underline underline-offset-4 hover:text-gold disabled:opacity-40"
                 >
-                  {action.label}
+                  {labelFor(action.label)}
                 </button>
               ))}
             </div>

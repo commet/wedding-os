@@ -243,10 +243,10 @@ export default function Venues({ data, update }: Props) {
           { label: "계약 전 핵심 조건 남기기", detail: "견적 기준, 결제 일정, 취소·변경, 별도 비용을 텍스트로 남겨요.", done: !!contracted && contractChecked >= 3 },
         ]}
         actions={[
-          { label: "조사 입력 모드 →", onClick: () => setShowAdd(true), tone: myVenues.length === 0 ? "primary" : "quiet" },
-          { label: "조건으로 후보 추리기 →", onClick: () => { setShowStarter(true); setTab("catalog"); }, tone: "primary" },
-          ...(myVenues.length > 0 && tourCount === 0 ? [{ label: "첫 후보를 투어로 표시 →", onClick: promoteFirstVenueToTour }] : []),
-          ...(contracted && !data.invitation.venue ? [{ label: "계약 식장을 청첩장에 넣기 →", onClick: () => applyToInvitation(contracted), tone: "primary" as const }] : []),
+          { label: "새 후보 조사해서 추가", onClick: () => setShowAdd(true), tone: myVenues.length === 0 ? "primary" : "quiet" },
+          { label: "조건으로 후보 추리기", onClick: () => { setShowStarter(true); setTab("catalog"); }, tone: "primary" },
+          ...(myVenues.length > 0 && tourCount === 0 ? [{ label: "첫 후보를 투어로 표시", onClick: promoteFirstVenueToTour }] : []),
+          ...(contracted && !data.invitation.venue ? [{ label: "계약 식장을 청첩장에 넣기", onClick: () => applyToInvitation(contracted), tone: "primary" as const }] : []),
           { label: "카탈로그 열기", onClick: () => setTab("catalog") },
         ]}
       />

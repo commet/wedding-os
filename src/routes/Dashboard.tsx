@@ -688,11 +688,11 @@ export default function Dashboard({ data, update }: Props) {
 
 function AgentQuestionCard({ question, onAnswer }: { question: AgentLoopQuestion; onAnswer: (question: AgentLoopQuestion, value: string) => void }) {
   return (
-    <details className="mb-7 border-y border-hair py-2">
+    <details open className="mb-7 border-y border-hair py-2">
       <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 text-left">
         <span className="min-w-0">
           <span className="eyebrow-gold block">{question.eyebrow}</span>
-          <span className="mt-1 block truncate text-[13px] font-medium text-ink">{question.title}</span>
+          <h3 className="mt-1 text-[13px] font-medium leading-snug text-ink break-keep">{question.title}</h3>
         </span>
         <span className="flex-shrink-0 text-[12px] text-soft underline underline-offset-4">답하기</span>
       </summary>

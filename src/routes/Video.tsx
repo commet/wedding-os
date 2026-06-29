@@ -375,9 +375,9 @@ export default function Video({ data, update }: Props) {
           { label: "엔딩 카드 정보 채우기", detail: "청첩장 날짜·시간·장소를 그대로 가져올 수 있어요.", done: endingReady },
         ]}
         actions={[
-          ...(!currentTemplate ? [{ label: "클래식 템플릿으로 시작 →", onClick: () => applyTemplate(VIDEO_TEMPLATES[0]), tone: "primary" as const }] : []),
-          ...(currentTemplate && config.photos.length < minPhotoCount ? [{ label: "사진 추가하기 →", onClick: () => openPhotoPicker(), tone: "primary" as const }] : []),
-          ...(hasUnassigned ? [{ label: "사진 자동 배정 →", onClick: autoAssignPhotosToChapters, tone: "primary" as const }] : []),
+          ...(!currentTemplate ? [{ label: "클래식 템플릿으로 시작", onClick: () => applyTemplate(VIDEO_TEMPLATES[0]), tone: "primary" as const }] : []),
+          ...(currentTemplate && config.photos.length < minPhotoCount ? [{ label: "사진 추가하기", onClick: () => openPhotoPicker(), tone: "primary" as const }] : []),
+          ...(hasUnassigned ? [{ label: "사진 자동 배정", onClick: autoAssignPhotosToChapters, tone: "primary" as const }] : []),
           ...(!endingReady ? [{ label: "엔딩을 청첩장에서 채우기", onClick: pullEndingFromInvitation }] : []),
         ]}
       />
@@ -393,6 +393,7 @@ export default function Video({ data, update }: Props) {
           compositionWidth={VIDEO_W}
           compositionHeight={VIDEO_H}
           style={{ width: "100%", aspectRatio: "16 / 9" }}
+          acknowledgeRemotionLicense
           controls
           loop
         />
@@ -663,22 +664,30 @@ export default function Video({ data, update }: Props) {
       </section>
 
       {/* 자연어 편집 */}
-      <section className="space-y-4 py-8 border-b border-hair">
-        <h3 className="eyebrow-gold">말로 영상 고치기</h3>
-        <p className="text-[12.5px] text-soft leading-relaxed">
-          "3번째 사진 더 길게", "전부 빈티지 필터로", "신랑 챕터 사진 순서 바꿔줘" 처럼 한국어로 적으면
-          ChatGPT · Claude 가 영상 설정을 고쳐줘요.
-        </p>
-        <textarea
-          className="input-boxed text-[13px] min-h-[70px]"
-          placeholder="예: 모든 사진을 따뜻한 필터로 바꾸고, 첫 사진은 6초로"
-          value={aiRequest}
-          onChange={(e) => setAiRequest(e.target.value)}
-        />
-        <button onClick={askAI} className="btn-primary w-full text-[12.5px]" disabled={!aiRequest.trim()}>
-          AI 프롬프트 만들기 →
-        </button>
-      </section>
+      <details className="py-4 border-b border-hair">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4">
+          <span>
+            <span className="eyebrow-gold block mb-1">말로 영상 고치기</span>
+            <span className="text-[12px] text-soft">사진 길이·필터·순서를 문장으로 요청</span>
+          </span>
+          <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
+        </summary>
+        <div className="mt-4 space-y-4">
+          <p className="text-[12.5px] text-soft leading-relaxed">
+            "3번째 사진 더 길게", "전부 빈티지 필터로", "신랑 챕터 사진 순서 바꿔줘"처럼 적으면
+            ChatGPT · Claude가 영상 설정을 고쳐줘요.
+          </p>
+          <textarea
+            className="input-boxed text-[13px] min-h-[70px]"
+            placeholder="예: 모든 사진을 따뜻한 필터로 바꾸고, 첫 사진은 6초로"
+            value={aiRequest}
+            onChange={(e) => setAiRequest(e.target.value)}
+          />
+          <button onClick={askAI} className="btn-primary w-full text-[12.5px]" disabled={!aiRequest.trim()}>
+            AI 프롬프트 만들기 →
+          </button>
+        </div>
+      </details>
 
       {/* 챕터 세부 조정 — 접혀 있음 */}
       <details className="py-2 border-b border-hair">
@@ -738,14 +747,15 @@ export default function Video({ data, update }: Props) {
       </details>
 
       {/* 영상 파일로 저장하기 */}
-      <section className="space-y-6 py-8 border-y border-hair">
-        <div>
-          <h3 className="eyebrow-gold mb-2">영상 파일로 저장하기</h3>
-          <p className="text-[12.5px] text-soft leading-relaxed">
-            식장에 제출할 영상은 화질이 중요해요. 1순위 방법이 가장 깨끗한 MP4 를 줍니다.
-          </p>
-        </div>
-
+      <details className="py-4 border-y border-hair">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4">
+          <span>
+            <span className="eyebrow-gold block mb-1">영상 파일로 저장하기</span>
+            <span className="text-[12px] text-soft">식장 제출용 MP4·녹화 방법</span>
+          </span>
+          <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
+        </summary>
+        <div className="mt-5 space-y-6">
         <div className="pl-5 border-l-2 border-gold space-y-3">
           <div className="flex items-baseline gap-3">
             <span className="eyebrow-gold">1순위</span>
@@ -861,10 +871,11 @@ export default function Video({ data, update }: Props) {
           </div>
         </details>
 
-        <p className="text-[11px] text-soft text-center pt-1">
-          💡 식장에 미리 영상 파일 + 형식(MP4 1920×1080) 확인하세요.
-        </p>
-      </section>
+          <p className="text-[11px] text-soft text-center pt-1">
+            식장에 미리 영상 파일 + 형식(MP4 1920×1080)을 확인하세요.
+          </p>
+        </div>
+      </details>
 
       {showPhotoPicker && (
         <Modal
@@ -962,31 +973,12 @@ function PhotoRow({
           <img src={thumb} alt="" className="w-14 h-14 object-cover flex-shrink-0" />
         )}
         <div className="flex-1 min-w-0">
-          <input
-            className="text-[14px] w-full bg-transparent outline-none border-b border-transparent focus:border-line py-1"
-            placeholder="자막 (선택)"
-            value={photo.caption ?? ""}
-            onChange={(e) => onUpdate({ caption: e.target.value })}
-          />
+          <div className={`text-[14px] leading-snug break-keep ${photo.caption ? "text-ink" : "text-soft"}`}>
+            {photo.caption?.trim() || "자막 없음"}
+          </div>
           <div className="eyebrow mt-1.5">
             {EFFECTS.find((e) => e.value === photo.effect)?.label} · {photo.durationSec}초
           </div>
-        </div>
-        <div className="flex flex-col gap-1">
-          <button
-            onClick={() => onMove(-1)}
-            disabled={isFirst}
-            className="text-soft hover:text-ink text-xs disabled:opacity-30"
-          >
-            ▲
-          </button>
-          <button
-            onClick={() => onMove(1)}
-            disabled={isLast}
-            className="text-soft hover:text-ink text-xs disabled:opacity-30"
-          >
-            ▼
-          </button>
         </div>
         <button onClick={onToggleExpand} className="text-[11.5px] text-ink underline underline-offset-4 hover:text-gold">
           {isExpanded ? "접기" : "편집"}
@@ -995,6 +987,34 @@ function PhotoRow({
 
       {isExpanded && (
         <div className="mt-4 pt-4 border-t border-hair space-y-4">
+          <div>
+            <label className="label">순서</label>
+            <div className="flex gap-5">
+              <button
+                onClick={() => onMove(-1)}
+                disabled={isFirst}
+                className="min-h-11 text-[12px] text-ink underline underline-offset-4 hover:text-gold disabled:opacity-30"
+              >
+                위로
+              </button>
+              <button
+                onClick={() => onMove(1)}
+                disabled={isLast}
+                className="min-h-11 text-[12px] text-ink underline underline-offset-4 hover:text-gold disabled:opacity-30"
+              >
+                아래로
+              </button>
+            </div>
+          </div>
+          <div>
+            <label className="label">자막</label>
+            <input
+              className="input text-[13px]"
+              placeholder="자막 (선택)"
+              value={photo.caption ?? ""}
+              onChange={(e) => onUpdate({ caption: e.target.value })}
+            />
+          </div>
           <PhotoChips
             label="효과"
             value={photo.effect}

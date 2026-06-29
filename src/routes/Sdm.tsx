@@ -217,9 +217,9 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
           { label: "계약 조건 3칸 이상 기록", detail: "견적 기준, 포함 항목, 별도 비용, 취소 조건을 우선 남겨요.", done: contractedCount === 0 || contractGapCount === 0 },
         ]}
         actions={[
-          { label: "조사 입력 모드 →", onClick: () => setShowAdd(true), tone: inCat.length === 0 ? "primary" : "quiet" },
-          { label: "업체 후보 열기 →", onClick: () => setCatalogOpen(true), tone: "primary" },
-          ...(inCat.length > 0 && consultCount === 0 ? [{ label: "첫 후보를 상담으로 표시 →", onClick: promoteFirstVendor }] : []),
+          { label: "새 후보 조사해서 추가", onClick: () => setShowAdd(true), tone: inCat.length === 0 ? "primary" : "quiet" },
+          { label: "업체 후보 열기", onClick: () => setCatalogOpen(true), tone: "primary" },
+          ...(inCat.length > 0 && consultCount === 0 ? [{ label: "첫 후보를 상담으로 표시", onClick: promoteFirstVendor }] : []),
           { label: "후기 채널 보기", onClick: () => setShowChannels(true) },
         ]}
       />
@@ -492,6 +492,18 @@ function MyVendorCard({
     (v.balanceKRW ?? 0) > 0 &&
     !!v.balanceDueAt &&
     dueDaysLeft !== undefined;
+  const [open, setOpen] = useState(false);
+  const contractCount = contractFieldCount(v.contract);
+  const evidenceCount = [
+    v.source,
+    v.lastVerified,
+    v.priceRange,
+    v.contact,
+    v.depositKRW,
+    v.balanceKRW,
+    v.balanceDueAt,
+    contractCount > 0 ? String(contractCount) : undefined,
+  ].filter(Boolean).length;
   return (
     <div className="py-4 space-y-3">
       <div className="flex items-start justify-between">
@@ -511,98 +523,123 @@ function MyVendorCard({
         </div>
         <button onClick={onRemove} aria-label={`${v.name} 삭제`} className="flex min-h-11 min-w-11 items-center justify-center text-soft hover:text-ink text-sm">×</button>
       </div>
-      <VendorActions name={v.name} region={v.region} officialUrl={v.link} sourceUrl={v.source} />
 
-      <SdmResearchInput vendor={v} onUpdate={onUpdate} />
-
-      <div className="flex items-baseline gap-5">
-        <span className="eyebrow">상태</span>
-        {STATUS_OPTIONS.map((s) => (
-          <button
-            key={s}
-            onClick={() => onUpdate({ status: s })}
-            className={`tracking-wide ${v.status === s ? "seg-active" : "seg"}`}
-          >
-            {s}
-          </button>
-        ))}
-      </div>
-      <textarea
-        className="input-boxed text-[13px] min-h-[50px]"
-        placeholder="메모 (가격·실장 이름·인상 등)"
-        value={v.notes ?? ""}
-        onChange={(e) => onUpdate({ notes: e.target.value })}
-      />
-      <div className="grid grid-cols-2 gap-x-4">
-        <input
-          className="input text-[13px]"
-          placeholder="가격 메모"
-          value={v.priceRange ?? ""}
-          onChange={(e) => onUpdate({ priceRange: e.target.value })}
-        />
-        <input
-          className="input text-[13px]"
-          placeholder="링크 (인스타·홈피)"
-          value={v.link ?? ""}
-          onChange={(e) => onUpdate({ link: e.target.value })}
-        />
+      <div className="space-y-2 text-[12px] text-soft leading-relaxed">
+        {v.notes && <p className="text-ink/85 break-keep line-clamp-2">{v.notes}</p>}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="eyebrow">상태 {v.status ?? "관심"}</span>
+          {v.priceRange && <span className="tabular-nums">가격 {v.priceRange}</span>}
+          {contractCount > 0 && <span>계약 체크 {contractCount}/6</span>}
+          {evidenceCount > 0 && <span>조사칸 {evidenceCount}개</span>}
+        </div>
       </div>
 
-      {/* 계약 관리 — 상담·계약 단계에서만 노출 */}
-      {v.status !== "관심" && (
-        <div className="pt-3 mt-1 border-t border-hair space-y-3">
-          <div className="eyebrow">계약 관리</div>
-          {/* 읽기 전용 원장 한 줄 — 선금·잔금·잔금일이 모두 채워졌을 때만 */}
-          {(v.depositKRW ?? 0) > 0 && (v.balanceKRW ?? 0) > 0 && v.balanceDueAt && (
-            <div className="text-[12px] text-soft tabular-nums break-keep">
-              선금 {formatKRW(v.depositKRW!)} · 잔금 {formatKRW(v.balanceKRW!)} · 잔금일 {v.balanceDueAt.slice(0, 10)}
-            </div>
-          )}
-          <input
-            className="input text-[13px]"
-            placeholder="담당자·업체 연락처"
-            value={v.contact ?? ""}
-            onChange={(e) => onUpdate({ contact: e.target.value })}
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        className="flex min-h-11 w-full items-center justify-between gap-4 border-t border-hair pt-3 text-left text-[12px] text-ink hover:text-gold"
+      >
+        <span>{open ? "조사·계약 메모 접기" : "조사·계약 메모 열기"}</span>
+        <span className="text-soft">{open ? "−" : "+"}</span>
+      </button>
+
+      {open && (
+        <div className="space-y-4 border-t border-hair pt-4">
+          <VendorActions name={v.name} region={v.region} officialUrl={v.link} sourceUrl={v.source} />
+
+          <SdmResearchInput vendor={v} onUpdate={onUpdate} />
+
+          <div className="flex items-baseline gap-5">
+            <span className="eyebrow">상태</span>
+            {STATUS_OPTIONS.map((s) => (
+              <button
+                key={s}
+                onClick={() => onUpdate({ status: s })}
+                className={`tracking-wide ${v.status === s ? "seg-active" : "seg"}`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+          <textarea
+            className="input-boxed text-[13px] min-h-[50px]"
+            placeholder="메모 (가격·실장 이름·인상 등)"
+            value={v.notes ?? ""}
+            onChange={(e) => onUpdate({ notes: e.target.value })}
           />
           <div className="grid grid-cols-2 gap-x-4">
-            <div>
-              <label className="label">계약금 (원)</label>
-              <input
-                type="number"
-                min={0}
-                className="input text-[13px] tabular-nums"
-                placeholder="0"
-                value={v.depositKRW ?? ""}
-                onChange={(e) => onUpdate({ depositKRW: parseAmount(e.target.value) })}
-              />
-            </div>
-            <div>
-              <label className="label">잔금 (원)</label>
-              <input
-                type="number"
-                min={0}
-                className="input text-[13px] tabular-nums"
-                placeholder="0"
-                value={v.balanceKRW ?? ""}
-                onChange={(e) => onUpdate({ balanceKRW: parseAmount(e.target.value) })}
-              />
-            </div>
-          </div>
-          {(v.depositKRW || v.balanceKRW) ? (
-            <div className="eyebrow tabular-nums">
-              합계 {formatKRW((v.depositKRW ?? 0) + (v.balanceKRW ?? 0))}
-            </div>
-          ) : null}
-          <div>
-            <label className="label">잔금 납부일</label>
             <input
-              type="date"
-              className="input text-[13px] tabular-nums"
-              value={v.balanceDueAt ?? ""}
-              onChange={(e) => onUpdate({ balanceDueAt: e.target.value || undefined })}
+              className="input text-[13px]"
+              placeholder="가격 메모"
+              value={v.priceRange ?? ""}
+              onChange={(e) => onUpdate({ priceRange: e.target.value })}
+            />
+            <input
+              className="input text-[13px]"
+              placeholder="링크 (인스타·홈피)"
+              value={v.link ?? ""}
+              onChange={(e) => onUpdate({ link: e.target.value })}
             />
           </div>
-          <ContractFields contract={v.contract} onUpdate={updateContract} />
+
+          {/* 계약 관리 — 상담·계약 단계에서만 노출 */}
+          {v.status !== "관심" && (
+            <div className="pt-3 mt-1 border-t border-hair space-y-3">
+              <div className="eyebrow">계약 관리</div>
+              {/* 읽기 전용 원장 한 줄 — 선금·잔금·잔금일이 모두 채워졌을 때만 */}
+              {(v.depositKRW ?? 0) > 0 && (v.balanceKRW ?? 0) > 0 && v.balanceDueAt && (
+                <div className="text-[12px] text-soft tabular-nums break-keep">
+                  선금 {formatKRW(v.depositKRW!)} · 잔금 {formatKRW(v.balanceKRW!)} · 잔금일 {v.balanceDueAt.slice(0, 10)}
+                </div>
+              )}
+              <input
+                className="input text-[13px]"
+                placeholder="담당자·업체 연락처"
+                value={v.contact ?? ""}
+                onChange={(e) => onUpdate({ contact: e.target.value })}
+              />
+              <div className="grid grid-cols-2 gap-x-4">
+                <div>
+                  <label className="label">계약금 (원)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    className="input text-[13px] tabular-nums"
+                    placeholder="0"
+                    value={v.depositKRW ?? ""}
+                    onChange={(e) => onUpdate({ depositKRW: parseAmount(e.target.value) })}
+                  />
+                </div>
+                <div>
+                  <label className="label">잔금 (원)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    className="input text-[13px] tabular-nums"
+                    placeholder="0"
+                    value={v.balanceKRW ?? ""}
+                    onChange={(e) => onUpdate({ balanceKRW: parseAmount(e.target.value) })}
+                  />
+                </div>
+              </div>
+              {(v.depositKRW || v.balanceKRW) ? (
+                <div className="eyebrow tabular-nums">
+                  합계 {formatKRW((v.depositKRW ?? 0) + (v.balanceKRW ?? 0))}
+                </div>
+              ) : null}
+              <div>
+                <label className="label">잔금 납부일</label>
+                <input
+                  type="date"
+                  className="input text-[13px] tabular-nums"
+                  value={v.balanceDueAt ?? ""}
+                  onChange={(e) => onUpdate({ balanceDueAt: e.target.value || undefined })}
+                />
+              </div>
+              <ContractFields contract={v.contract} onUpdate={updateContract} />
+            </div>
+          )}
         </div>
       )}
     </div>

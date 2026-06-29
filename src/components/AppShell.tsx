@@ -285,7 +285,8 @@ function AgentActionDock({ status, currentPath }: { status: PlanningSectionStatu
       <Link
         to={status.to}
         className="row-tap flex min-h-8 items-center justify-between gap-3 px-1"
-        aria-label={`WEDDY 다음 행동: ${status.nextAction}`}
+        aria-label="WEDDY 다음 작업으로 이동"
+        title={`WEDDY 다음 작업: ${status.nextAction}`}
       >
         <span className="flex min-w-0 items-baseline gap-2">
           <span className="text-[10px] tracking-eyebrow uppercase text-gold">WEDDY</span>
