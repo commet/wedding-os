@@ -58,6 +58,7 @@ export default function Venues({ data, update }: Props) {
   const [showAdd, setShowAdd] = useState(false);
   const [showGuide, setShowGuide] = useState<VenueHallType | null>(null);
   const [showStarter, setShowStarter] = useState(starterOpen);
+  const [selectedMapVenueId, setSelectedMapVenueId] = useState<string | null>(null);
 
   const myVenues = data.venues ?? [];
   const haveStatusCount: Record<NonNullable<WeddingVenue["status"]>, number> = useMemo(() => {
@@ -94,6 +95,10 @@ export default function Venues({ data, update }: Props) {
       .filter((v) => rm(v.region))
       .filter((v) => hallFilter === "all" || v.hallType === hallFilter);
   }, [region, hallFilter]);
+  const selectedMapVenue = useMemo(
+    () => filteredCatalog.find((v) => v.id === selectedMapVenueId) ?? filteredCatalog[0],
+    [filteredCatalog, selectedMapVenueId],
+  );
 
   const addFromCatalog = (cat: WeddingVenue) => {
     if (myVenues.some((v) => v.name === cat.name)) return;
@@ -365,6 +370,16 @@ export default function Venues({ data, update }: Props) {
                 </button>
               )}
 
+              {filteredCatalog.length > 0 && selectedMapVenue && (
+                <VenueMapExplorer
+                  venues={filteredCatalog}
+                  selected={selectedMapVenue}
+                  addedNames={new Set(myVenues.map((v) => v.name))}
+                  onSelect={(v) => setSelectedMapVenueId(v.id)}
+                  onAdd={addFromCatalog}
+                />
+              )}
+
               {/* 결과 */}
               {filteredCatalog.length === 0 ? (
                 <p className="text-center text-[13px] text-soft py-8">
@@ -579,6 +594,114 @@ function matchesGuestBand(venue: WeddingVenue, band: "small" | "medium" | "large
   if (band === "small") return min <= 120 && max >= 80;
   if (band === "medium") return min <= 220 && max >= 150;
   return max >= 250;
+}
+
+function VenueMapExplorer({
+  venues,
+  selected,
+  addedNames,
+  onSelect,
+  onAdd,
+}: {
+  venues: WeddingVenue[];
+  selected: WeddingVenue;
+  addedNames: Set<string>;
+  onSelect: (venue: WeddingVenue) => void;
+  onAdd: (venue: WeddingVenue) => void;
+}) {
+  const selectedQuery = [selected.name, selected.region].filter(Boolean).join(" ");
+  const added = addedNames.has(selected.name);
+  const previewVenues = venues.slice(0, 24);
+
+  return (
+    <section className="border-y border-hair py-4 space-y-4">
+      <div className="flex items-baseline justify-between gap-4">
+        <div>
+          <div className="eyebrow-gold mb-1.5">지도 훑기</div>
+          <h2 className="font-serif text-[17px] text-ink break-keep">위치 감을 먼저 보고 후보를 담아요</h2>
+        </div>
+        <span className="eyebrow tabular-nums whitespace-nowrap">{venues.length}곳</span>
+      </div>
+
+      <MapEmbed query={selectedQuery} heightClass="h-56" label={`${selected.name} 지도`} />
+
+      <div className="space-y-2">
+        <div className="flex items-baseline justify-between gap-3">
+          <div className="min-w-0">
+            <div className="font-serif text-[15px] text-ink truncate">{selected.name}</div>
+            <div className="eyebrow mt-1 space-x-2">
+              {selected.region && <span>{selected.region}</span>}
+              {selected.hallType && <span>· {HALL_TYPE_LABEL[selected.hallType]}</span>}
+            </div>
+          </div>
+          <button
+            onClick={() => onAdd(selected)}
+            disabled={added}
+            className={`min-h-9 px-3 text-[12px] tracking-wide whitespace-nowrap flex-shrink-0 border transition ${added ? "border-hair text-soft" : "border-gold text-gold hover:bg-gold hover:text-paper"}`}
+          >
+            {added ? "✓ 담음" : "+ 담기"}
+          </button>
+        </div>
+
+        <div className="flex gap-2 flex-wrap">
+          <MapSearchLink label="카카오맵" url={kakaoMapSearchUrl(selectedQuery)} />
+          <MapSearchLink label="네이버지도" url={naverMapSearchUrl(selectedQuery)} />
+          <MapSearchLink label="구글지도" url={googleMapSearchUrl(selectedQuery)} />
+        </div>
+      </div>
+
+      <div className="flex gap-2 overflow-x-auto -mx-6 px-6 pb-1 scrollbar-hide">
+        {previewVenues.map((venue) => {
+          const active = venue.id === selected.id;
+          return (
+            <button
+              key={venue.id}
+              type="button"
+              aria-pressed={active}
+              onClick={() => onSelect(venue)}
+              className={`min-w-[144px] max-w-[180px] flex-shrink-0 border px-3 py-2 text-left transition ${
+                active ? "border-gold bg-gold/5" : "border-hair bg-paper hover:border-ink"
+              }`}
+            >
+              <span className="block text-[12.5px] text-ink truncate">{venue.name}</span>
+              <span className="mt-1 block eyebrow truncate">{venue.region ?? "지역 확인"}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {venues.length > previewVenues.length && (
+        <p className="text-[11.5px] text-soft leading-relaxed">
+          먼저 {previewVenues.length}곳만 지도 선택지로 보여줘요. 지역이나 홀 형식을 좁히면 나머지도 바로 올라옵니다.
+        </p>
+      )}
+    </section>
+  );
+}
+
+function MapSearchLink({ label, url }: { label: string; url: string }) {
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex min-h-11 items-center justify-center border border-hair bg-paper px-3 text-[11.5px] tracking-wide text-soft transition hover:border-ink hover:text-ink active:opacity-70"
+    >
+      {label}
+    </a>
+  );
+}
+
+function kakaoMapSearchUrl(query: string): string {
+  return `https://map.kakao.com/link/search/${encodeURIComponent(query)}`;
+}
+
+function naverMapSearchUrl(query: string): string {
+  return `https://map.naver.com/p/search/${encodeURIComponent(query)}`;
+}
+
+function googleMapSearchUrl(query: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
 function CatalogRow({ v, added, onAdd }: { v: WeddingVenue; added: boolean; onAdd: () => void }) {
