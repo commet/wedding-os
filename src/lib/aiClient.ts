@@ -84,11 +84,11 @@ async function runManagedAI(prompt: BridgePrompt): Promise<AiRunResult> {
   if (res.status === 404) {
     return {
       ok: false,
-      reason: "Wedding OS AI를 지금 사용할 수 없습니다. 잠시 후 다시 시도하거나 다른 AI 사용 방식을 선택해주세요.",
+      reason: "Dearie AI를 지금 사용할 수 없습니다. 잠시 후 다시 시도하거나 다른 AI 사용 방식을 선택해주세요.",
     };
   }
-  if (!res.ok) return { ok: false, reason: json?.error ?? `Wedding OS AI 오류 (${res.status})` };
-  return json?.text ? { ok: true, text: json.text } : { ok: false, reason: "Wedding OS AI 응답이 비어 있어요." };
+  if (!res.ok) return { ok: false, reason: json?.error ?? `Dearie AI 오류 (${res.status})` };
+  return json?.text ? { ok: true, text: json.text } : { ok: false, reason: "Dearie AI 응답이 비어 있어요." };
 }
 
 function getOrCreateTrialId(): string {

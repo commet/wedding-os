@@ -13,7 +13,7 @@
 // 사진:
 //   - 청첩장 heroImageUrl 이 http(s) URL → 그대로 합성됨
 //   - base64 (data URL) → fetch 불가 → 텍스트 카드만 (사진 자리에 그라데이션)
-//   - Supabase 환경변수 없음 → wedding-os 기본 카드
+//   - Supabase 환경변수 없음 → Dearie 기본 카드
 
 import { ImageResponse } from "@vercel/og";
 import { get as blobGet } from "@vercel/blob";
@@ -141,8 +141,9 @@ export default async function handler(req: Request) {
   }
   if (!inv) inv = await loadInvitation();
 
-  const groom = inv?.groomName || "Wedding";
-  const bride = inv?.brideName || "OS";
+  const hasInvitation = !!(inv?.groomName || inv?.brideName || inv?.date || inv?.venue || inv?.heroImageUrl);
+  const groom = hasInvitation ? (inv?.groomName || "신랑") : "Dearie";
+  const bride = hasInvitation ? (inv?.brideName || "신부") : "결혼 준비";
   const dateStr = formatDate(inv?.date);
   const time = inv?.time ?? "";
   const venue = inv?.venue ?? "";
@@ -154,7 +155,7 @@ export default async function handler(req: Request) {
   //   - 영문: "WEDDING INVITATION" 라벨
   //   - 기호: ♥, 가운뎃점·콜론 등
   // Google Fonts 의 text= 는 정확히 요청한 글리프만 돌려주므로 전부 모아 한 번에 요청.
-  const labelText = "WEDDING INVITATION";
+  const labelText = hasInvitation ? "WEDDING INVITATION" : "WITHDEARIE.COM";
   const symbolText = "♥·:.()";
   const koreanText = [groom, bride, dateStr, time, venue, labelText, symbolText]
     .filter(Boolean)

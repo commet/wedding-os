@@ -248,7 +248,7 @@ function addAgentTask(data: WeddingData, item: Pick<CheckItem, "text" | "ddayOff
   const existing = data.checklist.find((section) => section.id === sectionId);
   const checklist = existing
     ? data.checklist.map((section) => section.id === sectionId ? { ...section, items: [task, ...section.items].slice(0, 10) } : section)
-    : [{ id: sectionId, icon: "AI", title: "에이전트 후속 정리", items: [task] }, ...data.checklist];
+    : [{ id: sectionId, icon: "AI", title: "Dee의 후속 정리", items: [task] }, ...data.checklist];
   return { ...data, checklist: recalcDueDates(checklist, data.invitation.date) };
 }
 

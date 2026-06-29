@@ -1,7 +1,7 @@
-import weddyDone from "../assets/weddy/done.png";
-import weddyIcon from "../assets/weddy/icon.png";
-import weddyReady from "../assets/weddy/ready.png";
-import weddyThinking from "../assets/weddy/thinking.png";
+import dearieDone from "../assets/dearie/done.png";
+import dearieIcon from "../assets/dearie/icon.png";
+import dearieReady from "../assets/dearie/ready.png";
+import dearieThinking from "../assets/dearie/thinking.png";
 
 type MarkProps = {
   compact?: boolean;
@@ -17,10 +17,10 @@ const MOOD_LABEL = {
 };
 
 const MOOD_IMAGE: Record<NonNullable<MarkProps["mood"]>, string> = {
-  ready: weddyReady,
-  thinking: weddyThinking,
-  watching: weddyReady,
-  done: weddyDone,
+  ready: dearieReady,
+  thinking: dearieThinking,
+  watching: dearieReady,
+  done: dearieDone,
 };
 
 export function AgentIdentity({ compact = false, mood = "ready", caption }: MarkProps) {
@@ -31,12 +31,12 @@ export function AgentIdentity({ compact = false, mood = "ready", caption }: Mark
         <div
           className={`${compact ? "text-[9px] tracking-[0.2em]" : "text-[10px] tracking-[0.22em]"} font-medium leading-none text-gold`}
         >
-          WEDDY · {MOOD_LABEL[mood]}
+          Dee · {MOOD_LABEL[mood]}
         </div>
         <div
           className={`${compact ? "text-[15px] mt-1" : "text-[19px] mt-1.5"} font-serif leading-none tracking-[-0.01em] text-ink`}
         >
-          준비 에이전트
+          Dearie
         </div>
         {caption && !compact && (
           <div className="mt-1 text-[11px] leading-snug text-soft">{caption}</div>
@@ -48,7 +48,7 @@ export function AgentIdentity({ compact = false, mood = "ready", caption }: Mark
 
 function AgentMark({ compact, mood }: { compact: boolean; mood: NonNullable<MarkProps["mood"]> }) {
   const size = compact ? "h-9 w-9" : "h-11 w-11";
-  const image = compact && mood === "ready" ? weddyIcon : MOOD_IMAGE[mood];
+  const image = compact && mood === "ready" ? dearieIcon : MOOD_IMAGE[mood];
   return (
     <span
       aria-hidden="true"

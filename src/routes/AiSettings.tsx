@@ -8,7 +8,7 @@ import { koBreak } from "../lib/typography";
 type Props = { data?: unknown };
 
 const PROVIDERS: { id: AiProvider; label: string; desc: string; link?: string }[] = [
-  { id: "managed", label: "Wedding OS AI", desc: "설정 없이 바로 쓸 수 있어요. 무료로 체험한 뒤 필요하면 로그인" },
+  { id: "managed", label: "Dearie AI", desc: "설정 없이 바로 쓸 수 있어요. 무료로 체험한 뒤 필요하면 로그인" },
   { id: "bridge", label: "복붙 모드", desc: "평소 쓰는 챗봇(ChatGPT·Claude)에 복사해서 쓰기 — 키도 비용도 없음" },
   { id: "gemini", label: "Gemini API", desc: "Google AI Studio 키로 앱 안에서 바로 실행", link: "https://ai.google.dev/gemini-api/docs/api-key" },
   { id: "openai", label: "OpenAI API", desc: "OpenAI API 키로 앱 안에서 바로 실행", link: "https://platform.openai.com/api-keys" },
@@ -110,7 +110,7 @@ export default function AiSettings(_: Props) {
     const r = await runAiPrompt({
       title: "AI 연결 테스트",
       expectedShape: "text",
-      prompt: "Wedding OS 연결 테스트입니다. 한국어로 '연결 완료'라고 짧게 답해주세요.",
+      prompt: "Dearie 연결 테스트입니다. 한국어로 '연결 완료'라고 짧게 답해주세요.",
     }, config);
     if (r.ok) {
       setStatus("ok");
@@ -147,7 +147,7 @@ export default function AiSettings(_: Props) {
         summary={aiAgentSummary}
         mood={executionReady ? "ready" : "watching"}
         metrics={[
-          { label: "방식", value: selected.label.replace("Wedding OS ", "WOS "), hint: provider === "bridge" ? "복붙" : "앱 안 실행" },
+          { label: "방식", value: selected.label, hint: provider === "bridge" ? "복붙" : "앱 안 실행" },
           { label: "연결", value: executionReady ? "가능" : "대기", tone: executionReady ? "normal" : "warn" },
           { label: "상태", value: status === "saved" ? "저장" : status === "ok" ? "성공" : status === "fail" ? "확인" : "대기", tone: status === "fail" ? "warn" : "normal" },
         ]}
@@ -158,7 +158,7 @@ export default function AiSettings(_: Props) {
         ]}
         actions={[
           { label: "복붙 모드로 전환 →", onClick: () => chooseProvider("bridge"), tone: provider === "bridge" ? "quiet" : "primary" },
-          { label: "Wedding OS AI 선택 →", onClick: () => chooseProvider("managed") },
+          { label: "Dearie AI 선택 →", onClick: () => chooseProvider("managed") },
           { label: "설정 저장 →", onClick: save },
           ...(provider !== "bridge" ? [{ label: "연결 테스트 →", onClick: test, disabled: !directReady || status === "testing" }] : []),
         ]}
@@ -173,7 +173,7 @@ export default function AiSettings(_: Props) {
         <div className="grid grid-cols-1 gap-2 text-[11.5px] text-soft leading-relaxed">
           <p><b className="text-ink">복붙 모드</b> · 전송 버튼이 없고, 사용자가 직접 외부 챗봇에 붙여넣습니다.</p>
           <p><b className="text-ink">본인 API 키</b> · 키는 이 기기에만 저장되고, 요청은 선택한 provider로 직접 갑니다.</p>
-          <p><b className="text-ink">Wedding OS AI</b> · 운영자 서버가 프롬프트를 받아 Anthropic으로 전달합니다.</p>
+          <p><b className="text-ink">Dearie AI</b> · 운영자 서버가 프롬프트를 받아 Anthropic으로 전달합니다.</p>
         </div>
       </section>
 
@@ -202,7 +202,7 @@ export default function AiSettings(_: Props) {
             <div>
               <div className="eyebrow mb-2">사용 가능</div>
               <p className="text-[13px] text-soft leading-relaxed">
-                별도 API 키 없이 Wedding OS AI를 사용할 수 있습니다. 프롬프트는 Wedding OS 서버와 Anthropic을 거치며,
+                별도 API 키 없이 Dearie AI를 사용할 수 있습니다. 프롬프트는 Dearie 서버와 Anthropic을 거치며,
                 결과는 확인한 뒤 직접 반영합니다. 하객 명단·계좌·복구 링크처럼 민감한 내용은 요청 전에 빼주세요.
               </p>
             </div>
@@ -336,7 +336,7 @@ export default function AiSettings(_: Props) {
         <div className="space-y-2 text-[12px] text-soft leading-relaxed">
           <p>
             AI 응답은 자동으로 덮어쓰지 않고 적용 전 확인합니다. 복붙 모드와 본인 API 키 방식은 운영자가 프롬프트를 받지 않지만,
-            Wedding OS AI는 오남용 방지와 실행을 위해 서버를 거칩니다. 공개 청첩장 링크와 복구 링크는 AI 프롬프트에 넣지 마세요.
+            Dearie AI는 오남용 방지와 실행을 위해 서버를 거칩니다. 공개 청첩장 링크와 복구 링크는 AI 프롬프트에 넣지 마세요.
           </p>
           <p>
             개인 API 키는 이 브라우저에만 저장됩니다. 공용 PC에서는 쓰지 말고, 키가 노출됐다고 느끼면 각 AI 콘솔에서 바로 폐기하세요.

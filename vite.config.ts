@@ -11,8 +11,8 @@ export default defineConfig({
       // 새 버전 배포 시 즉시 클라이언트로 가져오기 (사용자가 한참 옛 셸 잡고 도는 사고 방지)
       includeAssets: ["favicon.svg", "og.svg"],
       manifest: {
-        name: "Wedding OS",
-        short_name: "Wedding OS",
+        name: "Dearie",
+        short_name: "Dearie",
         description: "결혼 준비를 한 곳에서 — 청첩장 · 식전영상 · 체크리스트",
         start_url: "/",
         display: "standalone",

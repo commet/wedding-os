@@ -1,4 +1,4 @@
--- Wedding OS operator-hosted encrypted storage.
+-- Dearie operator-hosted encrypted storage.
 -- Apply this migration to the operator Supabase project before enabling hosted mode.
 
 begin;

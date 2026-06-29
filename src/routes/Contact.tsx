@@ -24,7 +24,7 @@ export default function Contact({ data }: Props) {
     const context = includeContext
       ? `\n\n---\n[자동 첨부]\n모드: ${data.preferences.mode ?? "(미선택)"}\n페이지: ${location.pathname}\n시간: ${new Date().toISOString()}\nUA: ${navigator.userAgent.slice(0, 80)}`
       : "";
-    const subject = `[Wedding OS] ${category}`;
+    const subject = `[Dearie] ${category}`;
     const fullBody = `${name ? `안녕하세요, ${name}입니다.\n\n` : ""}${body}${context}`;
     return {
       subject,

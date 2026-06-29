@@ -93,7 +93,7 @@ export default function Settings({ data, update }: Props) {
       }
       await signOut().catch(() => undefined);
     }
-    // 3. IndexedDB 사진과 Wedding OS localStorage를 함께 제거한다.
+    // 3. IndexedDB 사진과 Dearie localStorage를 함께 제거한다.
     try {
       await clearLocalDeviceData();
     } catch (e: any) {
@@ -151,7 +151,7 @@ export default function Settings({ data, update }: Props) {
   return (
     <div className="page pt-8 pb-10 space-y-10">
       <div>
-        <div className="eyebrow-gold mb-2">Wedding OS</div>
+        <div className="eyebrow-gold mb-2">Dearie</div>
         <h1 className="h-page">설정</h1>
       </div>
 
@@ -302,7 +302,7 @@ export default function Settings({ data, update }: Props) {
       <Section title={koBreak("AI 편집 방식")}>
         <p className="text-[15px] text-soft leading-[1.85]">
           앱에서 바로 쓰는 AI, 외부 챗봇 복사, 개인 API 연결 중에서 선택합니다.
-          Wedding OS AI는 프롬프트가 운영자 서버와 Anthropic을 거치므로, 계좌·하객 명단·복구 링크는 보내지 마세요.
+          Dearie AI는 프롬프트가 운영자 서버와 Anthropic을 거치므로, 계좌·하객 명단·복구 링크는 보내지 마세요.
         </p>
         <Link to="/ai" className="text-[12px] underline underline-offset-4 text-ink hover:text-gold inline-block mt-3">
           AI 연결 설정 →
@@ -346,7 +346,7 @@ export default function Settings({ data, update }: Props) {
       </Section>
 
       <p className="text-center text-[11px] text-soft pt-4 border-t border-hair space-x-3">
-        <span>Wedding OS</span>
+        <span>Dearie</span>
         <span>·</span>
         <Link to="/trust" className="underline underline-offset-2">운영자도 못 봐요</Link>
         <span>·</span>

@@ -50,7 +50,7 @@ export function buildCeremonySheet(data: WeddingData): string {
     return lines.join("\n");
   });
 
-  return [head.join("\n"), "", body.join("\n\n"), "", "— Wedding OS"].join("\n");
+  return [head.join("\n"), "", body.join("\n\n"), "", "— Dearie"].join("\n");
 }
 
 /** 체크리스트 — 섹션별로 묶어, 남은 일과 마감일을 한눈에. */
@@ -73,7 +73,7 @@ export function buildChecklistSheet(data: WeddingData): string {
       return [`■ ${s.title}`, ...rows].join("\n");
     });
 
-  return [head, "", blocks.join("\n\n"), "", "— Wedding OS"].join("\n");
+  return [head, "", blocks.join("\n\n"), "", "— Dearie"].join("\n");
 }
 
 // 텍스트를 .txt 파일로 내려받기 — Blob + 임시 <a download>.

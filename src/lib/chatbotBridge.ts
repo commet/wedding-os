@@ -41,7 +41,7 @@ export function weddingPlanStarterPrompt(data: WeddingData): BridgePrompt {
   return {
     title: "준비 초안 만들기",
     prompt: `당신은 한국 결혼 준비를 돕는 중립적인 웨딩 플래너입니다.
-아래 Wedding OS 상태를 보고 사용자가 바로 시작할 수 있는 기본판을 만들어주세요.
+아래 Dearie 상태를 보고 사용자가 바로 시작할 수 있는 기본판을 만들어주세요.
 
 중요한 원칙:
 - 부모님 관여도, 종교, 문화, 언어, 가족사 같은 민감하거나 지나치게 개인적인 가정은 하지 마세요.

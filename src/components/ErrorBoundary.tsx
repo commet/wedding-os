@@ -16,7 +16,7 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     // 운영자 서버로는 보내지 않는다(프라이버시) — 콘솔에만 남긴다.
-    console.error("Wedding OS render error:", error, info.componentStack);
+    console.error("Dearie render error:", error, info.componentStack);
   }
 
   render() {

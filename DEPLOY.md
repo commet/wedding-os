@@ -18,7 +18,7 @@ Vercel 프로젝트 → Settings → Environment Variables (Production·Preview�
 | `VITE_SUPABASE_ANON_KEY` | (Supabase → Project Settings → API → anon public key) |
 | `BLOB_READ_WRITE_TOKEN` | (Vercel Blob 토큰 — 청첩장 발행/RSVP용, 이미 있으면 그대로) |
 | `CRON_SECRET` | 임의의 긴 문자열 (만료 청첩장 정리 cron 보호) |
-| `ANTHROPIC_API_KEY` | 로그인 사용자용 Wedding OS AI 서버 키 |
+| `ANTHROPIC_API_KEY` | 로그인 사용자용 Dearie AI 서버 키 |
 | `ANTHROPIC_MODEL` | 선택 · 일반 AI 작업 모델 (기본 `claude-haiku-4-5-20251001`) |
 | `ANTHROPIC_DEEP_MODEL` | 선택 · 중요한 초안/영상 작업 모델 (기본 `claude-sonnet-4-6`, deep quota 적용) |
 
@@ -33,7 +33,7 @@ Supabase 대시보드 → Authentication:
 - **Providers → Email**: 활성 (이미 켜져 있음 — 매직링크)
 - **Providers → Kakao / Google**: 이미 활성 (Sayu가 설정해둠). 그대로 사용.
 - **URL Configuration**:
-  - **Site URL**: 배포 도메인 (예: `https://wedding-os.vercel.app`)
+  - **Site URL**: 배포 도메인 (예: `https://withdearie.com`)
   - **Redirect URLs**에 추가 (이것이 없으면 로그인 왕복이 안 됨):
     - `http://localhost:5173/login`  (로컬 개발)
     - `https://<배포도메인>/login`  (프로덕션)
@@ -83,6 +83,6 @@ Supabase 대시보드 → Authentication:
 ## 알아둘 한계 / 후속
 
 - **간편 모드 실시간 동기화 없음** (RPC-only RLS) — 부부 편집은 새로고침/재진입 시 반영 + 충돌 안내 UI.
-- **남용 방지**: AI 발행은 로그인 세션, RSVP는 링크별 capability, API는 IP burst limit을 확인합니다. Wedding OS AI는 비로그인 체험을 IP·signed cookie·브라우저 trial id·공유망 보조 한도로 제한하고, 로그인 사용자는 사용자별 시간당 제한과 deep 모델 전용 제한을 추가 적용합니다. Vercel Firewall/BotID도 추가 방어로 켭니다.
+- **남용 방지**: AI 발행은 로그인 세션, RSVP는 링크별 capability, API는 IP burst limit을 확인합니다. Dearie AI는 비로그인 체험을 IP·signed cookie·브라우저 trial id·공유망 보조 한도로 제한하고, 로그인 사용자는 사용자별 시간당 제한과 deep 모델 전용 제한을 추가 적용합니다. Vercel Firewall/BotID도 추가 방어로 켭니다.
 - **암호문구 분실 = 로그인 복구 불가** (영지식 E2E의 대가). 복구 링크를 백업으로 안내.
 - sayu-db는 RLS 전수 잠금 완료. 남은 공개-쓰기는 Sayu 앱의 append성 테이블(views·worldcup·feedback)뿐 — 비민감.

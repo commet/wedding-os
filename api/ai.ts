@@ -1,5 +1,5 @@
 // POST /api/ai
-// 운영자 Anthropic 키를 서버 환경변수로만 사용해 Wedding OS AI를 실행한다.
+// 운영자 Anthropic 키를 서버 환경변수로만 사용해 Dearie AI를 실행한다.
 // 클라이언트에는 키를 절대 내려보내지 않는다.
 
 declare const process: { env: Record<string, string | undefined> };
@@ -76,7 +76,7 @@ async function handler(req: Request): Promise<Response> {
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return json({ error: "Wedding OS AI를 지금 사용할 수 없습니다. 잠시 후 다시 시도해주세요." }, 503);
+    return json({ error: "Dearie AI를 지금 사용할 수 없습니다. 잠시 후 다시 시도해주세요." }, 503);
   }
 
   let body: { prompt?: unknown; tier?: unknown; model?: unknown };

@@ -1,5 +1,5 @@
 ﻿// 사용자 클립보드 복사용 SQL 텍스트 (supabase/schema.sql 의 내용과 동일하게 유지할 것)
-const SchemaText = `-- Wedding OS — Supabase 셋업 SQL
+const SchemaText = `-- Dearie — Supabase 셋업 SQL
 -- ------------------------------------------------------------------
 -- 사용 방법:
 --   1) Supabase 프로젝트 만들기 → SQL Editor 열기

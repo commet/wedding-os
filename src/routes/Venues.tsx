@@ -383,7 +383,7 @@ export default function Venues({ data, update }: Props) {
                 </p>
                 <p className="mt-2 text-[12px] text-soft leading-relaxed">
                   {VENUE_PRICE_NOTE}<br />
-                  최신 확인일이 없는 항목은 출발점으로만 보고, 공식 채널에서 다시 확인하세요. Wedding OS는 식장과 제휴·광고 관계가 없습니다.
+                  최신 확인일이 없는 항목은 출발점으로만 보고, 공식 채널에서 다시 확인하세요. Dearie는 식장과 제휴·광고 관계가 없습니다.
                 </p>
               </div>
 

@@ -17,7 +17,7 @@ test.describe("dashboard visual smoke", () => {
     await page.goto("/dashboard");
     await page.waitForLoadState("networkidle");
 
-    await expect(page.getByText("준비 에이전트")).toBeVisible();
+    await expect(page.locator("#today-focus").getByText("Dearie")).toBeVisible();
     await expect(page.getByText("오늘의 첫 단계")).toBeVisible();
     await expect(page.getByText("private briefing")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "다음 할 일 정리하기 →" })).toHaveCount(0);
@@ -71,7 +71,7 @@ test.describe("dashboard visual smoke", () => {
   test("shows the couple exactly what guests see via a dedicated tab", async ({ page }) => {
     await seedVisualData(page, true);
     await page.goto("/invitation");
-    await page.getByRole("button", { name: "하객 시점" }).click();
+    await page.getByRole("button", { name: "하객 시점", exact: true }).click();
     // koBreak 가 NBSP로 단어를 잇기 때문에 안정적인 한 단어로 배너를 찾는다.
     const banner = page.getByText("하객에게는", { exact: false });
     await expect(banner).toBeVisible();
@@ -151,7 +151,7 @@ test.describe("dashboard visual smoke", () => {
     await page.goto("/");
 
     await expect(page.getByRole("heading", { name: "막막한 준비를 두 분의 순서로 바꿔드릴게요." })).toBeVisible();
-    await expect(page.getByRole("button", { name: "에이전트와 시작하기 →" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Dee와 시작하기 →" })).toBeVisible();
     await expect(page.getByText("약 2분")).toBeVisible();
     await expect(page.getByText("나중에 수정")).toBeVisible();
     await expect(page.getByText("자동 저장")).toBeVisible();
@@ -163,7 +163,7 @@ test.describe("dashboard visual smoke", () => {
     await seedVisualData(page, true);
     await page.goto("/dashboard");
 
-    await expect(page.getByText("영역별 현황")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "다음만 남기기" })).toBeVisible();
     await expect(page.getByText("Timeline")).toHaveCount(0);
     await expect(page.getByText("영역별 준비도")).toHaveCount(0);
     await expect(page.getByText("시작 후보 잡기")).toHaveCount(0);

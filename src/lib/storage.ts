@@ -127,14 +127,14 @@ export function downloadCorruptLocalBackup(): void {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `wedding-os-corrupt-backup-${new Date().toISOString().slice(0, 10)}.txt`;
+  anchor.download = `dearie-corrupt-backup-${new Date().toISOString().slice(0, 10)}.txt`;
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-/** 공용 기기 로그아웃/전체 삭제용: Wedding OS의 복호화된 로컬 흔적을 모두 제거한다. */
+/** 공용 기기 로그아웃/전체 삭제용: Dearie의 복호화된 로컬 흔적을 모두 제거한다. */
 export async function clearLocalDeviceData(): Promise<void> {
   await clearImageStore();
   const keys: string[] = [];
@@ -734,7 +734,7 @@ export async function exportData(data: WeddingData): Promise<void> {
   const blob = new Blob([JSON.stringify(sanitized, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  const name = `wedding-os-backup-${new Date().toISOString().split("T")[0]}.json`;
+  const name = `dearie-backup-${new Date().toISOString().split("T")[0]}.json`;
   a.href = url;
   a.download = name;
   document.body.appendChild(a);

@@ -1,4 +1,4 @@
--- Wedding OS — Supabase 셋업 SQL
+-- Dearie — Supabase 셋업 SQL
 -- ------------------------------------------------------------------
 -- 사용 방법:
 --   1) Supabase 프로젝트 만들기 → SQL Editor 열기

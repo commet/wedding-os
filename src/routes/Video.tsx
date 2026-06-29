@@ -226,7 +226,7 @@ export default function Video({ data, update }: Props) {
     if (!confirm(
       "🎬 자동 영상 녹화\n\n" +
       "1. 곧 '어떤 화면을 공유할까요?' 창이 떠요.\n" +
-      "2. '현재 탭' (또는 wedding-os 탭) 선택 + '탭 오디오 공유' 체크\n" +
+      "2. '현재 탭' (또는 Dearie 탭) 선택 + '탭 오디오 공유' 체크\n" +
       "3. 자동으로 영상이 재생되고 녹화돼요.\n" +
       "4. 영상 끝나면 WebM 파일이 자동 다운로드됩니다.\n\n" +
       "총 약 " + durationSec + "초. 시작할까요?"

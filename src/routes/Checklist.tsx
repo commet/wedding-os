@@ -259,7 +259,7 @@ export default function Checklist({ data, update }: Props) {
 
       {triageTimeline && (
         <div className="border-y border-hair py-3 text-[12px] leading-relaxed text-soft">
-          <span className="font-medium text-ink">WEDDY가 급한 것부터 접어뒀어요.</span>{" "}
+          <span className="font-medium text-ink">Dee가 급한 것부터 접어뒀어요.</span>{" "}
           각 묶음은 처음 {TRIAGE_LIMIT}개만 보이고, 검색하면 전체가 펼쳐집니다.
         </div>
       )}

@@ -986,8 +986,8 @@ function downloadIcs(inv: InvitationContent, date: Date) {
   const summary = `${inv.groomName || "신랑"} ♥ ${inv.brideName || "신부"} 결혼식`;
   const loc = [inv.venue, inv.venueHall, inv.venueAddress].filter(Boolean).join(", ");
   const ics = [
-    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Wedding OS//KR//", "BEGIN:VEVENT",
-    `UID:weddingos-${ymd(date)}@wedding-os`,
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Dearie//KR//", "BEGIN:VEVENT",
+    `UID:dearie-${ymd(date)}@withdearie.com`,
     `DTSTART;VALUE=DATE:${ymd(date)}`,
     `DTEND;VALUE=DATE:${ymd(next)}`,
     `SUMMARY:${esc(summary)}`,

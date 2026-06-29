@@ -91,7 +91,7 @@ export default function Share({ data, update }: Props) {
     const url = editorInviteUrl();
     if (navigator.share) {
       await navigator.share({
-        title: "Wedding OS 편집 초대",
+        title: "Dearie 편집 초대",
         text: "같이 결혼 준비를 편집할 수 있는 링크입니다. 하객에게는 보내지 마세요.",
         url,
       });
@@ -107,7 +107,7 @@ export default function Share({ data, update }: Props) {
       [inv.venue, inv.venueHall].filter(Boolean).join(" · "),
       inv.greeting,
     ].filter(Boolean).join("\n");
-    await navigator.share?.({ title: "Wedding OS", text });
+    await navigator.share?.({ title: "Dearie", text });
   };
   const backupDays = daysSince(data.preferences.lastBackupAt);
   const hasPublished = !!data.publish;

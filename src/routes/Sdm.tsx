@@ -350,7 +350,7 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
         <div className="py-5 border-t border-b border-hair text-[12px] text-soft leading-relaxed space-y-2">
           <p><b className="text-ink">지방 SDM은 실시간 후기와 담당자 확인이 더 중요해요.</b></p>
           <p>
-            Wedding OS에는 공식·반복 언급이 확인된 이름만 담습니다. 먼저{" "}
+            Dearie에는 공식·반복 언급이 확인된 이름만 담습니다. 먼저{" "}
             <b className="text-ink">{selectedRegionLabel} {CAT_LABEL[cat]} 후기</b>,{" "}
             <b className="text-ink">{selectedRegionLabel} 웨딩 {CAT_LABEL[cat]}</b>로 검색하고,
             결혼 카페의 지역 게시판에서 최근 6개월 후기를 확인하세요.

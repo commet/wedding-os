@@ -68,7 +68,7 @@ export default function Setup({ data, update }: Props) {
     pingStatus === "checking" ? "검사 중" : "대기";
   const continueSetup = () => setStep((current) => Math.min(5, current + 1));
   const setupAgentSummary = step < 4
-    ? "직접 저장소는 고급 흐름이에요. WEDDY는 먼저 이 셋업이 정말 필요한지 확인하고, 필요하다면 SQL과 키 입력 순서로 안내합니다."
+    ? "직접 저장소는 고급 흐름이에요. Dee는 먼저 이 셋업이 정말 필요한지 확인하고, 필요하다면 SQL과 키 입력 순서로 안내합니다."
     : pingStatus === "ok"
       ? "저장소 연결이 확인됐어요. 이제 백업과 사진 변환 뒤 실제 데이터를 저장하면 됩니다."
       : "아직 저장소 연결이 확인되지 않았어요. URL과 anon key를 검사한 뒤 마지막 배포 단계로 넘어가세요.";
@@ -224,7 +224,7 @@ export default function Setup({ data, update }: Props) {
           <h1 className="font-serif text-[2rem] leading-none">{koBreak("직접 저장소 셋업")}</h1>
         </div>
         <a
-          href={`mailto:yclee913@gmail.com?subject=${encodeURIComponent(`[Wedding OS] 셋업 ${step}단계 도움 요청`)}&body=${encodeURIComponent(`안녕하세요,\n\n셋업 ${step}단계에서 막혔어요. 다음 부분이 헷갈려요:\n\n[여기에 상황 적기]\n\n---\n현재 단계: ${step} / 5\n`)}`}
+          href={`mailto:yclee913@gmail.com?subject=${encodeURIComponent(`[Dearie] 셋업 ${step}단계 도움 요청`)}&body=${encodeURIComponent(`안녕하세요,\n\n셋업 ${step}단계에서 막혔어요. 다음 부분이 헷갈려요:\n\n[여기에 상황 적기]\n\n---\n현재 단계: ${step} / 5\n`)}`}
           className="text-[12px] text-soft underline underline-offset-4 hover:text-ink"
         >
           도움 받기 →

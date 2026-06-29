@@ -54,10 +54,12 @@ function injectOg(html: string, code: string, og: OgMeta, requestUrl: string): s
   const title = `${groom} ♥ ${bride} 결혼합니다`;
   const desc = dateStr ? `${dateStr} · 청첩장을 확인해주세요.` : "청첩장을 확인해주세요.";
   const image = new URL(`/api/og?code=${encodeURIComponent(code)}`, requestUrl).toString();
+  const pageUrl = new URL(`/i/${encodeURIComponent(code)}`, requestUrl).toString();
 
   const titleAttr = escapeHtmlAttr(title);
   const descAttr = escapeHtmlAttr(desc);
   const imageAttr = escapeHtmlAttr(image);
+  const pageUrlAttr = escapeHtmlAttr(pageUrl);
 
   // 정확한 정적 태그만 대체. 패턴이 안 맞으면 해당 항목은 원본 유지 — 안전한 폴백.
   return html
@@ -65,6 +67,10 @@ function injectOg(html: string, code: string, og: OgMeta, requestUrl: string): s
     .replace(
       /<meta property="og:title" content="[^"]*"/,
       `<meta property="og:title" content="${titleAttr}"`,
+    )
+    .replace(
+      /<meta property="og:url" content="[^"]*"/,
+      `<meta property="og:url" content="${pageUrlAttr}"`,
     )
     .replace(
       /<meta property="og:description" content="[^"]*"/,
@@ -85,6 +91,10 @@ function injectOg(html: string, code: string, og: OgMeta, requestUrl: string): s
     .replace(
       /<meta name="twitter:image" content="[^"]*"/,
       `<meta name="twitter:image" content="${imageAttr}"`,
+    )
+    .replace(
+      /<link rel="canonical" href="[^"]*" \/>/,
+      `<link rel="canonical" href="${pageUrlAttr}" />`,
     );
 }
 

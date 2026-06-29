@@ -1,4 +1,4 @@
-# wedding-os — 작업 계획서
+# Dearie — 작업 계획서
 
 > 한 도메인에서 결혼 준비 대시보드 + 모바일 청첩장 + 식전영상 에디터를 묶는다.
 > 비개발자도 자기 결혼식에 쓸 수 있고, 개발자는 AI로 자기 식대로 손볼 수 있다.
@@ -378,6 +378,6 @@ type Verifiable<T> = T & {
 - 본인이 운영하는 라이브 데모 사이트는 **모드 1 (localStorage)** 만 작동하도록.
   - 어떤 사용자 데이터도 본인 인프라에 닿지 않음
   - 모드 2/3은 안내·가이드만
-- 도메인 후보: `wedding-os.app`, `weddinghub.app`, `weddingkit.app`
-- 본인 라이브 데모는 `demo.weddinghub.app` 같은 식으로
+- 도메인 후보: `withdearie.app`, `withdearie.com`, `withdearie.kr`
+- 본인 라이브 데모는 `demo.withdearie.com` 같은 식으로
 - 이슈가 너무 많아지면 `https://github.com/commet/wedding-os/issues` 로 트래픽 라우팅

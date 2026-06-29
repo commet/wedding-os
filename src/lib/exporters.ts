@@ -80,15 +80,15 @@ function downloadCsv(rows: Row[], filename: string) {
 }
 
 export function downloadGuestCsv(data: WeddingData) {
-  downloadCsv(guestRows(data.guests ?? []), `wedding-os-guests-${today()}.csv`);
+  downloadCsv(guestRows(data.guests ?? []), `dearie-guests-${today()}.csv`);
 }
 
 export function downloadBudgetCsv(data: WeddingData) {
-  downloadCsv(budgetRows(data.budget ?? []), `wedding-os-budget-${today()}.csv`);
+  downloadCsv(budgetRows(data.budget ?? []), `dearie-budget-${today()}.csv`);
 }
 
 export function downloadChecklistCsv(data: WeddingData) {
-  downloadCsv(checklistRows(data.checklist), `wedding-os-checklist-${today()}.csv`);
+  downloadCsv(checklistRows(data.checklist), `dearie-checklist-${today()}.csv`);
 }
 
 export function downloadInvitationText(data: WeddingData) {
@@ -107,7 +107,7 @@ export function downloadInvitationText(data: WeddingData) {
     inv.bridePhone ? `신부 연락처: ${inv.bridePhone}` : "",
     inv.venueMapUrl ? `오시는 길: ${inv.venueMapUrl}` : "",
   ].filter((line) => line !== undefined).join("\n");
-  downloadTextFile(lines, `wedding-invitation-text-${today()}.txt`);
+  downloadTextFile(lines, `dearie-invitation-text-${today()}.txt`);
 }
 
 export async function copyInvitationText(data: WeddingData): Promise<boolean> {
@@ -138,7 +138,7 @@ export function downloadExcelWorkbook(data: WeddingData) {
     { title: "반지", rows: ringRows(data.rings) },
     { title: "신혼여행", rows: tripRows(data) },
   ];
-  const title = `${data.invitation.groomName || "Wedding"}-${data.invitation.brideName || "OS"}`;
+  const title = [data.invitation.groomName, data.invitation.brideName].filter(Boolean).join("-") || "Dearie";
   const html = `<!doctype html>
 <html>
 <head>
@@ -154,12 +154,12 @@ export function downloadExcelWorkbook(data: WeddingData) {
   </style>
 </head>
 <body>
-  <h1>Wedding OS 공유 파일</h1>
+  <h1>Dearie 공유 파일</h1>
   <div class="muted">${escapeHtml(title)} · ${today()} 생성 · Excel/Numbers에서 열 수 있는 HTML 워크북입니다.</div>
   ${sections.map(sectionToHtml).join("\n")}
 </body>
 </html>`;
-  downloadTextFile(html, `wedding-os-share-pack-${today()}.xls`, "application/vnd.ms-excel;charset=utf-8");
+  downloadTextFile(html, `dearie-share-pack-${today()}.xls`, "application/vnd.ms-excel;charset=utf-8");
 }
 
 export function downloadPrintableHtml(data: WeddingData) {
@@ -168,7 +168,7 @@ export function downloadPrintableHtml(data: WeddingData) {
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Wedding OS Print Pack</title>
+  <title>Dearie Print Pack</title>
   <style>
     @page { margin: 16mm; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; color: #1b1a17; line-height: 1.55; }
@@ -183,7 +183,7 @@ export function downloadPrintableHtml(data: WeddingData) {
 </head>
 <body>
   <h1>${escapeHtml(inv.groomName || "신랑")} · ${escapeHtml(inv.brideName || "신부")}</h1>
-  <div class="muted">${escapeHtml([formatWeddingDate(inv.date), inv.time, inv.venue].filter(Boolean).join(" · ") || "Wedding OS")}</div>
+  <div class="muted">${escapeHtml([formatWeddingDate(inv.date), inv.time, inv.venue].filter(Boolean).join(" · ") || "Dearie")}</div>
   <div class="summary">${escapeHtml(inv.greeting || "").replace(/\n/g, "<br />")}</div>
   ${sectionToHtml({ title: "이번 공유 요약", rows: summaryRows(data) })}
   ${sectionToHtml({ title: "하객 명단", rows: guestRows(data.guests ?? []).slice(0, 200) })}
@@ -191,7 +191,7 @@ export function downloadPrintableHtml(data: WeddingData) {
   ${sectionToHtml({ title: "체크리스트", rows: checklistRows(data.checklist) })}
 </body>
 </html>`;
-  downloadTextFile(html, `wedding-os-print-pack-${today()}.html`, "text/html;charset=utf-8");
+  downloadTextFile(html, `dearie-print-pack-${today()}.html`, "text/html;charset=utf-8");
 }
 
 export async function downloadInvitationImage(inv: InvitationContent) {
@@ -210,7 +210,7 @@ export async function downloadInvitationImage(inv: InvitationContent) {
   <text x="540" y="515" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif" font-size="34" fill="#403a32">${escapeXml(date || "날짜 미정")}</text>
   <text x="540" y="575" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif" font-size="30" fill="#81766a">${escapeXml(venue || "장소 미정")}</text>
   ${greeting.map((line, i) => `<text x="540" y="${730 + i * 52}" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif" font-size="32" fill="#403a32">${escapeXml(line)}</text>`).join("")}
-  <text x="540" y="1170" text-anchor="middle" font-family="Georgia, serif" font-size="28" fill="#9c7a3d">Wedding OS</text>
+  <text x="540" y="1170" text-anchor="middle" font-family="Georgia, serif" font-size="28" fill="#9c7a3d">Dearie</text>
 </svg>`;
 
   const image = new Image();
@@ -228,7 +228,7 @@ export async function downloadInvitationImage(inv: InvitationContent) {
   ctx.drawImage(image, 0, 0);
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png", 0.95));
   if (!blob) throw new Error("PNG를 만들 수 없어요");
-  downloadBlob(blob, `wedding-invitation-card-${today()}.png`);
+  downloadBlob(blob, `dearie-invitation-card-${today()}.png`);
 }
 
 function sectionToHtml(section: { title: string; rows: Row[] }) {
@@ -447,5 +447,5 @@ function escapeXml(value: Cell): string {
 
 export function sharePackName(data: WeddingData) {
   const names = [data.invitation.groomName, data.invitation.brideName].filter(Boolean).join("-");
-  return fileSafeName(names || "wedding-os");
+  return fileSafeName(names || "dearie");
 }
