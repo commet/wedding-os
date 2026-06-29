@@ -17,7 +17,7 @@ test.describe("dashboard visual smoke", () => {
     await page.goto("/dashboard");
     await page.waitForLoadState("networkidle");
 
-    await expect(page.locator("#today-focus").getByText("Dearie")).toBeVisible();
+    await expect(page.locator("#today-focus").getByText("Dearie", { exact: true })).toBeVisible();
     await expect(page.getByText("오늘의 첫 단계")).toBeVisible();
     await expect(page.getByText("private briefing")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "다음 할 일 정리하기 →" })).toHaveCount(0);
@@ -151,7 +151,7 @@ test.describe("dashboard visual smoke", () => {
     await page.goto("/");
 
     await expect(page.getByRole("heading", { name: "막막한 준비를 두 분의 순서로 바꿔드릴게요." })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Dee와 시작하기 →" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Dearie와 시작하기 →" })).toBeVisible();
     await expect(page.getByText("약 2분")).toBeVisible();
     await expect(page.getByText("나중에 수정")).toBeVisible();
     await expect(page.getByText("자동 저장")).toBeVisible();

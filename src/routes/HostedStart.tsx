@@ -156,7 +156,7 @@ export default function HostedStart({ data, update }: Props) {
         </h1>
         <ProcessAgentPanel
           title="편집 링크를 만들 준비를 하고 있어요"
-          summary="Dee가 현재 데이터를 온라인용으로 옮길 수 있는지 확인한 뒤, 둘이 같이 쓰는 복구·편집 링크를 만듭니다."
+          summary="Dearie가 현재 데이터를 온라인용으로 옮길 수 있는지 확인한 뒤, 둘이 같이 쓰는 복구·편집 링크를 만듭니다."
           mood="thinking"
           metrics={[
             { label: "로그인", value: "필요", tone: "warn" },

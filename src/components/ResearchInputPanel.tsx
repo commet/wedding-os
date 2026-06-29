@@ -42,7 +42,7 @@ type Props<T extends object> = {
 
 export default function ResearchInputPanel<T extends object>({
   title = "조사 입력",
-  subtitle = "붙여넣은 내용을 Dee가 사실 칸으로 나눠 초안을 채웁니다.",
+  subtitle = "붙여넣은 내용을 Dearie가 사실 칸으로 나눠 초안을 채웁니다.",
   rawPlaceholder,
   draft,
   sections,
@@ -109,7 +109,7 @@ export default function ResearchInputPanel<T extends object>({
             />
             <div className="flex flex-wrap items-center gap-3">
               <button type="button" onClick={runParse} className="btn-primary px-4 py-2 text-[12px]">
-                Dee가 초안 채우기
+                Dearie가 초안 채우기
               </button>
               {raw && (
                 <button

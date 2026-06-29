@@ -508,7 +508,7 @@ export default function Dashboard({ data, update }: Props) {
                 <h2 className="font-serif text-[1.625rem] leading-[1.4] text-ink break-keep">{primaryFocus.title}</h2>
                 <p className="mt-3 text-[15px] leading-[1.75] text-soft">{primaryFocus.desc}</p>
                 <Link to={primaryFocus.to} className="mt-5 inline-flex min-h-11 items-center border-b border-ink text-[12.5px] font-medium text-ink">
-                  Dee와 이 일 시작하기&nbsp; →
+                  Dearie와 이 일 시작하기&nbsp; →
                 </Link>
               </div>
             </div>
@@ -586,7 +586,7 @@ export default function Dashboard({ data, update }: Props) {
         {!agentChoosing && (
           <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-1">
             <button onClick={() => setAgentChoosing(true)} className="min-h-11 text-[12px] text-soft underline underline-offset-4 hover:text-ink">먼저 할 일 바꾸기</button>
-            <button data-testid="dashboard-ai-starter" onClick={openAiStarter} className="min-h-11 text-[12px] text-soft underline underline-offset-4 hover:text-ink">Dee에게 계획 다시 부탁하기</button>
+            <button data-testid="dashboard-ai-starter" onClick={openAiStarter} className="min-h-11 text-[12px] text-soft underline underline-offset-4 hover:text-ink">Dearie에게 계획 다시 부탁하기</button>
           </div>
         )}
       </section>

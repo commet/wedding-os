@@ -19,7 +19,7 @@ test.describe("critical product flows", () => {
     await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
     await page.reload();
 
-    await page.getByRole("button", { name: "Dee와 시작하기 →" }).click();
+    await page.getByRole("button", { name: "Dearie와 시작하기 →" }).click();
     await page.getByPlaceholder("예: 김민준").fill("김민준");
     await page.getByPlaceholder("예: 이서연").fill("이서연");
     await page.getByRole("button", { name: "계속 →" }).click();
@@ -32,7 +32,7 @@ test.describe("critical product flows", () => {
     await page.getByRole("button", { name: "이 순서로 준비 시작하기 →" }).click();
 
     await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(page.getByText("Dee · 정리 중").first()).toBeVisible();
+    await expect(page.getByText("Dearie · 정리 중").first()).toBeVisible();
     await expect(page.getByRole("heading", { name: "서울 강남구 예식장 후보 추리기" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "예상 하객은 어느 정도로 잡을까요?" })).toBeVisible();
     await page.getByRole("button", { name: /200명 안팎/ }).click();
@@ -44,7 +44,7 @@ test.describe("critical product flows", () => {
     expect(stored.invitation.groomName).toBe("김민준");
     expect(stored.invitation.brideName).toBe("이서연");
     expect(stored.checklist.length).toBeGreaterThan(0);
-    expect(stored.checklist.some((section) => section.title === "Dee의 첫 정리")).toBe(true);
+    expect(stored.checklist.some((section) => section.title === "Dearie의 첫 정리")).toBe(true);
     expect(stored.venues?.length).toBeGreaterThan(0);
     expect(stored.venues?.[0]?.notes).toContain("보증인원");
     expect(stored.budget?.length).toBeGreaterThan(0);
@@ -434,7 +434,7 @@ test.describe("critical product flows", () => {
       await storage.clearLocalDeviceData();
     });
     await expect(secondTab).toHaveURL(/\/$/);
-    await expect(secondTab.getByRole("button", { name: "Dee와 시작하기 →" })).toBeVisible();
+    await expect(secondTab.getByRole("button", { name: "Dearie와 시작하기 →" })).toBeVisible();
     expect(await secondTab.evaluate(() => localStorage.getItem("wedding-os/v1"))).toBeNull();
     await secondTab.close();
   });

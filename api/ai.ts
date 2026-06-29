@@ -103,9 +103,9 @@ async function handler(req: Request): Promise<Response> {
   // 운영자가 비용/품질 정책을 환경변수로만 바꾸며, deep tier 는 별도 quota 로 제한한다.
   const standardModel = process.env.ANTHROPIC_MODEL || DEFAULT_MODEL;
   const deepModel = process.env.ANTHROPIC_DEEP_MODEL || DEFAULT_DEEP_MODEL;
-  const useDeep = signedIn && tier === "deep" && !!deepModel;
-  const model = useDeep ? deepModel : standardModel;
-  const maxTokens = !signedIn ? TRIAL_MAX_TOKENS : useDeep ? DEEP_MAX_TOKENS : STANDARD_MAX_TOKENS;
+  const useAdvancedTierModel = signedIn && tier === "deep" && !!deepModel;
+  const model = useAdvancedTierModel ? deepModel : standardModel;
+  const maxTokens = !signedIn ? TRIAL_MAX_TOKENS : useAdvancedTierModel ? DEEP_MAX_TOKENS : STANDARD_MAX_TOKENS;
 
   let trialCookie: string | undefined;
   if (!signedIn) {
@@ -135,7 +135,7 @@ async function handler(req: Request): Promise<Response> {
     const userLimit = rateLimitByKey(req, "ai-user-hour", auth.userId!, 24, 60 * 60_000);
     if (userLimit) return userLimit;
   }
-  if (useDeep) {
+  if (useAdvancedTierModel) {
     const deepUserLimit = rateLimitByKey(req, "ai-deep-user-hour", auth.userId!, 2, 60 * 60_000);
     if (deepUserLimit) return deepUserLimit;
     const deepIpLimit = rateLimit(req, "ai-deep-ip-hour", 5, 60 * 60_000);

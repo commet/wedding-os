@@ -285,11 +285,11 @@ function AgentActionDock({ status, currentPath }: { status: PlanningSectionStatu
       <Link
         to={status.to}
         className="row-tap flex min-h-10 items-center justify-between gap-3 px-1"
-        aria-label="Dee 다음 작업으로 이동"
-        title={`Dee 다음 작업: ${status.nextAction}`}
+        aria-label="Dearie 다음 작업으로 이동"
+        title={`Dearie 다음 작업: ${status.nextAction}`}
       >
         <span className="flex min-w-0 items-baseline gap-2">
-          <span className="text-[10.5px] tracking-eyebrow uppercase text-gold font-semibold">Dee</span>
+          <span className="text-[10.5px] tracking-eyebrow uppercase text-gold font-semibold">Dearie</span>
           <span className={`hidden text-[10.5px] tracking-eyebrow uppercase font-medium sm:inline ${tone}`}>{isHere ? "이 화면" : stateLabel}</span>
           <span className="truncate text-[13.5px] font-semibold text-ink">
             {status.nextAction}

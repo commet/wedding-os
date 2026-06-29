@@ -55,7 +55,7 @@ export function buildAgentDraft(current: WeddingData, answers: AgentAnswers): We
         {
           id: `agent-first-${Date.now()}`,
           icon: "AI",
-          title: "Dee의 첫 정리",
+          title: "Dearie의 첫 정리",
           items: starterChecklist,
         },
         ...nextChecklist,

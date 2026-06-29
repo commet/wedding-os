@@ -122,7 +122,7 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
               <span className="px-2">나중에 수정</span>
               <span className="px-2">자동 저장</span>
             </div>
-            <AgentPrimary onClick={next}>Dee와 시작하기</AgentPrimary>
+            <AgentPrimary onClick={next}>Dearie와 시작하기</AgentPrimary>
             <div className="mt-5 flex justify-center gap-6">
               <button onClick={onDemo} className="min-h-11 text-[13px] text-soft underline underline-offset-2">완성 예시 보기</button>
               <button onClick={onAdvanced} className="min-h-11 text-[13px] text-soft underline underline-offset-2">고급 저장 설정</button>

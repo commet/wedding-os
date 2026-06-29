@@ -68,7 +68,7 @@ export default function Setup({ data, update }: Props) {
     pingStatus === "checking" ? "검사 중" : "대기";
   const continueSetup = () => setStep((current) => Math.min(5, current + 1));
   const setupAgentSummary = step < 4
-    ? "직접 저장소는 고급 흐름이에요. Dee는 먼저 이 셋업이 정말 필요한지 확인하고, 필요하다면 SQL과 키 입력 순서로 안내합니다."
+    ? "직접 저장소는 고급 흐름이에요. Dearie는 먼저 이 셋업이 정말 필요한지 확인하고, 필요하다면 SQL과 키 입력 순서로 안내합니다."
     : pingStatus === "ok"
       ? "저장소 연결이 확인됐어요. 이제 백업과 사진 변환 뒤 실제 데이터를 저장하면 됩니다."
       : "아직 저장소 연결이 확인되지 않았어요. URL과 anon key를 검사한 뒤 마지막 배포 단계로 넘어가세요.";

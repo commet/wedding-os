@@ -48,7 +48,7 @@ export default function ProcessAgentPanel({
     <section className="border-y border-hair py-4 text-left">
       <div className="space-y-2">
         <div className="flex items-baseline justify-between gap-3">
-          <div className="eyebrow-gold">Dee</div>
+          <div className="eyebrow-gold">Dearie</div>
           {previewMetrics.length > 0 && (
             <div className="flex min-w-0 flex-wrap justify-end gap-x-3 gap-y-1 text-[12px] font-medium text-soft">
               {previewMetrics.map((metric) => (

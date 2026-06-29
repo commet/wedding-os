@@ -960,7 +960,7 @@ function HotelResearchInput({
   return (
     <ResearchInputPanel
       title="조사 입력"
-      subtitle="숙소 가격·출처·조건을 Dee가 정리합니다."
+      subtitle="숙소 가격·출처·조건을 Dearie가 정리합니다."
       rawPlaceholder={
         "예: 아고다 1박 45만원 / 조식 포함 / 무료취소 7일 전 / 리조트피 별도 / 확인일 2026.06.29 / 출처 URL"
       }
