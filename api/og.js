@@ -1,9 +1,11 @@
 // Dynamic OG image for Dearie invitation links.
-// Kept as CommonJS because Vercel's Node function loader executes this route as CJS.
+// Written without JSX so Vercel can load the Node function as an ES module.
 
-const React = require("react");
-const { ImageResponse } = require("@vercel/og");
-const { get: blobGet } = require("@vercel/blob");
+import React from "react";
+import { ImageResponse } from "@vercel/og";
+import { get as blobGet } from "@vercel/blob";
+
+export const config = { runtime: "nodejs" };
 
 const h = React.createElement;
 
@@ -188,7 +190,7 @@ function ogTree({ groom, bride, dateStr, time, venue, heroImage, labelText }) {
   );
 }
 
-async function handler(req) {
+export default async function handler(req) {
   const code = new URL(req.url).searchParams.get("code") || "";
   let invitation = null;
   if (/^[a-z0-9]{6,16}$/.test(code)) {
@@ -229,6 +231,3 @@ async function handler(req) {
     }
   );
 }
-
-module.exports = handler;
-module.exports.config = { runtime: "nodejs" };
