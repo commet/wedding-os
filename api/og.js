@@ -89,6 +89,12 @@ function formatDate(iso) {
   return `${date.getFullYear()}. ${date.getMonth() + 1}. ${date.getDate()}. (${days[date.getDay()]})`;
 }
 
+function getRequestUrl(req) {
+  const hostHeader = req.headers?.host;
+  const host = Array.isArray(hostHeader) ? hostHeader[0] : hostHeader || "withdearie.com";
+  return new URL(req.url || "/api/og", `https://${host}`);
+}
+
 function imageCard(heroImage) {
   if (!heroImage || !/^https?:\/\//.test(heroImage)) return null;
   return h(
@@ -191,7 +197,7 @@ function ogTree({ groom, bride, dateStr, time, venue, heroImage, labelText }) {
 }
 
 export default async function handler(req) {
-  const code = new URL(req.url).searchParams.get("code") || "";
+  const code = getRequestUrl(req).searchParams.get("code") || "";
   let invitation = null;
   if (/^[a-z0-9]{6,16}$/.test(code)) {
     invitation = await loadFromBlob(code);
