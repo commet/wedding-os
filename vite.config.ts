@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      // /api/og 같은 Vercel edge fn 은 빌드 산출물에 없음 — service worker 가 가로채지 않게 정확히.
+      // /api/og 같은 Vercel function 은 빌드 산출물에 없음 — service worker 가 가로채지 않게 정확히.
       registerType: "autoUpdate",
       // 새 버전 배포 시 즉시 클라이언트로 가져오기 (사용자가 한참 옛 셸 잡고 도는 사고 방지)
       includeAssets: ["favicon.svg", "og.svg"],
@@ -37,7 +37,7 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api\//, /^\/i\//],
         runtimeCaching: [
           {
-            // /api/* (Vercel Edge Functions, 예: og) — 항상 네트워크. SW 가 가로채 캐시하면 OG 가 깨짐.
+            // /api/* (Vercel Functions, 예: og) — 항상 네트워크. SW 가 가로채 캐시하면 OG 가 깨짐.
             urlPattern: ({ url }) => url.pathname.startsWith("/api/"),
             handler: "NetworkOnly",
           },

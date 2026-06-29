@@ -88,7 +88,7 @@ src/
     giftCatalog.ts           답례품/선물 카탈로그
     videoTemplates.ts        식전영상 템플릿
 api/
-  og.tsx                     Vercel Edge Function — 카톡 공유용 동적 OG 이미지
+  og.js                      Vercel Node Function — 카톡 공유용 동적 OG 이미지
 supabase/
   schema.sql                 사용자가 자기 DB에 돌릴 SQL
 ```

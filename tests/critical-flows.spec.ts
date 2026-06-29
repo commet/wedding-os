@@ -516,10 +516,10 @@ test.describe("critical product flows", () => {
     const authSource = fs.readFileSync("src/lib/auth.ts", "utf8");
     expect(authSource).toContain("replaceExisting?: boolean");
     expect(authSource).toContain("이미 연결된 청첩장이 있어요");
-    for (const dynamicInvitePath of ["api/invite-payload.ts", "api/serve-invite.ts", "api/og.tsx"]) {
+    for (const dynamicInvitePath of ["api/invite-payload.ts", "api/serve-invite.ts", "api/og.js"]) {
       expect(fs.readFileSync(dynamicInvitePath, "utf8")).toContain("no-store");
     }
-    const ogSource = fs.readFileSync("api/og.tsx", "utf8");
+    const ogSource = fs.readFileSync("api/og.js", "utf8");
     expect(ogSource).toContain("/rest/v1/rpc/get_public_invitation");
     expect(ogSource).toContain("heroImageUrl: og.heroImageUrl");
     expect(ogSource).not.toContain("/rest/v1/wedding_data");
