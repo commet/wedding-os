@@ -513,11 +513,12 @@ function VenueStarter({
                 {[venue.region, venue.hallType ? HALL_TYPE_LABEL[venue.hallType] : undefined, venue.foodType ? FOOD_TYPE_LABEL[venue.foodType] : undefined].filter(Boolean).join(" · ")}
               </div>
               <div className="eyebrow mt-2">
-                하객 {venue.capacityMin ?? "?"}~{venue.capacityMax ?? "?"}명
+                하객 {formatCapacity(venue)}
                 {(venue.mealPriceMin || venue.mealPriceMax) && (
                   <span> · 식대 {fmtMan(venue.mealPriceMin)}~{fmtMan(venue.mealPriceMax)}만원</span>
                 )}
               </div>
+              <div className="text-[11px] text-soft mt-1">{venueSourceLabel(venue)}</div>
             </div>
           </div>
         ))}
@@ -633,6 +634,7 @@ function VenueMapExplorer({
               {selected.region && <span>{selected.region}</span>}
               {selected.hallType && <span>· {HALL_TYPE_LABEL[selected.hallType]}</span>}
             </div>
+            <div className="text-[11px] text-soft mt-1">{venueSourceLabel(selected)}</div>
           </div>
           <button
             onClick={() => onAdd(selected)}
@@ -717,12 +719,13 @@ function CatalogRow({ v, added, onAdd }: { v: WeddingVenue; added: boolean; onAd
           </div>
           <div className="text-[12px] text-soft mt-1.5 tabular-nums">
             {(v.capacityMin || v.capacityMax) && (
-              <>하객 {v.capacityMin ?? "?"}~{v.capacityMax ?? "?"}명 </>
+              <>하객 {formatCapacity(v)} </>
             )}
             {(v.mealPriceMin || v.mealPriceMax) && (
               <span>· 식대 {fmtMan(v.mealPriceMin)}~{fmtMan(v.mealPriceMax)}만원</span>
             )}
           </div>
+          <div className="text-[11px] text-soft mt-1">{venueSourceLabel(v)}</div>
           {v.notes && (
             <div className="text-[12px] text-soft mt-1 italic leading-relaxed">{v.notes}</div>
           )}
@@ -961,13 +964,14 @@ function VenueCompare({ venues }: { venues: WeddingVenue[] }) {
     {
       label: "수용 인원",
       get: (v) =>
-        v.capacityMin || v.capacityMax ? `${v.capacityMin ?? "?"}~${v.capacityMax ?? "?"}명` : "—",
+        v.capacityMin || v.capacityMax ? formatCapacity(v) : "—",
     },
     {
       label: "식대",
       get: (v) =>
         v.mealPriceMin || v.mealPriceMax ? `${fmtMan(v.mealPriceMin)}~${fmtMan(v.mealPriceMax)}만` : "—",
     },
+    { label: "출처", get: venueSourceLabel },
     { label: "상태", get: (v) => v.status || "—" },
     { label: "답사일", get: (v) => v.visitedAt || "—" },
     { label: "계약 체크", get: (v) => contractProgress(v.contract) },
@@ -1108,6 +1112,30 @@ function dDayLabel(daysLeft: number): string {
 function fmtMan(n?: number): string {
   if (!n) return "?";
   return Math.round(n / 10000).toString();
+}
+
+function formatCapacity(v: WeddingVenue): string {
+  const min = v.capacityMin;
+  const max = v.capacityMax;
+  if (min && max) return min === max ? `${max}명` : `${min}~${max}명`;
+  if (max) return `최대 ${max}명`;
+  if (min) return `${min}명 이상`;
+  return "직접 확인";
+}
+
+function venueSourceLabel(v: WeddingVenue): string {
+  const hasCapacity = Boolean(v.capacityMin || v.capacityMax);
+  const capacity =
+    v.capacitySource === "official" ? "수용 공식"
+    : v.capacitySource === "mixed" ? "수용 일부 공식"
+    : v.capacitySource === "estimate" ? "수용 추정"
+    : hasCapacity ? "수용 추정"
+    : "수용 직접 확인";
+  const meal =
+    v.mealPriceSource === "official" ? "식대 공식"
+    : v.mealPriceSource === "estimate" || v.mealPriceMin || v.mealPriceMax ? "식대 추정"
+    : "식대 직접 확인";
+  return `${capacity} · ${meal}`;
 }
 
 // 금액 입력 파싱 (원 단위) — 빈 칸은 undefined, "0"은 0 유지, 음수·비정상값은 거부.
