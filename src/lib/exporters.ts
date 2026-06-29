@@ -394,6 +394,8 @@ function tripRows(data: WeddingData): Row[] {
       일정: `${f.departAt ?? ""} / ${f.arriveAt ?? ""}`,
       예산: "",
       가격: f.priceKRW,
+      확인일: f.lastVerified,
+      출처: f.source,
       메모: f.notes,
     })),
     ...data.hotels.map((h) => ({
@@ -403,6 +405,8 @@ function tripRows(data: WeddingData): Row[] {
       일정: "",
       예산: "",
       가격: h.rooms?.[0]?.pricePerNight ?? h.otaPrices?.[0]?.price,
+      확인일: h.lastVerified,
+      출처: h.source,
       메모: h.notes,
     })),
   ];

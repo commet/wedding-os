@@ -13,6 +13,7 @@ import FreshnessBadge from "../components/FreshnessBadge";
 import Modal from "../components/Modal";
 import MapEmbed from "../components/MapEmbed";
 import ChatbotBridgeModal from "../components/ChatbotBridgeModal";
+import ResearchInputPanel, { type ResearchSection } from "../components/ResearchInputPanel";
 import {
   flightSearchPrompt,
   hotelPriceCheckPrompt,
@@ -21,11 +22,57 @@ import {
 import { todayISO } from "../lib/freshness";
 import { koBreak } from "../lib/typography";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
+import { safeHref } from "../lib/security";
+import {
+  emptyFlightResearchDraft,
+  emptyHotelResearchDraft,
+  flightResearchDraftToPatch,
+  hotelResearchDraftToPatch,
+  parseFlightResearchText,
+  parseHotelResearchText,
+  type FlightResearchDraft,
+  type HotelResearchDraft,
+} from "../lib/researchCapture";
 
 type Props = { data: WeddingData; update: (patch: any) => void };
 type Tab = "destinations" | "flights" | "stays";
 type TripMood = "rest" | "balanced" | "active" | "short";
 type TripBudget = "value" | "mid" | "luxury";
+
+const FLIGHT_RESEARCH_SECTIONS: ResearchSection<FlightResearchDraft>[] = [
+  {
+    title: "항공편",
+    helper: "검색 결과에서 확정적으로 보이는 값만 옮겨요.",
+    fields: [
+      { key: "airline", label: "항공사", span: "half", placeholder: "예: 대한항공" },
+      { key: "flightNumber", label: "편명", span: "half", placeholder: "예: KE629" },
+      { key: "from", label: "출발", span: "half", placeholder: "ICN" },
+      { key: "to", label: "도착", span: "half", placeholder: "DPS" },
+      { key: "departAt", label: "출발 일시", placeholder: "2026-06-29 17:50" },
+      { key: "arriveAt", label: "도착 일시", placeholder: "2026-06-29 23:55" },
+      { key: "priceKRW", label: "가격", kind: "number", span: "half", inputMode: "numeric", placeholder: "780000" },
+      { key: "lastVerified", label: "확인일", kind: "date", span: "half" },
+      { key: "source", label: "출처·근거", placeholder: "항공사, OTA, 검색 결과 링크" },
+      { key: "notes", label: "메모", kind: "textarea", placeholder: "직항/경유, 수하물, 환불, 좌석 조건" },
+    ],
+  },
+];
+
+const HOTEL_RESEARCH_SECTIONS: ResearchSection<HotelResearchDraft>[] = [
+  {
+    title: "숙소",
+    helper: "OTA 가격은 변동이 커서 확인일과 출처를 같이 남겨요.",
+    fields: [
+      { key: "name", label: "숙소 이름", placeholder: "예: Four Seasons Resort Bali" },
+      { key: "location", label: "지역", span: "half", placeholder: "예: 발리 우붓" },
+      { key: "ota", label: "예약처", span: "half", placeholder: "예: 아고다" },
+      { key: "pricePerNight", label: "1박 가격", kind: "number", span: "half", inputMode: "numeric", placeholder: "450000" },
+      { key: "lastVerified", label: "확인일", kind: "date", span: "half" },
+      { key: "source", label: "출처·예약 링크", placeholder: "OTA 상세 페이지 또는 공식 사이트" },
+      { key: "notes", label: "메모", kind: "textarea", placeholder: "조식, 취소조건, 세금·리조트피, 룸타입" },
+    ],
+  },
+];
 
 export default function Trip({ data, update }: Props) {
   const [searchParams] = useSearchParams();
@@ -128,6 +175,21 @@ function TabBtn({ active, onClick, children }: any) {
     <button onClick={onClick} className={`tracking-wide ${active ? "seg-active" : "seg"}`}>
       {children}
     </button>
+  );
+}
+
+function SourceLink({ source }: { source?: string }) {
+  const href = safeHref(source);
+  if (!href) return null;
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-[11.5px] text-gold underline underline-offset-4 hover:text-ink"
+    >
+      출처 ↗
+    </a>
   );
 }
 
@@ -532,6 +594,12 @@ function Flights({ data, update }: Props) {
   const remove = (id: string) =>
     update((prev: WeddingData) => ({ ...prev, flights: prev.flights.filter((f) => f.id !== id) }));
 
+  const updateFlight = (id: string, patch: Partial<Flight>) =>
+    update((prev: WeddingData) => ({
+      ...prev,
+      flights: prev.flights.map((flight) => (flight.id === id ? { ...flight, ...patch } : flight)),
+    }));
+
   return (
     <div className="space-y-10">
       <section className="space-y-4">
@@ -583,6 +651,12 @@ function Flights({ data, update }: Props) {
                   <span className="font-serif text-lg text-ink tabular-nums">{f.priceKRW ? `${f.priceKRW.toLocaleString()}원` : <span className="text-soft text-sm">가격 미정</span>}</span>
                   <FreshnessBadge lastVerified={f.lastVerified} />
                 </div>
+                <div className="mt-1">
+                  <SourceLink source={f.source} />
+                </div>
+                <div className="mt-3">
+                  <FlightResearchInput flight={f} onUpdate={(patch) => updateFlight(f.id, patch)} />
+                </div>
               </div>
             ))}
           </div>
@@ -611,32 +685,64 @@ function Flights({ data, update }: Props) {
   );
 }
 
+function FlightResearchInput({
+  flight,
+  onUpdate,
+  defaultOpen = false,
+  applyLabel,
+}: {
+  flight?: Partial<Flight>;
+  onUpdate: (patch: Partial<Flight>) => void;
+  defaultOpen?: boolean;
+  applyLabel?: string;
+}) {
+  const [draft, setDraft] = useState<FlightResearchDraft>(() => emptyFlightResearchDraft(flight));
+  return (
+    <ResearchInputPanel
+      title="조사 입력"
+      subtitle="항공권 검색 결과를 가격·출처·일정으로 정리합니다."
+      rawPlaceholder={
+        "예: KE629 / ICN → DPS / 2026-06-29 17:50 출발 / 왕복 78만원 / 수하물 포함 / 확인일 2026.06.29 / 출처 URL"
+      }
+      draft={draft}
+      sections={FLIGHT_RESEARCH_SECTIONS}
+      onDraftChange={setDraft}
+      onParse={parseFlightResearchText}
+      onApply={() => onUpdate(flightResearchDraftToPatch(draft))}
+      applyLabel={applyLabel}
+      defaultOpen={defaultOpen}
+    />
+  );
+}
+
 function FlightAddForm({ onAdd }: { onAdd: (f: Flight) => void }) {
-  const [form, setForm] = useState({ airline: "", flightNumber: "", from: "", to: "", departAt: "", priceKRW: "" });
+  const [draft, setDraft] = useState<FlightResearchDraft>(() => emptyFlightResearchDraft());
+  const submit = () => {
+    const patch = flightResearchDraftToPatch(draft);
+    if (!patch.airline?.trim()) return;
+    onAdd({
+      id: `flight-${Date.now()}`,
+      airline: patch.airline,
+      ...patch,
+    });
+    setDraft(emptyFlightResearchDraft());
+  };
   return (
     <div className="space-y-3">
-      <input className="input text-sm" placeholder="항공사" value={form.airline} onChange={(e) => setForm({ ...form, airline: e.target.value })} />
-      <input className="input text-sm" placeholder="편명" value={form.flightNumber} onChange={(e) => setForm({ ...form, flightNumber: e.target.value })} />
-      <div className="grid grid-cols-2 gap-2">
-        <input className="input text-sm" placeholder="출발 (ICN)" value={form.from} onChange={(e) => setForm({ ...form, from: e.target.value })} />
-        <input className="input text-sm" placeholder="도착 (DPS)" value={form.to} onChange={(e) => setForm({ ...form, to: e.target.value })} />
-      </div>
-      <input className="input text-sm" type="date" aria-label="출발 날짜" value={form.departAt} onChange={(e) => setForm({ ...form, departAt: e.target.value })} />
-      <input className="input text-sm" type="number" placeholder="가격 (원)" value={form.priceKRW} onChange={(e) => setForm({ ...form, priceKRW: e.target.value })} />
-      <button
-        className="btn-primary w-full"
-        onClick={() => {
-          if (!form.airline.trim()) return;
-          onAdd({
-            id: `flight-${Date.now()}`,
-            ...form,
-            priceKRW: form.priceKRW ? Number(form.priceKRW) : undefined,
-            lastVerified: todayISO(),
-          });
-        }}
-      >
-        추가
-      </button>
+      <ResearchInputPanel
+        title="조사 입력"
+        subtitle="항공권 검색 결과를 붙여넣어 후보로 저장합니다."
+        rawPlaceholder={
+          "예: KE629 / ICN → DPS / 2026-06-29 17:50 출발 / 왕복 78만원 / 수하물 포함 / 출처 URL"
+        }
+        draft={draft}
+        sections={FLIGHT_RESEARCH_SECTIONS}
+        onDraftChange={setDraft}
+        onParse={parseFlightResearchText}
+        onApply={submit}
+        applyLabel="항공편 추가 →"
+        defaultOpen
+      />
     </div>
   );
 }
@@ -651,6 +757,12 @@ function Stays({ data, update }: Props) {
 
   const remove = (id: string) =>
     update((prev: WeddingData) => ({ ...prev, hotels: prev.hotels.filter((h) => h.id !== id) }));
+
+  const updateHotel = (id: string, patch: Partial<Hotel>) =>
+    update((prev: WeddingData) => ({
+      ...prev,
+      hotels: prev.hotels.map((hotel) => (hotel.id === id ? { ...hotel, ...patch } : hotel)),
+    }));
 
   const openPriceBridge = (hotel: Hotel) => {
     setBridge({ prompt: hotelPriceCheckPrompt(hotel.name), hotelId: hotel.id });
@@ -742,6 +854,12 @@ function Stays({ data, update }: Props) {
                 <div className="mt-2">
                   <FreshnessBadge lastVerified={hotel.lastVerified} onClickCheck={() => openPriceBridge(hotel)} />
                 </div>
+                <div className="mt-1">
+                  <SourceLink source={hotel.source} />
+                </div>
+                <div className="mt-3">
+                  <HotelResearchInput hotel={hotel} onUpdate={(patch) => updateHotel(hotel.id, patch)} />
+                </div>
                 <button onClick={() => setEditing(hotel)} className="text-[12px] text-ink underline underline-offset-4 hover:text-gold mt-3">
                   OTA 가격 보기/편집 ({hotel.otaPrices?.length ?? 0}) →
                 </button>
@@ -825,19 +943,64 @@ function Stays({ data, update }: Props) {
   );
 }
 
+function HotelResearchInput({
+  hotel,
+  onUpdate,
+  defaultOpen = false,
+  applyLabel,
+}: {
+  hotel?: Partial<Hotel>;
+  onUpdate: (patch: Partial<Hotel>) => void;
+  defaultOpen?: boolean;
+  applyLabel?: string;
+}) {
+  const [draft, setDraft] = useState<HotelResearchDraft>(() => emptyHotelResearchDraft(hotel));
+  return (
+    <ResearchInputPanel
+      title="조사 입력"
+      subtitle="숙소 가격·출처·조건을 WEDDY가 정리합니다."
+      rawPlaceholder={
+        "예: 아고다 1박 45만원 / 조식 포함 / 무료취소 7일 전 / 리조트피 별도 / 확인일 2026.06.29 / 출처 URL"
+      }
+      draft={draft}
+      sections={HOTEL_RESEARCH_SECTIONS}
+      onDraftChange={setDraft}
+      onParse={parseHotelResearchText}
+      onApply={() => onUpdate(hotelResearchDraftToPatch(draft, hotel))}
+      applyLabel={applyLabel}
+      defaultOpen={defaultOpen}
+    />
+  );
+}
+
 function HotelAddForm({ onAdd }: { onAdd: (h: Hotel) => void }) {
-  const [name, setName] = useState("");
-  const [location, setLocation] = useState("");
+  const [draft, setDraft] = useState<HotelResearchDraft>(() => emptyHotelResearchDraft());
+  const submit = () => {
+    const patch = hotelResearchDraftToPatch(draft);
+    if (!patch.name?.trim()) return;
+    onAdd({
+      id: `hotel-${Date.now()}`,
+      name: patch.name,
+      ...patch,
+    });
+    setDraft(emptyHotelResearchDraft());
+  };
   return (
     <div className="space-y-3">
-      <input className="input text-sm" placeholder="호텔 이름" value={name} onChange={(e) => setName(e.target.value)} />
-      <input className="input text-sm" placeholder="지역" value={location} onChange={(e) => setLocation(e.target.value)} />
-      <button
-        className="btn-primary w-full"
-        onClick={() => name.trim() && onAdd({ id: `hotel-${Date.now()}`, name: name.trim(), location: location.trim() || undefined })}
-      >
-        추가
-      </button>
+      <ResearchInputPanel
+        title="조사 입력"
+        subtitle="OTA나 공식 사이트에서 확인한 숙소 정보를 저장합니다."
+        rawPlaceholder={
+          "예: 호텔 Four Seasons Resort Bali / 지역 발리 우붓 / 아고다 1박 45만원 / 조식 포함 / 출처 URL"
+        }
+        draft={draft}
+        sections={HOTEL_RESEARCH_SECTIONS}
+        onDraftChange={setDraft}
+        onParse={parseHotelResearchText}
+        onApply={submit}
+        applyLabel="숙소 추가 →"
+        defaultOpen
+      />
     </div>
   );
 }

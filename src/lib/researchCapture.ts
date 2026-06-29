@@ -1,5 +1,8 @@
 import type {
   ContractCheck,
+  Flight,
+  Hotel,
+  Ring,
   SdmVendor,
   VenueFoodType,
   VenueHallType,
@@ -39,6 +42,40 @@ export type SdmResearchDraft = {
   included?: string;
   extras?: string;
   evidence?: string;
+};
+
+export type RingResearchDraft = {
+  brand?: string;
+  model?: string;
+  material?: string;
+  priceKRW?: number;
+  source?: string;
+  lastVerified?: string;
+  imageUrl?: string;
+  notes?: string;
+};
+
+export type FlightResearchDraft = {
+  airline?: string;
+  flightNumber?: string;
+  from?: string;
+  to?: string;
+  departAt?: string;
+  arriveAt?: string;
+  priceKRW?: number;
+  source?: string;
+  lastVerified?: string;
+  notes?: string;
+};
+
+export type HotelResearchDraft = {
+  name?: string;
+  location?: string;
+  ota?: string;
+  pricePerNight?: number;
+  source?: string;
+  lastVerified?: string;
+  notes?: string;
 };
 
 type Range = { min?: number; max?: number };
@@ -84,6 +121,49 @@ export function emptySdmResearchDraft(vendor?: Partial<SdmVendor>): SdmResearchD
   };
 }
 
+export function emptyRingResearchDraft(ring?: Partial<Ring>): RingResearchDraft {
+  return {
+    brand: ring?.brand,
+    model: ring?.model,
+    material: ring?.material,
+    priceKRW: ring?.priceKRW,
+    source: ring?.source,
+    lastVerified: ring?.lastVerified,
+    imageUrl: ring?.imageUrl,
+    notes: ring?.notes,
+  };
+}
+
+export function emptyFlightResearchDraft(flight?: Partial<Flight>): FlightResearchDraft {
+  return {
+    airline: flight?.airline,
+    flightNumber: flight?.flightNumber,
+    from: flight?.from,
+    to: flight?.to,
+    departAt: flight?.departAt,
+    arriveAt: flight?.arriveAt,
+    priceKRW: flight?.priceKRW,
+    source: flight?.source,
+    lastVerified: flight?.lastVerified,
+    notes: flight?.notes,
+  };
+}
+
+export function emptyHotelResearchDraft(hotel?: Partial<Hotel>): HotelResearchDraft {
+  const cheapest = [...(hotel?.otaPrices ?? [])]
+    .filter((price) => typeof price.price === "number")
+    .sort((a, b) => (a.price ?? 0) - (b.price ?? 0))[0];
+  return {
+    name: hotel?.name,
+    location: hotel?.location,
+    ota: cheapest?.ota,
+    pricePerNight: cheapest?.price,
+    source: hotel?.source ?? cheapest?.url,
+    lastVerified: hotel?.lastVerified,
+    notes: hotel?.notes,
+  };
+}
+
 export function parseVenueResearchText(raw: string): Partial<VenueResearchDraft> {
   const source = extractFirstUrl(raw) ?? labeledValue(raw, ["출처", "근거", "링크", "홈페이지"]);
   const capacity = parsePeopleRange(raw);
@@ -124,6 +204,48 @@ export function parseSdmResearchText(raw: string): Partial<SdmResearchDraft> {
   });
 }
 
+export function parseRingResearchText(raw: string): Partial<RingResearchDraft> {
+  const price = firstMoney(matchingLines(raw, ["가격", "견적", "판매가", "정가", "할인", "원", "만원"], 4), 50_000, 50_000_000);
+  return compactObject<RingResearchDraft>({
+    brand: labeledValue(raw, ["브랜드", "매장", "샵"]),
+    model: labeledValue(raw, ["모델", "모델명", "제품명", "라인"]),
+    material: labeledValue(raw, ["소재", "재질"]) ?? parseMaterial(raw),
+    priceKRW: price,
+    source: extractFirstUrl(raw) ?? labeledValue(raw, ["출처", "근거", "링크", "홈페이지"]),
+    lastVerified: parseDate(raw),
+    imageUrl: labeledValue(raw, ["이미지", "사진"]),
+    notes: factLines(raw, ["호수", "사이즈", "각인", "매장", "예약", "할인", "혜택", "재고"], 2),
+  });
+}
+
+export function parseFlightResearchText(raw: string): Partial<FlightResearchDraft> {
+  const route = parseAirportPair(raw);
+  return compactObject<FlightResearchDraft>({
+    airline: labeledValue(raw, ["항공사", "항공"]),
+    flightNumber: labeledValue(raw, ["편명"]) ?? parseFlightNumber(raw),
+    from: labeledValue(raw, ["출발"]) ?? route?.from,
+    to: labeledValue(raw, ["도착"]) ?? route?.to,
+    departAt: labeledValue(raw, ["출발시간", "출발 일시", "출발일"]) ?? parseDate(raw),
+    arriveAt: labeledValue(raw, ["도착시간", "도착 일시", "도착일"]),
+    priceKRW: firstMoney(matchingLines(raw, ["가격", "항공권", "운임", "총액", "왕복", "원", "만원"], 4), 50_000, 50_000_000),
+    source: extractFirstUrl(raw) ?? labeledValue(raw, ["출처", "근거", "링크"]),
+    lastVerified: parseDate(raw),
+    notes: factLines(raw, ["직항", "경유", "수하물", "좌석", "변경", "환불", "마일리지"], 2),
+  });
+}
+
+export function parseHotelResearchText(raw: string): Partial<HotelResearchDraft> {
+  return compactObject<HotelResearchDraft>({
+    name: labeledValue(raw, ["호텔", "숙소", "이름"]),
+    location: labeledValue(raw, ["지역", "위치", "주소"]) ?? parseRegion(raw),
+    ota: labeledValue(raw, ["OTA", "예약처", "사이트"]),
+    pricePerNight: firstMoney(matchingLines(raw, ["1박", "박당", "숙박", "호텔", "객실", "원", "만원"], 4), 10_000, 10_000_000),
+    source: extractFirstUrl(raw) ?? labeledValue(raw, ["출처", "근거", "링크", "예약 링크"]),
+    lastVerified: parseDate(raw),
+    notes: factLines(raw, ["조식", "취소", "환불", "리조트피", "세금", "포함", "별도", "룸타입"], 2),
+  });
+}
+
 export function venueResearchDraftToPatch(draft: VenueResearchDraft): Partial<WeddingVenue> {
   const contract = cleanContract({
     quote: draft.quote,
@@ -154,6 +276,49 @@ export function venueResearchDraftToPatch(draft: VenueResearchDraft): Partial<We
   return patch;
 }
 
+export function ringResearchDraftToPatch(draft: RingResearchDraft): Partial<Ring> {
+  return compactObject<Partial<Ring>>({
+    brand: cleanText(draft.brand),
+    model: cleanText(draft.model),
+    material: cleanText(draft.material),
+    priceKRW: draft.priceKRW,
+    source: cleanText(draft.source),
+    lastVerified: hasResearchFacts(draft) ? (draft.lastVerified || todayISO()) : undefined,
+    imageUrl: cleanText(draft.imageUrl),
+    notes: cleanText(draft.notes),
+  });
+}
+
+export function flightResearchDraftToPatch(draft: FlightResearchDraft): Partial<Flight> {
+  return compactObject<Partial<Flight>>({
+    airline: cleanText(draft.airline),
+    flightNumber: cleanText(draft.flightNumber),
+    from: cleanText(draft.from),
+    to: cleanText(draft.to),
+    departAt: cleanText(draft.departAt),
+    arriveAt: cleanText(draft.arriveAt),
+    priceKRW: draft.priceKRW,
+    source: cleanText(draft.source),
+    lastVerified: hasResearchFacts(draft) ? (draft.lastVerified || todayISO()) : undefined,
+    notes: cleanText(draft.notes),
+  });
+}
+
+export function hotelResearchDraftToPatch(draft: HotelResearchDraft, hotel?: Partial<Hotel>): Partial<Hotel> {
+  const ota = cleanText(draft.ota) || "직접 확인";
+  const otaPrices = draft.pricePerNight
+    ? upsertOtaPrice(hotel?.otaPrices ?? [], ota, draft.pricePerNight, cleanText(draft.source))
+    : hotel?.otaPrices;
+  return compactObject<Partial<Hotel>>({
+    name: cleanText(draft.name),
+    location: cleanText(draft.location),
+    source: cleanText(draft.source),
+    lastVerified: hasResearchFacts(draft) ? (draft.lastVerified || todayISO()) : undefined,
+    notes: cleanText(draft.notes),
+    otaPrices,
+  });
+}
+
 export function sdmResearchDraftToPatch(draft: SdmResearchDraft): Partial<SdmVendor> {
   const contract = cleanContract({
     quote: draft.quote,
@@ -171,6 +336,20 @@ export function sdmResearchDraftToPatch(draft: SdmResearchDraft): Partial<SdmVen
     notes: cleanText(draft.notes),
     contract,
   });
+}
+
+function upsertOtaPrice(
+  list: NonNullable<Hotel["otaPrices"]>,
+  ota: string,
+  price: number,
+  url?: string,
+): NonNullable<Hotel["otaPrices"]> {
+  const next = [...list];
+  const entry = compactObject<{ ota: string; price?: number; url?: string }>({ ota, price, url });
+  const index = next.findIndex((item) => item.ota === ota);
+  if (index >= 0) next[index] = entry;
+  else next.push(entry);
+  return next;
 }
 
 function cleanText(value?: string): string | undefined {
@@ -306,6 +485,26 @@ function parsePriceMemo(raw: string): string | undefined {
   return factLines(raw, ["견적", "가격", "비용", "금액", "패키지", "원", "만원"], 2);
 }
 
+function parseMaterial(raw: string): string | undefined {
+  const match = raw.match(/(플래티넘|백금|화이트골드|로즈골드|옐로우골드|골드|실버|티타늄|18K|14K|Pt950|Pt900)/i);
+  return match?.[1];
+}
+
+function parseFlightNumber(raw: string): string | undefined {
+  return raw.match(/\b[A-Z]{2}\s?\d{2,4}\b/i)?.[0]?.replace(/\s+/, "").toUpperCase();
+}
+
+function parseAirportPair(raw: string): { from: string; to: string } | undefined {
+  const match = raw.match(/\b([A-Z]{3})\b\s*(?:→|->|~|-|to)\s*\b([A-Z]{3})\b/i);
+  if (!match) return undefined;
+  return { from: match[1].toUpperCase(), to: match[2].toUpperCase() };
+}
+
+function firstMoney(lines: string[], minAllowed: number, maxAllowed: number): number | undefined {
+  const range = parseMoneyRange(lines, minAllowed, maxAllowed);
+  return range.min;
+}
+
 function parseMoneyRange(lines: string[], minAllowed: number, maxAllowed: number): Range {
   const amounts: number[] = [];
   for (const line of lines) {
@@ -341,10 +540,16 @@ function normalizeMoney(value: number, unit: string): number | undefined {
 }
 
 function labeledValue(raw: string, labels: string[]): string | undefined {
+  const segments = raw.split(/\n|\/|•|·|;/).map((line) => line.replace(/\s+/g, " ").trim());
   for (const label of labels) {
     const match = raw.match(new RegExp(`(?:^|\\n)\\s*${escapeRegExp(label)}\\s*[:：]\\s*([^\\n]+)`, "i"));
     const value = cleanFactLine(match?.[1]);
     if (value) return value;
+    const loose = segments
+      .map((segment) => segment.match(new RegExp(`^${escapeRegExp(label)}\\s*[:：]?\\s+(.+)$`, "i"))?.[1])
+      .map(cleanFactLine)
+      .find(Boolean);
+    if (loose) return loose;
   }
   return undefined;
 }

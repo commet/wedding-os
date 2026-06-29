@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import type { InputHTMLAttributes } from "react";
+import { AgentIdentity } from "./AgentIdentity";
 
 type FieldKind = "text" | "textarea" | "number" | "date" | "select";
 
@@ -95,6 +96,7 @@ export default function ResearchInputPanel<T extends object>({
       {open && (
         <div className="mt-4 space-y-5">
           <div className="border-l border-gold/50 pl-4 space-y-3">
+            <AgentIdentity compact mood="thinking" />
             <textarea
               className="input-boxed text-[12.5px] min-h-[104px]"
               value={raw}
@@ -119,7 +121,7 @@ export default function ResearchInputPanel<T extends object>({
               )}
             </div>
             <p className="text-[11.5px] text-soft leading-relaxed">
-              원문·후기 사진·긴 문장은 저장하지 않아요. 확인한 사실, 출처, 계약 조건만 아래 칸에 남깁니다.
+              원문은 임시로만 읽고 저장하지 않아요. 확인한 사실, 출처, 계약 조건만 아래 칸에 남깁니다.
               {parsedCount !== null && (
                 <span className="text-ink"> 방금 {parsedCount}개 칸을 읽었어요.</span>
               )}

@@ -7,10 +7,16 @@ import ChatbotBridgeModal from "../components/ChatbotBridgeModal";
 import Modal from "../components/Modal";
 import VendorActions from "../components/VendorActions";
 import SafeImg from "../components/SafeImg";
+import ResearchInputPanel, { type ResearchSection } from "../components/ResearchInputPanel";
 import { ringPriceCheckPrompt, BridgePrompt } from "../lib/chatbotBridge";
-import { todayISO } from "../lib/freshness";
 import { koBreak } from "../lib/typography";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
+import {
+  emptyRingResearchDraft,
+  parseRingResearchText,
+  ringResearchDraftToPatch,
+  type RingResearchDraft,
+} from "../lib/researchCapture";
 
 // 브랜드별 공식 웨딩/브라이덜 섹션. 개별 모델 페이지보다 덜 깨지는 진입점.
 const BRAND_SITES: Record<string, string> = {
@@ -32,6 +38,28 @@ const RESEARCH_LINKS = [
   { label: "종로 결혼반지", href: "https://map.kakao.com/link/search/%EC%A2%85%EB%A1%9C%20%EA%B2%B0%ED%98%BC%EB%B0%98%EC%A7%80", group: "지역" },
   { label: "종로 귀금속거리", href: "https://map.kakao.com/link/search/%EC%A2%85%EB%A1%9C%20%EA%B7%80%EA%B8%88%EC%86%8D%EA%B1%B0%EB%A6%AC", group: "지역" },
   { label: "예물 후기 검색", href: "https://www.google.com/search?q=%EC%A2%85%EB%A1%9C+%EC%98%88%EB%AC%BC+%EA%B2%B0%ED%98%BC%EB%B0%98%EC%A7%80+%ED%9B%84%EA%B8%B0", group: "후기" },
+];
+
+const RING_RESEARCH_SECTIONS: ResearchSection<RingResearchDraft>[] = [
+  {
+    title: "제품",
+    helper: "매장 견적표나 브랜드 페이지에서 보이는 값만 옮겨요.",
+    fields: [
+      { key: "brand", label: "브랜드", span: "half", placeholder: "예: 티파니" },
+      { key: "model", label: "모델명", span: "half", placeholder: "예: 투게더 4mm" },
+      { key: "material", label: "소재", span: "half", placeholder: "예: 플래티넘" },
+      { key: "priceKRW", label: "가격", kind: "number", span: "half", inputMode: "numeric", placeholder: "1850000" },
+      { key: "source", label: "출처·근거", placeholder: "공식 페이지, 매장 견적, 상담 링크 등" },
+      { key: "lastVerified", label: "확인일", kind: "date", span: "half" },
+    ],
+  },
+  {
+    title: "보관",
+    fields: [
+      { key: "imageUrl", label: "이미지 링크", placeholder: "브랜드 사이트나 직접 업로드한 이미지 주소" },
+      { key: "notes", label: "메모", kind: "textarea", placeholder: "호수, 각인, 할인, 재고, 방문 매장" },
+    ],
+  },
 ];
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
@@ -453,6 +481,36 @@ function RingResearchHub() {
   );
 }
 
+function RingResearchInput({
+  ring,
+  onUpdate,
+  defaultOpen = false,
+  applyLabel,
+}: {
+  ring?: Partial<Ring>;
+  onUpdate: (patch: Partial<Ring>) => void;
+  defaultOpen?: boolean;
+  applyLabel?: string;
+}) {
+  const [draft, setDraft] = useState<RingResearchDraft>(() => emptyRingResearchDraft(ring));
+  return (
+    <ResearchInputPanel
+      title="조사 입력"
+      subtitle="매장 견적·브랜드 페이지를 반지 후보 정보로 정리합니다."
+      rawPlaceholder={
+        "예: 브랜드 티파니 / 모델 투게더 4mm / 플래티넘 / 가격 185만원 / 각인 가능 / 확인일 2026.06.29 / 출처 URL"
+      }
+      draft={draft}
+      sections={RING_RESEARCH_SECTIONS}
+      onDraftChange={setDraft}
+      onParse={parseRingResearchText}
+      onApply={() => onUpdate(ringResearchDraftToPatch(draft))}
+      applyLabel={applyLabel}
+      defaultOpen={defaultOpen}
+    />
+  );
+}
+
 function RingCard({
   ring, who, onToggle, onCheck, onRemove, onUpdate,
 }: {
@@ -521,7 +579,12 @@ function RingCard({
           name={ring.brand}
           query={ring.model}
           officialUrl={BRAND_SITES[ring.brand]}
+          sourceUrl={ring.source}
         />
+      </div>
+
+      <div className="mt-4">
+        <RingResearchInput ring={ring} onUpdate={onUpdate} />
       </div>
 
       {ring.notes && (
@@ -890,30 +953,24 @@ function isRingBudgetWithinLooseRange(price: number, band: RingBudgetBand): bool
 }
 
 function AddRingModal({ open, onClose, update }: { open: boolean; onClose: () => void; update: (patch: any) => void; }) {
-  const [brand, setBrand] = useState("");
-  const [model, setModel] = useState("");
-  const [material, setMaterial] = useState("");
-  const [priceKRW, setPriceKRW] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  const [draft, setDraft] = useState<RingResearchDraft>(() => emptyRingResearchDraft());
 
   const submit = () => {
-    if (!brand.trim() || !model.trim()) return;
+    const patch = ringResearchDraftToPatch(draft);
+    if (!patch.brand?.trim() || !patch.model?.trim()) return;
     update((prev: WeddingData) => ({
       ...prev,
       rings: [
         {
           id: `ring-${Date.now()}`,
-          brand: brand.trim(),
-          model: model.trim(),
-          material: material.trim() || undefined,
-          priceKRW: priceKRW ? Number(priceKRW.replace(/,/g, "")) : undefined,
-          imageUrl: imageUrl.trim() || undefined,
-          lastVerified: priceKRW ? todayISO() : undefined,
+          brand: patch.brand,
+          model: patch.model,
+          ...patch,
         },
         ...prev.rings,
       ],
     }));
-    setBrand(""); setModel(""); setMaterial(""); setPriceKRW(""); setImageUrl("");
+    setDraft(emptyRingResearchDraft());
     onClose();
   };
 
@@ -923,27 +980,20 @@ function AddRingModal({ open, onClose, update }: { open: boolean; onClose: () =>
         <p className="text-[12px] text-soft leading-relaxed break-keep">
           매장 명함이나 화면 캡처에서 보이는 만큼만 옮겨 적으면 돼요. 나머지는 나중에 채워도 됩니다.
         </p>
-        <div>
-          <label className="label">브랜드</label>
-          <input className="input" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="예: 티파니" />
-        </div>
-        <div>
-          <label className="label">모델명</label>
-          <input className="input" value={model} onChange={(e) => setModel(e.target.value)} placeholder="예: 투게더 4mm" />
-        </div>
-        <div>
-          <label className="label">소재 (선택)</label>
-          <input className="input" value={material} onChange={(e) => setMaterial(e.target.value)} placeholder="예: 플래티넘" />
-        </div>
-        <div>
-          <label className="label">가격 (원, 선택)</label>
-          <input className="input" type="number" value={priceKRW} onChange={(e) => setPriceKRW(e.target.value)} placeholder="1850000" />
-        </div>
-        <div>
-          <label className="label">이미지 링크 <span className="text-mute normal-case tracking-normal">· 선택</span></label>
-          <input className="input" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="매장·브랜드 사이트의 사진 주소" />
-        </div>
-        <button onClick={submit} className="btn-primary w-full">추가하기</button>
+        <ResearchInputPanel
+          title="조사 입력"
+          subtitle="견적표·브랜드 페이지를 붙여넣어 반지 후보로 정리합니다."
+          rawPlaceholder={
+            "예: 브랜드 티파니 / 모델 투게더 4mm / 플래티넘 / 가격 185만원 / 출처 URL"
+          }
+          draft={draft}
+          sections={RING_RESEARCH_SECTIONS}
+          onDraftChange={setDraft}
+          onParse={parseRingResearchText}
+          onApply={submit}
+          applyLabel="반지 추가 →"
+          defaultOpen
+        />
       </div>
     </Modal>
   );
