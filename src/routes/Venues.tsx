@@ -36,10 +36,10 @@ const CONTRACT_FIELDS: { key: keyof ContractCheck; label: string; placeholder: s
 
 const REGION_GROUPS: { key: string; label: string; match: (r?: string) => boolean }[] = [
   { key: "all",    label: "전체",        match: () => true },
-  { key: "gangnam",label: "강남·청담",   match: (r) => !!r && (r.includes("강남") || r.includes("청담") || r.includes("신사") || r.includes("삼성") || r.includes("논현") || r.includes("역삼") || r.includes("반포") || r.includes("서초")) },
-  { key: "central",label: "광화문·중구", match: (r) => !!r && (r.includes("광화문") || r.includes("중구") || r.includes("정동") || r.includes("소공") || r.includes("장충") || r.includes("동대문") || r.includes("시청") || r.includes("서대문")) },
-  { key: "han",    label: "한남·여의도", match: (r) => !!r && (r.includes("한남") || r.includes("여의도") || r.includes("용산") || r.includes("잠실") || r.includes("송파")) },
-  { key: "etc",    label: "그 외 서울",  match: (r) => !!r && (r.includes("공덕") || r.includes("성북") || r.includes("잠원") || r.includes("양재") || r.includes("광장동") || r.includes("강북") || r.includes("마포")) },
+  { key: "gangnam",label: "강남·청담",   match: (r) => !!r && (r.includes("강남") || r.includes("청담") || r.includes("신사") || r.includes("삼성") || r.includes("논현") || r.includes("역삼") || r.includes("반포") || r.includes("서초") || r.includes("선릉") || r.includes("대치")) },
+  { key: "central",label: "광화문·중구", match: (r) => !!r && (r.includes("광화문") || r.includes("중구") || r.includes("정동") || r.includes("소공") || r.includes("장충") || r.includes("동대문") || r.includes("시청") || r.includes("서대문") || r.includes("남산")) },
+  { key: "han",    label: "한남·여의도", match: (r) => !!r && (r.includes("한남") || r.includes("여의도") || r.includes("영등포") || r.includes("용산") || r.includes("잠실") || r.includes("송파")) },
+  { key: "etc",    label: "그 외 서울",  match: (r) => !!r && (r.includes("공덕") || r.includes("성북") || r.includes("잠원") || r.includes("양재") || r.includes("광장동") || r.includes("강북") || r.includes("마포") || r.includes("강서") || r.includes("마곡") || r.includes("천호") || r.includes("강동") || r.includes("신도림") || r.includes("구로")) },
   { key: "gyeonggi", label: "경기·인천", match: (r) => !!r && (r.includes("일산") || r.includes("경기") || r.includes("분당") || r.includes("판교") || r.includes("인천") || r.includes("수원") || r.includes("송도") || r.includes("영종")) },
   { key: "busan", label: "부산·울산", match: (r) => !!r && (r.includes("부산") || r.includes("해운대") || r.includes("울산")) },
   { key: "daegu", label: "대구", match: (r) => !!r && r.includes("대구") },
