@@ -451,7 +451,7 @@ export default function Dashboard({ data, update }: Props) {
                 </span>
               </div>
               <ReadinessMeter value={readinessPercent} />
-              <StatusSummary counts={statusReport.counts} next={nextStatus} />
+              <StatusSummary counts={statusReport.counts} />
             </div>
           </>
         )}
@@ -596,15 +596,15 @@ export default function Dashboard({ data, update }: Props) {
       <section className="page py-7">
         <div className="mb-5 flex items-end justify-between gap-4">
           <div>
-            <div className="eyebrow block mb-1">영역별 status</div>
-            <h2 className="font-serif text-2xl text-ink">{koBreak("남은 일이 보이게")}</h2>
+            <div className="eyebrow block mb-1">지금 볼 상태</div>
+            <h2 className="font-serif text-2xl text-ink">{koBreak("다음만 남기기")}</h2>
           </div>
           <span className="text-right text-[11px] leading-relaxed text-soft">
             완료 {statusReport.counts.done}<br />
             확인 필요 {statusReport.counts.attention}
           </span>
         </div>
-        <StatusBoard sections={readiness} />
+        <StatusBoard nextSections={statusReport.nextSections} allSections={readiness} />
       </section>
       </>}
 
@@ -688,33 +688,32 @@ export default function Dashboard({ data, update }: Props) {
 
 function AgentQuestionCard({ question, onAnswer }: { question: AgentLoopQuestion; onAnswer: (question: AgentLoopQuestion, value: string) => void }) {
   return (
-    <div className="mb-7 border-y border-hair bg-paper py-5">
-      <div className="mb-4 flex items-center gap-3">
-        <AgentIdentity compact mood="thinking" />
-        <div className="min-w-0">
-          <div className="eyebrow-gold">{question.eyebrow}</div>
-          <div className="mt-1 text-[11px] leading-snug text-soft">답을 고르면 제가 준비판에 바로 반영할게요.</div>
-        </div>
-      </div>
-      <h2 className="font-serif text-[20px] leading-[1.45] text-ink break-keep">{question.title}</h2>
-      <p className="mt-2 text-[13px] leading-[1.75] text-soft">{question.body}</p>
-      <div className="mt-5 divide-y divide-hair border-y border-hair">
+    <details className="mb-7 border-y border-hair py-2">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 text-left">
+        <span className="min-w-0">
+          <span className="eyebrow-gold block">{question.eyebrow}</span>
+          <span className="mt-1 block truncate text-[13px] font-medium text-ink">{question.title}</span>
+        </span>
+        <span className="flex-shrink-0 text-[12px] text-soft underline underline-offset-4">답하기</span>
+      </summary>
+      <p className="border-t border-hair pt-3 text-[12.5px] leading-[1.75] text-soft">{question.body}</p>
+      <div className="mt-3 divide-y divide-hair border-y border-hair">
         {question.options.map((option) => (
           <button
             key={option.value}
             type="button"
             onClick={() => onAnswer(question, option.value)}
-            className="row-tap flex min-h-[62px] w-full items-center justify-between gap-3 py-3 text-left"
+            className="row-tap flex min-h-[54px] w-full items-center justify-between gap-3 py-3 text-left"
           >
             <span className="min-w-0">
               <span className="block text-[13px] font-medium text-ink break-keep">{option.label}</span>
-              {option.desc && <span className="mt-1 block text-[11.5px] leading-relaxed text-soft break-keep">{option.desc}</span>}
+              {option.desc && <span className="mt-0.5 block text-[11px] leading-relaxed text-soft break-keep">{option.desc}</span>}
             </span>
             <span className="flex-shrink-0 text-gold">→</span>
           </button>
         ))}
       </div>
-    </div>
+    </details>
   );
 }
 
@@ -744,74 +743,73 @@ function ReadinessMeter({ value }: { value: number }) {
 
 function StatusSummary({
   counts,
-  next,
 }: {
   counts: Record<PlanningStatusState, number>;
-  next?: PlanningSectionStatus;
 }) {
   return (
-    <div className="mt-4 border-y border-hair py-3">
-      <div className="grid grid-cols-3 gap-3">
-        <StatusCount label="확인 필요" value={counts.attention} tone={counts.attention > 0 ? "warn" : "muted"} />
-        <StatusCount label="진행 중" value={counts.active + counts.empty} tone="normal" />
-        <StatusCount label="완료" value={counts.done} tone="muted" />
-      </div>
-      {next && (
-        <Link to={next.to} className="row-tap mt-3 flex min-h-11 items-center justify-between gap-3 border-t border-hair pt-3">
-          <span className="min-w-0">
-            <span className="block text-[11px] tracking-eyebrow uppercase text-gold">{next.label} · 다음</span>
-            <span className="mt-1 block truncate text-[13px] text-ink">{next.nextAction}</span>
-          </span>
-          <span className="flex-shrink-0 text-soft">→</span>
-        </Link>
-      )}
-    </div>
-  );
-}
-
-function StatusCount({ label, value, tone }: { label: string; value: number; tone: "normal" | "warn" | "muted" }) {
-  return (
-    <div>
-      <div className="eyebrow mb-1">{label}</div>
-      <div
-        className={`font-serif text-[19px] leading-none tabular-nums ${
-          tone === "warn" ? "text-gold" : tone === "muted" ? "text-soft" : "text-ink"
-        }`}
-      >
-        {value}
+    <div className="mt-4 border-t border-hair pt-3">
+      <div className="flex items-center justify-between gap-3 text-[11px] leading-relaxed text-soft">
+        <span>
+          확인 필요 <span className={counts.attention > 0 ? "text-gold" : "text-soft"}>{counts.attention}</span>
+          <span className="mx-1.5 text-mute">/</span>
+          진행 중 <span className="text-ink">{counts.active + counts.empty}</span>
+          <span className="mx-1.5 text-mute">/</span>
+          완료 <span>{counts.done}</span>
+        </span>
       </div>
     </div>
   );
 }
 
-function StatusBoard({ sections }: { sections: PlanningSectionStatus[] }) {
+function StatusBoard({
+  nextSections,
+  allSections,
+}: {
+  nextSections: PlanningSectionStatus[];
+  allSections: PlanningSectionStatus[];
+}) {
+  const priority = nextSections.slice(0, 4);
   return (
-    <div className="divide-y divide-hair border-y border-hair">
-      {sections.map((section) => (
-        <Link
-          key={section.key}
-          to={section.to}
-          className="row-tap grid min-h-[86px] grid-cols-[minmax(0,1fr)_3.7rem] items-center gap-4 py-4"
-        >
-          <span className="min-w-0">
-            <span className="mb-2 flex items-center justify-between gap-3">
-              <span className="font-serif text-[16px] leading-tight text-ink">{section.label}</span>
-              <StatePill state={section.state} />
-            </span>
-            <ProgressLine value={section.percent} subtle />
-            <span className="mt-2 block text-[12px] leading-relaxed text-soft">
-              {section.detail} · <span className="text-ink">{section.nextAction}</span>
-            </span>
-          </span>
-          <span className="text-right">
-            <span className={`block font-serif text-[22px] leading-none tabular-nums ${section.state === "attention" ? "text-gold" : "text-ink"}`}>
-              {section.percent}
-            </span>
-            <span className="mt-1 block text-[11px] text-soft">%</span>
-          </span>
-        </Link>
-      ))}
+    <div className="space-y-3">
+      <div className="divide-y divide-hair border-y border-hair">
+        {priority.map((section) => <StatusRow key={section.key} section={section} />)}
+      </div>
+      <details className="border-t border-hair pt-2">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 text-[12px] text-soft hover:text-ink">
+          <span className="eyebrow">전체 영역 {allSections.length}개</span>
+          <span className="underline underline-offset-4">보기</span>
+        </summary>
+        <div className="divide-y divide-hair border-t border-hair">
+          {allSections.map((section) => <StatusRow key={section.key} section={section} compact />)}
+        </div>
+      </details>
     </div>
+  );
+}
+
+function StatusRow({ section, compact = false }: { section: PlanningSectionStatus; compact?: boolean }) {
+  return (
+    <Link
+      to={section.to}
+      className={`row-tap grid items-center gap-4 py-3 ${compact ? "grid-cols-[minmax(0,1fr)_3rem]" : "min-h-[72px] grid-cols-[minmax(0,1fr)_3.3rem]"}`}
+    >
+      <span className="min-w-0">
+        <span className="mb-1.5 flex items-center justify-between gap-3">
+          <span className={`leading-tight text-ink ${compact ? "text-[13px] font-medium" : "font-serif text-[15px]"}`}>{section.label}</span>
+          <StatePill state={section.state} />
+        </span>
+        <ProgressLine value={section.percent} subtle />
+        <span className="mt-1.5 block truncate text-[12px] text-soft">
+          {section.nextAction}
+        </span>
+      </span>
+      <span className="text-right">
+        <span className={`block font-serif leading-none tabular-nums ${compact ? "text-[17px]" : "text-[20px]"} ${section.state === "attention" ? "text-gold" : "text-ink"}`}>
+          {section.percent}
+        </span>
+        <span className="mt-0.5 block text-[10px] text-soft">%</span>
+      </span>
+    </Link>
   );
 }
 

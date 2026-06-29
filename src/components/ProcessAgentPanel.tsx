@@ -1,5 +1,3 @@
-import { AgentIdentity } from "./AgentIdentity";
-
 export type ProcessAgentMetric = {
   label: string;
   value: string;
@@ -32,7 +30,6 @@ type Props = {
 export default function ProcessAgentPanel({
   title,
   summary,
-  mood = "thinking",
   metrics = [],
   steps = [],
   actions = [],
@@ -44,57 +41,43 @@ export default function ProcessAgentPanel({
     actions[0];
   const otherActions = actions.filter((action) => action !== nextAction);
   const openStepCount = steps.filter((step) => !step.done).length;
+  const previewMetrics = metrics.slice(0, 3);
 
   return (
-    <section className="border-y border-hair py-5 space-y-5 text-left">
-      <AgentIdentity compact mood={mood} />
-
+    <section className="border-y border-hair py-4 text-left">
       <div className="space-y-2">
-        <div className="eyebrow-gold">WEDDY의 판단</div>
-        <h2 className="font-serif text-[20px] leading-snug text-ink break-keep">{title}</h2>
+        <div className="flex items-baseline justify-between gap-3">
+          <div className="eyebrow-gold">WEDDY</div>
+          {previewMetrics.length > 0 && (
+            <div className="flex min-w-0 flex-wrap justify-end gap-x-3 gap-y-1 text-[11px] text-soft">
+              {previewMetrics.map((metric) => (
+                <span key={metric.label} className="whitespace-nowrap">
+                  {metric.label} <span className={metric.tone === "warn" ? "text-gold" : "text-ink"}>{metric.value}</span>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        <h2 className="font-serif text-[18px] leading-snug text-ink break-keep">{title}</h2>
         <p className="text-[12.5px] text-soft leading-relaxed break-keep">{summary}</p>
       </div>
 
-      {metrics.length > 0 && (
-        <div className="grid grid-cols-3 gap-3 border-y border-hair py-3">
-          {metrics.map((metric) => (
-            <div key={metric.label} className="min-w-0">
-              <div className="eyebrow mb-1">{metric.label}</div>
-              <div
-                className={`font-serif text-[18px] leading-none tabular-nums ${
-                  metric.tone === "warn" ? "text-gold" : metric.tone === "muted" ? "text-soft" : "text-ink"
-                }`}
-              >
-                {metric.value}
-              </div>
-              {metric.hint && (
-                <div className="mt-1 text-[10.5px] leading-snug text-soft break-keep">{metric.hint}</div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
       {actions.length > 0 && (
-        <div className="space-y-3">
-          <div className="eyebrow">다음 한 걸음</div>
+        <div className="mt-4 space-y-2">
           {nextAction && (
             <button
               type="button"
               aria-label={nextAction.label}
               onClick={nextAction.onClick}
               disabled={nextAction.disabled}
-              className={`group flex min-h-14 w-full items-center justify-between gap-4 border-y border-hair py-3 text-left disabled:opacity-40 ${
+              className={`group flex min-h-11 w-full items-center justify-between gap-4 border-t border-hair pt-3 text-left disabled:opacity-40 ${
                 nextAction.tone === "warn" ? "text-gold hover:text-ink" : "text-ink hover:text-gold"
               }`}
             >
               <span className="min-w-0">
-                <span className="block font-serif text-[16px] leading-snug break-keep">{nextAction.label}</span>
-                <span className="mt-1 block text-[10.5px] uppercase tracking-[0.18em] text-soft">WEDDY 추천 실행</span>
+                <span className="block text-[13px] font-medium leading-snug break-keep">{nextAction.label}</span>
               </span>
-              <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center border border-hair text-[13px] transition group-hover:border-ink">
-                →
-              </span>
+              <span className="flex-shrink-0 text-soft transition group-hover:text-ink">→</span>
             </button>
           )}
           {otherActions.length > 0 && (
@@ -116,7 +99,7 @@ export default function ProcessAgentPanel({
       )}
 
       {steps.length > 0 && (
-        <details className="border-y border-hair py-2">
+        <details className="mt-3 border-t border-hair pt-2">
           <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 text-[12px] text-soft hover:text-ink">
             <span className="eyebrow">{openStepCount > 0 ? `왜 이 순서인지 · ${openStepCount}` : "왜 이 순서인지"}</span>
             <span className="underline underline-offset-4">보기</span>
