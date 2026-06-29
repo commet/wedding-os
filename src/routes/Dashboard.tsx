@@ -692,11 +692,11 @@ function AgentQuestionCard({ question, onAnswer }: { question: AgentLoopQuestion
       <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 text-left">
         <span className="min-w-0">
           <span className="eyebrow-gold block">{question.eyebrow}</span>
-          <h3 className="mt-1 text-[13px] font-medium leading-snug text-ink break-keep">{question.title}</h3>
+          <h3 className="mt-1 text-[15px] font-semibold leading-snug text-ink break-keep">{question.title}</h3>
         </span>
-        <span className="flex-shrink-0 text-[12px] text-soft underline underline-offset-4">답하기</span>
+        <span className="flex-shrink-0 text-[13px] font-medium text-soft underline underline-offset-4">답하기</span>
       </summary>
-      <p className="border-t border-hair pt-3 text-[12.5px] leading-[1.75] text-soft">{question.body}</p>
+      <p className="border-t border-hair pt-3 text-[13.5px] leading-[1.75] text-soft">{question.body}</p>
       <div className="mt-3 divide-y divide-hair border-y border-hair">
         {question.options.map((option) => (
           <button
@@ -706,8 +706,8 @@ function AgentQuestionCard({ question, onAnswer }: { question: AgentLoopQuestion
             className="row-tap flex min-h-[54px] w-full items-center justify-between gap-3 py-3 text-left"
           >
             <span className="min-w-0">
-              <span className="block text-[13px] font-medium text-ink break-keep">{option.label}</span>
-              {option.desc && <span className="mt-0.5 block text-[11px] leading-relaxed text-soft break-keep">{option.desc}</span>}
+              <span className="block text-[14px] font-semibold text-ink break-keep">{option.label}</span>
+              {option.desc && <span className="mt-0.5 block text-[12.5px] leading-relaxed text-soft break-keep">{option.desc}</span>}
             </span>
             <span className="flex-shrink-0 text-gold">→</span>
           </button>
@@ -795,11 +795,11 @@ function StatusRow({ section, compact = false }: { section: PlanningSectionStatu
     >
       <span className="min-w-0">
         <span className="mb-1.5 flex items-center justify-between gap-3">
-          <span className={`leading-tight text-ink ${compact ? "text-[13px] font-medium" : "font-serif text-[15px]"}`}>{section.label}</span>
+          <span className={`leading-tight text-ink ${compact ? "text-[14px] font-semibold" : "font-serif text-[16px]"}`}>{section.label}</span>
           <StatePill state={section.state} />
         </span>
         <ProgressLine value={section.percent} subtle />
-        <span className="mt-1.5 block truncate text-[12px] text-soft">
+        <span className="mt-1.5 block truncate text-[13px] text-soft">
           {section.nextAction}
         </span>
       </span>
@@ -807,7 +807,7 @@ function StatusRow({ section, compact = false }: { section: PlanningSectionStatu
         <span className={`block font-serif leading-none tabular-nums ${compact ? "text-[17px]" : "text-[20px]"} ${section.state === "attention" ? "text-gold" : "text-ink"}`}>
           {section.percent}
         </span>
-        <span className="mt-0.5 block text-[10px] text-soft">%</span>
+        <span className="mt-0.5 block text-[11px] text-soft">%</span>
       </span>
     </Link>
   );
@@ -823,7 +823,7 @@ function StatePill({ state }: { state: PlanningStatusState }) {
           ? "text-soft before:bg-mute"
           : "text-ink before:bg-ink";
   return (
-    <span className={`inline-flex flex-shrink-0 items-center gap-1.5 text-[10.5px] tracking-eyebrow uppercase ${tone} before:block before:h-1.5 before:w-1.5 before:rotate-45`}>
+    <span className={`inline-flex flex-shrink-0 items-center gap-1.5 text-[11px] font-semibold tracking-eyebrow uppercase ${tone} before:block before:h-1.5 before:w-1.5 before:rotate-45`}>
       {PLANNING_STATE_LABEL[state]}
     </span>
   );

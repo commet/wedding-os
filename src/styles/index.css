@@ -25,6 +25,7 @@
     color: theme('colors.ink');
     overflow-x: hidden;
     font-feature-settings: "ss01", "ss02";
+    line-height: 1.65;
   }
   button, a {
     -webkit-touch-callout: none;
@@ -42,6 +43,11 @@
   }
   input, textarea, select {
     font-size: 16px; /* avoid iOS zoom */
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: color-mix(in srgb, theme('colors.soft') 54%, theme('colors.paper'));
+    opacity: 1;
   }
   ::selection {
     background: theme('colors.gold');
@@ -79,38 +85,38 @@
      박스형 라운드 대신 더 sharp 한 모서리, 흐름이 부드럽게. */
   .btn-primary {
     @apply inline-flex items-center justify-center bg-ink text-paper px-6 py-3 min-h-11 font-medium tracking-wide leading-none transition-[opacity,transform] duration-150 hover:opacity-90 active:opacity-80 active:scale-[0.985] rounded-none;
-    letter-spacing: 0.05em;
+    letter-spacing: 0;
   }
   .btn-secondary {
     @apply inline-flex min-h-11 items-center justify-center bg-transparent border-b border-ink text-ink px-1 py-2 font-medium leading-none transition-opacity duration-150 hover:opacity-80 active:opacity-60;
-    letter-spacing: 0.05em;
+    letter-spacing: 0;
   }
   .btn-ghost {
-    @apply inline-flex min-h-11 items-center justify-center text-soft px-2 py-2 hover:text-ink transition;
+    @apply inline-flex min-h-11 items-center justify-center text-soft px-2 py-2 font-medium hover:text-ink transition;
   }
 
   /* ───── 입력 — 박스 대신 underline ───── */
   .input {
-    @apply w-full border-0 border-b border-line bg-transparent px-0 py-3 outline-none focus:border-ink transition;
+    @apply w-full border-0 border-b border-line bg-transparent px-0 py-3.5 text-ink outline-none focus:border-ink transition;
     border-radius: 0;
   }
   /* 박스형 입력 — stark white 웹폼이 아니라 '조용한 크림빛 종이 필드'.
      밀집된 폼(예산·하객·스드메)에서도 에디토리얼 톤을 깨지 않도록 톤다운. */
   .input-boxed {
-    @apply w-full border border-hair bg-cream/50 px-4 py-3.5 outline-none focus:border-ink focus:bg-paper transition rounded-none;
+    @apply w-full border border-hair bg-cream/50 px-4 py-3.5 text-ink outline-none focus:border-ink focus:bg-paper transition rounded-none;
   }
   .label {
-    @apply block text-[11px] tracking-eyebrow uppercase text-soft mb-2;
+    @apply block text-[11.5px] tracking-eyebrow uppercase text-soft mb-2 font-medium;
   }
 
   /* ───── 타이포그래피 ─────
      한글 제목은 break-keep 으로 어절 단위 줄바꿈(단어 중간 안 끊김).
-     위계: display(42) / display-sm(28) / h-section(24) / section-title(13) / body(15) / meta(12) / eyebrow(11) */
+     위계: display(42) / display-sm(28) / h-section(24) / section-title(14) / body(15) / meta(12) / eyebrow(11.5) */
   .eyebrow {
-    @apply text-[11px] tracking-eyebrow uppercase text-soft font-medium break-keep;
+    @apply text-[11.5px] tracking-eyebrow uppercase text-soft font-semibold break-keep;
   }
   .eyebrow-gold {
-    @apply text-[11px] tracking-eyebrow uppercase text-gold font-medium break-keep;
+    @apply text-[11.5px] tracking-eyebrow uppercase text-gold font-semibold break-keep;
   }
   .display {
     @apply font-serif text-[2.625rem] leading-[1.1] tracking-tight text-ink break-keep;
@@ -129,7 +135,7 @@
     text-wrap: balance;
   }
   .h-meta {
-    @apply text-[11px] tracking-eyebrow uppercase text-soft;
+    @apply text-[11.5px] tracking-eyebrow uppercase text-soft font-medium;
   }
 
   /* ───── 구조 ───── */
@@ -144,14 +150,14 @@
      섹션/그룹 제목 — 본문보다 크고 진하게. eyebrow(11px)를 제목으로 쓰면
      위계가 역전돼 '체계 없는' 느낌이 나므로, 화면 섹션 제목은 이걸 쓴다. */
   .section-title {
-    @apply text-[13px] font-semibold text-ink leading-tight break-keep;
+    @apply text-[14px] font-semibold text-ink leading-tight break-keep;
   }
   /* 탭/필터 — 비활성은 명확히 흐리게(soft), 활성은 ink+밑줄. 어포던스 일관화. */
   .seg {
-    @apply inline-flex min-h-11 items-center border-b border-transparent px-1 text-[13px] text-soft transition-colors duration-150 hover:text-ink;
+    @apply inline-flex min-h-11 items-center border-b border-transparent px-1 text-[14px] font-medium text-soft transition-colors duration-150 hover:text-ink;
   }
   .seg-active {
-    @apply inline-flex min-h-11 items-center border-b border-ink px-1 text-[13px] font-medium text-ink;
+    @apply inline-flex min-h-11 items-center border-b-2 border-ink px-1 text-[14px] font-semibold text-ink;
   }
   /* 탭 가능한 행 — press/hover 피드백 표준 */
   .row-tap {
@@ -160,10 +166,10 @@
   /* 그룹 컨테이너 — 관련 항목을 은은한 면으로 묶어 '한 덩어리'가 보이게.
      안의 항목은 .group-row 로 밀집 배치. */
   .group-card {
-    @apply border border-hair bg-cream/30 divide-y divide-hair;
+    @apply border border-hair bg-cream/55 divide-y divide-hair;
   }
   .group-row {
-    @apply flex items-center gap-3 px-4 py-3;
+    @apply flex items-center gap-3 px-4 py-3.5;
   }
   .row {
     @apply flex items-center justify-between gap-3 py-4 border-b border-hair last:border-b-0;

@@ -196,7 +196,7 @@ export default function AppShell({ data, children }: Props) {
         </div>
       )}
 
-      <main className={`flex-1 page-enter ${showNav ? showAgentDock ? "pb-[calc(6.75rem+env(safe-area-inset-bottom))]" : "pb-[calc(5.25rem+env(safe-area-inset-bottom))]" : ""}`}>{children}</main>
+      <main className={`flex-1 page-enter ${showNav ? showAgentDock ? "pb-[calc(7.5rem+env(safe-area-inset-bottom))]" : "pb-[calc(5.75rem+env(safe-area-inset-bottom))]" : ""}`}>{children}</main>
 
       {showNav && (
         <nav className={`fixed bottom-0 left-1/2 -translate-x-1/2 w-full bg-paper z-30 border-t border-hair pb-[env(safe-area-inset-bottom)] ${wideWorkspace ? "lg:max-w-6xl" : "max-w-app"}`}>
@@ -209,7 +209,7 @@ export default function AppShell({ data, children }: Props) {
                 key={item.to}
                 to={item.to}
                 className={({ isActive }) =>
-                  `relative min-h-11 flex items-center justify-center py-2 text-[12px] tracking-wide transition ${
+                  `relative min-h-12 flex items-center justify-center py-2 text-[13px] font-medium tracking-wide transition ${
                     isActive ? "text-ink" : "text-soft"
                   }`
                 }
@@ -228,7 +228,7 @@ export default function AppShell({ data, children }: Props) {
               onClick={() => setMenuOpen(true)}
               aria-haspopup="dialog"
               aria-expanded={menuOpen}
-              className={`relative min-h-11 flex items-center justify-center py-2 text-[12px] tracking-wide transition ${
+              className={`relative min-h-12 flex items-center justify-center py-2 text-[13px] font-medium tracking-wide transition ${
                 isMoreActive || menuOpen ? "text-ink" : "text-soft"
               }`}
             >
@@ -284,20 +284,20 @@ function AgentActionDock({ status, currentPath }: { status: PlanningSectionStatu
     <div className="border-b border-hair bg-paper px-4">
       <Link
         to={status.to}
-        className="row-tap flex min-h-8 items-center justify-between gap-3 px-1"
+        className="row-tap flex min-h-10 items-center justify-between gap-3 px-1"
         aria-label="WEDDY 다음 작업으로 이동"
         title={`WEDDY 다음 작업: ${status.nextAction}`}
       >
         <span className="flex min-w-0 items-baseline gap-2">
-          <span className="text-[10px] tracking-eyebrow uppercase text-gold">WEDDY</span>
-          <span className={`hidden text-[10px] tracking-eyebrow uppercase sm:inline ${tone}`}>{isHere ? "이 화면" : stateLabel}</span>
-          <span className="truncate text-[12.5px] font-medium text-ink">
+          <span className="text-[10.5px] tracking-eyebrow uppercase text-gold font-semibold">WEDDY</span>
+          <span className={`hidden text-[10.5px] tracking-eyebrow uppercase font-medium sm:inline ${tone}`}>{isHere ? "이 화면" : stateLabel}</span>
+          <span className="truncate text-[13.5px] font-semibold text-ink">
             {status.nextAction}
           </span>
         </span>
         <span className="flex flex-shrink-0 items-center gap-1.5">
-          <span className={`text-[11px] tabular-nums ${tone}`}>{status.percent}%</span>
-          <span className="text-soft">→</span>
+          <span className={`text-[12px] font-medium tabular-nums ${tone}`}>{status.percent}%</span>
+          <span className="text-ink">→</span>
         </span>
       </Link>
     </div>

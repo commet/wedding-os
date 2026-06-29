@@ -9,11 +9,11 @@ export default {
         cream: "#FAF8F5",
         ink: "#1B1A17",
         soft: "#635A4C",
-        mute: "#C5BDB1",
+        mute: "#AFA69A",
         line: "#EDE7DE",
         hair: "#E3DCD1",
-        gold: "#A88557",
-        sage: "#9AAA92",
+        gold: "#8E6C43",
+        sage: "#6F826C",
         taupe: "#C5B9AD",
       },
       fontFamily: {
@@ -25,7 +25,7 @@ export default {
         app: "480px",
       },
       letterSpacing: {
-        eyebrow: "0.28em",
+        eyebrow: "0",
       },
     },
   },

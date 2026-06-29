@@ -50,7 +50,7 @@ export default function ProcessAgentPanel({
         <div className="flex items-baseline justify-between gap-3">
           <div className="eyebrow-gold">WEDDY</div>
           {previewMetrics.length > 0 && (
-            <div className="flex min-w-0 flex-wrap justify-end gap-x-3 gap-y-1 text-[11px] text-soft">
+            <div className="flex min-w-0 flex-wrap justify-end gap-x-3 gap-y-1 text-[12px] font-medium text-soft">
               {previewMetrics.map((metric) => (
                 <span key={metric.label} className="whitespace-nowrap">
                   {metric.label} <span className={metric.tone === "warn" ? "text-gold" : "text-ink"}>{metric.value}</span>
@@ -59,8 +59,8 @@ export default function ProcessAgentPanel({
             </div>
           )}
         </div>
-        <h2 className="font-serif text-[18px] leading-snug text-ink break-keep">{title}</h2>
-        <p className="text-[12.5px] text-soft leading-relaxed break-keep">{summary}</p>
+        <h2 className="font-serif text-[20px] leading-snug text-ink break-keep">{title}</h2>
+        <p className="text-[13.5px] text-soft leading-relaxed break-keep">{summary}</p>
       </div>
 
       {actions.length > 0 && (
@@ -76,7 +76,7 @@ export default function ProcessAgentPanel({
               }`}
             >
               <span className="min-w-0">
-                <span className="block text-[13px] font-medium leading-snug break-keep">{labelFor(nextAction.label)}</span>
+                <span className="block text-[14px] font-semibold leading-snug break-keep">{labelFor(nextAction.label)}</span>
               </span>
               <span className="flex-shrink-0 text-soft transition group-hover:text-ink">→</span>
             </button>
@@ -89,7 +89,7 @@ export default function ProcessAgentPanel({
                   type="button"
                   onClick={action.onClick}
                   disabled={action.disabled}
-                  className="min-h-11 text-[12px] text-ink underline underline-offset-4 hover:text-gold disabled:opacity-40"
+                  className="min-h-11 text-[13px] font-medium text-ink underline underline-offset-4 hover:text-gold disabled:opacity-40"
                 >
                   {labelFor(action.label)}
                 </button>
@@ -101,7 +101,7 @@ export default function ProcessAgentPanel({
 
       {steps.length > 0 && (
         <details className="mt-3 border-t border-hair pt-2">
-          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 text-[12px] text-soft hover:text-ink">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 text-[13px] font-medium text-soft hover:text-ink">
             <span className="eyebrow">{openStepCount > 0 ? `왜 이 순서인지 · ${openStepCount}` : "왜 이 순서인지"}</span>
             <span className="underline underline-offset-4">보기</span>
           </summary>
@@ -117,11 +117,11 @@ export default function ProcessAgentPanel({
                   {step.done ? "✓" : String(index + 1)}
                 </span>
                 <span className="min-w-0">
-                  <span className={`block text-[13px] leading-relaxed break-keep ${step.done ? "text-soft line-through" : "text-ink"}`}>
+                  <span className={`block text-[14px] leading-relaxed break-keep ${step.done ? "text-soft line-through" : "text-ink"}`}>
                     {step.label}
                   </span>
                   {step.detail && (
-                    <span className="mt-0.5 block text-[11.5px] leading-relaxed text-soft break-keep">
+                    <span className="mt-0.5 block text-[12.5px] leading-relaxed text-soft break-keep">
                       {step.detail}
                     </span>
                   )}
