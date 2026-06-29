@@ -4,6 +4,7 @@ import type { WeddingData, Mode } from "../lib/schema";
 import { daysSince } from "../lib/freshness";
 import { useSaveStatus, useRealtimeStatus, useConflictStatus, clearConflict } from "../lib/storage";
 import MenuSheet from "./MenuSheet";
+import { PLANNING_STATE_LABEL, planningStatusReport, type PlanningSectionStatus } from "../lib/derived";
 
 type Props = {
   data: WeddingData;
@@ -63,6 +64,16 @@ export default function AppShell({ data, children }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => { setMenuOpen(false); }, [location.pathname]);
   const isMoreActive = !TAB_PATHS.includes(location.pathname);
+  const showAgentDock = showNav && !isDashboard && !isGuestInvitation && !isSetup && !menuOpen;
+  const statusReport = planningStatusReport(data);
+  const currentMatches = statusReport.sections.filter((section) =>
+    location.pathname === section.to || location.pathname.startsWith(`${section.to}/`),
+  );
+  const currentStatus = currentMatches.find((section) => section.state !== "done") ?? currentMatches[0];
+  const dockStatus =
+    currentStatus && currentStatus.state !== "done"
+      ? currentStatus
+      : statusReport.nextSections.find((section) => section.to !== location.pathname) ?? currentStatus ?? statusReport.nextSections[0];
 
   // 데모 배너 dismiss 상태 (세션 단위)
   const [bannerDismissed, setBannerDismissed] = useState(false);
@@ -185,10 +196,13 @@ export default function AppShell({ data, children }: Props) {
         </div>
       )}
 
-      <main className={`flex-1 page-enter ${showNav ? "pb-[calc(6rem+env(safe-area-inset-bottom))]" : ""}`}>{children}</main>
+      <main className={`flex-1 page-enter ${showNav ? showAgentDock ? "pb-[calc(9.5rem+env(safe-area-inset-bottom))]" : "pb-[calc(6rem+env(safe-area-inset-bottom))]" : ""}`}>{children}</main>
 
       {showNav && (
         <nav className={`fixed bottom-0 left-1/2 -translate-x-1/2 w-full bg-paper z-30 border-t border-hair pb-[env(safe-area-inset-bottom)] ${wideWorkspace ? "lg:max-w-6xl" : "max-w-app"}`}>
+          {showAgentDock && dockStatus && (
+            <AgentActionDock status={dockStatus} currentPath={location.pathname} />
+          )}
           <div className="grid grid-cols-5">
             {NAV.map((item) => (
               <NavLink
@@ -255,6 +269,43 @@ function SaveBadge({ status, mode }: { status: "idle" | "saving" | "saved" | "er
   } as const;
   const m = map[status as "saving" | "saved" | "error"];
   return <span className={`anim-pop eyebrow ${m.cls}`}>{m.text}</span>;
+}
+
+function AgentActionDock({ status, currentPath }: { status: PlanningSectionStatus; currentPath: string }) {
+  const isHere = currentPath === status.to || currentPath.startsWith(`${status.to}/`);
+  const stateLabel = PLANNING_STATE_LABEL[status.state];
+  const tone =
+    status.state === "attention" ? "text-gold" :
+    status.state === "done" ? "text-sage" :
+    status.state === "empty" ? "text-soft" :
+    "text-ink";
+
+  return (
+    <div className="border-b border-hair bg-paper px-4 py-2">
+      <Link
+        to={status.to}
+        className="row-tap flex min-h-[54px] items-center justify-between gap-3 border-y border-hair px-2 py-2"
+        aria-label={`WEDDY 다음 행동: ${status.nextAction}`}
+      >
+        <span className="min-w-0">
+          <span className="flex items-baseline gap-2">
+            <span className="text-[10px] tracking-eyebrow uppercase text-gold">WEDDY</span>
+            <span className={`text-[10px] tracking-eyebrow uppercase ${tone}`}>{isHere ? "이 화면" : stateLabel}</span>
+          </span>
+          <span className="mt-1 block truncate text-[13px] font-medium text-ink">
+            {status.label} · {status.nextAction}
+          </span>
+          <span className="mt-0.5 block truncate text-[11px] text-soft">{status.detail}</span>
+        </span>
+        <span className="flex flex-shrink-0 items-center gap-2">
+          <span className={`font-serif text-[18px] tabular-nums ${tone}`}>
+            {status.percent}<span className="ml-0.5 text-[10px] font-sans text-soft">%</span>
+          </span>
+          <span className="text-soft">→</span>
+        </span>
+      </Link>
+    </div>
+  );
 }
 
 function isBackupStale(lastBackupAt?: string): boolean {

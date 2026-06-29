@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import type { WeddingData } from "../lib/schema";
 import { buildMenuGroups } from "../lib/menu";
 import { koBreak } from "../lib/typography";
+import { PLANNING_STATE_LABEL, planningStatusReport } from "../lib/derived";
 
 type Props = {
   open: boolean;
@@ -60,6 +61,8 @@ export default function MenuSheet({ open, onClose, data }: Props) {
 
   if (!open) return null;
   const groups = buildMenuGroups(data);
+  const statusReport = planningStatusReport(data);
+  const nextStatus = statusReport.nextSections[0];
 
   return (
     <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="전체 메뉴">
@@ -88,6 +91,31 @@ export default function MenuSheet({ open, onClose, data }: Props) {
         </div>
         <div className="hairline" />
         <nav className="flex-1 overflow-y-auto px-6 pt-5 pb-[calc(2rem+env(safe-area-inset-bottom))] space-y-7">
+          {nextStatus && (
+            <Link
+              to={nextStatus.to}
+              onClick={onClose}
+              className="row-tap block border-y border-hair py-4"
+            >
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <div className="eyebrow-gold mb-1">WEDDY가 보는 다음 일</div>
+                  <div className="font-serif text-[18px] leading-snug text-ink break-keep">{nextStatus.nextAction}</div>
+                </div>
+                <span className="font-serif text-[22px] leading-none text-gold tabular-nums">
+                  {nextStatus.percent}<span className="ml-0.5 text-[10px] font-sans text-soft">%</span>
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3 text-[12px] leading-relaxed">
+                <span className="min-w-0 truncate text-soft">
+                  {nextStatus.label} · {nextStatus.detail}
+                </span>
+                <span className="flex-shrink-0 text-ink">
+                  {PLANNING_STATE_LABEL[nextStatus.state]} →
+                </span>
+              </div>
+            </Link>
+          )}
           {groups.map((group) => (
             <div key={group.title}>
               <h2 className="eyebrow mb-3">{group.title}</h2>
