@@ -42,6 +42,12 @@ type ConfirmState = {
 };
 
 const STATUS_OPTIONS: WeddingVenue["status"][] = ["관심", "투어", "계약"];
+const AGENT_STARTER_NOTE_MARKERS = [
+  "기준으로 먼저 비교할 후보입니다.",
+  "처음 비교해볼 후보입니다.",
+  "Dearie가 조건 답변으로 추린 후보입니다.",
+];
+const LEGACY_AGENT_STARTER_NAMES = new Set(["호텔 인터불고 엑스코", "웨딩시티 신도림", "더베뉴지서울"]);
 const CONTRACT_FIELDS: { key: keyof ContractCheck; label: string; placeholder: string }[] = [
   { key: "quote", label: "견적 기준", placeholder: "예: 토 12시, 보증 250명, 식대 13만원, 대관료 포함" },
   { key: "payment", label: "결제 일정", placeholder: "예: 계약금 100만원, 잔금 D-7, 카드 가능 여부" },
@@ -236,12 +242,25 @@ export default function Venues({ data, update }: Props) {
 
   const applyVenueStarter = (picks: WeddingVenue[]) => {
     update((prev: WeddingData) => {
-      const names = new Set((prev.venues ?? []).map((v) => v.name));
+      const baseVenues = (prev.venues ?? []).filter((venue) =>
+        !isReplaceableAgentStarterVenue(venue, prev.preferences.isDemo === true)
+      );
+      const names = new Set(baseVenues.map((v) => v.name));
       const additions = picks
         .filter((v) => !names.has(v.name))
-        .map((v) => ({ ...v, id: `v-${Date.now()}-${v.id}`, status: "관심" as const }));
-      return { ...prev, venues: [...(prev.venues ?? []), ...additions] };
+        .map((v, index) => ({
+          ...v,
+          id: `v-${Date.now()}-${index}-${v.id}`,
+          status: "관심" as const,
+          notes: [
+            v.notes,
+            "Dearie가 조건 답변으로 추린 후보입니다.",
+            "상담 때 보증인원, 식대, 부가세·봉사료, 외부업체 반입료, 동시 예식 수를 확인하고 계약서에 남기세요.",
+          ].filter(Boolean).join("\n"),
+        }));
+      return { ...prev, venues: [...baseVenues, ...additions] };
     });
+    setVenueNotice(`Dearie가 고른 후보 ${picks.length}곳을 내 후보에 반영했어요. 기존 예시 후보는 정리했어요.`);
     setTab("mine");
     setShowStarter(false);
   };
@@ -558,10 +577,10 @@ type VenueAgentScale = "small" | "medium" | "large" | "unknown";
 type VenueAgentMood = "hotel" | "chapel" | "bright" | "convention" | "flexible";
 type VenueAgentPriority = "meal" | "traffic" | "privacy" | "contract";
 type VenueAgentAnswers = Partial<{
-  area: VenueAgentArea;
+  area: VenueAgentArea[];
   scale: VenueAgentScale;
-  mood: VenueAgentMood;
-  priority: VenueAgentPriority;
+  mood: VenueAgentMood[];
+  priority: VenueAgentPriority[];
 }>;
 type VenueAgentOption = { id: string; label: string; detail: string };
 type VenueAgentQuestion = {
@@ -569,6 +588,7 @@ type VenueAgentQuestion = {
   eyebrow: string;
   title: string;
   helper: string;
+  multiple?: boolean;
   options: VenueAgentOption[];
 };
 
@@ -584,7 +604,8 @@ const VENUE_AGENT_QUESTIONS: VenueAgentQuestion[] = [
     id: "area",
     eyebrow: "첫 질문",
     title: "가장 먼저 볼 지역은 어디에 가까울까요?",
-    helper: "처음부터 전 지역을 펼치면 비교가 흐려져요. 이동 동선이 맞는 권역 하나를 먼저 잡겠습니다.",
+    helper: "처음부터 전 지역을 펼치면 비교가 흐려져요. 이동 동선이 맞는 권역을 여러 개 골라도 됩니다.",
+    multiple: true,
     options: [
       { id: "seoul", label: "서울 전체", detail: "강남·중구·한남·기타 서울권을 넓게 보기" },
       { id: "gangnam", label: "강남·청담권", detail: "강남, 청담, 논현, 반포, 서초 주변" },
@@ -610,7 +631,8 @@ const VENUE_AGENT_QUESTIONS: VenueAgentQuestion[] = [
     id: "mood",
     eyebrow: "세 번째",
     title: "원하는 홀 분위기는 어느 쪽인가요?",
-    helper: "분위기는 취향이지만, 투어 동선을 크게 좌우합니다. 상담 전에 한 축만 정해둘게요.",
+    helper: "분위기는 취향이지만, 투어 동선을 크게 좌우합니다. 끌리는 분위기를 여러 개 골라도 됩니다.",
+    multiple: true,
     options: [
       { id: "hotel", label: "호텔", detail: "코스·서비스·격식 중심으로 비교" },
       { id: "chapel", label: "채플·하우스", detail: "채플감, 단독 홀, 하우스웨딩 위주" },
@@ -623,7 +645,8 @@ const VENUE_AGENT_QUESTIONS: VenueAgentQuestion[] = [
     id: "priority",
     eyebrow: "마지막",
     title: "상담에서 가장 먼저 확인할 조건은요?",
-    helper: "Dearie가 후보를 담을 때 확인 질문도 같이 붙여둘게요. 계약 판단은 공식 상담 후에만 하세요.",
+    helper: "Dearie가 후보를 담을 때 확인 질문도 같이 붙여둘게요. 실제 상담에서 같이 확인할 조건을 모두 골라도 됩니다.",
+    multiple: true,
     options: [
       { id: "meal", label: "식대·총액", detail: "식대 범위가 보이는 후보를 앞에 두기" },
       { id: "traffic", label: "교통·동선", detail: "양가와 하객 이동을 먼저 보기" },
@@ -641,14 +664,20 @@ function VenueStarter({
   onClose: () => void;
 }) {
   const [answers, setAnswers] = useState<VenueAgentAnswers>({});
+  const [questionIndex, setQuestionIndex] = useState(0);
   const answeredCount = countVenueAgentAnswers(answers);
-  const currentQuestion = VENUE_AGENT_QUESTIONS.find((question) => !answers[question.id]) ?? null;
+  const currentQuestion = questionIndex < VENUE_AGENT_QUESTIONS.length ? VENUE_AGENT_QUESTIONS[questionIndex] : null;
   const complete = answeredCount === VENUE_AGENT_QUESTIONS.length;
   const remaining = VENUE_AGENT_QUESTIONS.length - answeredCount;
   const result = useMemo(() => pickAgentVenues(answers), [answers]);
 
-  const answerQuestion = (key: VenueAgentAnswerKey, value: string) => {
-    setAnswers((prev) => ({ ...prev, [key]: value } as VenueAgentAnswers));
+  const answerQuestion = (question: VenueAgentQuestion, value: string) => {
+    if (question.multiple) {
+      setAnswers((prev) => toggleVenueAgentAnswer(prev, question, value));
+      return;
+    }
+    setAnswers((prev) => ({ ...prev, [question.id]: value } as VenueAgentAnswers));
+    setQuestionIndex((index) => Math.max(index, VENUE_AGENT_QUESTIONS.findIndex((item) => item.id === question.id) + 1));
   };
 
   const clearAnswer = (key: VenueAgentAnswerKey) => {
@@ -657,38 +686,50 @@ function VenueStarter({
       delete next[key];
       return next;
     });
+    setQuestionIndex(VENUE_AGENT_QUESTIONS.findIndex((question) => question.id === key));
+  };
+
+  const goToQuestion = (index: number) => {
+    if (index > answeredCount) return;
+    setQuestionIndex(index);
+  };
+
+  const continueQuestion = () => {
+    if (!currentQuestion || !isVenueAgentQuestionAnswered(currentQuestion, answers)) return;
+    setQuestionIndex((index) => Math.min(index + 1, VENUE_AGENT_QUESTIONS.length));
   };
 
   return (
     <section className="border-y border-hair py-5 space-y-5" data-testid="venue-agent-starter">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex min-w-0 gap-3">
           <AgentIdentity compact mood={complete ? "ready" : "thinking"} />
           <div className="min-w-0">
             <div className="eyebrow-gold mb-2">Dearie 후보 추리기</div>
             <h2 className="font-serif text-[21px] leading-snug text-ink break-keep">
-              {complete ? "상담 후보를 담을 준비가 됐어요" : "제가 한 번에 하나씩 좁혀볼게요"}
+              {complete ? "제가 고른 후보로 준비판을 정리할게요" : "조건을 여러 개 받아서 제가 먼저 추릴게요"}
             </h2>
             <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-soft break-keep">
-              답을 고를 때마다 후보군을 다시 계산합니다. 공개 정보 기반 예비 후보라서 식대·보증·대관 조건은 상담 전 공식 채널로 재확인해야 합니다.
+              복수 선택이 가능한 질문은 여러 개 골라도 됩니다. 답을 고를 때마다 후보군을 다시 계산하고, 반영하면 기존 예시 후보는 이 결과로 정리됩니다.
             </p>
           </div>
         </div>
-        <button onClick={onClose} className="min-h-10 flex-shrink-0 text-[12px] text-soft underline underline-offset-4 hover:text-ink">
+        <button onClick={onClose} className="min-h-10 flex-shrink-0 self-end text-[12px] text-soft underline underline-offset-4 hover:text-ink md:self-start">
           닫기
         </button>
       </div>
 
       <div className="grid grid-cols-2 border-y border-hair md:grid-cols-4">
         {VENUE_AGENT_QUESTIONS.map((question, index) => {
-          const answered = !!answers[question.id];
-          const current = currentQuestion?.id === question.id;
+          const answered = isVenueAgentQuestionAnswered(question, answers);
+          const current = questionIndex === index;
+          const reachable = answered || index <= answeredCount;
           return (
             <button
               key={question.id}
               type="button"
-              onClick={() => answered && clearAnswer(question.id)}
-              disabled={!answered}
+              onClick={() => goToQuestion(index)}
+              disabled={!reachable}
               className={`min-h-[74px] border-r border-b border-hair px-3 py-3 text-left last:border-r-0 md:border-b-0 ${
                 answered ? "text-ink hover:bg-cream/45" : current ? "text-gold" : "text-soft"
               }`}
@@ -699,7 +740,7 @@ function VenueStarter({
               </span>
               <span className="mt-1 block text-[13px] font-semibold">{VENUE_AGENT_STEP_LABELS[question.id]}</span>
               <span className="mt-1 block truncate text-[11px] text-soft">
-                {answered ? selectedVenueAgentOption(question, answers)?.label : current ? "답 기다리는 중" : "대기"}
+                {answered ? selectedVenueAgentSummary(question, answers) : current ? "답 기다리는 중" : "대기"}
               </span>
             </button>
           );
@@ -712,27 +753,51 @@ function VenueStarter({
           <h3 className="font-serif text-[19px] leading-snug text-ink break-keep">{currentQuestion.title}</h3>
           <p className="mt-2 text-[13px] leading-relaxed text-soft break-keep">{currentQuestion.helper}</p>
           <div className="mt-4 grid gap-2 md:grid-cols-2">
-            {currentQuestion.options.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => answerQuestion(currentQuestion.id, option.id)}
-                className="group min-h-[72px] border border-hair px-4 py-3 text-left transition hover:border-gold hover:bg-cream/45 active:scale-[0.99]"
-              >
-                <span className="block text-[14px] font-semibold text-ink break-keep">{option.label}</span>
-                <span className="mt-1 block text-[12px] leading-relaxed text-soft break-keep">{option.detail}</span>
-              </button>
-            ))}
+            {currentQuestion.options.map((option) => {
+              const selected = isVenueAgentOptionSelected(currentQuestion, answers, option.id);
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => answerQuestion(currentQuestion, option.id)}
+                  className={`group min-h-[72px] border px-4 py-3 text-left transition active:scale-[0.99] ${
+                    selected ? "border-gold bg-gold/5 text-ink" : "border-hair hover:border-gold hover:bg-cream/45"
+                  }`}
+                >
+                  <span className="flex items-baseline justify-between gap-3">
+                    <span className="block text-[14px] font-semibold text-ink break-keep">{option.label}</span>
+                    <span className="text-[11px] text-soft">{selected ? "선택됨" : currentQuestion.multiple ? "추가" : "선택"}</span>
+                  </span>
+                  <span className="mt-1 block text-[12px] leading-relaxed text-soft break-keep">{option.detail}</span>
+                </button>
+              );
+            })}
           </div>
+          {currentQuestion.multiple && (
+            <div className="mt-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <p className="text-[12px] leading-relaxed text-soft">
+                여러 개를 골라도 괜찮아요. 선택한 조건으로 후보를 다시 계산합니다.
+              </p>
+              <button
+                type="button"
+                onClick={continueQuestion}
+                disabled={!isVenueAgentQuestionAnswered(currentQuestion, answers)}
+                className="btn-primary min-h-11 px-4 text-[13px] disabled:opacity-40"
+              >
+                선택한 조건으로 다음 질문 →
+              </button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="border-y border-hair py-4">
           <div className="eyebrow-gold mb-2">Dearie 판단 완료</div>
           <h3 className="font-serif text-[19px] leading-snug text-ink break-keep">
-            이제 이 후보들로 상담 순서를 시작해도 돼요
+            이 후보들로 상담 순서를 시작할 수 있어요
           </h3>
           <p className="mt-2 text-[13px] leading-relaxed text-soft break-keep">
-            담은 뒤에는 각 후보를 투어 상태로 올리고, 견적 기준·취소 조건·포함 항목을 공식 상담에서 확인하면 됩니다.
+            반영하면 기존 예시 후보는 정리되고, 아래 후보만 내 후보에 남습니다. 견적 기준·취소 조건·포함 항목은 공식 상담에서 다시 확인하세요.
           </p>
         </div>
       )}
@@ -740,8 +805,8 @@ function VenueStarter({
       {answeredCount > 0 && (
         <div className="flex flex-wrap gap-2">
           {VENUE_AGENT_QUESTIONS.filter((question) => answers[question.id]).map((question) => {
-            const option = selectedVenueAgentOption(question, answers);
-            if (!option) return null;
+            const label = selectedVenueAgentSummary(question, answers);
+            if (!label) return null;
             return (
               <button
                 key={question.id}
@@ -749,7 +814,7 @@ function VenueStarter({
                 onClick={() => clearAnswer(question.id)}
                 className="min-h-9 border border-hair px-3 py-1.5 text-[12px] text-ink hover:border-gold hover:text-gold"
               >
-                {VENUE_AGENT_STEP_LABELS[question.id]} · {option.label}
+                {VENUE_AGENT_STEP_LABELS[question.id]} · {label}
               </button>
             );
           })}
@@ -813,11 +878,14 @@ function VenueStarter({
             disabled={!complete || result.picks.length === 0}
             className="btn-primary min-h-12 flex-1 text-[13px] disabled:opacity-40"
           >
-            {complete ? `후보 ${result.picks.length}곳 담기 →` : `답 ${remaining}개 더 하면 후보 담기`}
+            {complete ? `후보 ${result.picks.length}곳으로 내 후보 정리 →` : `답 ${remaining}단계 더 하면 후보 반영`}
           </button>
           <button
             type="button"
-            onClick={() => setAnswers({})}
+            onClick={() => {
+              setAnswers({});
+              setQuestionIndex(0);
+            }}
             className="min-h-12 border border-hair px-4 text-[13px] font-medium text-ink hover:border-gold hover:text-gold"
           >
             처음부터 다시 답하기
@@ -829,11 +897,49 @@ function VenueStarter({
 }
 
 function countVenueAgentAnswers(answers: VenueAgentAnswers): number {
-  return VENUE_AGENT_QUESTIONS.filter((question) => !!answers[question.id]).length;
+  return VENUE_AGENT_QUESTIONS.filter((question) => isVenueAgentQuestionAnswered(question, answers)).length;
 }
 
-function selectedVenueAgentOption(question: VenueAgentQuestion, answers: VenueAgentAnswers): VenueAgentOption | undefined {
-  return question.options.find((option) => option.id === answers[question.id]);
+function isVenueAgentQuestionAnswered(question: VenueAgentQuestion, answers: VenueAgentAnswers): boolean {
+  const value = answers[question.id];
+  return Array.isArray(value) ? value.length > 0 : Boolean(value);
+}
+
+function selectedVenueAgentOptions(question: VenueAgentQuestion, answers: VenueAgentAnswers): VenueAgentOption[] {
+  const value = answers[question.id];
+  const values: string[] = Array.isArray(value) ? value : value ? [value] : [];
+  return question.options.filter((option) => values.includes(option.id));
+}
+
+function selectedVenueAgentSummary(question: VenueAgentQuestion, answers: VenueAgentAnswers): string {
+  const labels = selectedVenueAgentOptions(question, answers).map((option) => option.label);
+  if (labels.length <= 2) return labels.join(", ");
+  return `${labels.slice(0, 2).join(", ")} 외 ${labels.length - 2}`;
+}
+
+function isVenueAgentOptionSelected(question: VenueAgentQuestion, answers: VenueAgentAnswers, optionId: string): boolean {
+  return selectedVenueAgentOptions(question, answers).some((option) => option.id === optionId);
+}
+
+function toggleVenueAgentAnswer(answers: VenueAgentAnswers, question: VenueAgentQuestion, value: string): VenueAgentAnswers {
+  const current = selectedVenueAgentOptions(question, answers).map((option) => option.id);
+  const exclusiveValues: Partial<Record<VenueAgentAnswerKey, string[]>> = {
+    area: ["seoul"],
+    mood: ["flexible"],
+  };
+  const exclusive = exclusiveValues[question.id] ?? [];
+  const withoutExclusive = exclusive.includes(value)
+    ? []
+    : current.filter((item) => !exclusive.includes(item));
+  const nextValues = current.includes(value)
+    ? current.filter((item) => item !== value)
+    : [...withoutExclusive, value];
+  const next = { ...answers };
+  if (nextValues.length === 0) {
+    delete next[question.id];
+    return next;
+  }
+  return { ...next, [question.id]: nextValues } as VenueAgentAnswers;
 }
 
 function pickAgentVenues(answers: VenueAgentAnswers): { picks: WeddingVenue[]; poolCount: number; relaxed: boolean } {
@@ -848,7 +954,7 @@ function pickAgentVenues(answers: VenueAgentAnswers): { picks: WeddingVenue[]; p
   let pool = strictPool;
   let relaxed = false;
 
-  if (pool.length < 3 && answers.mood && answers.mood !== "flexible") {
+  if (pool.length < 3 && answers.mood?.length && !answers.mood.includes("flexible")) {
     pool = VENUE_CATALOG.filter((venue) =>
       matchesVenueAgentArea(venue, answers.area) &&
       matchesVenueAgentMood(venue, answers.mood)
@@ -884,14 +990,16 @@ function pickAgentVenues(answers: VenueAgentAnswers): { picks: WeddingVenue[]; p
   return { picks, poolCount: strictPool.length, relaxed };
 }
 
-function matchesVenueAgentArea(venue: WeddingVenue, area?: VenueAgentArea): boolean {
-  if (!area) return true;
-  if (area === "seoul") return isSeoulVenueRegion(venue.region);
-  if (area === "local") {
-    return ["busan", "daegu", "chungcheong", "honam", "gangwon-jeju"]
-      .some((key) => matchesRegionGroup(venue.region, key));
-  }
-  return matchesRegionGroup(venue.region, area);
+function matchesVenueAgentArea(venue: WeddingVenue, areas?: VenueAgentArea[]): boolean {
+  if (!areas?.length) return true;
+  return areas.some((area) => {
+    if (area === "seoul") return isSeoulVenueRegion(venue.region);
+    if (area === "local") {
+      return ["busan", "daegu", "chungcheong", "honam", "gangwon-jeju"]
+        .some((key) => matchesRegionGroup(venue.region, key));
+    }
+    return matchesRegionGroup(venue.region, area);
+  });
 }
 
 function matchesVenueAgentScale(venue: WeddingVenue, scale?: VenueAgentScale): boolean {
@@ -903,42 +1011,45 @@ function matchesVenueAgentScale(venue: WeddingVenue, scale?: VenueAgentScale): b
   return max >= 300;
 }
 
-function matchesVenueAgentMood(venue: WeddingVenue, mood?: VenueAgentMood): boolean {
-  if (!mood || mood === "flexible") return true;
-  const name = venue.name.toLowerCase();
-  if (mood === "hotel") return venue.hallType === "hotel";
-  if (mood === "chapel") return venue.hallType === "house" || name.includes("채플") || name.includes("chapel");
-  if (mood === "bright") {
-    return venue.hallType === "outdoor" || venue.hallType === "house" || /가든|포레스트|두가헌|채플/.test(venue.name);
-  }
-  return venue.hallType === "convention" || venue.hallType === "general";
+function matchesVenueAgentMood(venue: WeddingVenue, moods?: VenueAgentMood[]): boolean {
+  if (!moods?.length || moods.includes("flexible")) return true;
+  return moods.some((mood) => {
+    const name = venue.name.toLowerCase();
+    if (mood === "hotel") return venue.hallType === "hotel";
+    if (mood === "chapel") return venue.hallType === "house" || name.includes("채플") || name.includes("chapel");
+    if (mood === "bright") {
+      return venue.hallType === "outdoor" || venue.hallType === "house" || /가든|포레스트|두가헌|채플/.test(venue.name);
+    }
+    return venue.hallType === "convention" || venue.hallType === "general";
+  });
 }
 
 function scoreVenueForAgent(venue: WeddingVenue, answers: VenueAgentAnswers): number {
   let score = 0;
-  if (matchesVenueAgentArea(venue, answers.area)) score += answers.area ? 34 : 0;
+  if (matchesVenueAgentArea(venue, answers.area)) score += answers.area?.length ? 34 : 0;
   else score -= 18;
   if (matchesVenueAgentScale(venue, answers.scale)) score += answers.scale && answers.scale !== "unknown" ? 24 : 4;
   else score -= 8;
-  if (matchesVenueAgentMood(venue, answers.mood)) score += answers.mood && answers.mood !== "flexible" ? 22 : 5;
+  if (matchesVenueAgentMood(venue, answers.mood)) score += answers.mood?.length && !answers.mood.includes("flexible") ? 22 : 5;
   else score -= 6;
 
-  if (answers.priority === "meal") {
+  const priorities = answers.priority ?? [];
+  if (priorities.includes("meal")) {
     if (!venue.mealPriceMin) score -= 3;
     else if (venue.mealPriceMin <= 90_000) score += 14;
     else if (venue.mealPriceMin <= 120_000) score += 11;
     else if (venue.mealPriceMin <= 150_000) score += 7;
     else score += 3;
   }
-  if (answers.priority === "traffic") {
+  if (priorities.includes("traffic")) {
     if (isSeoulVenueRegion(venue.region)) score += 8;
     if (matchesRegionGroup(venue.region, "central") || matchesRegionGroup(venue.region, "gangnam") || matchesRegionGroup(venue.region, "han")) score += 5;
   }
-  if (answers.priority === "privacy") {
+  if (priorities.includes("privacy")) {
     if (venue.hallType === "house" || venue.hallType === "outdoor") score += 12;
     else if (venue.hallType === "hotel") score += 4;
   }
-  if (answers.priority === "contract") {
+  if (priorities.includes("contract")) {
     if (venue.source) score += 5;
     if (venue.lastVerified) score += 5;
     if (venue.capacitySource === "official") score += 3;
@@ -954,18 +1065,31 @@ function scoreVenueForAgent(venue: WeddingVenue, answers: VenueAgentAnswers): nu
 
 function describeVenueAgentMatch(venue: WeddingVenue, answers: VenueAgentAnswers): string[] {
   const reasons: string[] = [];
-  if (answers.area && matchesVenueAgentArea(venue, answers.area)) reasons.push(getVenueAgentAreaLabel(answers.area));
+  const matchingAreas = (answers.area ?? []).filter((area) => matchesVenueAgentArea(venue, [area]));
+  reasons.push(...matchingAreas.slice(0, 2).map(getVenueAgentAreaLabel));
   if (answers.scale && answers.scale !== "unknown" && matchesVenueAgentScale(venue, answers.scale)) reasons.push(`하객 ${formatCapacity(venue)}`);
-  if (answers.mood && answers.mood !== "flexible" && matchesVenueAgentMood(venue, answers.mood)) {
+  if (answers.mood?.length && !answers.mood.includes("flexible") && matchesVenueAgentMood(venue, answers.mood)) {
     reasons.push(venue.hallType ? HALL_TYPE_LABEL[venue.hallType] : "분위기 후보");
   }
-  if (answers.priority === "meal" && (venue.mealPriceMin || venue.mealPriceMax)) reasons.push(`식대 ${formatMealPrice(venue)}`);
-  if (answers.priority === "traffic" && venue.region) reasons.push(`${venue.region} 동선`);
-  if (answers.priority === "privacy") reasons.push(venue.hallType === "house" || venue.hallType === "outdoor" ? "단독감 확인" : "혼잡도 확인");
-  if (answers.priority === "contract" && venue.source) reasons.push("출처 확인 가능");
+  const priorities = answers.priority ?? [];
+  if (priorities.includes("meal") && (venue.mealPriceMin || venue.mealPriceMax)) reasons.push(`식대 ${formatMealPrice(venue)}`);
+  if (priorities.includes("traffic") && venue.region) reasons.push(`${venue.region} 동선`);
+  if (priorities.includes("privacy")) reasons.push(venue.hallType === "house" || venue.hallType === "outdoor" ? "단독감 확인" : "혼잡도 확인");
+  if (priorities.includes("contract") && venue.source) reasons.push("출처 확인 가능");
   if (reasons.length === 0 && venue.hallType) reasons.push(HALL_TYPE_LABEL[venue.hallType]);
   if (reasons.length === 0 && venue.region) reasons.push(venue.region);
-  return reasons.slice(0, 4);
+  return [...new Set(reasons)].slice(0, 4);
+}
+
+function isReplaceableAgentStarterVenue(venue: WeddingVenue, isDemo: boolean): boolean {
+  if (venue.notes && AGENT_STARTER_NOTE_MARKERS.some((marker) => venue.notes?.includes(marker))) return true;
+  return isDemo && LEGACY_AGENT_STARTER_NAMES.has(venue.name);
+}
+
+function getVenueAgentAreaLabel(area: VenueAgentArea): string {
+  if (area === "seoul") return "서울권";
+  if (area === "local") return "지방·리조트";
+  return REGION_GROUPS.find((group) => group.key === area)?.label ?? "지역 조건";
 }
 
 function matchesRegionGroup(region: string | undefined, key: string): boolean {
@@ -978,12 +1102,6 @@ function isSeoulVenueRegion(region: string | undefined): boolean {
     region.includes("서울") ||
     ["gangnam", "central", "han", "etc"].some((key) => matchesRegionGroup(region, key))
   );
-}
-
-function getVenueAgentAreaLabel(area: VenueAgentArea): string {
-  if (area === "seoul") return "서울권";
-  if (area === "local") return "지방·리조트";
-  return REGION_GROUPS.find((group) => group.key === area)?.label ?? "지역 조건";
 }
 
 function VenueMapExplorer({
@@ -1153,8 +1271,8 @@ function VenueResearchInput({
   const [draft, setDraft] = useState<VenueResearchDraft>(() => emptyVenueResearchDraft(venue));
   return (
     <ResearchInputPanel
-      title="조사 입력"
-      subtitle="상담·홈페이지·직접 조사 내용을 구조화합니다."
+      title="상담 메모 정리"
+      subtitle="공식 페이지나 상담 내용을 붙이면 비교 기준과 계약 체크로 나눠 채웁니다."
       rawPlaceholder={
         "예: 보증 250명 / 최대 500명 / 식대 13~16만원 / 뷔페 / 계약금 100만원 / 잔금 D-7 / 별도 봉사료 있음 / 확인일 2026.06.29 / 출처 URL"
       }
@@ -1485,7 +1603,7 @@ function CustomAdd({ onAdd }: { onAdd: (v: Omit<WeddingVenue, "id">) => void }) 
       <input className="input text-[13px]" placeholder="식장 이름" value={name} onChange={(e) => setName(e.target.value)} />
       <input className="input text-[13px]" placeholder="홈페이지·예약 링크 (선택)" value={link} onChange={(e) => setLink(e.target.value)} />
       <ResearchInputPanel
-        title="조사 입력"
+        title="상담 메모 정리"
         subtitle="알아낸 내용을 붙여넣으면 비교표와 계약 체크에 맞게 정리합니다."
         rawPlaceholder={
           "예: 청담 / 호텔 / 보증 250명 / 최대 500명 / 식대 13~16만원 / 계약금 100만원 / 포함 생화·주차 / 출처 URL"

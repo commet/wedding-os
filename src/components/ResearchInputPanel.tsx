@@ -41,7 +41,7 @@ type Props<T extends object> = {
 };
 
 export default function ResearchInputPanel<T extends object>({
-  title = "Dearie에게 자료 읽히기",
+  title = "Dearie 메모 정리",
   subtitle = "후기·견적·홈페이지 내용을 붙이면 필요한 칸만 먼저 채웁니다.",
   rawPlaceholder,
   draft,
@@ -88,17 +88,17 @@ export default function ResearchInputPanel<T extends object>({
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-      className="flex w-full items-center justify-between gap-4 py-2 text-left"
+        className="flex w-full items-center justify-between gap-4 py-2 text-left"
         aria-expanded={open}
       >
         <span>
           <span className="eyebrow-gold block mb-1">{title}</span>
           <span className="text-[13px] text-soft leading-relaxed">
-            {filledCount > 0 ? `Dearie가 읽은 칸 ${filledCount}/${fields.length}` : subtitle}
+            {filledCount > 0 ? `정리된 항목 ${filledCount}/${fields.length}` : subtitle}
           </span>
         </span>
         <span className="text-[12px] text-soft underline underline-offset-4">
-          {open ? "접기" : "열기"}
+          {open ? "접기" : filledCount > 0 ? "수정" : "정리하기"}
         </span>
       </button>
 
@@ -114,7 +114,7 @@ export default function ResearchInputPanel<T extends object>({
             />
             <div className="flex flex-wrap items-center gap-3">
               <button type="button" onClick={runParse} className="btn-primary px-4 py-2 text-[13px]">
-                Dearie가 읽고 채우기
+                Dearie에게 메모 정리 맡기기
               </button>
               {raw && (
                 <button
@@ -132,7 +132,7 @@ export default function ResearchInputPanel<T extends object>({
             <p className="text-[12px] text-soft leading-relaxed">
               원문은 저장하지 않고, 확인한 사실·출처·계약 조건만 남깁니다.
               {parsedCount !== null && (
-                <span className="text-ink"> 방금 {parsedCount}개 칸을 읽었어요.</span>
+                <span className="text-ink"> 방금 {parsedCount}개 항목을 찾았어요.</span>
               )}
             </p>
           </div>

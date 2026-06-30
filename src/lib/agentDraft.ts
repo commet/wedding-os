@@ -5,6 +5,15 @@ import { VENUE_CATALOG } from "../data/venueCatalog";
 import { defaultData, type WeddingData } from "./schema";
 import { AGENT_PRIORITIES, type AgentAnswers, type AgentPriority } from "./agentProfile";
 
+const SEOUL_STARTER_VENUE_NAMES = [
+  "그랜드 인터컨티넨탈 서울 파르나스",
+  "신라호텔 서울",
+  "더채플앳청담",
+  "아펠가모 광화문",
+  "콘래드 서울",
+  "롯데호텔 서울",
+];
+
 export function buildAgentDraft(current: WeddingData, answers: AgentAnswers): WeddingData {
   const base = current.preferences.isDemo ? defaultData() : current;
   const date = answers.date.trim();
@@ -128,7 +137,12 @@ export function buildAgentDraft(current: WeddingData, answers: AgentAnswers): We
 }
 
 function pickStarterVenues(region: string) {
-  if (!region) return [];
+  const seoulStarters = pickVenueNames(SEOUL_STARTER_VENUE_NAMES);
+  if (!region) return seoulStarters.slice(0, 3);
+  if (isSeoulAnswer(region)) {
+    const localFamous = seoulStarters.filter((venue) => matchesRegion(region, venue.region));
+    return uniqueVenues([...localFamous, ...seoulStarters]).slice(0, 3);
+  }
   const matches = VENUE_CATALOG
     .map((venue) => {
       let score = 0;
@@ -142,7 +156,7 @@ function pickStarterVenues(region: string) {
     .sort((a, b) => b.score - a.score || (a.venue.mealPriceMin ?? 0) - (b.venue.mealPriceMin ?? 0))
     .slice(0, 3)
     .map(({ venue }) => venue);
-  return matches;
+  return matches.length >= 3 ? matches : uniqueVenues([...matches, ...seoulStarters]).slice(0, 3);
 }
 
 function matchesRegion(answerRegion: string, venueRegion?: string): boolean {
@@ -154,6 +168,28 @@ function matchesRegion(answerRegion: string, venueRegion?: string): boolean {
   if (region.includes("강남")) return venue.includes("강남") || venue.includes("삼성") || venue.includes("양재") || venue.includes("청담") || venue.includes("신사") || venue.includes("잠원");
   if (region.includes("제주")) return venue.includes("제주");
   return venue.includes(region) || region.includes(venue);
+}
+
+function isSeoulAnswer(region: string): boolean {
+  const compact = region.replace(/\s/g, "");
+  return compact.includes("서울") || compact.includes("강남") || compact.includes("청담") || compact.includes("광화문") || compact.includes("중구") || compact.includes("여의도") || compact.includes("잠실") || compact.includes("한남");
+}
+
+function pickVenueNames(names: string[]) {
+  const byName = new Map(VENUE_CATALOG.map((venue) => [venue.name, venue]));
+  return names.flatMap((name) => {
+    const venue = byName.get(name);
+    return venue ? [venue] : [];
+  });
+}
+
+function uniqueVenues(venues: typeof VENUE_CATALOG) {
+  const seen = new Set<string>();
+  return venues.filter((venue) => {
+    if (seen.has(venue.name)) return false;
+    seen.add(venue.name);
+    return true;
+  });
 }
 
 function pickStarterBudget(priority: AgentPriority) {

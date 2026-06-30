@@ -558,7 +558,7 @@ function RingResearchInput({
   const [draft, setDraft] = useState<RingResearchDraft>(() => emptyRingResearchDraft(ring));
   return (
     <ResearchInputPanel
-      title="조사 입력"
+      title="메모 정리"
       subtitle="매장 견적·브랜드 페이지를 반지 후보 정보로 정리합니다."
       rawPlaceholder={
         "예: 브랜드 티파니 / 모델 투게더 4mm / 플래티넘 / 가격 185만원 / 각인 가능 / 확인일 2026.06.29 / 출처 URL"
@@ -1201,7 +1201,7 @@ function AddRingModal({ open, onClose, update }: { open: boolean; onClose: () =>
           매장 명함이나 화면 캡처에서 보이는 만큼만 옮겨 적으면 돼요. 나머지는 나중에 채워도 됩니다.
         </p>
         <ResearchInputPanel
-          title="조사 입력"
+          title="메모 정리"
           subtitle="견적표·브랜드 페이지를 붙여넣어 반지 후보로 정리합니다."
           rawPlaceholder={
             "예: 브랜드 티파니 / 모델 투게더 4mm / 플래티넘 / 가격 185만원 / 출처 URL"

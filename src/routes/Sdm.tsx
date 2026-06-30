@@ -530,7 +530,7 @@ function SdmResearchInput({
   const [draft, setDraft] = useState<SdmResearchDraft>(() => emptySdmResearchDraft(vendor));
   return (
     <ResearchInputPanel
-      title="조사 입력"
+      title="메모 정리"
       subtitle="가격·포함 항목·별도 비용을 상담 기준으로 정리합니다."
       rawPlaceholder={
         "예: 토탈 패키지 280만원 / 원본 포함 / 보정 20장 / 헬퍼비 별도 / 계약금 30만원 / 잔금 촬영 D-7 / 출처 URL"
@@ -813,7 +813,7 @@ function CustomAdd({
       <input className="input text-[13px]" placeholder="지역 (예: 청담)" value={region} onChange={(e) => setRegion(e.target.value)} />
       <input className="input text-[13px]" placeholder="홈페이지·인스타 링크" value={link} onChange={(e) => setLink(e.target.value)} />
       <ResearchInputPanel
-        title="조사 입력"
+        title="메모 정리"
         subtitle="상담 메모를 붙여넣어 가격·포함·별도 비용을 정리합니다."
         rawPlaceholder={
           "예: 280만원 패키지 / 원본 포함 / 보정 20장 / 헬퍼비 별도 / 계약금 30만원 / 출처 URL"

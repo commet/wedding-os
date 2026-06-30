@@ -24,6 +24,7 @@ export type ConsultationQuestion = {
   eyebrow: string;
   title: string;
   body: string;
+  multiple?: boolean;
   options: ConsultationOption[];
 };
 
@@ -117,31 +118,31 @@ export const CONSULTATION_META: Record<ConsultationSectionId, ConsultationMeta> 
 
 export const CONSULTATION_QUESTIONS: Record<ConsultationSectionId, ConsultationQuestion[]> = {
   venues: [
-    q("venues-region", "01 · 지역", "가장 먼저 볼 지역은 어디에 가까워요?", "후보가 너무 많을 때는 지역을 먼저 좁히는 게 상담 피로도를 가장 크게 줄입니다.", [
+    q("venues-region", "01 · 지역", "가장 먼저 볼 지역은 어디에 가까워요?", "후보가 너무 많을 때는 지역을 먼저 좁히는 게 상담 피로도를 가장 크게 줄입니다. 복수 선택해도 됩니다.", [
       o("gangnam", "강남·청담", "접근성, 브랜드 홀, 호텔 후보를 넓게 보기"),
       o("central", "광화문·중구", "도심 호텔과 교통 중심 후보 보기"),
       o("han", "여의도·한남·잠실", "한강권, 호텔, 컨벤션을 함께 보기"),
       o("gyeonggi", "경기·인천", "주차와 대형 홀을 넓게 보기"),
       o("local", "지방 포함", "양가 지역과 이동 부담을 같이 보기"),
-    ]),
+    ], { multiple: true }),
     q("venues-scale", "02 · 인원", "예상 하객 규모는 어느 정도인가요?", "보증인원과 식대는 인원에서 바로 갈립니다. 대략만 잡아도 괜찮아요.", [
       o("small", "100명 안팎", "하우스·소규모·프라이빗 후보도 열어두기"),
       o("medium", "200명 안팎", "일반 예식장과 호텔 일부 비교"),
       o("large", "300명 이상", "컨벤션·대형 홀 위주로 보기"),
       o("unknown", "아직 몰라요", "하객 추정부터 오늘 할 일로 올리기"),
     ]),
-    q("venues-hall", "03 · 분위기", "홀 분위기는 어느 쪽이 더 좋아요?", "사진 취향보다 실제로는 동시 예식 수, 천고, 조명, 동선이 같이 따라옵니다.", [
+    q("venues-hall", "03 · 분위기", "홀 분위기는 어느 쪽이 더 좋아요?", "사진 취향보다 실제로는 동시 예식 수, 천고, 조명, 동선이 같이 따라옵니다. 마음에 드는 축을 여러 개 골라도 됩니다.", [
       o("hotel", "호텔/클래식", "서비스와 격식, 식사 안정감 우선"),
       o("chapel", "채플/어두운 홀", "입장 연출과 사진 분위기 우선"),
       o("bright", "밝은 홀/하우스", "자연광과 프라이빗한 느낌 우선"),
       o("convention", "컨벤션/대형", "수용 인원과 주차 안정성 우선"),
-    ]),
-    q("venues-priority", "04 · 우선순위", "상담에서 제일 먼저 확인할 조건은요?", "같은 견적이어도 무엇을 먼저 물을지 정해두면 상담 후 비교가 쉬워요.", [
+    ], { multiple: true }),
+    q("venues-priority", "04 · 우선순위", "상담에서 제일 먼저 확인할 조건은요?", "같은 견적이어도 무엇을 먼저 물을지 정해두면 상담 후 비교가 쉬워요. 여러 항목을 같이 체크해도 됩니다.", [
       o("meal", "음식과 식대", "식대, 음주류, 봉사료, 시식 조건"),
       o("traffic", "교통과 주차", "대중교통, 셔틀, 주차권, 혼잡도"),
       o("privacy", "단독감", "동시 예식, 신부대기실, 로비 동선"),
       o("contract", "계약 리스크", "환불, 날짜 변경, 별도 비용"),
-    ]),
+    ], { multiple: true }),
   ],
   sdm: [
     q("sdm-scope", "01 · 방식", "스드메는 어떤 방식이 편할까요?", "토탈은 편하고, 분리는 취향과 가격을 더 세밀하게 조정할 수 있어요.", [
@@ -160,11 +161,11 @@ export const CONSULTATION_QUESTIONS: Record<ConsultationSectionId, ConsultationQ
       o("250to400", "250~400만", "대표 패키지 비교 구간"),
       o("400plus", "400만 이상", "작가 지정과 드레스 선택 폭까지 보기"),
     ]),
-    q("sdm-risk", "04 · 민감한 조건", "계약 전에 제일 걱정되는 건요?", "Dearie가 견적 메모와 상담 질문에서 이 항목을 먼저 보게 됩니다.", [
+    q("sdm-risk", "04 · 민감한 조건", "계약 전에 제일 걱정되는 건요?", "Dearie가 견적 메모와 상담 질문에서 이 항목을 먼저 보게 됩니다. 걱정되는 항목을 모두 골라도 됩니다.", [
       o("extras", "추가금", "헬퍼비, 원본비, 출장비, 드레스 업차지"),
       o("schedule", "일정", "촬영일, 셀렉일, 본식 전 납품 여유"),
       o("quality", "결과물", "작가 지정, 보정 스타일, 샘플 일관성"),
-    ]),
+    ], { multiple: true }),
   ],
   snap: [
     q("snap-style", "01 · 사진 톤", "본식 스냅은 어떤 느낌이면 좋겠어요?", "본식 스냅은 예쁜 샘플보다 당일 순간 포착과 납품 안정성이 중요해요.", [
@@ -177,11 +178,11 @@ export const CONSULTATION_QUESTIONS: Record<ConsultationSectionId, ConsultationQ
       o("prep", "메이크업부터", "준비 과정과 대기실까지 기록"),
       o("full", "폐백/피로연까지", "당일 전체 동선 기록"),
     ]),
-    q("snap-delivery", "03 · 납품", "납품에서 제일 중요한 건요?", "후회가 많은 부분이라 계약서에 남길 기준을 먼저 정합니다.", [
+    q("snap-delivery", "03 · 납품", "납품에서 제일 중요한 건요?", "후회가 많은 부분이라 계약서에 남길 기준을 먼저 정합니다. 중요 기준을 여러 개 남겨도 됩니다.", [
       o("speed", "빠른 선보정", "SNS·감사 인사용 사진 빠르게 받기"),
       o("quantity", "충분한 컷 수", "원본과 보정본 수량 우선"),
       o("album", "앨범 완성도", "인화, 앨범, 보관 품질 우선"),
-    ]),
+    ], { multiple: true }),
   ],
   trip: [
     q("trip-pace", "01 · 분위기", "신혼여행은 어떤 리듬이 좋아요?", "지역보다 여행 리듬을 먼저 정하면 항공과 숙소 기준이 같이 잡힙니다.", [
@@ -200,11 +201,11 @@ export const CONSULTATION_QUESTIONS: Record<ConsultationSectionId, ConsultationQ
       o("one-stop", "1회 경유 가능", "가격과 지역 선택지 넓히기"),
       o("flexible", "상관없음", "숙소와 총액 중심으로 보기"),
     ]),
-    q("trip-stay", "04 · 숙소", "숙소에서 제일 중요한 건요?", "같은 지역도 숙소 기준에 따라 동선과 총액이 달라집니다.", [
+    q("trip-stay", "04 · 숙소", "숙소에서 제일 중요한 건요?", "같은 지역도 숙소 기준에 따라 동선과 총액이 달라집니다. 포기하기 어려운 조건을 모두 골라도 됩니다.", [
       o("pool", "풀빌라·리조트", "객실 안에서 쉬는 시간 우선"),
       o("location", "위치", "관광·식당·이동 편의 우선"),
       o("view", "전망·분위기", "허니문다운 기억 우선"),
-    ]),
+    ], { multiple: true }),
   ],
   invitation: [
     q("invitation-tone", "01 · 문안", "청첩장 문안은 어떤 톤이 좋아요?", "문안 톤이 정해지면 인사말과 전체 디자인 선택이 쉬워집니다.", [
@@ -212,11 +213,11 @@ export const CONSULTATION_QUESTIONS: Record<ConsultationSectionId, ConsultationQ
       o("warm", "따뜻하고 자연스럽게", "두 사람의 말투가 느껴지는 톤"),
       o("short", "짧고 절제 있게", "모바일에서 부담 없이 읽히는 톤"),
     ]),
-    q("invitation-photo", "02 · 사진", "사진은 어떻게 쓰고 싶어요?", "대표사진과 갤러리 양을 정하면 모바일 피로도가 줄어듭니다.", [
+    q("invitation-photo", "02 · 사진", "사진은 어떻게 쓰고 싶어요?", "대표사진과 갤러리 양을 정하면 모바일 피로도가 줄어듭니다. 대표사진과 갤러리를 같이 써도 됩니다.", [
       o("hero", "대표사진 크게", "첫 화면에서 분위기를 보여주기"),
       o("gallery", "여러 장 갤러리", "두 사람의 이야기를 조금 더 보여주기"),
       o("minimal", "사진 적게", "정보와 문안 중심으로 깔끔하게"),
-    ]),
+    ], { multiple: true }),
     q("invitation-rsvp", "03 · 회신", "하객 회신은 어떻게 받을까요?", "회신 방식이 정해져야 하객 명단과 식수 계산이 이어집니다.", [
       o("simple", "참석 여부만", "하객 부담을 줄이는 최소 회신"),
       o("meal", "식사 여부까지", "식권과 식수 정산까지 연결"),
@@ -235,11 +236,11 @@ export const CONSULTATION_QUESTIONS: Record<ConsultationSectionId, ConsultationQ
       o("large", "250명 이상", "초대/회신/좌석 운영을 일찍 나누기"),
       o("unknown", "아직 몰라요", "양가 예상치부터 나눠 적기"),
     ]),
-    q("guests-source", "02 · 작성 방식", "명단은 어디서부터 만들까요?", "처음부터 완벽한 명단보다 출처를 정해 단계적으로 채우는 게 편합니다.", [
+    q("guests-source", "02 · 작성 방식", "명단은 어디서부터 만들까요?", "처음부터 완벽한 명단보다 출처를 정해 단계적으로 채우는 게 편합니다. 여러 출처를 같이 시작해도 됩니다.", [
       o("parents", "양가 부모님 명단", "친척과 어른 하객 먼저"),
       o("couple", "두 사람 연락처", "친구·직장·학교 중심"),
       o("groups", "그룹별 추정", "아직 이름이 없어도 규모부터"),
-    ]),
+    ], { multiple: true }),
     q("guests-rsvp", "03 · 회신", "회신은 어떻게 모을까요?", "초대 완료 표시와 RSVP 진행률이 여기서 이어집니다.", [
       o("invitation", "청첩장 링크로", "앱 안 RSVP와 바로 연결"),
       o("message", "카톡/문자로", "직접 확인하고 상태만 표시"),
@@ -262,16 +263,16 @@ export const CONSULTATION_QUESTIONS: Record<ConsultationSectionId, ConsultationQ
       o("actual", "쓴 돈 중심", "결제한 금액부터 정확히"),
       o("cashflow", "잔금 일정 중심", "언제 얼마 나갈지 우선"),
     ]),
-    q("budget-risk", "03 · 걱정", "제일 무서운 초과 항목은요?", "Dearie가 이 항목을 대시보드에서 먼저 보게 됩니다.", [
+    q("budget-risk", "03 · 걱정", "제일 무서운 초과 항목은요?", "Dearie가 이 항목을 대시보드에서 먼저 보게 됩니다. 동시에 걱정되는 항목을 모두 골라도 됩니다.", [
       o("meal", "식대", "하객 수와 계약 식대 연결"),
       o("vendors", "업체 추가금", "원본비, 헬퍼비, 출장비, 옵션"),
       o("trip", "신혼여행", "항공·숙소 변동성"),
-    ]),
-    q("budget-payment", "04 · 결제", "결제 관리는 무엇이 중요해요?", "계약금과 잔금일을 놓치지 않게 정리합니다.", [
+    ], { multiple: true }),
+    q("budget-payment", "04 · 결제", "결제 관리는 무엇이 중요해요?", "계약금과 잔금일을 놓치지 않게 정리합니다. 결제 기준은 여러 개를 같이 관리해도 됩니다.", [
       o("due", "잔금일", "다가오는 결제를 먼저 보기"),
       o("method", "결제수단", "카드, 현금영수증, 할부 확인"),
       o("proof", "증빙", "계약서와 영수증 위치 남기기"),
-    ]),
+    ], { multiple: true }),
   ],
   checklist: [
     q("checklist-mode", "01 · 보기", "체크리스트는 어떤 방식이 편해요?", "할 일이 많을수록 보기 방식을 먼저 정해야 덜 압도됩니다.", [
@@ -319,11 +320,11 @@ export const CONSULTATION_QUESTIONS: Record<ConsultationSectionId, ConsultationQ
       o("medium", "2~3분", "가장 무난한 식전영상 길이"),
       o("long", "4분 이상", "스토리와 챕터를 충분히"),
     ]),
-    q("video-photos", "03 · 사진량", "사진은 어떤 기준으로 고를까요?", "사진을 많이 넣는 것보다 장면 역할을 정하는 게 중요합니다.", [
+    q("video-photos", "03 · 사진량", "사진은 어떤 기준으로 고를까요?", "사진을 많이 넣는 것보다 장면 역할을 정하는 게 중요합니다. 넣고 싶은 묶음을 여러 개 골라도 됩니다.", [
       o("couple", "두 사람 중심", "연애와 여행 사진 위주"),
       o("family", "가족도 함께", "부모님과 어린 시절 사진 포함"),
       o("mix", "친구·일상까지", "밝고 풍성한 분위기"),
-    ]),
+    ], { multiple: true }),
     q("video-output", "04 · 출력", "마지막 출력에서 제일 중요한 건요?", "완성 전 확인해야 할 기술 조건이 달라집니다.", [
       o("venue", "식장 재생 안정성", "해상도, 길이, 파일 형식 우선"),
       o("quality", "화질", "사진 크기와 압축 관리"),
@@ -350,15 +351,22 @@ export const CONSULTATION_QUESTIONS: Record<ConsultationSectionId, ConsultationQ
   ],
 };
 
-function q(id: string, eyebrow: string, title: string, body: string, options: ConsultationOption[]): ConsultationQuestion {
-  return { id, eyebrow, title, body, options };
+function q(
+  id: string,
+  eyebrow: string,
+  title: string,
+  body: string,
+  options: ConsultationOption[],
+  config: { multiple?: boolean } = {},
+): ConsultationQuestion {
+  return { id, eyebrow, title, body, options, multiple: config.multiple };
 }
 
 function o(value: string, label: string, detail: string): ConsultationOption {
   return { value, label, detail };
 }
 
-export type ConsultationAnswers = Record<string, string | undefined>;
+export type ConsultationAnswers = Record<string, string[] | undefined>;
 
 export function consultationQuestions(sectionId: ConsultationSectionId): ConsultationQuestion[] {
   return CONSULTATION_QUESTIONS[sectionId] ?? [];
@@ -370,8 +378,14 @@ export function consultationAnswers(data: WeddingData, sectionId: ConsultationSe
   for (const question of questions) {
     const item = (data.ai?.dialogue ?? []).find((entry) => entry.id === question.id);
     if (!item) continue;
+    if (question.multiple) {
+      const tokens = item.answer.split(",").map((entry) => entry.trim()).filter(Boolean);
+      const matched = question.options.filter((option) => tokens.includes(option.value) || tokens.includes(option.label));
+      if (matched.length > 0) answers[question.id] = matched.map((option) => option.value);
+      continue;
+    }
     const matched = question.options.find((option) => option.value === item.answer || option.label === item.answer);
-    if (matched) answers[question.id] = matched.value;
+    if (matched) answers[question.id] = [matched.value];
   }
   return answers;
 }
@@ -379,13 +393,13 @@ export function consultationAnswers(data: WeddingData, sectionId: ConsultationSe
 export function consultationProgress(data: WeddingData, sectionId: ConsultationSectionId) {
   const questions = consultationQuestions(sectionId);
   const answers = consultationAnswers(data, sectionId);
-  const answered = questions.filter((question) => answers[question.id]).length;
+  const answered = questions.filter((question) => (answers[question.id]?.length ?? 0) > 0).length;
   return { answered, total: questions.length || 1, complete: questions.length > 0 && answered === questions.length };
 }
 
 export function nextConsultationQuestion(data: WeddingData, sectionId: ConsultationSectionId) {
   const answers = consultationAnswers(data, sectionId);
-  return consultationQuestions(sectionId).find((question) => !answers[question.id]) ?? null;
+  return consultationQuestions(sectionId).find((question) => (answers[question.id]?.length ?? 0) === 0) ?? null;
 }
 
 export function answerConsultation(
@@ -400,23 +414,42 @@ export function answerConsultation(
   const option = question.options.find((item) => item.value === value);
   if (!option) return data;
   const answeredAt = new Date().toISOString();
+  const currentValues = consultationAnswers(data, sectionId)[question.id] ?? [];
+  const nextValues = question.multiple
+    ? currentValues.includes(value)
+      ? currentValues.filter((item) => item !== value)
+      : [...currentValues, value]
+    : [value];
+  const nextOptions = question.options.filter((item) => nextValues.includes(item.value));
+  const filteredDialogue = (data.ai?.dialogue ?? []).filter((item) => item.id !== question.id);
+  if (nextOptions.length === 0) {
+    return {
+      ...data,
+      ai: {
+        ...(data.ai ?? {}),
+        dialogue: filteredDialogue.slice(-80),
+        updatedAt: answeredAt,
+      },
+    };
+  }
+  const answerLabel = nextOptions.map((item) => item.label).join(", ");
   return {
     ...data,
     ai: {
       ...(data.ai ?? {}),
       dialogue: [
-        ...(data.ai?.dialogue ?? []).filter((item) => item.id !== question.id),
+        ...filteredDialogue,
         {
           id: question.id,
           question: question.title,
-          answer: option.label,
+          answer: answerLabel,
           answeredAt,
         },
       ].slice(-80),
       today: [
         {
           title: `${meta.label} 기준 이어가기`,
-          reason: `${option.label} 기준을 반영했어요. 다음 결정도 같은 흐름으로 좁혀볼게요.`,
+          reason: `${answerLabel} 기준을 반영했어요. 다음 결정도 같은 흐름으로 좁혀볼게요.`,
           targetPath: meta.route,
         },
         ...(data.ai?.today ?? []).filter((item) => item.targetPath !== meta.route),

@@ -702,7 +702,7 @@ function FlightResearchInput({
   const [draft, setDraft] = useState<FlightResearchDraft>(() => emptyFlightResearchDraft(flight));
   return (
     <ResearchInputPanel
-      title="조사 입력"
+      title="메모 정리"
       subtitle="항공권 검색 결과를 가격·출처·일정으로 정리합니다."
       rawPlaceholder={
         "예: KE629 / ICN → DPS / 2026-06-29 17:50 출발 / 왕복 78만원 / 수하물 포함 / 확인일 2026.06.29 / 출처 URL"
@@ -733,7 +733,7 @@ function FlightAddForm({ onAdd }: { onAdd: (f: Flight) => void }) {
   return (
     <div className="space-y-3">
       <ResearchInputPanel
-        title="조사 입력"
+        title="메모 정리"
         subtitle="항공권 검색 결과를 붙여넣어 후보로 저장합니다."
         rawPlaceholder={
           "예: KE629 / ICN → DPS / 2026-06-29 17:50 출발 / 왕복 78만원 / 수하물 포함 / 출처 URL"
@@ -962,7 +962,7 @@ function HotelResearchInput({
   const [draft, setDraft] = useState<HotelResearchDraft>(() => emptyHotelResearchDraft(hotel));
   return (
     <ResearchInputPanel
-      title="조사 입력"
+      title="메모 정리"
       subtitle="숙소 가격·출처·조건을 Dearie가 정리합니다."
       rawPlaceholder={
         "예: 아고다 1박 45만원 / 조식 포함 / 무료취소 7일 전 / 리조트피 별도 / 확인일 2026.06.29 / 출처 URL"
@@ -993,7 +993,7 @@ function HotelAddForm({ onAdd }: { onAdd: (h: Hotel) => void }) {
   return (
     <div className="space-y-3">
       <ResearchInputPanel
-        title="조사 입력"
+        title="메모 정리"
         subtitle="OTA나 공식 사이트에서 확인한 숙소 정보를 저장합니다."
         rawPlaceholder={
           "예: 호텔 Four Seasons Resort Bali / 지역 발리 우붓 / 아고다 1박 45만원 / 조식 포함 / 출처 URL"
