@@ -123,8 +123,6 @@ export default function Trip({ data, update }: Props) {
         <TripStarter onApply={applyTripStarter} onClose={() => setShowStarter(false)} />
       ) : (
         <>
-          <SectionConsultationPanel sectionId="trip" data={data} update={update} />
-
           <div className="flex items-center gap-6 border-b border-hair pb-3">
             <TabBtn active={tab === "destinations"} onClick={() => setTab("destinations")}>여행지</TabBtn>
             <TabBtn active={tab === "flights"} onClick={() => setTab("flights")}>항공</TabBtn>
@@ -152,6 +150,8 @@ export default function Trip({ data, update }: Props) {
               { label: "여행지 탭", onClick: () => setTab("destinations") },
             ]}
           />
+
+          <SectionConsultationPanel sectionId="trip" data={data} update={update} />
 
           <button
             onClick={() => setShowStarter(true)}

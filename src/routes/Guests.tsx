@@ -275,7 +275,6 @@ export default function Guests({ data, update }: Props) {
           </p>
         </div>
         <div className="text-left">
-          <SectionConsultationPanel sectionId="guests" data={data} update={update} />
           <ProcessAgentPanel
             title="명단 전에도 식수를 먼저 추정할 수 있어요"
             summary={agentSummary}
@@ -292,6 +291,7 @@ export default function Guests({ data, update }: Props) {
               ...(headSummary.estTotal === 0 ? [{ label: "200명 기준으로 시작 →", onClick: seedHeadcount, tone: "primary" as const }] : []),
             ]}
           />
+          <SectionConsultationPanel sectionId="guests" data={data} update={update} />
           <HeadcountEstimator data={data} update={update} />
         </div>
         <GuestAddBlock
@@ -327,8 +327,6 @@ export default function Guests({ data, update }: Props) {
         <h1 className="h-page">하객 명단</h1>
       </div>
 
-      <SectionConsultationPanel sectionId="guests" data={data} update={update} />
-
       <ProcessAgentPanel
         title={stats.pending > 0 ? "회신 대기를 줄이는 중" : seatingGroups.total > 0 ? "좌석 묶음까지 읽는 중" : "명단을 식수로 바꾸는 중"}
         summary={agentSummary}
@@ -350,6 +348,8 @@ export default function Guests({ data, update }: Props) {
           ...(data.preferences.mode === "supabase" ? [{ label: "RSVP 응답 가져오기 →", onClick: importRsvps }] : []),
         ]}
       />
+
+      <SectionConsultationPanel sectionId="guests" data={data} update={update} />
 
       <HeadcountEstimator data={data} update={update} />
 

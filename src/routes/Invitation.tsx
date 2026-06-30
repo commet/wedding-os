@@ -1601,8 +1601,6 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
       {showQuickStart && <QuickStart inv={inv} set={set} onPreview={onPreview} contractedVenueName={contractedVenue(data)?.name} />}
 
       {!showQuickStart && <>
-      <SectionConsultationPanel sectionId="invitation" data={data} update={update} />
-
       <ProcessAgentPanel
         title={publishReady ? "공유 전 마지막 점검 중" : "청첩장 빈칸을 채우는 중"}
         summary={
@@ -1629,6 +1627,8 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
           ...(publishReady ? [{ label: "발행 섹션으로", onClick: scrollToPublish }] : []),
         ]}
       />
+
+      <SectionConsultationPanel sectionId="invitation" data={data} update={update} />
 
       <div id="publish-invitation" className="scroll-mt-36">
         <Section title="하객용 링크 발행" defaultOpen={hasEssentials || location.search.includes("edit=publish")}>

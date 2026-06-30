@@ -244,8 +244,6 @@ export default function Venues({ data, update }: Props) {
         <h1 className="h-page">예식장</h1>
       </div>
 
-      {!showStarter && <SectionConsultationPanel sectionId="venues" data={data} update={update} />}
-
       <ProcessAgentPanel
         title={myVenues.length === 0 ? "후보를 먼저 좁히는 중" : contracted ? "계약 이후 빠질 조건을 확인 중" : "상담 순서를 잡는 중"}
         summary={venueAgentSummary}
@@ -268,6 +266,8 @@ export default function Venues({ data, update }: Props) {
           { label: "카탈로그 열기", onClick: () => setTab("catalog") },
         ]}
       />
+
+      {!showStarter && <SectionConsultationPanel sectionId="venues" data={data} update={update} />}
 
       {venueNotice && (
         <div className="anim-fade border-y border-hair py-3">

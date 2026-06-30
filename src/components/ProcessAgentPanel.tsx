@@ -111,12 +111,12 @@ export default function ProcessAgentPanel({
       )}
 
       {steps.length > 0 && (
-        <details className="mt-3 border-t border-hair pt-2">
-          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 text-[13px] font-medium text-soft hover:text-ink">
+        <details className="mt-3">
+          <summary className="inline-flex min-h-8 cursor-pointer list-none items-center gap-2 text-[11.5px] font-medium text-soft underline underline-offset-4 hover:text-ink">
             <span className="eyebrow">{openStepCount > 0 ? `왜 이 순서인지 · ${openStepCount}` : "왜 이 순서인지"}</span>
-            <span className="underline underline-offset-4">보기</span>
+            <span>보기</span>
           </summary>
-          <ol className="divide-y divide-hair border-t border-hair">
+          <ol className="mt-2 divide-y divide-hair border-y border-hair">
             {steps.map((step, index) => (
               <li key={`${step.label}-${index}`} className="flex gap-3 py-3">
                 <span

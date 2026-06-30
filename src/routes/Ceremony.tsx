@@ -141,20 +141,6 @@ export default function Ceremony({ data, update }: Props) {
             입장부터 행진까지 순서를 적어두면, 당일 사회자와 두 분이 그대로 따라갈 큐시트가 됩니다.
           </p>
         </div>
-        <div className="text-left">
-          <SectionConsultationPanel sectionId="ceremony" data={data} update={update} />
-        </div>
-        <button onClick={loadDefault} className="btn-primary px-8 py-3.5 text-[13px]">
-          기본 식순 불러오기 →
-        </button>
-        <div>
-          <button
-            onClick={addStep}
-            className="text-[12px] text-soft underline underline-offset-4 hover:text-ink"
-          >
-            빈 순서로 시작 →
-          </button>
-        </div>
         <ProcessAgentPanel
           title="사회자에게 보낼 큐시트를 준비합니다"
           summary="처음엔 기본 식순을 불러온 뒤, 주례 여부·축가·혼인서약처럼 실제 예식에 맞지 않는 단계만 지우면 됩니다."
@@ -168,10 +154,13 @@ export default function Ceremony({ data, update }: Props) {
             { label: "사회자·축가·음악 담당 정하기", detail: "담당이 비어 있으면 당일에 질문이 다시 돌아옵니다." },
           ]}
           actions={[
-            { label: "표준 흐름 채우기 →", onClick: loadDefault, tone: "primary" },
+            { label: "기본 식순 불러오기 →", onClick: loadDefault, tone: "primary" },
             { label: "빈 순서로 시작", onClick: addStep },
           ]}
         />
+        <div className="text-left">
+          <SectionConsultationPanel sectionId="ceremony" data={data} update={update} />
+        </div>
       </div>
     );
   }
@@ -202,8 +191,6 @@ export default function Ceremony({ data, update }: Props) {
       </div>
 
       <div className="mt-6 space-y-6">
-        <SectionConsultationPanel sectionId="ceremony" data={data} update={update} />
-
         <ProcessAgentPanel
           title={roleMissing > 0 || musicMissing > 0 ? "빈 담당과 음악을 찾는 중" : "사회자 공유 준비가 거의 끝났어요"}
           summary={
@@ -228,6 +215,8 @@ export default function Ceremony({ data, update }: Props) {
             { label: "기본 식순으로 다시 채우기", onClick: confirmLoadDefault },
           ]}
         />
+
+        <SectionConsultationPanel sectionId="ceremony" data={data} update={update} />
       </div>
 
       <p className="mt-4 text-[13px] text-soft leading-[1.8] break-keep">

@@ -27,7 +27,7 @@ export default function SectionConsultationPanel({ sectionId, data, update, defa
   const questions = consultationQuestions(sectionId);
   const answers = useMemo(() => consultationAnswers(data, sectionId), [data, sectionId]);
   const activeQuestion = nextConsultationQuestion(data, sectionId);
-  const [internalOpen, setInternalOpen] = useState(() => defaultOpen ?? progress.answered === 0);
+  const [internalOpen, setInternalOpen] = useState(() => defaultOpen ?? false);
   const open = controlledOpen ?? internalOpen;
   const setOpen = (next: boolean) => {
     if (controlledOpen === undefined) setInternalOpen(next);
@@ -35,7 +35,7 @@ export default function SectionConsultationPanel({ sectionId, data, update, defa
   };
 
   useEffect(() => {
-    if (controlledOpen === undefined) setInternalOpen(defaultOpen ?? progress.answered === 0);
+    if (controlledOpen === undefined) setInternalOpen(defaultOpen ?? false);
     // 섹션이 바뀔 때만 초기 열림 상태를 다시 계산한다.
     // 답변할 때마다 자동으로 접히거나 펼쳐지면 상담 흐름이 끊긴다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -49,28 +49,23 @@ export default function SectionConsultationPanel({ sectionId, data, update, defa
 
   if (!open) {
     return (
-      <section className="border-y border-hair py-4">
-        <div className="flex items-baseline justify-between gap-3">
-          <div className="eyebrow-gold">Dearie</div>
-          <div className="text-[12px] font-medium text-soft">
-            기준 <span className={progress.complete ? "text-ink" : "text-gold"}>{progress.answered}/{progress.total}</span>
-          </div>
-        </div>
-        <h2 className="mt-2 font-serif text-[20px] leading-snug text-ink break-keep">{meta.closedTitle}</h2>
-        <p className="mt-2 text-[13.5px] leading-relaxed text-soft break-keep">
-          {activeQuestion ? `${activeQuestion.title} 답하면 다음 선택지가 더 선명해집니다.` : meta.summary}
-        </p>
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="group mt-4 flex min-h-11 w-full items-center justify-between gap-4 border-t border-hair pt-3 text-left text-ink hover:text-gold"
+          className="group flex min-h-16 w-full items-center justify-between gap-4 border-y border-hair py-3 text-left"
         >
-          <span className="text-[14px] font-semibold leading-snug break-keep">
-            {activeQuestion ? "기준 질문 이어가기" : "답한 기준 다시 보기"}
+          <span className="min-w-0">
+            <span className="eyebrow-gold block">
+              기준 질문 · <span className={progress.complete ? "text-ink" : "text-gold"}>{progress.answered}/{progress.total}</span>
+            </span>
+            <span className="mt-1 block truncate text-[13.5px] font-medium text-ink">
+              {activeQuestion ? activeQuestion.title : meta.summary}
+            </span>
           </span>
-          <span className="text-soft transition group-hover:text-ink">→</span>
+          <span className="flex-shrink-0 text-[12px] font-medium text-soft underline underline-offset-4 group-hover:text-ink">
+            {activeQuestion ? "답하기" : "보기"}
+          </span>
         </button>
-      </section>
     );
   }
 

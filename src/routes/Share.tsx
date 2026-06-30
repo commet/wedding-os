@@ -128,8 +128,6 @@ export default function Share({ data, update }: Props) {
         <h1 className="h-page">{koBreak("공유 센터")}</h1>
       </div>
 
-      <SectionConsultationPanel sectionId="share" data={data} update={update} />
-
       <ProcessAgentPanel
         title={hasPublished ? "공유 채널을 분리해 관리하는 중" : "하객용 링크 발행이 먼저예요"}
         summary={shareAgentSummary}
@@ -162,6 +160,8 @@ export default function Share({ data, update }: Props) {
           { label: "지금 백업 만들기 →", onClick: () => run("전체 데이터 백업", backup) },
         ]}
       />
+
+      <SectionConsultationPanel sectionId="share" data={data} update={update} />
 
       <div className="border-b border-hair pb-5 space-y-4">
         <p className="text-[15px] text-soft leading-[1.85]">

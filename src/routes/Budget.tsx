@@ -135,9 +135,6 @@ export default function Budget({ data, update }: Props) {
             기본 항목을 불러온 뒤 필요한 것만 남기고<br />두 분의 금액을 채워보세요.
           </p>
         </div>
-        <div className="text-left">
-          <SectionConsultationPanel sectionId="budget" data={data} update={update} />
-        </div>
         <p className="text-[12.5px] text-soft leading-relaxed border-y border-hair py-4">
           {BUDGET_TOTAL_NOTE}
         </p>
@@ -157,9 +154,9 @@ export default function Budget({ data, update }: Props) {
             { label: "기본 비용 항목 불러오기 →", onClick: loadDefault, tone: "primary" },
           ]}
         />
-        <button onClick={loadDefault} className="btn-primary px-8 py-3.5 text-[12.5px]">
-          기본 비용 항목 불러오기 →
-        </button>
+        <div className="text-left">
+          <SectionConsultationPanel sectionId="budget" data={data} update={update} />
+        </div>
       </div>
     );
   }
@@ -170,8 +167,6 @@ export default function Budget({ data, update }: Props) {
         <div className="eyebrow-gold mb-2">예산과 지출</div>
         <h1 className="h-page">{koBreak("비용 관리")}</h1>
       </div>
-
-      <SectionConsultationPanel sectionId="budget" data={data} update={update} />
 
       <ProcessAgentPanel
         title={totals.overCount > 0 ? "초과 항목부터 다시 보는 중" : mealBudgetLow ? "식대 예산을 보정해야 해요" : "돈 흐름을 계약과 맞추는 중"}
@@ -200,6 +195,8 @@ export default function Budget({ data, update }: Props) {
           { label: "전체 보기", onClick: () => setView("all") },
         ]}
       />
+
+      <SectionConsultationPanel sectionId="budget" data={data} update={update} />
 
       {/* 합계 요약 */}
       <div className="space-y-4 border-y border-hair py-6">
