@@ -8,7 +8,6 @@ import { type BridgePrompt, weddingPlanStarterPrompt } from "../lib/chatbotBridg
 import { AGENT_PRIORITIES, type AgentPriority } from "../lib/agentProfile";
 import { applyAgentAnswer, nextAgentQuestion, type AgentLoopQuestion } from "../lib/agentLoop";
 import { AgentIdentity } from "../components/AgentIdentity";
-import { buildMenuGroups } from "../lib/menu";
 import { applyStarterPlan, normalizeTargetPath, type StarterResult } from "../lib/agentStarter";
 import {
   budgetTotals, overdueChecklistCount, formatKRW, upcomingBalances, upcomingEvents,
@@ -248,8 +247,6 @@ export default function Dashboard({ data, update }: Props) {
     venueCount,
   ]);
 
-  // 전역 메뉴 — AppShell "더보기" 시트와 동일한 단일 소스(lib/menu.ts)를 공유.
-  const MENU_GROUPS = buildMenuGroups(data);
   const primaryFocus = focusItems[0] ?? {
     to: "/checklist",
     title: "오늘 할 일 확인하기",
@@ -488,22 +485,21 @@ export default function Dashboard({ data, update }: Props) {
       <section className="page py-7">
         <div className="mb-5 flex items-end justify-between gap-4">
           <div>
-            <div className="eyebrow block mb-1">지금 볼 상태</div>
-            <h2 className="font-serif text-2xl text-ink">{koBreak("다음만 남기기")}</h2>
+            <div className="eyebrow block mb-1">전체 준비 흐름</div>
+            <h2 className="font-serif text-2xl text-ink">{koBreak("앞으로 할 일")}</h2>
           </div>
           <span className="text-right text-[11px] leading-relaxed text-soft">
             완료 {statusReport.counts.done}<br />
-            확인 필요 {statusReport.counts.attention}
+            진행 중 {statusReport.counts.active + statusReport.counts.attention}
           </span>
         </div>
-        <StatusBoard nextSections={statusReport.nextSections} allSections={readiness} />
+        <StatusBoard allSections={readiness} />
       </section>
       </>}
 
-      <div className="hairline" />
-
       {!empty && timeline.length > 0 && (
         <>
+          <div className="hairline" />
           <section className="page py-9">
             <div className="mb-5 flex items-baseline justify-between gap-4">
               <div className="eyebrow-gold">다가오는 일정</div>
@@ -528,45 +524,8 @@ export default function Dashboard({ data, update }: Props) {
               ))}
             </ol>
           </section>
-          <div className="hairline" />
         </>
       )}
-
-      {/* ─── 전체 메뉴는 접어서, 첫 화면 집중도를 유지 ─── */}
-      <section className="page py-7">
-        <details>
-          <summary className="list-none cursor-pointer flex items-baseline justify-between gap-4">
-            <span>
-              <span className="eyebrow block mb-1">준비 도구</span>
-              <span className="font-serif text-lg text-ink">{koBreak("다른 메뉴 보기")}</span>
-            </span>
-            <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
-          </summary>
-          <div className="pt-7 space-y-8">
-            {MENU_GROUPS.map((group) => (
-              <div key={group.title}>
-                <h2 className="eyebrow mb-3">{group.title}</h2>
-                <ul className="border-y border-hair divide-y divide-hair">
-                  {group.items.map((item) => (
-                    <li key={item.to}>
-                      <Link
-                        to={item.to}
-                        className="flex items-baseline justify-between gap-4 py-3.5 active:opacity-60 transition"
-                      >
-                        <div className="min-w-0">
-                          <div className="font-serif text-[15px] text-ink leading-tight">{item.label}</div>
-                          <div className="text-[12px] text-soft mt-1 truncate">{item.sub}</div>
-                        </div>
-                        <span className="text-soft flex-shrink-0">→</span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </details>
-      </section>
 
       <ChatbotBridgeModal
         open={!!aiPrompt}
@@ -671,13 +630,14 @@ function StatusSummary({
 }: {
   counts: Record<PlanningStatusState, number>;
 }) {
+  const activeCount = counts.active + counts.attention;
   return (
     <div className="mt-4 border-t border-hair pt-3">
       <div className="flex items-center justify-between gap-3 text-[11px] leading-relaxed text-soft">
         <span>
-          확인 필요 <span className={counts.attention > 0 ? "text-gold" : "text-soft"}>{counts.attention}</span>
+          진행 중 <span className={activeCount > 0 ? "text-ink" : "text-soft"}>{activeCount}</span>
           <span className="mx-1.5 text-mute">/</span>
-          진행 중 <span className="text-ink">{counts.active + counts.empty}</span>
+          시작 전 <span>{counts.empty}</span>
           <span className="mx-1.5 text-mute">/</span>
           완료 <span>{counts.done}</span>
         </span>
@@ -686,28 +646,44 @@ function StatusSummary({
   );
 }
 
+const STATUS_FLOW_GROUPS: { title: string; helper: string; keys: string[] }[] = [
+  { title: "01 시작 기준", helper: "날짜, 예산, 전체 리듬을 먼저 잡아요.", keys: ["basics", "budget", "checklist"] },
+  { title: "02 후보 결정", helper: "큰 예약과 취향 후보를 상담 가능한 상태로 좁혀요.", keys: ["venues", "sdm", "snap", "rings", "trip"] },
+  { title: "03 초대 관리", helper: "청첩장, 하객, 공유 범위를 이어서 정리해요.", keys: ["invitation", "guests", "share"] },
+  { title: "04 본식 당일", helper: "당일 진행표와 식전 영상을 마지막으로 잠가요.", keys: ["ceremony", "video"] },
+];
+
 function StatusBoard({
-  nextSections,
   allSections,
 }: {
-  nextSections: PlanningSectionStatus[];
   allSections: PlanningSectionStatus[];
 }) {
-  const priority = nextSections.slice(0, 4);
+  const byKey = new Map(allSections.map((section) => [section.key, section]));
+  const groups = STATUS_FLOW_GROUPS
+    .map((group) => ({
+      ...group,
+      sections: group.keys
+        .map((key) => byKey.get(key))
+        .filter((section): section is PlanningSectionStatus => !!section),
+    }))
+    .filter((group) => group.sections.length > 0);
+
   return (
-    <div className="space-y-3">
-      <div className="divide-y divide-hair border-y border-hair">
-        {priority.map((section) => <StatusRow key={section.key} section={section} />)}
-      </div>
-      <details className="border-t border-hair pt-2">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 text-[12px] text-soft hover:text-ink">
-          <span className="eyebrow">전체 영역 {allSections.length}개</span>
-          <span className="underline underline-offset-4">보기</span>
-        </summary>
-        <div className="divide-y divide-hair border-t border-hair">
-          {allSections.map((section) => <StatusRow key={section.key} section={section} compact />)}
-        </div>
-      </details>
+    <div className="space-y-6">
+      {groups.map((group) => (
+        <section key={group.title}>
+          <div className="mb-3 flex items-end justify-between gap-4">
+            <div>
+              <h3 className="section-title">{group.title}</h3>
+              <p className="mt-1 text-[12px] leading-relaxed text-soft break-keep">{group.helper}</p>
+            </div>
+            <span className="eyebrow tabular-nums whitespace-nowrap">{group.sections.length}개</span>
+          </div>
+          <div className="divide-y divide-hair border-y border-hair">
+            {group.sections.map((section) => <StatusRow key={section.key} section={section} />)}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }
@@ -720,12 +696,15 @@ function StatusRow({ section, compact = false }: { section: PlanningSectionStatu
     >
       <span className="min-w-0">
         <span className="mb-1.5 flex items-center justify-between gap-3">
-          <span className={`leading-tight text-ink ${compact ? "text-[14px] font-semibold" : "font-serif text-[16px]"}`}>{section.label}</span>
+          <span className="eyebrow-gold">{section.label}</span>
           <StatePill state={section.state} />
+        </span>
+        <span className={`mb-2 block leading-snug text-ink break-keep ${compact ? "text-[14px] font-semibold" : "font-serif text-[16px]"}`}>
+          {section.nextAction}
         </span>
         <ProgressLine value={section.percent} subtle />
         <span className="mt-1.5 block truncate text-[13px] text-soft">
-          {section.nextAction}
+          {section.detail}
         </span>
       </span>
       <span className="text-right">

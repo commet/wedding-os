@@ -174,7 +174,7 @@ test.describe("critical product flows", () => {
     expect(stored.ai?.dialogue?.some((item) => item.id === "rings-wear" && item.answer === "매일 편하게")).toBe(true);
 
     await page.goto("/dashboard");
-    await page.getByText(/전체 영역 \d+개/).click();
+    await expect(page.getByRole("heading", { name: "앞으로 할 일" })).toBeVisible();
     await expect(page.getByText("스냅 기준 답하기").first()).toBeVisible();
     await expect(page.getByText("반지 취향 질문 이어가기").first()).toBeVisible();
   });

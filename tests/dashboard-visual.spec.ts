@@ -51,7 +51,7 @@ test.describe("dashboard visual smoke", () => {
     await page.getByRole("button", { name: "더보기" }).click();
     const sheet = page.getByRole("dialog", { name: "전체 메뉴" });
     await expect(sheet).toBeVisible();
-    await sheet.getByRole("link", { name: /하객 명단/ }).click();
+    await sheet.getByRole("link", { name: /하객/ }).click();
     await expect(page).toHaveURL(/\/guests$/);
     // 시트는 이동 후 닫힌다.
     await expect(page.getByRole("dialog", { name: "전체 메뉴" })).toHaveCount(0);
@@ -163,7 +163,10 @@ test.describe("dashboard visual smoke", () => {
     await seedVisualData(page, true);
     await page.goto("/dashboard");
 
-    await expect(page.getByRole("heading", { name: "다음만 남기기" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "앞으로 할 일" })).toBeVisible();
+    await expect(page.getByText("01 시작 기준")).toBeVisible();
+    await expect(page.getByText("02 후보 결정")).toBeVisible();
+    await expect(page.getByText("03 초대 관리")).toBeVisible();
     await expect(page.getByText("Timeline")).toHaveCount(0);
     await expect(page.getByText("영역별 준비도")).toHaveCount(0);
     await expect(page.getByText("시작 후보 잡기")).toHaveCount(0);

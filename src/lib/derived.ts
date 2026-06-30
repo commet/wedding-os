@@ -229,7 +229,7 @@ export type PlanningStatusReport = {
 export const PLANNING_STATE_LABEL: Record<PlanningStatusState, string> = {
   done: "완료",
   active: "진행 중",
-  attention: "확인 필요",
+  attention: "진행 중",
   empty: "시작 전",
 };
 
@@ -246,7 +246,7 @@ function sectionStatus(
 ): PlanningSectionStatus {
   const percent = clampPercent(input.percent);
   const state: PlanningStatusState = input.attention
-    ? "attention"
+    ? percent > 0 ? "attention" : "empty"
     : percent >= 95
       ? "done"
       : percent > 0
