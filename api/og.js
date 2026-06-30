@@ -5,7 +5,7 @@ import React from "react";
 import { ImageResponse } from "@vercel/og";
 import { get as blobGet } from "@vercel/blob";
 
-export const config = { runtime: "nodejs" };
+export const config = { runtime: "edge" };
 
 const h = React.createElement;
 const EXTERNAL_FETCH_TIMEOUT_MS = 1800;
