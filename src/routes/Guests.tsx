@@ -266,7 +266,7 @@ export default function Guests({ data, update }: Props) {
   // 빈 상태
   if (guests.length === 0) {
     return (
-      <div className="page pt-20 pb-10 text-center space-y-8">
+      <div className="page pt-12 pb-10 text-center space-y-6 md:pt-20 md:space-y-8">
         <div>
           <div className="eyebrow-gold mb-4">하객 명단</div>
           <h1 className="display-sm mb-4 [text-wrap:balance] max-w-[18rem] mx-auto">떠오르는 분부터 <span className="italic font-light">{koBreak("한 명씩 적어보세요.")}</span></h1>

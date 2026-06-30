@@ -36,10 +36,10 @@ export default function AppShell({ data, update, children }: Props) {
   const isGuestInvitation = location.pathname === "/i";
   const isDashboard = location.pathname === "/dashboard";
   const isInvitation = location.pathname === "/invitation";
-  const hasInlineAgentPanel = ["/rings", "/sdm", "/snap", "/trip", "/checklist", "/venues", "/budget", "/guests", "/share", "/ai", "/video", "/settings"].some(
+  const hasInlineAgentPanel = ["/rings", "/sdm", "/snap", "/trip", "/checklist", "/venues", "/budget", "/guests", "/share", "/ai", "/video", "/ceremony", "/settings"].some(
     (path) => location.pathname.startsWith(path),
   );
-  const wideWorkspace = ["/dashboard", "/checklist", "/budget", "/guests", "/venues", "/rings", "/sdm", "/snap", "/trip"].some(
+  const wideWorkspace = ["/dashboard", "/checklist", "/budget", "/guests", "/venues", "/rings", "/sdm", "/snap", "/trip", "/ceremony"].some(
     (path) => location.pathname.startsWith(path),
   );
   const isDemo = !!data.preferences.isDemo;

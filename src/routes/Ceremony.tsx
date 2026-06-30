@@ -129,7 +129,7 @@ export default function Ceremony({ data, update }: Props) {
   // 빈 상태
   if (steps.length === 0) {
     return (
-      <div className="page pt-20 pb-10 text-center space-y-8">
+      <div className="page pt-12 pb-10 text-center space-y-6 md:pt-20 md:space-y-8">
         <div>
           <div className="eyebrow-gold mb-4">예식 진행</div>
           <h1 className="display-sm mb-4">

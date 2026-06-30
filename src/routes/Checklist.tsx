@@ -133,7 +133,7 @@ export default function Checklist({ data, update }: Props) {
 
   if (sections.length === 0) {
     return (
-      <div className="page pt-20 pb-10 text-center space-y-8">
+      <div className="page pt-12 pb-10 text-center space-y-6 md:pt-20 md:space-y-8">
         <div>
           <div className="eyebrow-gold mb-4">준비 일정</div>
           <h1 className="display-sm mb-4 [text-wrap:balance] max-w-[18rem] mx-auto">{koBreak("할 일을 날짜에 맞춰")} <span className="font-light">{koBreak("정리해드릴게요.")}</span></h1>

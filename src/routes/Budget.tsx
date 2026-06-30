@@ -127,7 +127,7 @@ export default function Budget({ data, update }: Props) {
   // 빈 상태
   if (items.length === 0) {
     return (
-      <div className="page pt-20 pb-10 text-center space-y-8">
+      <div className="page pt-12 pb-10 text-center space-y-6 md:pt-20 md:space-y-8">
         <div>
           <div className="eyebrow-gold mb-4">비용 관리</div>
           <h1 className="display-sm mb-4">{koBreak("무엇에 얼마가 드는지")}<br /><span className="italic font-light text-gold">{koBreak("먼저 펼쳐볼까요?")}</span></h1>
