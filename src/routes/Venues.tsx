@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { ContractCheck, WeddingData, WeddingVenue, VenueHallType } from "../lib/schema";
 import {
@@ -13,6 +13,7 @@ import MapEmbed from "../components/MapEmbed";
 import Modal from "../components/Modal";
 import DearieConfirmModal from "../components/DearieConfirmModal";
 import FreshnessBadge from "../components/FreshnessBadge";
+import { AgentIdentity } from "../components/AgentIdentity";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import SectionConsultationPanel from "../components/SectionConsultationPanel";
 import ResearchInputPanel, { type ResearchSection } from "../components/ResearchInputPanel";
@@ -127,6 +128,7 @@ export default function Venues({ data, update }: Props) {
   const [selectedMapVenueId, setSelectedMapVenueId] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<ConfirmState | null>(null);
   const [venueNotice, setVenueNotice] = useState("");
+  const starterRef = useRef<HTMLDivElement | null>(null);
 
   const myVenues = data.venues ?? [];
   const haveStatusCount: Record<NonNullable<WeddingVenue["status"]>, number> = useMemo(() => {
@@ -144,7 +146,7 @@ export default function Venues({ data, update }: Props) {
   const tourCount = haveStatusCount["투어"] + haveStatusCount["계약"];
   const contractChecked = contracted ? contractFieldCount(contracted.contract) : 0;
   const venueAgentSummary = myVenues.length === 0
-    ? "조건 몇 개만 정하면 상담해볼 후보를 바로 추릴 수 있어요. 먼저 후보를 담고, 그다음 투어와 계약 조건을 따라갑니다."
+    ? "지역, 하객, 분위기, 우선순위만 답하면 Dearie가 공개 카탈로그에서 상담 후보를 먼저 좁혀둘게요. 제휴 추천이 아니라 출발점으로만 씁니다."
     : contracted
       ? `${contracted.name}을 계약 후보로 보고 있어요. 이제 청첩장 반영과 결제·취소 조건 기록을 같이 잠가두면 됩니다.`
       : tourCount > 0
@@ -167,6 +169,13 @@ export default function Venues({ data, update }: Props) {
     () => filteredCatalog.find((v) => v.id === selectedMapVenueId) ?? filteredCatalog[0],
     [filteredCatalog, selectedMapVenueId],
   );
+
+  useEffect(() => {
+    if (!showStarter) return;
+    window.requestAnimationFrame(() => {
+      starterRef.current?.scrollIntoView({ block: "start" });
+    });
+  }, [showStarter]);
 
   const addFromCatalog = (cat: WeddingVenue) => {
     if (myVenues.some((v) => v.name === cat.name)) return;
@@ -245,7 +254,7 @@ export default function Venues({ data, update }: Props) {
       </div>
 
       <ProcessAgentPanel
-        title={myVenues.length === 0 ? "후보를 먼저 좁히는 중" : contracted ? "계약 이후 빠질 조건을 확인 중" : "상담 순서를 잡는 중"}
+        title={myVenues.length === 0 ? "예식장 조건을 먼저 물어볼게요" : contracted ? "계약 이후 빠질 조건을 확인 중" : "상담 순서를 잡는 중"}
         summary={venueAgentSummary}
         mood={contracted && contractChecked >= 3 ? "ready" : "thinking"}
         metrics={[
@@ -259,8 +268,8 @@ export default function Venues({ data, update }: Props) {
           { label: "계약 전 핵심 조건 남기기", detail: "견적 기준, 결제 일정, 취소·변경, 별도 비용을 텍스트로 남겨요.", done: !!contracted && contractChecked >= 3 },
         ]}
         actions={[
-          { label: "새 후보 조사해서 추가", onClick: () => setShowAdd(true), tone: myVenues.length === 0 ? "primary" : "quiet" },
-          { label: "조건으로 후보 추리기", onClick: () => { setShowStarter(true); setTab("catalog"); }, tone: "primary" },
+          { label: "Dearie와 후보 좁히기", onClick: () => { setShowStarter(true); setTab("catalog"); }, tone: "primary" },
+          { label: "새 후보 직접 추가", onClick: () => setShowAdd(true), tone: "quiet" },
           ...(myVenues.length > 0 && tourCount === 0 ? [{ label: "첫 후보를 투어로 표시", onClick: promoteFirstVenueToTour }] : []),
           ...(contracted && !data.invitation.venue ? [{ label: "계약 식장을 청첩장에 넣기", onClick: () => applyToInvitation(contracted), tone: "primary" as const }] : []),
           { label: "카탈로그 열기", onClick: () => setTab("catalog") },
@@ -288,7 +297,9 @@ export default function Venues({ data, update }: Props) {
       )}
 
       {showStarter ? (
-        <VenueStarter onApply={applyVenueStarter} onClose={() => setShowStarter(false)} />
+        <div ref={starterRef}>
+          <VenueStarter onApply={applyVenueStarter} onClose={() => setShowStarter(false)} />
+        </div>
       ) : (
         <>
           {/* 탭 */}
@@ -312,8 +323,8 @@ export default function Venues({ data, update }: Props) {
             className="w-full text-left border-y border-hair py-4 flex items-baseline justify-between gap-4"
           >
             <span>
-              <span className="eyebrow block mb-1">기본 후보</span>
-              <span className="font-serif text-[18px] text-ink break-keep">예식장 기준 잡기</span>
+              <span className="eyebrow block mb-1">Dearie 질문</span>
+              <span className="font-serif text-[18px] text-ink break-keep">조건 답하고 후보 좁히기</span>
             </span>
             <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
           </button>
@@ -541,6 +552,87 @@ export default function Venues({ data, update }: Props) {
   );
 }
 
+type VenueAgentAnswerKey = "area" | "scale" | "mood" | "priority";
+type VenueAgentArea = "seoul" | "gangnam" | "central" | "han" | "gyeonggi" | "local";
+type VenueAgentScale = "small" | "medium" | "large" | "unknown";
+type VenueAgentMood = "hotel" | "chapel" | "bright" | "convention" | "flexible";
+type VenueAgentPriority = "meal" | "traffic" | "privacy" | "contract";
+type VenueAgentAnswers = Partial<{
+  area: VenueAgentArea;
+  scale: VenueAgentScale;
+  mood: VenueAgentMood;
+  priority: VenueAgentPriority;
+}>;
+type VenueAgentOption = { id: string; label: string; detail: string };
+type VenueAgentQuestion = {
+  id: VenueAgentAnswerKey;
+  eyebrow: string;
+  title: string;
+  helper: string;
+  options: VenueAgentOption[];
+};
+
+const VENUE_AGENT_STEP_LABELS: Record<VenueAgentAnswerKey, string> = {
+  area: "지역",
+  scale: "하객",
+  mood: "분위기",
+  priority: "우선순위",
+};
+
+const VENUE_AGENT_QUESTIONS: VenueAgentQuestion[] = [
+  {
+    id: "area",
+    eyebrow: "첫 질문",
+    title: "가장 먼저 볼 지역은 어디에 가까울까요?",
+    helper: "처음부터 전 지역을 펼치면 비교가 흐려져요. 이동 동선이 맞는 권역 하나를 먼저 잡겠습니다.",
+    options: [
+      { id: "seoul", label: "서울 전체", detail: "강남·중구·한남·기타 서울권을 넓게 보기" },
+      { id: "gangnam", label: "강남·청담권", detail: "강남, 청담, 논현, 반포, 서초 주변" },
+      { id: "central", label: "광화문·중구권", detail: "광화문, 시청, 소공, 장충, 종로 주변" },
+      { id: "han", label: "한남·여의도·잠실권", detail: "용산, 여의도, 송파, 강변 동선" },
+      { id: "gyeonggi", label: "경기·인천권", detail: "분당, 일산, 송도, 수원까지 넓히기" },
+      { id: "local", label: "지방·리조트권", detail: "부산, 대구, 대전, 광주, 제주 등" },
+    ],
+  },
+  {
+    id: "scale",
+    eyebrow: "두 번째",
+    title: "예상 하객은 어느 정도로 잡을까요?",
+    helper: "보증 인원이 맞지 않으면 상담이 길어져요. 대략값이어도 먼저 잡아두는 편이 좋습니다.",
+    options: [
+      { id: "small", label: "120명 이하", detail: "가족·가까운 지인 중심의 작은 예식" },
+      { id: "medium", label: "120~250명", detail: "양가 친척과 친구·직장 일부까지" },
+      { id: "large", label: "250명 이상", detail: "넓은 홀과 회전 운영을 먼저 확인" },
+      { id: "unknown", label: "아직 모르겠어요", detail: "인원은 열어두고 다른 조건부터 좁히기" },
+    ],
+  },
+  {
+    id: "mood",
+    eyebrow: "세 번째",
+    title: "원하는 홀 분위기는 어느 쪽인가요?",
+    helper: "분위기는 취향이지만, 투어 동선을 크게 좌우합니다. 상담 전에 한 축만 정해둘게요.",
+    options: [
+      { id: "hotel", label: "호텔", detail: "코스·서비스·격식 중심으로 비교" },
+      { id: "chapel", label: "채플·하우스", detail: "채플감, 단독 홀, 하우스웨딩 위주" },
+      { id: "bright", label: "밝은 홀·야외감", detail: "자연광, 가든, 밝은 분위기 우선" },
+      { id: "convention", label: "컨벤션·일반홀", detail: "동선, 규모, 식대 균형을 먼저 보기" },
+      { id: "flexible", label: "상담 가능성 우선", detail: "분위기는 넓게 두고 조건 맞는 곳부터" },
+    ],
+  },
+  {
+    id: "priority",
+    eyebrow: "마지막",
+    title: "상담에서 가장 먼저 확인할 조건은요?",
+    helper: "Dearie가 후보를 담을 때 확인 질문도 같이 붙여둘게요. 계약 판단은 공식 상담 후에만 하세요.",
+    options: [
+      { id: "meal", label: "식대·총액", detail: "식대 범위가 보이는 후보를 앞에 두기" },
+      { id: "traffic", label: "교통·동선", detail: "양가와 하객 이동을 먼저 보기" },
+      { id: "privacy", label: "단독감", detail: "혼잡도와 프라이빗 운영 여부 확인" },
+      { id: "contract", label: "계약 조건", detail: "출처·확인일이 있는 후보를 앞에 두기" },
+    ],
+  },
+];
+
 function VenueStarter({
   onApply,
   onClose,
@@ -548,156 +640,350 @@ function VenueStarter({
   onApply: (picks: WeddingVenue[]) => void;
   onClose: () => void;
 }) {
-  const [area, setArea] = useState("gangnam");
-  const [hallType, setHallType] = useState<VenueHallType | "all">("all");
-  const [guestBand, setGuestBand] = useState<"small" | "medium" | "large">("medium");
-  const [mealMax, setMealMax] = useState<"any" | "8" | "12" | "16">("12");
+  const [answers, setAnswers] = useState<VenueAgentAnswers>({});
+  const answeredCount = countVenueAgentAnswers(answers);
+  const currentQuestion = VENUE_AGENT_QUESTIONS.find((question) => !answers[question.id]) ?? null;
+  const complete = answeredCount === VENUE_AGENT_QUESTIONS.length;
+  const remaining = VENUE_AGENT_QUESTIONS.length - answeredCount;
+  const result = useMemo(() => pickAgentVenues(answers), [answers]);
 
-  const picks = useMemo(
-    () => pickStarterVenues({ area, hallType, guestBand, mealMax }),
-    [area, hallType, guestBand, mealMax]
-  );
+  const answerQuestion = (key: VenueAgentAnswerKey, value: string) => {
+    setAnswers((prev) => ({ ...prev, [key]: value } as VenueAgentAnswers));
+  };
+
+  const clearAnswer = (key: VenueAgentAnswerKey) => {
+    setAnswers((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
 
   return (
-    <section className="border-y border-hair py-5 space-y-5">
-      <div className="flex items-baseline justify-between gap-4">
-        <div>
-          <div className="eyebrow mb-2">기본 후보</div>
-          <h2 className="font-serif text-[18px] text-ink break-keep">예식장 기준 잡기</h2>
+    <section className="border-y border-hair py-5 space-y-5" data-testid="venue-agent-starter">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 gap-3">
+          <AgentIdentity compact mood={complete ? "ready" : "thinking"} />
+          <div className="min-w-0">
+            <div className="eyebrow-gold mb-2">Dearie 후보 추리기</div>
+            <h2 className="font-serif text-[21px] leading-snug text-ink break-keep">
+              {complete ? "상담 후보를 담을 준비가 됐어요" : "제가 한 번에 하나씩 좁혀볼게요"}
+            </h2>
+            <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-soft break-keep">
+              답을 고를 때마다 후보군을 다시 계산합니다. 공개 정보 기반 예비 후보라서 식대·보증·대관 조건은 상담 전 공식 채널로 재확인해야 합니다.
+            </p>
+          </div>
         </div>
-        <button onClick={onClose} className="text-[12px] text-soft underline underline-offset-4 hover:text-ink">
+        <button onClick={onClose} className="min-h-10 flex-shrink-0 text-[12px] text-soft underline underline-offset-4 hover:text-ink">
           닫기
         </button>
       </div>
 
-      <p className="text-[12px] text-soft leading-relaxed">
-        지역·하객 수·식대 기준으로 먼저 문의할 식장을 잡습니다. 식대·보증인원·대관 조건은 상담 때 다시 확인해야 합니다.
-      </p>
-
-      <StarterOption label="지역">
-        {REGION_GROUPS.filter((g) => g.key !== "etc").map((g) => (
-          <Segment key={g.key} active={area === g.key} onClick={() => setArea(g.key)}>
-            {g.label}
-          </Segment>
-        ))}
-      </StarterOption>
-
-      <StarterOption label="홀 분위기">
-        <Segment active={hallType === "all"} onClick={() => setHallType("all")}>상관없음</Segment>
-        {(Object.keys(HALL_TYPE_LABEL) as VenueHallType[]).map((t) => (
-          <Segment key={t} active={hallType === t} onClick={() => setHallType(t)}>
-            {HALL_TYPE_LABEL[t]}
-          </Segment>
-        ))}
-      </StarterOption>
-
-      <StarterOption label="예상 하객">
-        <Segment active={guestBand === "small"} onClick={() => setGuestBand("small")}>120명 이하</Segment>
-        <Segment active={guestBand === "medium"} onClick={() => setGuestBand("medium")}>120~250명</Segment>
-        <Segment active={guestBand === "large"} onClick={() => setGuestBand("large")}>250명 이상</Segment>
-      </StarterOption>
-
-      <StarterOption label="식대 상한">
-        <Segment active={mealMax === "any"} onClick={() => setMealMax("any")}>상관없음</Segment>
-        <Segment active={mealMax === "8"} onClick={() => setMealMax("8")}>8만원대</Segment>
-        <Segment active={mealMax === "12"} onClick={() => setMealMax("12")}>12만원대</Segment>
-        <Segment active={mealMax === "16"} onClick={() => setMealMax("16")}>16만원대</Segment>
-      </StarterOption>
-
-      <div className="border-y border-hair divide-y divide-hair">
-        {picks.map((venue, idx) => (
-          <div key={venue.id} className="py-3 flex items-start gap-3">
-            <span className="font-serif text-soft text-base tabular-nums w-5 flex-shrink-0">
-              {String(idx + 1).padStart(2, "0")}
-            </span>
-            <div className="flex-1 min-w-0">
-              <div className="font-serif text-[15px] text-ink">{venue.name}</div>
-              <div className="text-[12px] text-soft leading-relaxed mt-1">
-                {[venue.region, venue.hallType ? HALL_TYPE_LABEL[venue.hallType] : undefined, venue.foodType ? FOOD_TYPE_LABEL[venue.foodType] : undefined].filter(Boolean).join(" · ")}
-              </div>
-              <div className="eyebrow mt-2">
-                하객 {formatCapacity(venue)}
-                {(venue.mealPriceMin || venue.mealPriceMax) && (
-                  <span> · 식대 {formatMealPrice(venue)}</span>
-                )}
-              </div>
-              <div className="text-[11px] text-soft mt-1">{venueSourceLabel(venue)}</div>
-            </div>
-          </div>
-        ))}
-        {picks.length === 0 && (
-          <p className="py-4 text-[12px] text-soft leading-relaxed">
-            조건에 맞는 후보가 없습니다. 지역이나 식대 조건을 조금 넓혀보세요.
-          </p>
-        )}
+      <div className="grid grid-cols-2 border-y border-hair md:grid-cols-4">
+        {VENUE_AGENT_QUESTIONS.map((question, index) => {
+          const answered = !!answers[question.id];
+          const current = currentQuestion?.id === question.id;
+          return (
+            <button
+              key={question.id}
+              type="button"
+              onClick={() => answered && clearAnswer(question.id)}
+              disabled={!answered}
+              className={`min-h-[74px] border-r border-b border-hair px-3 py-3 text-left last:border-r-0 md:border-b-0 ${
+                answered ? "text-ink hover:bg-cream/45" : current ? "text-gold" : "text-soft"
+              }`}
+              aria-label={answered ? `${VENUE_AGENT_STEP_LABELS[question.id]} 답변 수정` : VENUE_AGENT_STEP_LABELS[question.id]}
+            >
+              <span className="block text-[10.5px] font-semibold tracking-eyebrow text-soft">
+                {String(index + 1).padStart(2, "0")}
+              </span>
+              <span className="mt-1 block text-[13px] font-semibold">{VENUE_AGENT_STEP_LABELS[question.id]}</span>
+              <span className="mt-1 block truncate text-[11px] text-soft">
+                {answered ? selectedVenueAgentOption(question, answers)?.label : current ? "답 기다리는 중" : "대기"}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
-      <button
-        onClick={() => onApply(picks)}
-        disabled={picks.length === 0}
-        className="btn-primary w-full py-3 text-[13px] disabled:opacity-40"
-      >
-        후보 {picks.length}곳 담기 →
-      </button>
+      {currentQuestion ? (
+        <div className="border-y border-hair py-4">
+          <div className="eyebrow-gold mb-2">{currentQuestion.eyebrow}</div>
+          <h3 className="font-serif text-[19px] leading-snug text-ink break-keep">{currentQuestion.title}</h3>
+          <p className="mt-2 text-[13px] leading-relaxed text-soft break-keep">{currentQuestion.helper}</p>
+          <div className="mt-4 grid gap-2 md:grid-cols-2">
+            {currentQuestion.options.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => answerQuestion(currentQuestion.id, option.id)}
+                className="group min-h-[72px] border border-hair px-4 py-3 text-left transition hover:border-gold hover:bg-cream/45 active:scale-[0.99]"
+              >
+                <span className="block text-[14px] font-semibold text-ink break-keep">{option.label}</span>
+                <span className="mt-1 block text-[12px] leading-relaxed text-soft break-keep">{option.detail}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="border-y border-hair py-4">
+          <div className="eyebrow-gold mb-2">Dearie 판단 완료</div>
+          <h3 className="font-serif text-[19px] leading-snug text-ink break-keep">
+            이제 이 후보들로 상담 순서를 시작해도 돼요
+          </h3>
+          <p className="mt-2 text-[13px] leading-relaxed text-soft break-keep">
+            담은 뒤에는 각 후보를 투어 상태로 올리고, 견적 기준·취소 조건·포함 항목을 공식 상담에서 확인하면 됩니다.
+          </p>
+        </div>
+      )}
+
+      {answeredCount > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {VENUE_AGENT_QUESTIONS.filter((question) => answers[question.id]).map((question) => {
+            const option = selectedVenueAgentOption(question, answers);
+            if (!option) return null;
+            return (
+              <button
+                key={question.id}
+                type="button"
+                onClick={() => clearAnswer(question.id)}
+                className="min-h-9 border border-hair px-3 py-1.5 text-[12px] text-ink hover:border-gold hover:text-gold"
+              >
+                {VENUE_AGENT_STEP_LABELS[question.id]} · {option.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="border-y border-hair py-4 space-y-4">
+        <div className="flex items-baseline justify-between gap-4">
+          <div>
+            <div className="eyebrow mb-2">Dearie 판단</div>
+            <h3 className="font-serif text-[18px] leading-snug text-ink break-keep">
+              {answeredCount === 0
+                ? "첫 답을 고르면 후보가 바로 줄어요"
+                : result.relaxed
+                  ? "조건을 조금 넓혀 후보를 남겼어요"
+                  : `후보 ${result.poolCount}곳에서 ${result.picks.length}곳을 골랐어요`}
+            </h3>
+          </div>
+          <span className="eyebrow tabular-nums whitespace-nowrap">{answeredCount}/4</span>
+        </div>
+
+        {result.picks.length > 0 ? (
+          <div className="grid border-y border-hair md:grid-cols-2">
+            {result.picks.map((venue, index) => (
+              <div key={venue.id} className="border-b border-r border-hair p-4 last:border-b-0 md:[&:nth-child(2n)]:border-r-0 md:[&:nth-last-child(-n+2)]:border-b-0">
+                <div className="flex items-start gap-3">
+                  <span className="w-6 flex-shrink-0 font-serif text-[16px] tabular-nums text-soft">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="font-serif text-[16px] leading-snug text-ink break-keep">{venue.name}</div>
+                    <div className="mt-1 text-[12px] leading-relaxed text-soft">
+                      {[venue.region, venue.hallType ? HALL_TYPE_LABEL[venue.hallType] : undefined, venue.foodType ? FOOD_TYPE_LABEL[venue.foodType] : undefined].filter(Boolean).join(" · ")}
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {describeVenueAgentMatch(venue, answers).map((reason) => (
+                    <span key={reason} className="border border-hair px-2 py-1 text-[11px] text-soft">
+                      {reason}
+                    </span>
+                  ))}
+                </div>
+                <div className="mt-3 text-[11px] leading-relaxed text-soft">{venueSourceLabel(venue)}</div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="border-y border-hair py-4 text-[13px] leading-relaxed text-soft">
+            아직 후보를 확정하지 않았어요. 지역을 먼저 고르면 Dearie가 상담 후보를 계산합니다.
+          </p>
+        )}
+
+        <p className="text-[11px] leading-relaxed text-soft">
+          Dearie는 업체와 제휴·후원 관계가 없고, 화면의 가격·수용 인원은 공개 정보 기반의 비교 출발점입니다. 최종 계약 전에는 공식 채널에서 견적서와 취소·변경 조건을 확인하세요.
+        </p>
+
+        <div className="flex flex-col gap-2 md:flex-row">
+          <button
+            onClick={() => onApply(result.picks)}
+            disabled={!complete || result.picks.length === 0}
+            className="btn-primary min-h-12 flex-1 text-[13px] disabled:opacity-40"
+          >
+            {complete ? `후보 ${result.picks.length}곳 담기 →` : `답 ${remaining}개 더 하면 후보 담기`}
+          </button>
+          <button
+            type="button"
+            onClick={() => setAnswers({})}
+            className="min-h-12 border border-hair px-4 text-[13px] font-medium text-ink hover:border-gold hover:text-gold"
+          >
+            처음부터 다시 답하기
+          </button>
+        </div>
+      </div>
     </section>
   );
 }
 
-function StarterOption({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <div className="eyebrow mb-3">{label}</div>
-      <div className="flex flex-wrap gap-x-5 gap-y-3">{children}</div>
-    </div>
-  );
+function countVenueAgentAnswers(answers: VenueAgentAnswers): number {
+  return VENUE_AGENT_QUESTIONS.filter((question) => !!answers[question.id]).length;
 }
 
-function Segment({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button onClick={onClick} className={`tracking-wide ${active ? "seg-active" : "seg"}`}>
-      {children}
-    </button>
-  );
+function selectedVenueAgentOption(question: VenueAgentQuestion, answers: VenueAgentAnswers): VenueAgentOption | undefined {
+  return question.options.find((option) => option.id === answers[question.id]);
 }
 
-function pickStarterVenues({
-  area,
-  hallType,
-  guestBand,
-  mealMax,
-}: {
-  area: string;
-  hallType: VenueHallType | "all";
-  guestBand: "small" | "medium" | "large";
-  mealMax: "any" | "8" | "12" | "16";
-}): WeddingVenue[] {
-  const areaMatch = REGION_GROUPS.find((g) => g.key === area)?.match ?? (() => true);
-  const maxMeal = mealMax === "any" ? Infinity : Number(mealMax) * 10_000;
-  return VENUE_CATALOG.map((venue) => {
-    let score = 0;
-    if (areaMatch(venue.region)) score += 4;
-    if (hallType === "all" || venue.hallType === hallType) score += 4;
-    if (matchesGuestBand(venue, guestBand)) score += 3;
-    if (!venue.mealPriceMin || venue.mealPriceMin <= maxMeal) score += 3;
-    return { venue, score };
-  })
-    .filter(({ venue, score }) => {
-      if (score < 7) return false;
-      if (hallType !== "all" && venue.hallType !== hallType) return false;
-      if (mealMax !== "any" && venue.mealPriceMin && venue.mealPriceMin > maxMeal + 20_000) return false;
-      return true;
-    })
-    .sort((a, b) => b.score - a.score || (a.venue.mealPriceMin ?? 0) - (b.venue.mealPriceMin ?? 0))
+function pickAgentVenues(answers: VenueAgentAnswers): { picks: WeddingVenue[]; poolCount: number; relaxed: boolean } {
+  const answeredCount = countVenueAgentAnswers(answers);
+  if (answeredCount === 0) return { picks: [], poolCount: VENUE_CATALOG.length, relaxed: false };
+
+  const strictPool = VENUE_CATALOG.filter((venue) =>
+    matchesVenueAgentArea(venue, answers.area) &&
+    matchesVenueAgentScale(venue, answers.scale) &&
+    matchesVenueAgentMood(venue, answers.mood)
+  );
+  let pool = strictPool;
+  let relaxed = false;
+
+  if (pool.length < 3 && answers.mood && answers.mood !== "flexible") {
+    pool = VENUE_CATALOG.filter((venue) =>
+      matchesVenueAgentArea(venue, answers.area) &&
+      matchesVenueAgentMood(venue, answers.mood)
+    );
+    relaxed = true;
+  }
+  if (pool.length < 3 && answers.scale && answers.scale !== "unknown") {
+    pool = VENUE_CATALOG.filter((venue) =>
+      matchesVenueAgentArea(venue, answers.area) &&
+      matchesVenueAgentScale(venue, answers.scale)
+    );
+    relaxed = true;
+  }
+  if (pool.length < 3) {
+    pool = VENUE_CATALOG.filter((venue) => matchesVenueAgentArea(venue, answers.area));
+    relaxed = true;
+  }
+  if (pool.length < 3) {
+    pool = VENUE_CATALOG;
+    relaxed = true;
+  }
+
+  const picks = pool
+    .map((venue) => ({ venue, score: scoreVenueForAgent(venue, answers) }))
+    .sort((a, b) =>
+      b.score - a.score ||
+      (a.venue.mealPriceMin ?? Number.MAX_SAFE_INTEGER) - (b.venue.mealPriceMin ?? Number.MAX_SAFE_INTEGER) ||
+      a.venue.name.localeCompare(b.venue.name, "ko")
+    )
     .slice(0, 4)
     .map(({ venue }) => venue);
+
+  return { picks, poolCount: strictPool.length, relaxed };
 }
 
-function matchesGuestBand(venue: WeddingVenue, band: "small" | "medium" | "large"): boolean {
+function matchesVenueAgentArea(venue: WeddingVenue, area?: VenueAgentArea): boolean {
+  if (!area) return true;
+  if (area === "seoul") return isSeoulVenueRegion(venue.region);
+  if (area === "local") {
+    return ["busan", "daegu", "chungcheong", "honam", "gangwon-jeju"]
+      .some((key) => matchesRegionGroup(venue.region, key));
+  }
+  return matchesRegionGroup(venue.region, area);
+}
+
+function matchesVenueAgentScale(venue: WeddingVenue, scale?: VenueAgentScale): boolean {
+  if (!scale || scale === "unknown") return true;
   const min = venue.capacityMin ?? 0;
-  const max = venue.capacityMax ?? 999;
-  if (band === "small") return min <= 120 && max >= 80;
-  if (band === "medium") return min <= 220 && max >= 150;
-  return max >= 250;
+  const max = venue.capacityMax ?? 9999;
+  if (scale === "small") return min <= 130 && max >= 60;
+  if (scale === "medium") return min <= 260 && max >= 140;
+  return max >= 300;
+}
+
+function matchesVenueAgentMood(venue: WeddingVenue, mood?: VenueAgentMood): boolean {
+  if (!mood || mood === "flexible") return true;
+  const name = venue.name.toLowerCase();
+  if (mood === "hotel") return venue.hallType === "hotel";
+  if (mood === "chapel") return venue.hallType === "house" || name.includes("채플") || name.includes("chapel");
+  if (mood === "bright") {
+    return venue.hallType === "outdoor" || venue.hallType === "house" || /가든|포레스트|두가헌|채플/.test(venue.name);
+  }
+  return venue.hallType === "convention" || venue.hallType === "general";
+}
+
+function scoreVenueForAgent(venue: WeddingVenue, answers: VenueAgentAnswers): number {
+  let score = 0;
+  if (matchesVenueAgentArea(venue, answers.area)) score += answers.area ? 34 : 0;
+  else score -= 18;
+  if (matchesVenueAgentScale(venue, answers.scale)) score += answers.scale && answers.scale !== "unknown" ? 24 : 4;
+  else score -= 8;
+  if (matchesVenueAgentMood(venue, answers.mood)) score += answers.mood && answers.mood !== "flexible" ? 22 : 5;
+  else score -= 6;
+
+  if (answers.priority === "meal") {
+    if (!venue.mealPriceMin) score -= 3;
+    else if (venue.mealPriceMin <= 90_000) score += 14;
+    else if (venue.mealPriceMin <= 120_000) score += 11;
+    else if (venue.mealPriceMin <= 150_000) score += 7;
+    else score += 3;
+  }
+  if (answers.priority === "traffic") {
+    if (isSeoulVenueRegion(venue.region)) score += 8;
+    if (matchesRegionGroup(venue.region, "central") || matchesRegionGroup(venue.region, "gangnam") || matchesRegionGroup(venue.region, "han")) score += 5;
+  }
+  if (answers.priority === "privacy") {
+    if (venue.hallType === "house" || venue.hallType === "outdoor") score += 12;
+    else if (venue.hallType === "hotel") score += 4;
+  }
+  if (answers.priority === "contract") {
+    if (venue.source) score += 5;
+    if (venue.lastVerified) score += 5;
+    if (venue.capacitySource === "official") score += 3;
+    if (venue.mealPriceSource === "official") score += 3;
+  }
+
+  if (venue.source) score += 2;
+  if (venue.lastVerified) score += 2;
+  if (venue.capacityMin || venue.capacityMax) score += 1;
+  if (venue.mealPriceMin || venue.mealPriceMax) score += 1;
+  return score;
+}
+
+function describeVenueAgentMatch(venue: WeddingVenue, answers: VenueAgentAnswers): string[] {
+  const reasons: string[] = [];
+  if (answers.area && matchesVenueAgentArea(venue, answers.area)) reasons.push(getVenueAgentAreaLabel(answers.area));
+  if (answers.scale && answers.scale !== "unknown" && matchesVenueAgentScale(venue, answers.scale)) reasons.push(`하객 ${formatCapacity(venue)}`);
+  if (answers.mood && answers.mood !== "flexible" && matchesVenueAgentMood(venue, answers.mood)) {
+    reasons.push(venue.hallType ? HALL_TYPE_LABEL[venue.hallType] : "분위기 후보");
+  }
+  if (answers.priority === "meal" && (venue.mealPriceMin || venue.mealPriceMax)) reasons.push(`식대 ${formatMealPrice(venue)}`);
+  if (answers.priority === "traffic" && venue.region) reasons.push(`${venue.region} 동선`);
+  if (answers.priority === "privacy") reasons.push(venue.hallType === "house" || venue.hallType === "outdoor" ? "단독감 확인" : "혼잡도 확인");
+  if (answers.priority === "contract" && venue.source) reasons.push("출처 확인 가능");
+  if (reasons.length === 0 && venue.hallType) reasons.push(HALL_TYPE_LABEL[venue.hallType]);
+  if (reasons.length === 0 && venue.region) reasons.push(venue.region);
+  return reasons.slice(0, 4);
+}
+
+function matchesRegionGroup(region: string | undefined, key: string): boolean {
+  return REGION_GROUPS.find((group) => group.key === key)?.match(region) ?? false;
+}
+
+function isSeoulVenueRegion(region: string | undefined): boolean {
+  if (!region) return false;
+  return (
+    region.includes("서울") ||
+    ["gangnam", "central", "han", "etc"].some((key) => matchesRegionGroup(region, key))
+  );
+}
+
+function getVenueAgentAreaLabel(area: VenueAgentArea): string {
+  if (area === "seoul") return "서울권";
+  if (area === "local") return "지방·리조트";
+  return REGION_GROUPS.find((group) => group.key === area)?.label ?? "지역 조건";
 }
 
 function VenueMapExplorer({

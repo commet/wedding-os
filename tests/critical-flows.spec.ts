@@ -131,7 +131,13 @@ test.describe("critical product flows", () => {
     );
 
     await page.goto("/venues?starter=1");
-    await expect(page.getByText("예식장 기준 잡기")).toBeVisible();
+    await expect(page.getByText("Dearie 후보 추리기")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "가장 먼저 볼 지역은 어디에 가까울까요?" })).toBeVisible();
+    await page.getByRole("button", { name: /강남·청담권/ }).click();
+    await page.getByRole("button", { name: /120~250명/ }).click();
+    await page.getByRole("button", { name: /채플·하우스/ }).click();
+    await page.getByRole("button", { name: /식대·총액/ }).click();
+    await expect(page.getByText("Dearie 판단 완료")).toBeVisible();
     await page.getByRole("button", { name: /후보 \d+곳 담기 →/ }).click();
     await expect.poll(() => readStoredData(page).then((stored) => stored.venues?.length ?? 0)).toBeGreaterThan(
       seeded.venues?.length ?? 0,
