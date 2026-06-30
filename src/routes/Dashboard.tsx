@@ -257,6 +257,13 @@ export default function Dashboard({ data, update }: Props) {
     tag: "다음 단계",
   };
   const coupleDisplay = [data.invitation.groomName, data.invitation.brideName].filter(Boolean).join(" · ") || "우리";
+  const secondaryFocusItems = focusItems.slice(1, 4);
+  const hasAgentAside = !!agentQuestion || hasRisk;
+  const hasAgentSideContent = hasAgentAside || secondaryFocusItems.length > 0;
+  const agentWorkbenchClass = hasAgentSideContent
+    ? "page-enter lg:grid lg:grid-cols-[minmax(0,1.08fr)_minmax(20rem,0.92fr)] lg:items-stretch lg:gap-x-7 lg:border-y lg:border-hair lg:bg-cream/25 lg:px-6 lg:py-6"
+    : "page-enter lg:border-y lg:border-hair lg:bg-cream/25 lg:px-6 lg:py-6";
+  const agentPrimaryClass = hasAgentSideContent ? "lg:border-r lg:border-hair lg:pr-7" : "lg:max-w-[44rem]";
 
   return (
     <div className="pb-10">
@@ -345,7 +352,7 @@ export default function Dashboard({ data, update }: Props) {
       <div className="hairline" />
 
       {/* ─── Agent briefing — 지금 할 일 하나와 다음 순서 ─── */}
-      <section id="today-focus" className="page py-9 scroll-mt-20">
+      <section id="today-focus" className="page py-8 lg:py-10 scroll-mt-20">
         <div className="mb-7 flex items-end justify-between gap-4">
           <AgentIdentity mood={agentQuestion ? "thinking" : hasRisk ? "watching" : "ready"} caption={agentCaption} />
           <span className="eyebrow text-right">{coupleDisplay}<br />오늘의 브리핑</span>
@@ -375,18 +382,18 @@ export default function Dashboard({ data, update }: Props) {
             <button onClick={() => setAgentChoosing(false)} className="mt-4 min-h-11 text-[12px] text-soft underline underline-offset-4">지금 제안으로 돌아가기</button>
           </div>
         ) : (
-          <div className="page-enter lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)] lg:items-start lg:gap-x-10">
-            <div>
+          <div className={agentWorkbenchClass}>
+            <div className={agentPrimaryClass}>
             {dday !== null && (
               <div className="mb-3 flex items-baseline gap-2">
                 <span className="eyebrow-gold">{phase.label}</span>
                 {dday >= 0 && <span className="text-[11px] text-soft tabular-nums">D-{dday}</span>}
               </div>
             )}
-            <p className="mb-6 max-w-[21rem] text-[15px] leading-[1.8] text-soft">
+            <p className="mb-6 max-w-[30rem] text-[15px] leading-[1.8] text-soft">
               {data.ai?.starterSummary || (dday !== null ? phase.focus : "현재 준비 상태를 보고, 다음 결정이 쉬워지는 순서로 정리했어요.")}
             </p>
-            <div className="agent-briefing mb-7 lg:mb-0">
+            <div className="agent-briefing mb-7 lg:mb-0 lg:border-b-0 lg:pb-1">
               <div className="agent-briefing-number">01</div>
               <div className="min-w-0">
                 <div className="eyebrow-gold mb-2">오늘의 첫 단계</div>
@@ -398,12 +405,15 @@ export default function Dashboard({ data, update }: Props) {
               </div>
             </div>
             </div>
-            <div className="lg:pt-1">
-            {agentQuestion && (
-              <AgentQuestionCard question={agentQuestion} onAnswer={answerAgentQuestion} />
-            )}
-            {hasRisk && (
-              <div className="mb-7 border-y border-l-2 border-hair border-l-gold bg-cream/40">
+            {hasAgentSideContent && (
+            <div className="mt-7 lg:mt-0 lg:flex lg:flex-col lg:justify-start lg:gap-5 lg:pt-0">
+            {hasAgentAside ? (
+              <>
+              {agentQuestion && (
+                <AgentQuestionCard question={agentQuestion} onAnswer={answerAgentQuestion} />
+              )}
+              {hasRisk && (
+              <div className="border-y border-l-2 border-hair border-l-gold bg-cream/40">
                 {overdueCount > 0 && (
                   <Link to="/checklist" className="row-tap flex items-center justify-between gap-3 border-b border-hair px-3 py-3 last:border-b-0">
                     <span className="text-[13px] text-ink break-keep">지난 마감 <b className="font-semibold">{overdueCount}건</b>이 남아 있어요</span>
@@ -453,20 +463,17 @@ export default function Dashboard({ data, update }: Props) {
                   </Link>
                 )}
               </div>
+              )}
+              </>
+            ) : (
+              <AgentNextOrder items={secondaryFocusItems} />
             )}
             </div>
+            )}
           </div>
         )}
-        {!agentChoosing && focusItems.length > 1 && (
-          <div className="mt-7 border-t border-hair">
-            {focusItems.slice(1, 4).map((item, index) => (
-              <Link key={`${item.to}-${item.title}`} to={item.to} className="row-tap grid min-h-[70px] grid-cols-[2rem_1fr_auto] items-center gap-3 border-b border-hair py-3">
-                <span className="font-serif text-[14px] text-gold">0{index + 2}</span>
-                <span className="text-[13px] leading-relaxed text-ink">{item.title}</span>
-                <span className="text-soft">→</span>
-              </Link>
-            ))}
-          </div>
+        {!agentChoosing && hasAgentAside && secondaryFocusItems.length > 0 && (
+          <AgentNextOrder items={secondaryFocusItems} grid className="mt-6" />
         )}
         {!agentChoosing && (
           <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-1">
@@ -573,22 +580,22 @@ export default function Dashboard({ data, update }: Props) {
 
 function AgentQuestionCard({ question, onAnswer }: { question: AgentLoopQuestion; onAnswer: (question: AgentLoopQuestion, value: string) => void }) {
   return (
-    <details open className="mb-7 border-y border-hair py-2">
-      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 text-left">
+    <details open className="mb-7 border-y border-hair py-2 lg:mb-0 lg:border lg:border-hair lg:bg-paper/80 lg:px-5 lg:py-4">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 text-left lg:min-h-0">
         <span className="min-w-0">
           <span className="eyebrow-gold block">{question.eyebrow}</span>
-          <h3 className="mt-1 text-[15px] font-semibold leading-snug text-ink break-keep">{question.title}</h3>
+          <h3 className="mt-1 text-[15px] font-semibold leading-snug text-ink break-keep lg:text-[16px]">{question.title}</h3>
         </span>
         <span className="flex-shrink-0 text-[13px] font-medium text-soft underline underline-offset-4">답하기</span>
       </summary>
-      <p className="border-t border-hair pt-3 text-[13.5px] leading-[1.75] text-soft">{question.body}</p>
-      <div className="mt-3 divide-y divide-hair border-y border-hair">
+      <p className="border-t border-hair pt-3 text-[13.5px] leading-[1.75] text-soft lg:mt-3">{question.body}</p>
+      <div className="mt-3 divide-y divide-hair border-y border-hair lg:mt-4">
         {question.options.map((option) => (
           <button
             key={option.value}
             type="button"
             onClick={() => onAnswer(question, option.value)}
-            className="row-tap flex min-h-[54px] w-full items-center justify-between gap-3 py-3 text-left"
+            className="row-tap flex min-h-[54px] w-full items-center justify-between gap-3 py-3 text-left lg:px-1"
           >
             <span className="min-w-0">
               <span className="block text-[14px] font-semibold text-ink break-keep">{option.label}</span>
@@ -599,6 +606,39 @@ function AgentQuestionCard({ question, onAnswer }: { question: AgentLoopQuestion
         ))}
       </div>
     </details>
+  );
+}
+
+function AgentNextOrder({ items, grid = false, className = "" }: { items: FocusItem[]; grid?: boolean; className?: string }) {
+  if (items.length === 0) return null;
+
+  return (
+    <div className={className}>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <span className="eyebrow-gold">다음 순서</span>
+        <span className="text-[11px] leading-none text-soft">{items.length}개 대기</span>
+      </div>
+      <div className={grid ? "border-y border-hair lg:grid lg:grid-cols-3 lg:divide-x lg:divide-hair" : "divide-y divide-hair border-y border-hair"}>
+        {items.map((item, index) => (
+          <Link
+            key={`${item.to}-${item.title}`}
+            to={item.to}
+            className={
+              grid
+                ? "row-tap grid min-h-[76px] grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 border-b border-hair py-3 last:border-b-0 lg:min-h-[96px] lg:grid-cols-[2rem_minmax(0,1fr)] lg:border-b-0 lg:px-4 lg:py-4"
+                : "row-tap grid min-h-[76px] grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 py-3"
+            }
+          >
+            <span className="font-serif text-[14px] text-gold">0{index + 2}</span>
+            <span className="min-w-0">
+              <span className="block text-[13px] font-medium leading-relaxed text-ink break-keep">{item.title}</span>
+              <span className="mt-0.5 block text-[11.5px] leading-relaxed text-soft break-keep">{item.tag}</span>
+            </span>
+            <span className="text-soft lg:hidden">→</span>
+          </Link>
+        ))}
+      </div>
+    </div>
   );
 }
 
