@@ -8,33 +8,45 @@ import { get as blobGet } from "@vercel/blob";
 export const config = { runtime: "nodejs" };
 
 const h = React.createElement;
+const EXTERNAL_FETCH_TIMEOUT_MS = 1800;
+
+function withTimeout(promise, timeoutMs = EXTERNAL_FETCH_TIMEOUT_MS) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error("timeout")), timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = EXTERNAL_FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 async function loadKoreanFont(text) {
   if (!text.trim()) return null;
   try {
     const url = `https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700&text=${encodeURIComponent(text)}`;
-    const css = await fetch(url, {
+    const cssRes = await fetchWithTimeout(url, {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       },
-    }).then((res) => res.text());
+    });
+    if (!cssRes.ok) return null;
+    const css = await withTimeout(cssRes.text());
     const match = css.match(/src:\s*url\(([^)]+)\)\s*format\(['"](?:opentype|truetype)['"]\)/);
     if (!match) return null;
-    const fontRes = await fetch(match[1]);
+    const fontRes = await fetchWithTimeout(match[1]);
     if (!fontRes.ok) return null;
-    return await fontRes.arrayBuffer();
+    return await withTimeout(fontRes.arrayBuffer());
   } catch {
     return null;
-  }
-}
-
-function isSupabaseHost(url) {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "https:" && /^[A-Za-z0-9-]+\.supabase\.(co|in)$/.test(parsed.host);
-  } catch {
-    return false;
   }
 }
 
@@ -42,9 +54,9 @@ async function loadFromBlob(code) {
   const token = process.env.BLOB_READ_WRITE_TOKEN || "";
   if (!token) return null;
   try {
-    const res = await blobGet(`invite/${code}/meta.json`, { access: "private", token });
+    const res = await withTimeout(blobGet(`invite/${code}/meta.json`, { access: "private", token }));
     if (!res || res.statusCode !== 200) return null;
-    const stored = await new Response(res.stream).json();
+    const stored = await withTimeout(new Response(res.stream).json());
     if (stored.expiresAt && new Date(stored.expiresAt).getTime() < Date.now()) return null;
     const og = stored.ogMeta;
     if (!og) return null;
@@ -54,28 +66,6 @@ async function loadFromBlob(code) {
       date: og.date,
       heroImageUrl: og.heroImageUrl,
     };
-  } catch {
-    return null;
-  }
-}
-
-async function loadInvitation() {
-  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
-  const key = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
-  if (!url || !key || !isSupabaseHost(url)) return null;
-
-  try {
-    const res = await fetch(`${url.replace(/\/+$/, "")}/rest/v1/rpc/get_public_invitation`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        apikey: key,
-        Authorization: `Bearer ${key}`,
-      },
-      body: JSON.stringify({ p_id: "default" }),
-    });
-    if (!res.ok) return null;
-    return await res.json();
   } catch {
     return null;
   }
@@ -202,7 +192,6 @@ export default async function handler(req) {
   if (/^[a-z0-9]{6,16}$/.test(code)) {
     invitation = await loadFromBlob(code);
   }
-  if (!invitation) invitation = await loadInvitation();
 
   const hasInvitation = !!(
     invitation?.groomName ||
