@@ -153,6 +153,7 @@ test.describe("critical product flows", () => {
     }, seeded);
 
     await page.goto("/snap");
+    await page.getByRole("button", { name: /기준 질문 답하기/ }).click();
     await expect(page.getByRole("heading", { name: "본식 스냅 기준 잡기" })).toBeVisible();
     await page.getByRole("button", { name: /자연스러운 기록/ }).click();
     await expect(page.getByRole("heading", { name: "어디부터 찍히면 좋을까요?" })).toBeVisible();

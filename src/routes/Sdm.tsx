@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import type { ContractCheck, WeddingData, SdmVendor, SdmCategory } from "../lib/schema";
 import {
   SDM_GUIDE,
@@ -11,10 +11,11 @@ import Modal from "../components/Modal";
 import VendorActions from "../components/VendorActions";
 import { koBreak } from "../lib/typography";
 import { formatKRW, upcomingBalances } from "../lib/derived";
-import ProcessAgentPanel from "../components/ProcessAgentPanel";
+import ProcessAgentPanel, { type ProcessAgentAction } from "../components/ProcessAgentPanel";
 import SectionConsultationPanel from "../components/SectionConsultationPanel";
 import FreshnessBadge from "../components/FreshnessBadge";
 import ResearchInputPanel, { type ResearchSection } from "../components/ResearchInputPanel";
+import { consultationProgress, nextConsultationQuestion } from "../lib/sectionConsultation";
 import {
   emptySdmResearchDraft,
   parseSdmResearchText,
@@ -98,12 +99,16 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
   const [cat, setCat] = useState<SdmCategory>(initialCategory);
   const [region, setRegion] = useState<string>("all");
   const [query, setQuery] = useState("");
-  const [catalogOpen, setCatalogOpen] = useState(() => data.sdm.every((vendor) => vendor.category !== initialCategory));
+  const [catalogOpen, setCatalogOpen] = useState(false);
+  const [criteriaOpen, setCriteriaOpen] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
   const [showChannels, setShowChannels] = useState(false);
   const [notice, setNotice] = useState("");
+  const criteriaRef = useRef<HTMLDivElement>(null);
+  const catalogRef = useRef<HTMLElement>(null);
 
   const inCat = data.sdm.filter((v) => v.category === cat);
+  const sectionId = snapOnly ? "snap" : "sdm";
 
   // 다음 납부 — 스드메/스냅 잔금만, 잔금일 순. (읽기 전용)
   const sdmBalances = useMemo(
@@ -166,6 +171,8 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
   const consultCount = inCat.filter((v) => v.status === "상담" || v.status === "계약").length;
   const contractedCount = inCat.filter((v) => v.status === "계약").length;
   const contractGapCount = inCat.filter((v) => v.status === "계약" && contractFieldCount(v.contract) < 3).length;
+  const criteriaProgress = consultationProgress(data, sectionId);
+  const activeCriteriaQuestion = nextConsultationQuestion(data, sectionId);
   const sdmAgentSummary = inCat.length === 0
     ? `${CAT_LABEL[cat]} 후보가 아직 없어요. 먼저 2~3곳을 담고, 가격보다 포함 항목과 별도 비용을 같이 비교하면 됩니다.`
     : contractedCount > 0
@@ -180,53 +187,97 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
     updateVendor(target.id, { status: "상담" });
   };
 
+  const openCriteria = () => {
+    setCriteriaOpen(true);
+    window.setTimeout(() => criteriaRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+  };
+
+  const openCatalog = () => {
+    setCatalogOpen(true);
+    window.setTimeout(() => catalogRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+  };
+
+  const agentTitle = activeCriteriaQuestion
+    ? `${CAT_LABEL[cat]} 기준부터 좁힐게요`
+    : inCat.length === 0
+      ? `${CAT_LABEL[cat]} 후보를 담을 차례예요`
+      : contractedCount > 0
+        ? "계약 조건을 잠그는 중"
+        : "상담 후보를 추리는 중";
+  const agentSummary = activeCriteriaQuestion
+    ? `${activeCriteriaQuestion.title} 이 답을 정하면 후보를 볼 때 무엇을 먼저 비교할지 선명해져요.`
+    : sdmAgentSummary;
+  const agentActions: ProcessAgentAction[] = [];
+  if (activeCriteriaQuestion || criteriaProgress.answered > 0) {
+    agentActions.push({
+      label: activeCriteriaQuestion ? "기준 질문 답하기" : "답한 기준 보기",
+      onClick: openCriteria,
+      tone: activeCriteriaQuestion ? "primary" : "quiet",
+    });
+  }
+  if (inCat.length > 0 && consultCount === 0) {
+    agentActions.push({
+      label: "첫 후보를 상담으로 표시",
+      onClick: promoteFirstVendor,
+      tone: activeCriteriaQuestion ? "quiet" : "primary",
+    });
+  }
+  agentActions.push({
+    label: catalogOpen ? "후보 목록으로 이동" : "업체 후보 열기",
+    onClick: openCatalog,
+    tone: activeCriteriaQuestion || (inCat.length > 0 && consultCount === 0) ? "quiet" : "primary",
+  });
+  agentActions.push({ label: "직접 추가", onClick: () => setShowAdd(true), tone: "quiet" });
+
   const guide = SDM_GUIDE[cat];
 
   return (
-    <div className="page pt-8 pb-10 space-y-8">
-      <div>
-        <div className="eyebrow-gold mb-2">{snapOnly ? "본식 촬영" : "스튜디오 · 드레스 · 메이크업"}</div>
-        <h1 className="font-serif text-[2rem] leading-none">{koBreak(snapOnly ? "본식 스냅" : "스드메")}</h1>
+    <div className="page pt-7 pb-10 space-y-6">
+      <div className="space-y-5">
+        <div>
+          <div className="eyebrow-gold mb-2">{snapOnly ? "본식 촬영" : "스튜디오 · 드레스 · 메이크업"}</div>
+          <h1 className="font-serif text-[2rem] leading-none">{koBreak(snapOnly ? "본식 스냅" : "스드메")}</h1>
+        </div>
+
+        {/* 카테고리 — underline 탭 */}
+        {!snapOnly && (
+        <div className="flex items-center gap-6 border-b border-hair pb-3 overflow-x-auto -mx-6 px-6">
+          {categories.map((c) => (
+            <button
+              key={c}
+              onClick={() => { setCat(c); setCatalogOpen(false); setCriteriaOpen(false); }}
+              className={`tracking-wide whitespace-nowrap ${cat === c ? "seg-active" : "seg"}`}
+            >
+              {CAT_LABEL[c]}
+            </button>
+          ))}
+        </div>
+        )}
+
+        <ProcessAgentPanel
+          title={agentTitle}
+          summary={agentSummary}
+          mood={contractGapCount > 0 || (inCat.length > 0 && consultCount === 0) ? "watching" : contractedCount > 0 ? "ready" : "thinking"}
+          metrics={[
+            { label: "기준", value: `${criteriaProgress.answered}/${criteriaProgress.total}`, tone: criteriaProgress.complete ? "normal" : "warn" },
+            { label: "후보", value: `${inCat.length}곳` },
+            { label: "계약", value: `${contractedCount}곳`, tone: contractGapCount > 0 ? "warn" : contractedCount ? "normal" : "muted" },
+          ]}
+          actions={agentActions}
+        />
       </div>
 
-      <SectionConsultationPanel sectionId={snapOnly ? "snap" : "sdm"} data={data} update={update} />
-
-      {/* 카테고리 — underline 탭 */}
-      {!snapOnly && (
-      <div className="flex items-center gap-6 border-b border-hair pb-3 overflow-x-auto -mx-6 px-6">
-        {categories.map((c) => (
-          <button
-            key={c}
-            onClick={() => { setCat(c); setCatalogOpen(data.sdm.every((vendor) => vendor.category !== c)); }}
-            className={`tracking-wide whitespace-nowrap ${cat === c ? "seg-active" : "seg"}`}
-          >
-            {CAT_LABEL[c]}
-          </button>
-        ))}
-      </div>
+      {criteriaOpen && (
+        <div ref={criteriaRef}>
+          <SectionConsultationPanel
+            sectionId={sectionId}
+            data={data}
+            update={update}
+            open={criteriaOpen}
+            onOpenChange={setCriteriaOpen}
+          />
+        </div>
       )}
-
-      <ProcessAgentPanel
-        title={inCat.length === 0 ? `${CAT_LABEL[cat]} 후보를 찾는 중` : contractedCount > 0 ? "계약 조건을 잠그는 중" : "상담 후보를 추리는 중"}
-        summary={sdmAgentSummary}
-        mood={contractGapCount > 0 || (inCat.length > 0 && consultCount === 0) ? "watching" : contractedCount > 0 ? "ready" : "thinking"}
-        metrics={[
-          { label: "후보", value: `${inCat.length}곳` },
-          { label: "상담", value: `${consultCount}곳`, tone: consultCount === 0 && inCat.length > 0 ? "warn" : "normal" },
-          { label: "계약", value: `${contractedCount}곳`, tone: contractGapCount > 0 ? "warn" : contractedCount ? "normal" : "muted" },
-        ]}
-        steps={[
-          { label: `${CAT_LABEL[cat]} 후보 2곳 이상 담기`, detail: "같은 가격대라도 포함 항목이 달라서 나란히 비교가 필요해요.", done: inCat.length >= 2 },
-          { label: "상담 후보 하나 정하기", detail: "상태를 ‘상담’으로 올리면 담당자·견적·계약 체크를 남길 흐름이 생깁니다.", done: consultCount > 0 },
-          { label: "계약 조건 3칸 이상 기록", detail: "견적 기준, 포함 항목, 별도 비용, 취소 조건을 우선 남겨요.", done: contractedCount === 0 || contractGapCount === 0 },
-        ]}
-        actions={[
-          { label: "새 후보 조사해서 추가", onClick: () => setShowAdd(true), tone: inCat.length === 0 ? "primary" : "quiet" },
-          { label: "업체 후보 열기", onClick: () => setCatalogOpen(true), tone: "primary" },
-          ...(inCat.length > 0 && consultCount === 0 ? [{ label: "첫 후보를 상담으로 표시", onClick: promoteFirstVendor }] : []),
-          { label: "후기 채널 보기", onClick: () => setShowChannels(true) },
-        ]}
-      />
 
       {notice && (
         <div className="anim-fade border-y border-hair py-3">
@@ -240,25 +291,6 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
           </div>
         </div>
       )}
-
-      {/* 가이드 (접이식) — hairline */}
-      <details className="border-b border-hair pb-5">
-        <summary className="cursor-pointer flex items-baseline justify-between py-2">
-          <span className="font-serif text-[15px] text-ink">{guide.title} <span className="text-soft text-[12px]">— 고를 때 확인할 것</span></span>
-          <span className="text-soft text-[12px] group-open:rotate-180 transition">▾</span>
-        </summary>
-        <div className="mt-4 space-y-4">
-          <p className="text-[13px] leading-loose text-soft">{guide.tip}</p>
-          <div>
-            <div className="eyebrow mb-2">체크포인트</div>
-            <ul className="text-[13px] space-y-1.5 text-ink/90">
-              {guide.checklist.map((c, i) => (
-                <li key={i}>· {c}</li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </details>
 
       {/* 다음 납부 — 스드메/스냅 잔금 임박 (읽기 전용) */}
       {sdmBalances.length > 0 && (
@@ -307,8 +339,30 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
         </section>
       )}
 
+      {/* 가이드 (접이식) — hairline */}
+      <details className="border-y border-hair py-4">
+        <summary className="cursor-pointer flex items-baseline justify-between gap-4">
+          <span>
+            <span className="section-title block">{guide.title}</span>
+            <span className="mt-1 block text-[11.5px] text-soft">고를 때 헷갈리는 기준만 접어뒀어요.</span>
+          </span>
+          <span className="text-soft text-[12px] group-open:rotate-180 transition">보기</span>
+        </summary>
+        <div className="mt-4 space-y-4">
+          <p className="text-[13px] leading-loose text-soft">{guide.tip}</p>
+          <div>
+            <div className="eyebrow mb-2">체크포인트</div>
+            <ul className="text-[13px] space-y-1.5 text-ink/90">
+              {guide.checklist.map((c, i) => (
+                <li key={i}>· {c}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </details>
+
       {/* 검색 + 지역 필터 */}
-      <section className="space-y-5">
+      <section ref={catalogRef} className="space-y-5">
         <div className="border-y border-hair py-4">
           <button onClick={() => setCatalogOpen((open) => !open)} className="flex w-full items-center justify-between gap-4 text-left">
             <span>

@@ -17,22 +17,29 @@ type Props = {
   data: WeddingData;
   update: (patch: any) => void;
   defaultOpen?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
-export default function SectionConsultationPanel({ sectionId, data, update, defaultOpen }: Props) {
+export default function SectionConsultationPanel({ sectionId, data, update, defaultOpen, open: controlledOpen, onOpenChange }: Props) {
   const meta = CONSULTATION_META[sectionId];
   const progress = consultationProgress(data, sectionId);
   const questions = consultationQuestions(sectionId);
   const answers = useMemo(() => consultationAnswers(data, sectionId), [data, sectionId]);
   const activeQuestion = nextConsultationQuestion(data, sectionId);
-  const [open, setOpen] = useState(() => defaultOpen ?? progress.answered === 0);
+  const [internalOpen, setInternalOpen] = useState(() => defaultOpen ?? progress.answered === 0);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = (next: boolean) => {
+    if (controlledOpen === undefined) setInternalOpen(next);
+    onOpenChange?.(next);
+  };
 
   useEffect(() => {
-    setOpen(defaultOpen ?? progress.answered === 0);
+    if (controlledOpen === undefined) setInternalOpen(defaultOpen ?? progress.answered === 0);
     // 섹션이 바뀔 때만 초기 열림 상태를 다시 계산한다.
     // 답변할 때마다 자동으로 접히거나 펼쳐지면 상담 흐름이 끊긴다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sectionId, defaultOpen]);
+  }, [sectionId, defaultOpen, controlledOpen]);
 
   if (!meta || questions.length === 0) return null;
 
