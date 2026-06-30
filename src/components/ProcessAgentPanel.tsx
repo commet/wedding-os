@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from "react";
 import { AgentIdentity } from "./AgentIdentity";
 
 export type ProcessAgentMetric = {
@@ -50,27 +51,48 @@ export default function ProcessAgentPanel({
   const visibleSteps = steps.slice(0, 3);
   const hiddenSteps = steps.slice(3);
   const labelFor = (label: string) => label.replace(/\s*→\s*$/, "");
+  const brief = useMemo(() => compactBrief(summary), [summary]);
   const stageLabel = stageCopy(mood, openStepCount);
 
   return (
-    <section className="border-y border-hair py-5 text-left space-y-4">
+    <section className="border-y border-hair py-4 text-left md:py-5">
       <div className="flex items-start gap-3">
         <AgentIdentity compact mood={mood} />
         <div className="min-w-0 flex-1">
           <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="eyebrow-gold">Dearie가 지금 보는 것</span>
+            <span className="eyebrow-gold">Dearie 브리핑</span>
             <span className="text-[11px] font-medium text-soft">{stageLabel}</span>
           </div>
-          <h2 className="font-serif text-[21px] leading-snug text-ink break-keep md:text-[22px]">{title}</h2>
-          <p className="mt-2 max-w-3xl text-[13.5px] leading-relaxed text-soft break-keep">{summary}</p>
+          <h2 className="font-serif text-[20px] leading-snug text-ink break-keep md:text-[22px]">{title}</h2>
+          <TypingBrief text={brief} />
         </div>
       </div>
 
+      {previewMetrics.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Dearie 판단 근거">
+          {previewMetrics.map((metric) => (
+            <span
+              key={metric.label}
+              className={`inline-flex max-w-full items-baseline gap-1.5 border px-2.5 py-1.5 text-[11.5px] ${
+                metric.tone === "warn"
+                  ? "border-gold bg-gold/10 text-gold"
+                  : metric.tone === "muted"
+                    ? "border-hair bg-cream/35 text-soft"
+                    : "border-hair text-ink"
+              }`}
+            >
+              <span className="font-medium text-soft">{metric.label}</span>
+              <span className="max-w-[9rem] truncate font-semibold tabular-nums">{metric.value}</span>
+            </span>
+          ))}
+        </div>
+      )}
+
       {actions.length > 0 && (
-        <div className="border-y border-hair py-4">
+        <div className="mt-4 border-y border-hair py-3">
           <div className="mb-3 flex items-baseline justify-between gap-3">
-            <div className="eyebrow-gold">가장 먼저 할 일</div>
-            {nextAction && <span className="text-[11px] text-soft">누르면 다음 상태로 이어집니다</span>}
+            <div className="eyebrow-gold">선택지</div>
+            {nextAction && <span className="text-[11px] text-soft">누르면 바로 반영됩니다</span>}
           </div>
           {nextAction && (
             <button
@@ -132,39 +154,13 @@ export default function ProcessAgentPanel({
         </div>
       )}
 
-      {previewMetrics.length > 0 && (
-        <div>
-          <div className="eyebrow mb-2">Dearie 판단 근거</div>
-          <div className="grid gap-2 md:grid-cols-3" aria-label="Dearie 판단 근거">
-            {previewMetrics.map((metric) => (
-              <div
-                key={metric.label}
-                className={`min-w-0 border px-3 py-3 ${
-                  metric.tone === "warn"
-                    ? "border-gold bg-gold/10"
-                    : metric.tone === "muted"
-                      ? "border-hair bg-cream/35"
-                      : "border-hair"
-                }`}
-              >
-                <div className={metric.tone === "warn" ? "eyebrow-gold" : "eyebrow"}>{metric.label}</div>
-                <div className={`mt-1 truncate text-[15px] font-semibold tabular-nums ${metric.tone === "warn" ? "text-gold" : metric.tone === "muted" ? "text-soft" : "text-ink"}`}>
-                  {metric.value}
-                </div>
-                {metric.hint && <div className="mt-1 truncate text-[10.5px] text-mute">{metric.hint}</div>}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {steps.length > 0 && (
-        <div className="border-y border-hair py-4">
-          <div className="mb-2 flex items-baseline justify-between gap-3">
-            <div className="eyebrow">{openStepCount > 0 ? "다음 순서" : "정리된 순서"}</div>
-            <span className="text-[11px] text-soft">{openStepCount > 0 ? `${openStepCount}개 남음` : "완료"}</span>
-          </div>
-          <ol className="divide-y divide-hair">
+        <details className="mt-2 border-b border-hair pb-2">
+          <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-4">
+            <span className="eyebrow">{openStepCount > 0 ? `판단 근거와 다음 순서 · ${openStepCount}개 남음` : "판단 근거와 정리된 순서"}</span>
+            <span className="text-[12px] text-soft underline underline-offset-4">보기</span>
+          </summary>
+          <ol className="mt-2 divide-y divide-hair border-y border-hair">
             {visibleSteps.map((step, index) => (
               <AgentStepRow key={`${step.label}-${index}`} step={step} index={index} />
             ))}
@@ -182,9 +178,39 @@ export default function ProcessAgentPanel({
               </ol>
             </details>
           )}
-        </div>
+        </details>
       )}
     </section>
+  );
+}
+
+function TypingBrief({ text }: { text: string }) {
+  const [shown, setShown] = useState(text);
+
+  useEffect(() => {
+    const reduceMotion =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion || text.length < 12) {
+      setShown(text);
+      return;
+    }
+    setShown("");
+    let index = 0;
+    const timer = window.setInterval(() => {
+      index += 2;
+      setShown(text.slice(0, index));
+      if (index >= text.length) window.clearInterval(timer);
+    }, 18);
+    return () => window.clearInterval(timer);
+  }, [text]);
+
+  const typing = shown.length < text.length;
+  return (
+    <p className="mt-2 max-w-3xl text-[13px] leading-relaxed text-soft break-keep md:text-[13.5px]" aria-label={text}>
+      <span aria-hidden="true">{shown}</span>
+      {typing && <span aria-hidden="true" className="ml-0.5 text-gold">|</span>}
+    </p>
   );
 }
 
@@ -214,8 +240,14 @@ function AgentStepRow({ step, index }: { step: ProcessAgentStep; index: number }
 }
 
 function stageCopy(mood: NonNullable<Props["mood"]>, openStepCount: number) {
-  if (mood === "ready") return openStepCount > 0 ? `${openStepCount}개만 더 정리하면 돼요` : "지금은 안정적이에요";
-  if (mood === "watching") return openStepCount > 0 ? `${openStepCount}개를 확인 중` : "주의 항목을 보고 있어요";
-  if (mood === "done") return "이 단계는 정리됐어요";
-  return openStepCount > 0 ? `${openStepCount}개를 순서대로 좁히는 중` : "다음 행동을 고르는 중";
+  if (mood === "ready") return openStepCount > 0 ? `${openStepCount}개 남음` : "안정";
+  if (mood === "watching") return openStepCount > 0 ? `${openStepCount}개 확인 중` : "주의";
+  if (mood === "done") return "완료";
+  return openStepCount > 0 ? `${openStepCount}개 정리 중` : "대기";
+}
+
+function compactBrief(text: string) {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  if (normalized.length <= 92) return normalized;
+  return `${normalized.slice(0, 90).trimEnd()}…`;
 }

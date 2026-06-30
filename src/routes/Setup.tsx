@@ -7,6 +7,7 @@ import { createSupabaseStorage, pingSupabase } from "../lib/storage.supabase";
 import { isSupabaseHost, markOwner, getOrCreateOwnerToken, getOrCreateDirectRsvpToken } from "../lib/security";
 import { migrateImagesIdbToDataUrl } from "../lib/imageStore";
 import { koBreak } from "../lib/typography";
+import { todayISO } from "../lib/freshness";
 import SchemaText from "../supabase-schema-text";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
@@ -165,7 +166,12 @@ export default function Setup({ data, update }: Props) {
 
       setFinishMsg("전환 전 백업을 만드는 중...");
       if (hasTransferableData(data)) {
-        await exportData(data);
+        const backupResult = await exportData(data);
+        if (backupResult === "cancelled") {
+          setFinishStatus("idle");
+          setFinishMsg("백업 저장을 취소해서 전환을 멈췄어요.");
+          return;
+        }
       }
       setFinishMsg("사진을 둘이 같이 볼 수 있는 형태로 변환하는 중...");
       // 모드 1 에서 IndexedDB 에 박힌 사진들은 다른 기기에서 못 푸므로,
@@ -178,7 +184,7 @@ export default function Setup({ data, update }: Props) {
           mode: "supabase",
           supabase: supabaseConf,
           lastBackupAt: hasTransferableData(data)
-            ? new Date().toISOString().split("T")[0]
+            ? todayISO()
             : migrated.preferences.lastBackupAt,
         },
       };

@@ -135,7 +135,10 @@ export default function Budget({ data, update }: Props) {
             기본 항목을 불러온 뒤 필요한 것만 남기고<br />두 분의 금액을 채워보세요.
           </p>
         </div>
-        <p className="text-[12.5px] text-soft leading-relaxed border-y border-hair py-4">
+        <p className="border-y border-hair py-3 text-[12.5px] leading-relaxed text-soft md:hidden">
+          실제 견적을 받으면 참고값을 두 분 금액으로 바꾸면 됩니다.
+        </p>
+        <p className="hidden text-[12.5px] text-soft leading-relaxed border-y border-hair py-4 md:block">
           {BUDGET_TOTAL_NOTE}
         </p>
         <ProcessAgentPanel

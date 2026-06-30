@@ -16,7 +16,7 @@ import {
 } from "../lib/exporters";
 import { getHostedConfig, getOrCreateOwnerToken } from "../lib/security";
 import { buildRecoveryLink } from "../lib/recovery";
-import { daysSince } from "../lib/freshness";
+import { daysSince, todayISO } from "../lib/freshness";
 import { koBreak } from "../lib/typography";
 
 type Props = { data: WeddingData; update: (patch: any) => void };
@@ -42,10 +42,11 @@ export default function Share({ data, update }: Props) {
   };
 
   const backup = async () => {
-    await exportData(data);
+    const result = await exportData(data);
+    if (result === "cancelled") throw new Error("백업 저장을 취소했어요");
     update((prev: WeddingData) => ({
       ...prev,
-      preferences: { ...prev.preferences, lastBackupAt: new Date().toISOString().split("T")[0] },
+      preferences: { ...prev.preferences, lastBackupAt: todayISO() },
     }));
   };
 
@@ -157,7 +158,7 @@ export default function Share({ data, update }: Props) {
               else window.location.href = "/start-hosted";
             },
           },
-          { label: "지금 백업 만들기 →", onClick: () => run("전체 데이터 백업", backup) },
+          { label: "백업 파일 만들기 →", onClick: () => run("전체 데이터 백업", backup) },
         ]}
       />
 
