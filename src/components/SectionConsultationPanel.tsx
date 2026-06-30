@@ -82,7 +82,7 @@ export default function SectionConsultationPanel({ sectionId, data, update, defa
 
   return (
     <section className="border-y border-hair py-5 space-y-5">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+      <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 gap-3">
           <AgentIdentity compact mood={activeQuestion ? "thinking" : "ready"} />
           <div className="min-w-0">
@@ -95,7 +95,11 @@ export default function SectionConsultationPanel({ sectionId, data, update, defa
             </p>
           </div>
         </div>
-        <button type="button" onClick={() => setOpen(false)} className="text-[12px] text-soft underline underline-offset-4 hover:text-ink">
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="min-h-10 flex-shrink-0 text-[12px] text-soft underline underline-offset-4 hover:text-ink"
+        >
           닫기
         </button>
       </div>
@@ -104,23 +108,21 @@ export default function SectionConsultationPanel({ sectionId, data, update, defa
         <div className="h-full bg-gold transition-all duration-500" style={{ width: `${progressPercent}%` }} />
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.78fr)] lg:items-start">
-        {activeQuestion ? (
-          <QuestionCard
-            question={activeQuestion}
-            value={answers[activeQuestion.id]}
-            onAnswer={answer}
-            onContinue={() => setActiveQuestionId(null)}
-          />
-        ) : (
-          <div className="border-y border-hair py-4">
-            <div className="eyebrow-gold mb-1">기준 완료</div>
-            <p className="text-[13.5px] leading-relaxed text-soft break-keep">{meta.summary}</p>
-          </div>
-        )}
+      {progress.answered > 0 && <ConsultationChangeLog items={changeItems} />}
 
-        <ConsultationChangeLog items={changeItems} />
-      </div>
+      {activeQuestion ? (
+        <QuestionCard
+          question={activeQuestion}
+          value={answers[activeQuestion.id]}
+          onAnswer={answer}
+          onContinue={() => setActiveQuestionId(null)}
+        />
+      ) : (
+        <div className="border-y border-hair py-4">
+          <div className="eyebrow-gold mb-1">기준 완료</div>
+          <p className="text-[13.5px] leading-relaxed text-soft break-keep">{meta.summary}</p>
+        </div>
+      )}
 
       {progress.answered > 0 && (
         <details className="border-y border-hair py-3">
@@ -211,18 +213,30 @@ type ConsultationChangeItem = {
 
 function ConsultationChangeLog({ items }: { items: ConsultationChangeItem[] }) {
   return (
-    <aside className="border-y border-hair py-4">
-      <div className="eyebrow-gold mb-3">지금 바뀐 것</div>
-      <div className="grid border-y border-hair">
-        {items.map((item) => (
-          <div key={item.key} className="anim-fade border-b border-hair p-3 last:border-b-0">
-            <div className="eyebrow mb-2">{item.label}</div>
-            <div className="text-[13.5px] font-semibold leading-snug text-ink break-keep">{item.value}</div>
-            <p className="mt-1 text-[12px] leading-relaxed text-soft break-keep">{item.detail}</p>
+    <div className="border-y border-hair py-4">
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <div className="eyebrow-gold">Dearie가 방금 반영한 내용</div>
+        <span className="text-[11px] text-soft">다음 질문에 바로 적용됨</span>
+      </div>
+      <div className="grid gap-2 md:grid-cols-2">
+        {items.map((item, index) => (
+          <div
+            key={item.key}
+            className={`border px-3 py-3 ${
+              index === 0 ? "border-gold bg-gold/10" : "border-hair bg-cream/45"
+            }`}
+          >
+            <div className="flex items-baseline justify-between gap-3">
+              <div className={index === 0 ? "eyebrow-gold" : "eyebrow"}>{item.label}</div>
+              <div className="text-[13.5px] font-semibold leading-snug text-ink break-keep">{item.value}</div>
+            </div>
+            <p className={`mt-1 text-[12px] leading-relaxed break-keep ${index === 0 ? "text-ink/75" : "text-soft"}`}>
+              {item.detail}
+            </p>
           </div>
         ))}
       </div>
-    </aside>
+    </div>
   );
 }
 
@@ -237,21 +251,11 @@ function buildConsultationChangeItems(
     return [
       {
         key: "waiting",
-        label: "기준 대기",
+        label: "반영 대기",
         value: "아직 반영 전",
-        detail: "답을 고르면 Dearie가 이 화면의 다음 행동을 바로 다시 잡습니다.",
-      },
-      {
-        key: "today",
-        label: "준비판 변화",
-        value: `${meta.label} 기준 이어가기`,
-        detail: "첫 답부터 홈의 오늘 할 일에 이어갈 작업으로 올라갑니다.",
-      },
-      {
-        key: "next",
-        label: "다음 질문",
-        value: nextQuestion?.eyebrow ?? "질문 준비",
-        detail: nextQuestion?.title ?? meta.summary,
+        detail: nextQuestion
+          ? `답을 고르면 ${nextQuestion.eyebrow.replace(/^\d+\s*·\s*/, "")} 기준으로 이어갑니다.`
+          : "답을 고르면 Dearie가 이 화면의 다음 행동을 다시 잡습니다.",
       },
     ];
   }
@@ -261,20 +265,14 @@ function buildConsultationChangeItems(
   const items: ConsultationChangeItem[] = [
     {
       key: `answer-${latest.id}`,
-      label: "기준 반영",
+      label: "방금 반영",
       value: `${latest.eyebrow.replace(/^\d+\s*·\s*/, "")} · ${latestLabels}`,
-      detail: "방금 고른 답을 이 화면의 비교 기준에 넣었습니다.",
-    },
-    {
-      key: "today",
-      label: "준비판 변화",
-      value: `${meta.label} 기준 이어가기`,
-      detail: `${latestLabels} 기준이 홈의 오늘 할 일과 이 화면의 다음 행동에 반영됩니다.`,
+      detail: `${meta.label} 화면의 다음 행동에 이 기준을 넣었습니다.`,
     },
     {
       key: "next",
       label: nextQuestion ? "다음 질문" : "기준 완료",
-      value: nextQuestion?.eyebrow ?? "완료",
+      value: nextQuestion?.eyebrow.replace(/^\d+\s*·\s*/, "") ?? "완료",
       detail: nextQuestion?.title ?? "이제 실제 후보나 항목을 정리하면 됩니다.",
     },
   ];
