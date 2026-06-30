@@ -15,7 +15,6 @@ import DearieConfirmModal from "../components/DearieConfirmModal";
 import FreshnessBadge from "../components/FreshnessBadge";
 import { AgentIdentity } from "../components/AgentIdentity";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
-import SectionConsultationPanel from "../components/SectionConsultationPanel";
 import ResearchInputPanel, { type ResearchSection } from "../components/ResearchInputPanel";
 import { safeHref } from "../lib/security";
 import {
@@ -130,7 +129,10 @@ export default function Venues({ data, update }: Props) {
   const [hallFilter, setHallFilter] = useState<VenueHallType | "all">("all");
   const [showAdd, setShowAdd] = useState(false);
   const [showGuide, setShowGuide] = useState<VenueHallType | null>(null);
-  const [showStarter, setShowStarter] = useState(starterOpen);
+  const [showStarter, setShowStarter] = useState(
+    () => starterOpen || (data.venues ?? []).length === 0 || (data.venues ?? []).every((venue) => isReplaceableAgentStarterVenue(venue, data.preferences.isDemo === true)),
+  );
+  const [scrollStarterOnOpen, setScrollStarterOnOpen] = useState(false);
   const [selectedMapVenueId, setSelectedMapVenueId] = useState<string | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<ConfirmState | null>(null);
   const [venueNotice, setVenueNotice] = useState("");
@@ -146,6 +148,10 @@ export default function Venues({ data, update }: Props) {
   const venueBalances = useMemo(
     () => upcomingBalances(data).filter((b) => b.targetPath === "/venues"),
     [data]
+  );
+  const hasOnlyStarterVenues = useMemo(
+    () => myVenues.length > 0 && myVenues.every((venue) => isReplaceableAgentStarterVenue(venue, data.preferences.isDemo === true)),
+    [data.preferences.isDemo, myVenues],
   );
   const headcount = useMemo(() => expectedHeadcount(data), [data]);
   const contracted = useMemo(() => myVenues.find((v) => v.status === "계약"), [myVenues]);
@@ -177,11 +183,18 @@ export default function Venues({ data, update }: Props) {
   );
 
   useEffect(() => {
-    if (!showStarter) return;
+    if (!showStarter || !scrollStarterOnOpen) return;
     window.requestAnimationFrame(() => {
       starterRef.current?.scrollIntoView({ block: "start" });
+      setScrollStarterOnOpen(false);
     });
-  }, [showStarter]);
+  }, [scrollStarterOnOpen, showStarter]);
+
+  const openVenueStarter = () => {
+    setScrollStarterOnOpen(true);
+    setShowStarter(true);
+    setTab("catalog");
+  };
 
   const addFromCatalog = (cat: WeddingVenue) => {
     if (myVenues.some((v) => v.name === cat.name)) return;
@@ -272,30 +285,30 @@ export default function Venues({ data, update }: Props) {
         <h1 className="h-page">예식장</h1>
       </div>
 
-      <ProcessAgentPanel
-        title={myVenues.length === 0 ? "예식장 조건을 먼저 물어볼게요" : contracted ? "계약 이후 빠질 조건을 확인 중" : "상담 순서를 잡는 중"}
-        summary={venueAgentSummary}
-        mood={contracted && contractChecked >= 3 ? "ready" : "thinking"}
-        metrics={[
-          { label: "후보", value: `${myVenues.length}곳`, hint: myVenues.length >= 3 ? "비교 가능" : "3곳 권장" },
-          { label: "투어", value: `${tourCount}곳`, tone: tourCount === 0 && myVenues.length > 0 ? "warn" : "normal" },
-          { label: "계약 체크", value: contracted ? `${contractChecked}/6` : "대기", tone: contracted && contractChecked < 3 ? "warn" : contracted ? "normal" : "muted" },
-        ]}
-        steps={[
-          { label: "비교할 후보 3곳 담기", detail: "지역·식대·보증인원이 다른 후보를 섞으면 상담 기준이 또렷해져요.", done: myVenues.length >= 3 },
-          { label: "첫 답사/상담 후보 정하기", detail: "상태를 ‘투어’로 바꾸면 다음 납부와 상담 메모가 따라옵니다.", done: tourCount > 0 },
-          { label: "계약 전 핵심 조건 남기기", detail: "견적 기준, 결제 일정, 취소·변경, 별도 비용을 텍스트로 남겨요.", done: !!contracted && contractChecked >= 3 },
-        ]}
-        actions={[
-          { label: "Dearie와 후보 좁히기", onClick: () => { setShowStarter(true); setTab("catalog"); }, tone: "primary" },
-          { label: "새 후보 직접 추가", onClick: () => setShowAdd(true), tone: "quiet" },
-          ...(myVenues.length > 0 && tourCount === 0 ? [{ label: "첫 후보를 투어로 표시", onClick: promoteFirstVenueToTour }] : []),
-          ...(contracted && !data.invitation.venue ? [{ label: "계약 식장을 청첩장에 넣기", onClick: () => applyToInvitation(contracted), tone: "primary" as const }] : []),
-          { label: "카탈로그 열기", onClick: () => setTab("catalog") },
-        ]}
-      />
-
-      {!showStarter && <SectionConsultationPanel sectionId="venues" data={data} update={update} />}
+      {!showStarter && (
+        <ProcessAgentPanel
+          title={myVenues.length === 0 ? "예식장 조건을 먼저 물어볼게요" : contracted ? "계약 이후 빠질 조건을 확인 중" : "상담 순서를 잡는 중"}
+          summary={venueAgentSummary}
+          mood={contracted && contractChecked >= 3 ? "ready" : "thinking"}
+          metrics={[
+            { label: "후보", value: `${myVenues.length}곳`, hint: myVenues.length >= 3 ? "비교 가능" : "3곳 권장" },
+            { label: "투어", value: `${tourCount}곳`, tone: tourCount === 0 && myVenues.length > 0 ? "warn" : "normal" },
+            { label: "계약 체크", value: contracted ? `${contractChecked}/6` : "대기", tone: contracted && contractChecked < 3 ? "warn" : contracted ? "normal" : "muted" },
+          ]}
+          steps={[
+            { label: "비교할 후보 3곳 담기", detail: "지역·식대·보증인원이 다른 후보를 섞으면 상담 기준이 또렷해져요.", done: myVenues.length >= 3 },
+            { label: "첫 답사/상담 후보 정하기", detail: "상태를 ‘투어’로 바꾸면 다음 납부와 상담 메모가 따라옵니다.", done: tourCount > 0 },
+            { label: "계약 전 핵심 조건 남기기", detail: "견적 기준, 결제 일정, 취소·변경, 별도 비용을 텍스트로 남겨요.", done: !!contracted && contractChecked >= 3 },
+          ]}
+          actions={[
+            { label: "Dearie와 후보 좁히기", onClick: openVenueStarter, tone: "primary" },
+            { label: "새 후보 직접 추가", onClick: () => setShowAdd(true), tone: "quiet" },
+            ...(myVenues.length > 0 && tourCount === 0 ? [{ label: "첫 후보를 투어로 표시", onClick: promoteFirstVenueToTour }] : []),
+            ...(contracted && !data.invitation.venue ? [{ label: "계약 식장을 청첩장에 넣기", onClick: () => applyToInvitation(contracted), tone: "primary" as const }] : []),
+            { label: "카탈로그 열기", onClick: () => setTab("catalog") },
+          ]}
+        />
+      )}
 
       {venueNotice && (
         <div className="anim-fade border-y border-hair py-3">
@@ -336,17 +349,6 @@ export default function Venues({ data, update }: Props) {
               카탈로그 · <span className="tabular-nums">{VENUE_CATALOG.length}</span>
             </button>
           </div>
-
-          <button
-            onClick={() => setShowStarter(true)}
-            className="w-full text-left border-y border-hair py-4 flex items-baseline justify-between gap-4"
-          >
-            <span>
-              <span className="eyebrow block mb-1">Dearie 질문</span>
-              <span className="font-serif text-[18px] text-ink break-keep">조건 답하고 후보 좁히기</span>
-            </span>
-            <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
-          </button>
 
           {tab === "mine" && (
             <>
@@ -391,11 +393,12 @@ export default function Venues({ data, update }: Props) {
                 </button>
               </div>
 
-              {myVenues.length === 0 ? (
+              {myVenues.length === 0 || hasOnlyStarterVenues ? (
                 <div className="py-10 text-center text-soft text-[13px] border-y border-hair">
-                  아직 담아둔 식장이 없어요.<br />
-                  <button onClick={() => setTab("catalog")} className="mt-3 text-ink underline underline-offset-4 hover:text-gold text-[13px]">
-                    카탈로그에서 골라 담기 →
+                  <span className="text-ink">아직 직접 남긴 후보가 없어요.</span><br />
+                  지역과 하객부터 답하면 Dearie가 비교할 후보만 남겨둘게요.<br />
+                  <button onClick={openVenueStarter} className="mt-3 text-ink underline underline-offset-4 hover:text-gold text-[13px]">
+                    Dearie와 후보 좁히기 →
                   </button>
                 </div>
               ) : (
@@ -748,157 +751,116 @@ function VenueStarter({
         })}
       </div>
 
-      <VenueAgentImpactPanel
-        answeredCount={answeredCount}
-        currentQuestion={currentQuestion}
-        items={impact}
-        result={result}
-      />
-
-      {currentQuestion ? (
-        <div className="border-y border-hair py-4">
-          <div className="eyebrow-gold mb-2">{currentQuestion.eyebrow}</div>
-          <h3 className="font-serif text-[19px] leading-snug text-ink break-keep">{currentQuestion.title}</h3>
-          <p className="mt-2 text-[13px] leading-relaxed text-soft break-keep">{currentQuestion.helper}</p>
-          <div className="mt-4 grid gap-2 md:grid-cols-2">
-            {currentQuestion.options.map((option) => {
-              const selected = isVenueAgentOptionSelected(currentQuestion, answers, option.id);
-              return (
-                <button
-                  key={option.id}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => answerQuestion(currentQuestion, option.id)}
-                  className={`group min-h-[72px] border px-4 py-3 text-left transition active:scale-[0.99] ${
-                    selected ? "border-gold bg-gold/5 text-ink" : "border-hair hover:border-gold hover:bg-cream/45"
-                  }`}
-                >
-                  <span className="flex items-baseline justify-between gap-3">
-                    <span className="block text-[14px] font-semibold text-ink break-keep">{option.label}</span>
-                    <span className="text-[11px] text-soft">{selected ? "선택됨" : currentQuestion.multiple ? "추가" : "선택"}</span>
-                  </span>
-                  <span className="mt-1 block text-[12px] leading-relaxed text-soft break-keep">{option.detail}</span>
-                </button>
-              );
-            })}
-          </div>
-          {currentQuestion.multiple && (
-            <div className="mt-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-              <p className="text-[12px] leading-relaxed text-soft">
-                여러 개를 골라도 괜찮아요. 선택한 조건으로 후보를 다시 계산합니다.
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(340px,0.85fr)] lg:items-start">
+        <div className="space-y-4">
+          {currentQuestion ? (
+            <div className="border-y border-hair py-4">
+              <div className="eyebrow-gold mb-2">{currentQuestion.eyebrow}</div>
+              <h3 className="font-serif text-[19px] leading-snug text-ink break-keep">{currentQuestion.title}</h3>
+              <p className="mt-2 text-[13px] leading-relaxed text-soft break-keep">{currentQuestion.helper}</p>
+              <div className="mt-4 grid gap-2 md:grid-cols-2">
+                {currentQuestion.options.map((option) => {
+                  const selected = isVenueAgentOptionSelected(currentQuestion, answers, option.id);
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => answerQuestion(currentQuestion, option.id)}
+                      className={`group min-h-[70px] border px-4 py-3 text-left transition active:scale-[0.99] ${
+                        selected ? "border-gold bg-gold/5 text-ink" : "border-hair hover:border-gold hover:bg-cream/45"
+                      }`}
+                    >
+                      <span className="flex items-baseline justify-between gap-3">
+                        <span className="block text-[14px] font-semibold text-ink break-keep">{option.label}</span>
+                        <span className="text-[11px] text-soft">{selected ? "반영됨" : currentQuestion.multiple ? "추가" : "선택"}</span>
+                      </span>
+                      <span className="mt-1 block text-[12px] leading-relaxed text-soft break-keep">{option.detail}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {currentQuestion.multiple && (
+                <div className="mt-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                  <p className="text-[12px] leading-relaxed text-soft">
+                    여러 개를 골라도 괜찮아요. 누를 때마다 오른쪽 후보가 다시 움직입니다.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={continueQuestion}
+                    disabled={!isVenueAgentQuestionAnswered(currentQuestion, answers)}
+                    className="btn-primary min-h-11 px-4 text-[13px] disabled:opacity-40"
+                  >
+                    선택한 조건으로 다음 질문 →
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="border-y border-hair py-4">
+              <div className="eyebrow-gold mb-2">Dearie 판단 완료</div>
+              <h3 className="font-serif text-[19px] leading-snug text-ink break-keep">
+                이 후보들로 상담 순서를 시작할 수 있어요
+              </h3>
+              <p className="mt-2 text-[13px] leading-relaxed text-soft break-keep">
+                반영하면 기존 예시 후보는 정리되고, 아래 후보만 내 후보에 남습니다. 견적 기준·취소 조건·포함 항목은 공식 상담에서 다시 확인하세요.
               </p>
-              <button
-                type="button"
-                onClick={continueQuestion}
-                disabled={!isVenueAgentQuestionAnswered(currentQuestion, answers)}
-                className="btn-primary min-h-11 px-4 text-[13px] disabled:opacity-40"
-              >
-                선택한 조건으로 다음 질문 →
-              </button>
+            </div>
+          )}
+
+          {answeredCount > 0 && (
+            <div className="border-y border-hair py-3">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <div className="eyebrow">답한 조건</div>
+                <span className="text-[11.5px] text-soft">누르면 다시 묻습니다</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {VENUE_AGENT_QUESTIONS.filter((question) => answers[question.id]).map((question) => {
+                  const label = selectedVenueAgentSummary(question, answers);
+                  if (!label) return null;
+                  return (
+                    <button
+                      key={question.id}
+                      type="button"
+                      onClick={() => clearAnswer(question.id)}
+                      className="min-h-9 border border-hair px-3 py-1.5 text-[12px] text-ink hover:border-gold hover:text-gold"
+                    >
+                      {VENUE_AGENT_STEP_LABELS[question.id]} · {label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
         </div>
-      ) : (
-        <div className="border-y border-hair py-4">
-          <div className="eyebrow-gold mb-2">Dearie 판단 완료</div>
-          <h3 className="font-serif text-[19px] leading-snug text-ink break-keep">
-            이 후보들로 상담 순서를 시작할 수 있어요
-          </h3>
-          <p className="mt-2 text-[13px] leading-relaxed text-soft break-keep">
-            반영하면 기존 예시 후보는 정리되고, 아래 후보만 내 후보에 남습니다. 견적 기준·취소 조건·포함 항목은 공식 상담에서 다시 확인하세요.
-          </p>
-        </div>
-      )}
 
-      {answeredCount > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {VENUE_AGENT_QUESTIONS.filter((question) => answers[question.id]).map((question) => {
-            const label = selectedVenueAgentSummary(question, answers);
-            if (!label) return null;
-            return (
-              <button
-                key={question.id}
-                type="button"
-                onClick={() => clearAnswer(question.id)}
-                className="min-h-9 border border-hair px-3 py-1.5 text-[12px] text-ink hover:border-gold hover:text-gold"
-              >
-                {VENUE_AGENT_STEP_LABELS[question.id]} · {label}
-              </button>
-            );
-          })}
-        </div>
-      )}
+        <VenueAgentImpactPanel
+          answeredCount={answeredCount}
+          currentQuestion={currentQuestion}
+          items={impact}
+          result={result}
+          answers={answers}
+        />
+      </div>
 
-      <div className="border-y border-hair py-4 space-y-4">
-        <div className="flex items-baseline justify-between gap-4">
-          <div>
-            <div className="eyebrow mb-2">Dearie 판단</div>
-            <h3 className="font-serif text-[18px] leading-snug text-ink break-keep">
-              {answeredCount === 0
-                ? "첫 답을 고르면 후보가 바로 줄어요"
-                : result.relaxed
-                  ? "조건을 조금 넓혀 후보를 남겼어요"
-                  : `후보 ${result.poolCount}곳에서 ${result.picks.length}곳을 골랐어요`}
-            </h3>
-          </div>
-          <span className="eyebrow tabular-nums whitespace-nowrap">{answeredCount}/4</span>
-        </div>
-
-        {result.picks.length > 0 ? (
-          <div className="grid border-y border-hair md:grid-cols-2">
-            {result.picks.map((venue, index) => (
-              <div key={venue.id} className="border-b border-r border-hair p-4 last:border-b-0 md:[&:nth-child(2n)]:border-r-0 md:[&:nth-last-child(-n+2)]:border-b-0">
-                <div className="flex items-start gap-3">
-                  <span className="w-6 flex-shrink-0 font-serif text-[16px] tabular-nums text-soft">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="font-serif text-[16px] leading-snug text-ink break-keep">{venue.name}</div>
-                    <div className="mt-1 text-[12px] leading-relaxed text-soft">
-                      {[venue.region, venue.hallType ? HALL_TYPE_LABEL[venue.hallType] : undefined, venue.foodType ? FOOD_TYPE_LABEL[venue.foodType] : undefined].filter(Boolean).join(" · ")}
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {describeVenueAgentMatch(venue, answers).map((reason) => (
-                    <span key={reason} className="border border-hair px-2 py-1 text-[11px] text-soft">
-                      {reason}
-                    </span>
-                  ))}
-                </div>
-                <div className="mt-3 text-[11px] leading-relaxed text-soft">{venueSourceLabel(venue)}</div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="border-y border-hair py-4 text-[13px] leading-relaxed text-soft">
-            아직 후보를 확정하지 않았어요. 지역을 먼저 고르면 Dearie가 상담 후보를 계산합니다.
-          </p>
-        )}
-
-        <p className="text-[11px] leading-relaxed text-soft">
-          Dearie는 업체와 제휴·후원 관계가 없고, 화면의 가격·수용 인원은 공개 정보 기반의 비교 출발점입니다. 최종 계약 전에는 공식 채널에서 견적서와 취소·변경 조건을 확인하세요.
-        </p>
-
-        <div className="flex flex-col gap-2 md:flex-row">
-          <button
-            onClick={() => onApply(result.picks)}
-            disabled={!complete || result.picks.length === 0}
-            className="btn-primary min-h-12 flex-1 text-[13px] disabled:opacity-40"
-          >
-            {complete ? `후보 ${result.picks.length}곳으로 내 후보 정리 →` : `답 ${remaining}단계 더 하면 후보 반영`}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setAnswers({});
-              setQuestionIndex(0);
-            }}
-            className="min-h-12 border border-hair px-4 text-[13px] font-medium text-ink hover:border-gold hover:text-gold"
-          >
-            처음부터 다시 답하기
-          </button>
-        </div>
+      <div className="flex flex-col gap-2 md:flex-row">
+        <button
+          onClick={() => onApply(result.picks)}
+          disabled={!complete || result.picks.length === 0}
+          className="btn-primary min-h-12 flex-1 text-[13px] disabled:opacity-40"
+        >
+          {complete ? `후보 ${result.picks.length}곳으로 내 후보 정리 →` : `답 ${remaining}단계 더 하면 후보 반영`}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setAnswers({});
+            setQuestionIndex(0);
+          }}
+          className="min-h-12 border border-hair px-4 text-[13px] font-medium text-ink hover:border-gold hover:text-gold"
+        >
+          처음부터 다시 답하기
+        </button>
       </div>
     </section>
   );
@@ -921,21 +883,23 @@ function VenueAgentImpactPanel({
   currentQuestion,
   items,
   result,
+  answers,
 }: {
   answeredCount: number;
   currentQuestion: VenueAgentQuestion | null;
   items: VenueAgentImpactItem[];
   result: ReturnType<typeof pickAgentVenues>;
+  answers: VenueAgentAnswers;
 }) {
   const progress = Math.round((answeredCount / VENUE_AGENT_QUESTIONS.length) * 100);
   const activeLabel = currentQuestion
     ? `${VENUE_AGENT_STEP_LABELS[currentQuestion.id]} 답을 기다리는 중`
     : "후보 반영만 남았어요";
   return (
-    <div className="border-y border-hair py-4">
+    <aside className="border-y border-hair py-4 lg:sticky lg:top-5">
       <div className="flex items-baseline justify-between gap-4">
         <div>
-          <div className="eyebrow-gold mb-2">지금 바뀐 것</div>
+          <div className="eyebrow-gold mb-2">Dearie가 반영한 결과</div>
           <h3 className="font-serif text-[18px] leading-snug text-ink break-keep">
             {answeredCount === 0 ? "답을 고르면 후보군이 바로 움직여요" : activeLabel}
           </h3>
@@ -945,9 +909,9 @@ function VenueAgentImpactPanel({
       <div className="mt-4 h-[3px] bg-cream">
         <div className="h-full bg-gold transition-all duration-500" style={{ width: `${progress}%` }} />
       </div>
-      <div className="mt-4 grid border-y border-hair md:grid-cols-3">
+      <div className="mt-4 grid border-y border-hair">
         {items.map((item) => (
-          <div key={item.key} className="anim-fade border-b border-r border-hair p-3 last:border-b-0 md:border-b-0 md:last:border-r-0">
+          <div key={item.key} className="anim-fade border-b border-hair p-3 last:border-b-0">
             <div className="eyebrow mb-2">{item.label}</div>
             <div className="font-serif text-[18px] leading-snug text-ink tabular-nums">{item.value}</div>
             <p className="mt-1 text-[12px] leading-relaxed text-soft break-keep">{item.detail}</p>
@@ -959,7 +923,43 @@ function VenueAgentImpactPanel({
           Dearie가 조건을 바꿀 때마다 후보를 다시 계산하고, 지금은 {result.relaxed ? "일부 조건을 넓혀" : "답한 기준 그대로"} {result.picks.length}곳을 앞에 세웠어요.
         </p>
       )}
-    </div>
+      <div className="mt-4 border-y border-hair">
+        {result.picks.length > 0 ? (
+          result.picks.map((venue, index) => (
+            <div key={venue.id} className="border-b border-hair py-3 last:border-b-0">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 w-6 flex-shrink-0 font-serif text-[15px] tabular-nums text-gold">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <div className="font-serif text-[16px] leading-snug text-ink break-keep">{venue.name}</div>
+                    <div className="flex-shrink-0 text-[11px] text-soft">{venueSourceLabel(venue)}</div>
+                  </div>
+                  <div className="mt-1 text-[12px] leading-relaxed text-soft">
+                    {[venue.region, venue.hallType ? HALL_TYPE_LABEL[venue.hallType] : undefined, venue.foodType ? FOOD_TYPE_LABEL[venue.foodType] : undefined].filter(Boolean).join(" · ")}
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {describeVenueAgentMatch(venue, answers).slice(0, 3).map((reason) => (
+                      <span key={reason} className="border border-hair px-2 py-1 text-[11px] text-soft">
+                        {reason}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <p className="py-4 text-[13px] leading-relaxed text-soft">
+            아직 후보를 확정하지 않았어요. 지역을 먼저 고르면 Dearie가 상담 후보를 계산합니다.
+          </p>
+        )}
+      </div>
+      <p className="mt-3 text-[11px] leading-relaxed text-soft">
+        제휴·후원 추천이 아니며, 가격·수용 인원은 공개 정보 기반의 비교 출발점입니다. 최종 계약 전 공식 채널에서 다시 확인하세요.
+      </p>
+    </aside>
   );
 }
 

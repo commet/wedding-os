@@ -151,18 +151,7 @@ export default function Trip({ data, update }: Props) {
             ]}
           />
 
-          <SectionConsultationPanel sectionId="trip" data={data} update={update} />
-
-          <button
-            onClick={() => setShowStarter(true)}
-            className="w-full text-left border-y border-hair py-4 flex items-baseline justify-between gap-4"
-          >
-            <span>
-              <span className="eyebrow block mb-1">기본 후보</span>
-              <span className="font-serif text-[18px] text-ink">여행 기준 잡기</span>
-            </span>
-            <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
-          </button>
+          {regionCount > 0 && <SectionConsultationPanel sectionId="trip" data={data} update={update} />}
 
           {tab === "destinations" && <Destinations data={data} update={update} />}
           {tab === "flights" && <Flights data={data} update={update} />}

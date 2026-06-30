@@ -43,6 +43,8 @@ export default function ProcessAgentPanel({
     actions.find((action) => !action.disabled) ??
     actions[0];
   const otherActions = actions.filter((action) => action !== nextAction);
+  const inlineOtherActions = otherActions.length <= 2 ? otherActions : [];
+  const tuckedOtherActions = otherActions.length > 2 ? otherActions : [];
   const openStepCount = steps.filter((step) => !step.done).length;
   const previewMetrics = metrics.slice(0, 3);
   const labelFor = (label: string) => label.replace(/\s*→\s*$/, "");
@@ -92,9 +94,9 @@ export default function ProcessAgentPanel({
               <span className={`flex-shrink-0 transition ${nextAction.tone === "warn" ? "text-gold" : "text-paper/80"}`}>→</span>
             </button>
           )}
-          {otherActions.length > 0 && (
+          {inlineOtherActions.length > 0 && (
             <div className="grid grid-cols-2 gap-2">
-              {otherActions.map((action) => (
+              {inlineOtherActions.map((action) => (
                 <button
                   key={action.label}
                   type="button"
@@ -106,6 +108,27 @@ export default function ProcessAgentPanel({
                 </button>
               ))}
             </div>
+          )}
+          {tuckedOtherActions.length > 0 && (
+            <details>
+              <summary className="inline-flex min-h-9 cursor-pointer list-none items-center gap-2 text-[11.5px] font-medium text-soft underline underline-offset-4 hover:text-ink">
+                <span className="eyebrow">보조 작업 {tuckedOtherActions.length}개</span>
+                <span>보기</span>
+              </summary>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {tuckedOtherActions.map((action) => (
+                  <button
+                    key={action.label}
+                    type="button"
+                    onClick={action.onClick}
+                    disabled={action.disabled}
+                    className="min-h-10 border border-hair px-3 py-2 text-left text-[12.5px] font-medium text-ink transition hover:border-gold hover:text-gold disabled:opacity-40"
+                  >
+                    {labelFor(action.label)}
+                  </button>
+                ))}
+              </div>
+            </details>
           )}
         </div>
       )}

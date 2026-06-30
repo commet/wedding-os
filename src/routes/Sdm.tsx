@@ -254,17 +254,19 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
         </div>
         )}
 
-        <ProcessAgentPanel
-          title={agentTitle}
-          summary={agentSummary}
-          mood={contractGapCount > 0 || (inCat.length > 0 && consultCount === 0) ? "watching" : contractedCount > 0 ? "ready" : "thinking"}
-          metrics={[
-            { label: "기준", value: `${criteriaProgress.answered}/${criteriaProgress.total}`, tone: criteriaProgress.complete ? "normal" : "warn" },
-            { label: "후보", value: `${inCat.length}곳` },
-            { label: "계약", value: `${contractedCount}곳`, tone: contractGapCount > 0 ? "warn" : contractedCount ? "normal" : "muted" },
-          ]}
-          actions={agentActions}
-        />
+        {!criteriaOpen && (
+          <ProcessAgentPanel
+            title={agentTitle}
+            summary={agentSummary}
+            mood={contractGapCount > 0 || (inCat.length > 0 && consultCount === 0) ? "watching" : contractedCount > 0 ? "ready" : "thinking"}
+            metrics={[
+              { label: "기준", value: `${criteriaProgress.answered}/${criteriaProgress.total}`, tone: criteriaProgress.complete ? "normal" : "warn" },
+              { label: "후보", value: `${inCat.length}곳` },
+              { label: "계약", value: `${contractedCount}곳`, tone: contractGapCount > 0 ? "warn" : contractedCount ? "normal" : "muted" },
+            ]}
+            actions={agentActions}
+          />
+        )}
       </div>
 
       {criteriaOpen && (
