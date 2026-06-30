@@ -5,7 +5,7 @@ import React from "react";
 import { ImageResponse } from "@vercel/og";
 import { get as blobGet } from "@vercel/blob";
 
-export const config = { runtime: "edge" };
+export const config = { runtime: "nodejs" };
 
 const h = React.createElement;
 const EXTERNAL_FETCH_TIMEOUT_MS = 1800;
@@ -186,7 +186,7 @@ function ogTree({ groom, bride, dateStr, time, venue, heroImage, labelText }) {
   );
 }
 
-export default async function handler(req) {
+async function createOgResponse(req) {
   const code = getRequestUrl(req).searchParams.get("code") || "";
   let invitation = null;
   if (/^[a-z0-9]{6,16}$/.test(code)) {
@@ -225,4 +225,15 @@ export default async function handler(req) {
       },
     }
   );
+}
+
+export default async function handler(req, res) {
+  const image = await createOgResponse(req);
+  if (!res) return image;
+
+  res.statusCode = image.status || 200;
+  image.headers.forEach((value, key) => {
+    res.setHeader(key, value);
+  });
+  res.end(Buffer.from(await image.arrayBuffer()));
 }
