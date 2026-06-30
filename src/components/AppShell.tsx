@@ -35,6 +35,7 @@ export default function AppShell({ data, update, children }: Props) {
   const isSetup = location.pathname === "/setup";
   const isGuestInvitation = location.pathname === "/i";
   const isDashboard = location.pathname === "/dashboard";
+  const isInvitation = location.pathname === "/invitation";
   const wideWorkspace = ["/dashboard", "/checklist", "/budget", "/guests", "/venues", "/rings", "/sdm", "/snap", "/trip"].some(
     (path) => location.pathname.startsWith(path),
   );
@@ -73,7 +74,7 @@ export default function AppShell({ data, update, children }: Props) {
     return () => window.clearTimeout(timer);
   }, [dearieDockMessage]);
   const isMoreActive = !TAB_PATHS.includes(location.pathname);
-  const showAgentDock = showNav && !isDashboard && !isGuestInvitation && !isSetup && !menuOpen;
+  const showAgentDock = showNav && !isDashboard && !isInvitation && !isGuestInvitation && !isSetup && !menuOpen;
   const statusReport = planningStatusReport(data);
   const currentMatches = statusReport.sections.filter((section) =>
     location.pathname === section.to || location.pathname.startsWith(`${section.to}/`),

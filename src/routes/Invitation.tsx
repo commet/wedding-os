@@ -233,7 +233,7 @@ export default function Invitation({ data, update }: Props) {
               const done = r.filled === r.total;
               return (
                 <span
-                  className={`text-[11px] tracking-wide break-keep ${done ? "text-soft" : "text-gold font-medium"}`}
+                  className={`hidden text-[11px] tracking-wide break-keep sm:inline ${done ? "text-soft" : "text-gold font-medium"}`}
                   title={done ? undefined : `남은 항목: ${r.missing.join(", ")}`}
                 >
                   {done ? "✓ 공유 준비 완료" : `공유 준비 ${r.filled}/${r.total}`}
@@ -1447,60 +1447,73 @@ function QuickStart({ inv, set, onPreview, contractedVenueName }: {
 }) {
   // 미리보기는 이름만 있으면 열어준다 — 날짜·장소는 미리보기를 보며 더해도 되고,
   // 미리보기 자체가 '날짜 미정'도 정상 렌더한다. (예전엔 날짜까지 강제해 버튼이 막혔음)
-  const ready = !!inv.groomName && !!inv.brideName;
+  const ready = !!inv.groomName.trim() && !!inv.brideName.trim();
+  const groomRef = useRef<HTMLInputElement>(null);
+  const brideRef = useRef<HTMLInputElement>(null);
+  const startOrPreview = () => {
+    if (!ready) {
+      (!inv.groomName.trim() ? groomRef : brideRef).current?.focus();
+      return;
+    }
+    onPreview?.();
+  };
   // 마운트 시점에 이미 필수가 있으면 노출 안 함. 채우는 중 완성돼도 카드는 유지해
   // CTA 버튼이 사라지지 않게 하고, 미리보기 다녀와 EditForm 이 재마운트되면 그때 사라진다.
   const [neededAtMount] = useState(!ready);
   if (!neededAtMount) return null;
   return (
-    <div className="border border-hair bg-cream/40 px-5 py-6 mb-2">
-      <div className="eyebrow-gold mb-2">30초 만에 시작</div>
-      <h3 className="font-serif text-2xl text-ink leading-tight mb-2">
-        {koBreak(ready ? "기본 정보가 채워졌어요" : "이 세 가지면, 청첩장이 완성돼요")}
+    <div className="mb-5 border-y border-hair py-7">
+      <h3 className="max-w-[20rem] font-serif text-[1.75rem] leading-[1.25] text-ink mb-3">
+        {koBreak(ready ? "좋아요, 이제 화면으로 볼게요" : "두 분 이름부터 적어볼까요?")}
       </h3>
-      <p className="text-[12.5px] text-soft leading-relaxed mb-5">
-        모시는 글과 디자인은 이미 채워 두었어요. 두 분 이름과 날짜만 넣으면
-        바로 완성된 청첩장이 보입니다. 사진·색감은 미리보기를 보며 천천히 더하면 돼요.
+      <p className="max-w-[28rem] text-[13.5px] text-soft leading-[1.75] mb-5 break-keep">
+        날짜와 장소는 비워도 괜찮아요. 이름을 넣으면 Dearie가 채워 둔 문안과 디자인을 바로 보여드릴게요.
       </p>
-      <div className="grid grid-cols-2 gap-3 mb-3">
-        <div>
-          <label className="label">신랑 이름</label>
-          <input aria-label="신랑 이름" className="input" value={inv.groomName} onChange={(e) => set("groomName", e.target.value)} placeholder="도현" />
-        </div>
-        <div>
-          <label className="label">신부 이름</label>
-          <input aria-label="신부 이름" className="input" value={inv.brideName} onChange={(e) => set("brideName", e.target.value)} placeholder="지윤" />
-        </div>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="block">
+          <span className="mb-1 block text-[12px] font-medium text-soft">신랑</span>
+          <input ref={groomRef} aria-label="신랑 이름" className="input text-[17px] placeholder:text-mute" value={inv.groomName} onChange={(e) => set("groomName", e.target.value)} placeholder="이름" />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-[12px] font-medium text-soft">신부</span>
+          <input ref={brideRef} aria-label="신부 이름" className="input text-[17px] placeholder:text-mute" value={inv.brideName} onChange={(e) => set("brideName", e.target.value)} placeholder="이름" />
+        </label>
       </div>
-      <div className="mb-3">
-        <label className="label">예식 날짜 <span className="text-mute normal-case tracking-normal">· 미정이면 비워두세요</span></label>
+      <label className="mt-4 block">
+        <span className="mb-1 flex items-center justify-between gap-3 text-[12px] font-medium text-soft">
+          <span>예식 날짜</span>
+          <span className="text-[11px] font-normal text-mute">나중에</span>
+        </span>
         <input
           aria-label="예식 날짜"
           type="date"
-          className={`input ${inv.date ? "text-ink" : "text-soft"}`}
+          className={`input text-[17px] ${inv.date ? "text-ink" : "text-soft"}`}
           value={inv.date}
           onChange={(e) => set("date", e.target.value)}
         />
-      </div>
-      <div className="mb-5">
-        <label className="label">예식장 <span className="text-mute normal-case tracking-normal">· 나중에 넣어도 돼요</span></label>
-        <input aria-label="예식장" className="input" value={inv.venue} onChange={(e) => set("venue", e.target.value)} placeholder="서울대학교 교수회관" />
+      </label>
+      <label className="mt-4 block">
+        <span className="mb-1 flex items-center justify-between gap-3 text-[12px] font-medium text-soft">
+          <span>예식장</span>
+          <span className="text-[11px] font-normal text-mute">나중에</span>
+        </span>
+        <input aria-label="예식장" className="input text-[17px] placeholder:text-mute" value={inv.venue} onChange={(e) => set("venue", e.target.value)} placeholder="예식장 이름" />
         {!inv.venue.trim() && contractedVenueName && (
           <button type="button" onClick={() => set("venue", contractedVenueName)} className="mt-2 text-[12px] text-gold underline underline-offset-4 break-keep">
             계약한 ‘{contractedVenueName}’ 불러오기 →
           </button>
         )}
-      </div>
+      </label>
       <button
-        onClick={onPreview}
-        disabled={!ready || !onPreview}
-        className="btn-primary w-full py-3.5 text-[12.5px] disabled:opacity-40"
+        type="button"
+        onClick={startOrPreview}
+        className={`mt-6 w-full min-h-12 px-5 py-3.5 text-[13px] font-medium transition active:scale-[0.99] ${ready ? "btn-primary" : "inline-flex items-center justify-center border border-ink bg-transparent text-ink hover:bg-cream/50"}`}
       >
-        미리보기로 결과 보기 →
+        {ready ? "미리보기로 바로 보기 →" : "이름부터 채워볼게요 →"}
       </button>
-      <p className="text-[11px] text-soft text-center mt-2.5">
+      <p className="text-[11px] text-soft text-center mt-3 leading-relaxed">
         {ready
-          ? "날짜·장소는 미리보기를 보며 천천히 더해도 돼요."
+          ? "사진·색감은 미리보기를 본 뒤 천천히 더해도 돼요."
           : "두 분 이름만 채우면 완성된 청첩장을 볼 수 있어요."}
       </p>
     </div>
@@ -1578,18 +1591,18 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
   const scrollToPublish = () => document.getElementById("publish-invitation")?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   return (
-    <div className="page pt-2 pb-6">
-      <div className="sticky top-[145px] z-10 -mx-6 px-6 py-2 bg-paper/95 backdrop-blur border-b border-hair">
+    <div className={`page ${showQuickStart ? "pt-14" : "pt-2"} pb-6`}>
+      {!showQuickStart && <div className="sticky top-[145px] z-10 -mx-6 px-6 py-2 bg-paper/95 backdrop-blur border-b border-hair">
         <div className={`eyebrow ${saveStatus === "error" ? "text-gold" : saveStatus === "saved" ? "text-sage" : "text-soft"}`}>
           {saveLabel} · 입력하면 바로 반영됩니다
         </div>
-      </div>
-
-      <SectionConsultationPanel sectionId="invitation" data={data} update={update} />
+      </div>}
 
       {showQuickStart && <QuickStart inv={inv} set={set} onPreview={onPreview} contractedVenueName={contractedVenue(data)?.name} />}
 
       {!showQuickStart && <>
+      <SectionConsultationPanel sectionId="invitation" data={data} update={update} />
+
       <ProcessAgentPanel
         title={publishReady ? "공유 전 마지막 점검 중" : "청첩장 빈칸을 채우는 중"}
         summary={

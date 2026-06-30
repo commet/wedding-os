@@ -554,8 +554,9 @@ test.describe("critical product flows", () => {
       expect(fs.readFileSync(dynamicInvitePath, "utf8")).toContain("no-store");
     }
     const ogSource = fs.readFileSync("api/og.js", "utf8");
-    expect(ogSource).toContain("/rest/v1/rpc/get_public_invitation");
+    expect(ogSource).toContain("blobGet(`invite/${code}/meta.json`");
     expect(ogSource).toContain("heroImageUrl: og.heroImageUrl");
+    expect(ogSource).not.toContain("/rest/v1/rpc/get_public_invitation");
     expect(ogSource).not.toContain("/rest/v1/wedding_data");
     expect(fs.readFileSync("api/serve-invite.ts", "utf8")).toContain("new URL(`/api/og?code=");
   });
