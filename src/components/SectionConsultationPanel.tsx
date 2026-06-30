@@ -31,6 +31,10 @@ export default function SectionConsultationPanel({ sectionId, data, update, defa
   const activeQuestion = activeQuestionId
     ? questions.find((question) => question.id === activeQuestionId) ?? nextQuestion
     : nextQuestion;
+  const changeItems = useMemo(
+    () => buildConsultationChangeItems(meta, questions, answers, nextQuestion),
+    [answers, meta, nextQuestion, questions],
+  );
   const [internalOpen, setInternalOpen] = useState(() => defaultOpen ?? false);
   const open = controlledOpen ?? internalOpen;
   const setOpen = (next: boolean) => {
@@ -95,6 +99,8 @@ export default function SectionConsultationPanel({ sectionId, data, update, defa
             : "기준은 잡혔어요. 이제 아래 답을 바꾸거나 실제 후보/항목을 정리하면 됩니다."}
         </p>
       </div>
+
+      <ConsultationChangeLog items={changeItems} />
 
       {activeQuestion ? (
         <QuestionCard
@@ -184,6 +190,94 @@ function QuestionCard({
       )}
     </div>
   );
+}
+
+type ConsultationChangeItem = {
+  key: string;
+  label: string;
+  value: string;
+  detail: string;
+};
+
+function ConsultationChangeLog({ items }: { items: ConsultationChangeItem[] }) {
+  return (
+    <div className="border-y border-hair py-4">
+      <div className="eyebrow-gold mb-3">지금 바뀐 것</div>
+      <div className="grid border-y border-hair md:grid-cols-3">
+        {items.map((item) => (
+          <div key={item.key} className="anim-fade border-b border-r border-hair p-3 last:border-b-0 md:border-b-0 md:last:border-r-0">
+            <div className="eyebrow mb-2">{item.label}</div>
+            <div className="text-[13.5px] font-semibold leading-snug text-ink break-keep">{item.value}</div>
+            <p className="mt-1 text-[12px] leading-relaxed text-soft break-keep">{item.detail}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function buildConsultationChangeItems(
+  meta: typeof CONSULTATION_META[ConsultationSectionId],
+  questions: ConsultationQuestion[],
+  answers: Record<string, string[] | undefined>,
+  nextQuestion: ConsultationQuestion | null,
+): ConsultationChangeItem[] {
+  const answeredQuestions = questions.filter((question) => (answers[question.id]?.length ?? 0) > 0);
+  if (answeredQuestions.length === 0) {
+    return [
+      {
+        key: "waiting",
+        label: "기준 대기",
+        value: "아직 반영 전",
+        detail: "답을 고르면 Dearie가 이 화면의 다음 행동을 바로 다시 잡습니다.",
+      },
+      {
+        key: "today",
+        label: "준비판 변화",
+        value: `${meta.label} 기준 이어가기`,
+        detail: "첫 답부터 홈의 오늘 할 일에 이어갈 작업으로 올라갑니다.",
+      },
+      {
+        key: "next",
+        label: "다음 질문",
+        value: nextQuestion?.eyebrow ?? "질문 준비",
+        detail: nextQuestion?.title ?? meta.summary,
+      },
+    ];
+  }
+
+  const latest = answeredQuestions.slice(-1)[0];
+  const latestLabels = selectedConsultationLabels(latest, answers);
+  const items: ConsultationChangeItem[] = [
+    {
+      key: `answer-${latest.id}`,
+      label: "기준 반영",
+      value: `${latest.eyebrow.replace(/^\d+\s*·\s*/, "")} · ${latestLabels}`,
+      detail: "방금 고른 답을 이 화면의 비교 기준에 넣었습니다.",
+    },
+    {
+      key: "today",
+      label: "준비판 변화",
+      value: `${meta.label} 기준 이어가기`,
+      detail: `${latestLabels} 기준이 홈의 오늘 할 일과 이 화면의 다음 행동에 반영됩니다.`,
+    },
+    {
+      key: "next",
+      label: nextQuestion ? "다음 질문" : "기준 완료",
+      value: nextQuestion?.eyebrow ?? "완료",
+      detail: nextQuestion?.title ?? "이제 실제 후보나 항목을 정리하면 됩니다.",
+    },
+  ];
+
+  return items;
+}
+
+function selectedConsultationLabels(question: ConsultationQuestion, answers: Record<string, string[] | undefined>): string {
+  const values = answers[question.id] ?? [];
+  return question.options
+    .filter((option) => values.includes(option.value))
+    .map((option) => option.label)
+    .join(", ") || "선택한 기준";
 }
 
 function AnsweredQuestion({

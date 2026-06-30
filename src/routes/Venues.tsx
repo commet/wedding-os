@@ -670,6 +670,7 @@ function VenueStarter({
   const complete = answeredCount === VENUE_AGENT_QUESTIONS.length;
   const remaining = VENUE_AGENT_QUESTIONS.length - answeredCount;
   const result = useMemo(() => pickAgentVenues(answers), [answers]);
+  const impact = useMemo(() => buildVenueAgentImpact(answers, result), [answers, result]);
 
   const answerQuestion = (question: VenueAgentQuestion, value: string) => {
     if (question.multiple) {
@@ -746,6 +747,13 @@ function VenueStarter({
           );
         })}
       </div>
+
+      <VenueAgentImpactPanel
+        answeredCount={answeredCount}
+        currentQuestion={currentQuestion}
+        items={impact}
+        result={result}
+      />
 
       {currentQuestion ? (
         <div className="border-y border-hair py-4">
@@ -898,6 +906,138 @@ function VenueStarter({
 
 function countVenueAgentAnswers(answers: VenueAgentAnswers): number {
   return VENUE_AGENT_QUESTIONS.filter((question) => isVenueAgentQuestionAnswered(question, answers)).length;
+}
+
+type VenueAgentImpactItem = {
+  key: string;
+  label: string;
+  value: string;
+  detail: string;
+  done?: boolean;
+};
+
+function VenueAgentImpactPanel({
+  answeredCount,
+  currentQuestion,
+  items,
+  result,
+}: {
+  answeredCount: number;
+  currentQuestion: VenueAgentQuestion | null;
+  items: VenueAgentImpactItem[];
+  result: ReturnType<typeof pickAgentVenues>;
+}) {
+  const progress = Math.round((answeredCount / VENUE_AGENT_QUESTIONS.length) * 100);
+  const activeLabel = currentQuestion
+    ? `${VENUE_AGENT_STEP_LABELS[currentQuestion.id]} 답을 기다리는 중`
+    : "후보 반영만 남았어요";
+  return (
+    <div className="border-y border-hair py-4">
+      <div className="flex items-baseline justify-between gap-4">
+        <div>
+          <div className="eyebrow-gold mb-2">지금 바뀐 것</div>
+          <h3 className="font-serif text-[18px] leading-snug text-ink break-keep">
+            {answeredCount === 0 ? "답을 고르면 후보군이 바로 움직여요" : activeLabel}
+          </h3>
+        </div>
+        <span className="eyebrow tabular-nums">{answeredCount}/4</span>
+      </div>
+      <div className="mt-4 h-[3px] bg-cream">
+        <div className="h-full bg-gold transition-all duration-500" style={{ width: `${progress}%` }} />
+      </div>
+      <div className="mt-4 grid border-y border-hair md:grid-cols-3">
+        {items.map((item) => (
+          <div key={item.key} className="anim-fade border-b border-r border-hair p-3 last:border-b-0 md:border-b-0 md:last:border-r-0">
+            <div className="eyebrow mb-2">{item.label}</div>
+            <div className="font-serif text-[18px] leading-snug text-ink tabular-nums">{item.value}</div>
+            <p className="mt-1 text-[12px] leading-relaxed text-soft break-keep">{item.detail}</p>
+          </div>
+        ))}
+      </div>
+      {answeredCount > 0 && (
+        <p className="mt-3 text-[12px] leading-relaxed text-soft break-keep">
+          Dearie가 조건을 바꿀 때마다 후보를 다시 계산하고, 지금은 {result.relaxed ? "일부 조건을 넓혀" : "답한 기준 그대로"} {result.picks.length}곳을 앞에 세웠어요.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function buildVenueAgentImpact(
+  answers: VenueAgentAnswers,
+  result: ReturnType<typeof pickAgentVenues>,
+): VenueAgentImpactItem[] {
+  const items: VenueAgentImpactItem[] = [];
+  let pool = VENUE_CATALOG;
+
+  if (answers.area?.length) {
+    const next = VENUE_CATALOG.filter((venue) => matchesVenueAgentArea(venue, answers.area));
+    items.push({
+      key: "area",
+      label: "지역 반영",
+      value: `${VENUE_CATALOG.length}곳 → ${next.length}곳`,
+      detail: `${formatVenueAgentAnswerLabels("area", answers)} 권역만 먼저 보게 바꿨어요.`,
+      done: true,
+    });
+    pool = next;
+  }
+
+  if (answers.scale) {
+    const before = pool.length;
+    const next = pool.filter((venue) => matchesVenueAgentScale(venue, answers.scale));
+    items.push({
+      key: "scale",
+      label: "하객 반영",
+      value: `${before}곳 → ${next.length}곳`,
+      detail: answers.scale === "unknown"
+        ? "인원은 열어두고 다른 기준으로 먼저 좁혀요."
+        : `${formatVenueAgentAnswerLabels("scale", answers)} 기준에 맞는 수용 범위를 우선했어요.`,
+      done: true,
+    });
+    pool = next.length > 0 ? next : pool;
+  }
+
+  if (answers.mood?.length) {
+    const before = pool.length;
+    const next = pool.filter((venue) => matchesVenueAgentMood(venue, answers.mood));
+    items.push({
+      key: "mood",
+      label: "분위기 반영",
+      value: `${before}곳 → ${next.length}곳`,
+      detail: `${formatVenueAgentAnswerLabels("mood", answers)} 쪽 후보를 앞에 두도록 계산했어요.`,
+      done: true,
+    });
+    pool = next.length > 0 ? next : pool;
+  }
+
+  if (answers.priority?.length) {
+    items.push({
+      key: "priority",
+      label: "상담 질문 준비",
+      value: `${result.picks.length}곳 선별`,
+      detail: `${formatVenueAgentAnswerLabels("priority", answers)} 기준으로 상담 때 물어볼 항목까지 붙였어요.`,
+      done: true,
+    });
+  }
+
+  if (items.length === 0) {
+    return [
+      {
+        key: "waiting",
+        label: "후보군 대기",
+        value: `${VENUE_CATALOG.length}곳`,
+        detail: "첫 답을 고르면 후보 숫자와 상담 질문이 바로 바뀌고, 완료하면 고른 후보만 준비판에 남습니다.",
+      },
+    ];
+  }
+
+  return items.slice(-3);
+}
+
+function formatVenueAgentAnswerLabels(key: VenueAgentAnswerKey, answers: VenueAgentAnswers): string {
+  const question = VENUE_AGENT_QUESTIONS.find((item) => item.id === key);
+  if (!question) return "선택한 조건";
+  return selectedVenueAgentOptions(question, answers).map((option) => option.label).join(", ") || "선택한 조건";
 }
 
 function isVenueAgentQuestionAnswered(question: VenueAgentQuestion, answers: VenueAgentAnswers): boolean {
