@@ -7,6 +7,8 @@ import { parseISODateLocal } from "../lib/date";
 import { buildCeremonySheet, shareOrDownloadText } from "../lib/textExport";
 import { attendingCount, mealTicketCount } from "../lib/derived";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
+import SectionConsultationPanel from "../components/SectionConsultationPanel";
+import DearieConfirmModal from "../components/DearieConfirmModal";
 
 const KO_WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -19,6 +21,13 @@ function formatCeremonyDate(iso?: string): string {
 }
 
 type Props = { data: WeddingData; update: (patch: any) => void };
+type ConfirmState = {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  tone?: "normal" | "warn";
+  onConfirm: () => void | Promise<void>;
+};
 
 function makeStep(): CeremonyStep {
   return {
@@ -31,6 +40,7 @@ export default function Ceremony({ data, update }: Props) {
   const steps = data.ceremony ?? [];
   const [openId, setOpenId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmState | null>(null);
 
   const shareSheet = async () => {
     const r = await shareOrDownloadText({
@@ -48,6 +58,16 @@ export default function Ceremony({ data, update }: Props) {
 
   const loadDefault = () => {
     update((prev: WeddingData) => ({ ...prev, ceremony: defaultCeremony() }));
+  };
+
+  const confirmLoadDefault = () => {
+    setConfirmDialog({
+      title: "기본 식순으로 다시 채울까요?",
+      body: "지금 적어둔 단계와 메모가 기본 식순으로 바뀝니다. 식장 안내에 맞춰 처음부터 다시 정리하려는 경우에만 진행하세요.",
+      confirmLabel: "기본 식순으로",
+      tone: "warn",
+      onConfirm: loadDefault,
+    });
   };
 
   const addStep = () => {
@@ -69,11 +89,17 @@ export default function Ceremony({ data, update }: Props) {
   const removeStep = (id: string) => {
     const s = steps.find((x) => x.id === id);
     const label = s?.title?.trim();
-    if (!confirm(`'${label || "이 단계"}'을(를) 식순에서 지울까요?\n되돌릴 수 없어요.`)) return;
-    update((prev: WeddingData) => ({
-      ...prev,
-      ceremony: (prev.ceremony ?? []).filter((x) => x.id !== id),
-    }));
+    setConfirmDialog({
+      title: `${label || "이 단계"}를 지울까요?`,
+      body: "식순에서 이 단계가 사라집니다. 다시 필요하면 새 단계로 추가할 수 있어요.",
+      confirmLabel: "지우기",
+      onConfirm: () => {
+        update((prev: WeddingData) => ({
+          ...prev,
+          ceremony: (prev.ceremony ?? []).filter((x) => x.id !== id),
+        }));
+      },
+    });
   };
 
   const moveStep = (id: string, dir: -1 | 1) => {
@@ -114,6 +140,9 @@ export default function Ceremony({ data, update }: Props) {
           <p className="text-[15px] text-soft leading-[1.85]">
             입장부터 행진까지 순서를 적어두면, 당일 사회자와 두 분이 그대로 따라갈 큐시트가 됩니다.
           </p>
+        </div>
+        <div className="text-left">
+          <SectionConsultationPanel sectionId="ceremony" data={data} update={update} />
         </div>
         <button onClick={loadDefault} className="btn-primary px-8 py-3.5 text-[13px]">
           기본 식순 불러오기 →
@@ -172,7 +201,9 @@ export default function Ceremony({ data, update }: Props) {
         />
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 space-y-6">
+        <SectionConsultationPanel sectionId="ceremony" data={data} update={update} />
+
         <ProcessAgentPanel
           title={roleMissing > 0 || musicMissing > 0 ? "빈 담당과 음악을 찾는 중" : "사회자 공유 준비가 거의 끝났어요"}
           summary={
@@ -194,7 +225,7 @@ export default function Ceremony({ data, update }: Props) {
           actions={[
             { label: "진행표 내보내기 →", onClick: shareSheet, tone: "primary" },
             { label: "단계 추가", onClick: addStep },
-            { label: "기본 식순으로 다시 채우기", onClick: loadDefault },
+            { label: "기본 식순으로 다시 채우기", onClick: confirmLoadDefault },
           ]}
         />
       </div>
@@ -281,10 +312,7 @@ export default function Ceremony({ data, update }: Props) {
 
       <div className="mt-6 text-center">
         <button
-          onClick={() => {
-            if (!confirm("지금 식순을 기본 식순으로 바꿀까요?\n적어둔 내용은 사라져요.")) return;
-            loadDefault();
-          }}
+          onClick={confirmLoadDefault}
           className="text-[12px] text-soft underline underline-offset-4 hover:text-gold"
         >
           기본 식순으로 다시 채우기
@@ -300,6 +328,15 @@ export default function Ceremony({ data, update }: Props) {
           <div className="bg-ink text-paper text-[12px] px-4 py-2.5 anim-pop">{toast}</div>
         </div>
       )}
+      <DearieConfirmModal
+        open={!!confirmDialog}
+        title={confirmDialog?.title ?? ""}
+        body={confirmDialog?.body ?? ""}
+        confirmLabel={confirmDialog?.confirmLabel ?? "확인"}
+        tone={confirmDialog?.tone}
+        onClose={() => setConfirmDialog(null)}
+        onConfirm={async () => { await confirmDialog?.onConfirm(); }}
+      />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 // AI 비용 0 — 사용자가 챗봇(ChatGPT, Claude, Gemini)에 복붙해서 결과를 받아온다.
 // 우리는 프롬프트만 만들어주고, 답변에서 JSON을 뽑아내는 도우미만 제공한다.
 import type { InvitationContent, WeddingData } from "./schema";
+import type { PlanningSectionStatus } from "./derived";
 
 export type BridgePrompt = {
   title: string;
@@ -88,6 +89,99 @@ ${JSON.stringify(summary, null, 2)}
 - honeymoonRegions 3개 이하`,
     expectedShape: "json",
     tier: "deep",
+  };
+}
+
+export function weddingSectionTalkPrompt(data: WeddingData, section: PlanningSectionStatus): BridgePrompt {
+  const inv = data.invitation;
+  const routeCounts = {
+    venues: data.venues?.length ?? 0,
+    sdm: data.sdm.filter((vendor) => vendor.category !== "snap").length,
+    snap: data.sdm.filter((vendor) => vendor.category === "snap").length,
+    rings: data.rings.length,
+    tripRegions: data.honeymoon.regions.length,
+    flights: data.flights.length,
+    hotels: data.hotels.length,
+    guests: data.guests?.length ?? 0,
+    budgetItems: data.budget?.length ?? 0,
+    checklistItems: data.checklist.reduce((n, item) => n + item.items.length, 0),
+    ceremonySteps: data.ceremony?.length ?? 0,
+    videoPhotos: data.video?.photos?.length ?? 0,
+  };
+  const sectionData = {
+    section: {
+      key: section.key,
+      label: section.label,
+      path: section.to,
+      percent: section.percent,
+      state: section.state,
+      detail: section.detail,
+      nextAction: section.nextAction,
+    },
+    wedding: {
+      date: inv.date || null,
+      venue: inv.venue || null,
+      hasNames: Boolean(inv.groomName || inv.brideName),
+    },
+    counts: routeCounts,
+    currentItems: {
+      venues: (data.venues ?? []).map((item) => ({ name: item.name, status: item.status, region: item.region })).slice(0, 8),
+      sdm: data.sdm.map((item) => ({ name: item.name, category: item.category, status: item.status })).slice(0, 8),
+      rings: data.rings.map((item) => ({ brand: item.brand, model: item.model, priceKRW: item.priceKRW })).slice(0, 8),
+      honeymoonRegions: data.honeymoon.regions.map((item) => ({ name: item.name, durationDays: item.durationDays })).slice(0, 6),
+      budgetCategories: (data.budget ?? []).map((item) => ({ category: item.category, planned: item.planned, actual: item.actual })).slice(0, 8),
+    },
+  };
+
+  return {
+    title: `${section.label} Dearie 상담`,
+    prompt: `당신은 한국 결혼 준비를 돕는 중립적인 웨딩 플래너입니다.
+사용자는 지금 Dearie 앱의 "${section.label}" 화면에서 도움을 요청했습니다.
+전체 계획을 다시 만들지 말고, 이 화면에서 바로 이어갈 수 있는 다음 행동만 작게 정리해주세요.
+
+중요한 원칙:
+- 사용자가 입력하지 않은 가족관계, 종교, 문화, 지역 사정, 예산 여유를 추정하지 마세요.
+- 업체·가격·일정은 확정처럼 말하지 말고, 사용자가 확인할 체크포인트로 표현하세요.
+- 특정 업체의 최신 가격·가능 날짜·리뷰를 확인했다고 말하지 마세요. 웹 검색 출처를 만들어내지 마세요.
+- 전화번호, 계좌, 하객 이름, 복구 링크 같은 민감 정보는 요청하지 마세요.
+- 사용자의 수고를 줄이는 방향으로, 질문은 최대 2개까지만 제안하세요.
+- 제안은 이 화면의 nextAction("${section.nextAction}")을 먼저 해결하게 해주세요.
+- targetPath는 가능한 한 "${section.to}"를 사용하세요. 다른 화면으로 넘어가야 할 때만 Dearie 앱의 실제 경로를 쓰세요.
+
+현재 화면 상태:
+\`\`\`json
+${JSON.stringify(sectionData, null, 2)}
+\`\`\`
+
+반드시 아래 JSON 형식으로만 답해주세요:
+\`\`\`json
+{
+  "summary": "Dearie가 지금 이 화면에서 도와줄 방향 한 문장",
+  "today": [
+    { "title": "바로 할 일", "reason": "왜 지금 필요한지", "targetPath": "${section.to}" }
+  ],
+  "checklistItems": [
+    { "section": "${section.label}", "text": "사용자가 실제로 확인할 한 가지", "ddayOffset": -90, "priority": "yellow" }
+  ],
+  "budgetItems": [
+    { "category": "예산 항목명", "planned": 1000000, "notes": "확인할 조건" }
+  ]${section.key === "trip" ? `,
+  "honeymoonRegions": [
+    { "name": "지역명", "durationDays": 6, "notes": "어울리는 이유와 확인할 점" }
+  ]` : ""}${section.key === "invitation" ? `,
+  "invitationGreeting": "청첩장 화면에서만 필요할 때의 문안 초안"
+` : ""}
+}
+\`\`\`
+
+제안 수 제한:
+- today 1~2개
+- checklistItems 1~4개
+- budgetItems는 예산에 실제로 연결될 항목이 있을 때만 0~3개
+${section.key === "trip" ? "- honeymoonRegions 0~3개" : "- honeymoonRegions는 넣지 마세요"}
+${section.key === "invitation" ? "- invitationGreeting은 필요할 때만 작성" : "- invitationGreeting은 넣지 마세요"}`,
+    expectedShape: "json",
+    tier: "standard",
   };
 }
 

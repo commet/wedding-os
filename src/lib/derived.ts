@@ -1,6 +1,8 @@
 // 영역 간 파생값 — 한 곳의 데이터로 다른 곳을 똑똑하게 채운다.
 // 모든 화면이 같은 계산을 공유하도록 단일 소스로 모은다(읽기 전용, 사용자 데이터를 덮어쓰지 않음).
 import type { WeddingData, WeddingVenue, GuestCategory, SdmCategory } from "./schema";
+import { ringConsultationProgress } from "./ringConsultation";
+import { consultationProgress } from "./sectionConsultation";
 
 // 하객 분류 — 계산기/명단 공통 라벨과 표시 순서.
 export const GUEST_CATEGORIES: { key: GuestCategory; label: string }[] = [
@@ -291,9 +293,14 @@ export function planningStatusReport(data: WeddingData, today: string = todayISO
   const sdmContracted = sdmCategories.filter((category) =>
     data.sdm.some((vendor) => vendor.category === category && vendor.status === "계약"),
   ).length;
+  const snapConsultation = consultationProgress(data, "snap");
+  const snapVendors = data.sdm.filter((vendor) => vendor.category === "snap");
+  const snapContracted = snapVendors.filter((vendor) => vendor.status === "계약").length;
   const ringsLikedByGroom = data.rings.filter((ring) => ring.likedBy?.includes("groom") || ring.starredBy?.includes("groom")).length;
   const ringsLikedByBride = data.rings.filter((ring) => ring.likedBy?.includes("bride") || ring.starredBy?.includes("bride")).length;
   const pricedRings = data.rings.filter((ring) => (ring.priceKRW ?? 0) > 0).length;
+  const ringConsultation = ringConsultationProgress(data);
+  const ringConsultationScore = Math.round((ringConsultation.answered / ringConsultation.total) * 25);
   const tripRegionCount = data.honeymoon.regions.length;
   const guestCount = data.guests?.length ?? 0;
   const invitedCount = data.guests?.filter((guest) => guest.status !== "초대 예정").length ?? 0;
@@ -304,6 +311,18 @@ export function planningStatusReport(data: WeddingData, today: string = todayISO
   const ceremonyDone = ceremonySteps.filter((step) => step.done).length;
   const videoPhotos = data.video?.photos?.length ?? 0;
   const videoActs = data.video?.acts?.length ?? 0;
+  const venueConsultation = consultationProgress(data, "venues");
+  const sdmConsultation = consultationProgress(data, "sdm");
+  const tripConsultation = consultationProgress(data, "trip");
+  const invitationConsultation = consultationProgress(data, "invitation");
+  const guestConsultation = consultationProgress(data, "guests");
+  const budgetConsultation = consultationProgress(data, "budget");
+  const checklistConsultation = consultationProgress(data, "checklist");
+  const ceremonyConsultation = consultationProgress(data, "ceremony");
+  const videoConsultation = consultationProgress(data, "video");
+  const shareConsultation = consultationProgress(data, "share");
+  const consultationPct = (progress: { answered: number; total: number }, max = 20) =>
+    Math.round((progress.answered / progress.total) * max);
   const hasMeaningfulData = !!(
     data.invitation.groomName ||
     data.invitation.brideName ||
@@ -331,7 +350,7 @@ export function planningStatusReport(data: WeddingData, today: string = todayISO
       key: "venues",
       label: "예식장",
       to: "/venues",
-      percent: venueContract ? 100 : data.invitation.venue ? 80 : venueTourCount > 0 ? 65 : venues.length > 0 ? 40 : 0,
+      percent: venueContract ? 100 : Math.min(95, consultationPct(venueConsultation, 25) + (data.invitation.venue ? 55 : venueTourCount > 0 ? 45 : venues.length > 0 ? 30 : 0)),
       detail: venueContract
         ? `계약 · ${venueContract.name}`
         : venueTourCount > 0
@@ -341,7 +360,7 @@ export function planningStatusReport(data: WeddingData, today: string = todayISO
             : data.invitation.venue
               ? "장소 입력됨"
               : "후보 없음",
-      nextAction: venueContract ? "계약 조건·잔금 확인" : data.invitation.venue ? "식장 정보 확인" : venues.length > 0 ? "답사 후보 정하기" : "예식장 후보 담기",
+      nextAction: venueContract ? "계약 조건·잔금 확인" : !venueConsultation.complete ? "예식장 기준 답하기" : data.invitation.venue ? "식장 정보 확인" : venues.length > 0 ? "답사 후보 정하기" : "예식장 후보 담기",
       weight: 12,
       attention: capacityFit === "over" || capacityFit === "under" || (!venueContract && dday !== null && dday <= 180),
     }),
@@ -349,46 +368,72 @@ export function planningStatusReport(data: WeddingData, today: string = todayISO
       key: "sdm",
       label: "스드메",
       to: "/sdm",
-      percent: sdmScores.reduce((sum, score) => sum + score, 0) / sdmScores.length,
-      detail: sdmContracted > 0 ? `계약 ${sdmContracted}/3` : data.sdm.filter((vendor) => vendor.category !== "snap").length > 0 ? "후보 비교 중" : "후보 없음",
-      nextAction: sdmContracted >= 3 ? "잔금·촬영일 확인" : "빠진 업체 후보 채우기",
+      percent: Math.min(100, consultationPct(sdmConsultation, 20) + (sdmScores.reduce((sum, score) => sum + score, 0) / sdmScores.length) * 0.8),
+      detail: sdmContracted > 0 ? `기준 ${sdmConsultation.answered}/${sdmConsultation.total} · 계약 ${sdmContracted}/3` : data.sdm.filter((vendor) => vendor.category !== "snap").length > 0 ? `기준 ${sdmConsultation.answered}/${sdmConsultation.total} · 후보 비교 중` : `기준 ${sdmConsultation.answered}/${sdmConsultation.total}`,
+      nextAction: !sdmConsultation.complete ? "스드메 기준 답하기" : sdmContracted >= 3 ? "잔금·촬영일 확인" : "빠진 업체 후보 채우기",
       weight: 10,
       attention: sdmContracted < 3 && dday !== null && dday <= 150,
+    }),
+    sectionStatus({
+      key: "snap",
+      label: "본식 스냅",
+      to: "/snap",
+      percent: Math.min(100, consultationPct(snapConsultation, 20) + sdmCategoryScore(data, "snap") * 0.8),
+      detail: snapContracted > 0
+        ? `기준 ${snapConsultation.answered}/${snapConsultation.total} · 계약 ${snapContracted}곳`
+        : snapVendors.length > 0
+          ? `기준 ${snapConsultation.answered}/${snapConsultation.total} · 후보 ${snapVendors.length}곳`
+          : `기준 ${snapConsultation.answered}/${snapConsultation.total}`,
+      nextAction: !snapConsultation.complete
+        ? "스냅 기준 답하기"
+        : snapContracted > 0
+          ? "납품·잔금 조건 확인"
+          : snapVendors.length > 0
+            ? "상담 후보 고르기"
+            : "스냅 후보 담기",
+      weight: 4,
+      attention: snapContracted === 0 && dday !== null && dday <= 120,
     }),
     sectionStatus({
       key: "rings",
       label: "결혼반지",
       to: "/rings",
-      percent: data.rings.length === 0
-        ? 0
-        : 35 + Math.min(20, data.rings.length * 3) + Math.min(20, (ringsLikedByGroom + ringsLikedByBride) * 4) + (pricedRings > 0 ? 15 : 0),
-      detail: data.rings.length > 0 ? `${data.rings.length}개 후보 · 신랑 ${ringsLikedByGroom} · 신부 ${ringsLikedByBride}` : "취향 후보 없음",
-      nextAction: data.rings.length === 0 ? "반지 후보 담기" : ringsLikedByGroom === 0 || ringsLikedByBride === 0 ? "각자 마음 표시하기" : "가격과 매장 확인",
+      percent: Math.min(100, ringConsultationScore + (data.rings.length > 0 ? 20 + Math.min(20, data.rings.length * 3) + Math.min(20, (ringsLikedByGroom + ringsLikedByBride) * 4) + (pricedRings > 0 ? 15 : 0) : 0)),
+      detail: data.rings.length > 0 ? `기준 ${ringConsultation.answered}/${ringConsultation.total} · 신랑 ${ringsLikedByGroom} · 신부 ${ringsLikedByBride}` : `기준 ${ringConsultation.answered}/${ringConsultation.total} · 후보 없음`,
+      nextAction: data.rings.length === 0
+        ? ringConsultation.answered === 0 ? "반지 기준 잡기" : ringConsultation.answered < ringConsultation.total ? "반지 취향 질문 이어가기" : "취향에 맞는 후보 담기"
+        : ringConsultation.answered < ringConsultation.total
+          ? "반지 취향 질문 이어가기"
+          : ringsLikedByGroom === 0 || ringsLikedByBride === 0
+            ? "각자 마음 표시하기"
+            : "가격과 매장 확인",
       weight: 5,
     }),
     sectionStatus({
       key: "trip",
       label: "신혼여행",
       to: "/trip",
-      percent: (tripRegionCount > 0 ? 30 : 0)
+      percent: consultationPct(tripConsultation, 20)
+        + (tripRegionCount > 0 ? 20 : 0)
         + (data.honeymoon.startDate && data.honeymoon.endDate ? 15 : 0)
         + (data.flights.length > 0 ? 25 : 0)
-        + (data.hotels.length > 0 ? 25 : 0)
+        + (data.hotels.length > 0 ? 15 : 0)
         + (data.honeymoon.notes ? 5 : 0),
-      detail: tripRegionCount > 0 ? `${tripRegionCount}곳 · 항공 ${data.flights.length} · 숙소 ${data.hotels.length}` : "지역 비교 전",
-      nextAction: tripRegionCount === 0 ? "여행지 후보 비교" : data.flights.length === 0 ? "항공 후보 넣기" : data.hotels.length === 0 ? "숙소 후보 넣기" : "총액과 일정 확인",
+      detail: tripRegionCount > 0 ? `기준 ${tripConsultation.answered}/${tripConsultation.total} · ${tripRegionCount}곳 · 항공 ${data.flights.length}` : `기준 ${tripConsultation.answered}/${tripConsultation.total}`,
+      nextAction: !tripConsultation.complete ? "여행 기준 답하기" : tripRegionCount === 0 ? "여행지 후보 비교" : data.flights.length === 0 ? "항공 후보 넣기" : data.hotels.length === 0 ? "숙소 후보 넣기" : "총액과 일정 확인",
       weight: 7,
     }),
     sectionStatus({
       key: "invitation",
       label: "청첩장",
       to: "/invitation",
-      percent: Math.round((invitation.filled / invitation.total) * 65)
+      percent: consultationPct(invitationConsultation, 15)
+        + Math.round((invitation.filled / invitation.total) * 55)
         + (data.invitation.heroImageUrl ? 10 : 0)
         + ((data.invitation.gallery?.length ?? 0) > 0 ? 5 : 0)
-        + (data.publish ? 20 : 0),
-      detail: data.publish ? "하객용 링크 발행됨" : invitation.missing.length > 0 ? `빠짐 · ${invitation.missing.slice(0, 2).join(", ")}` : "발행 전",
-      nextAction: invitation.missing.length > 0 ? "빠진 정보 채우기" : data.publish ? "하객 시점 확인" : "하객용 링크 발행",
+        + (data.publish ? 15 : 0),
+      detail: data.publish ? "하객용 링크 발행됨" : invitation.missing.length > 0 ? `기준 ${invitationConsultation.answered}/${invitationConsultation.total} · 빠짐 ${invitation.missing.slice(0, 2).join(", ")}` : `기준 ${invitationConsultation.answered}/${invitationConsultation.total} · 발행 전`,
+      nextAction: !invitationConsultation.complete ? "청첩장 기준 답하기" : invitation.missing.length > 0 ? "빠진 정보 채우기" : data.publish ? "하객 시점 확인" : "하객용 링크 발행",
       weight: 11,
       attention: invitation.missing.length > 0 && dday !== null && dday <= 90,
     }),
@@ -396,12 +441,13 @@ export function planningStatusReport(data: WeddingData, today: string = todayISO
       key: "guests",
       label: "하객",
       to: "/guests",
-      percent: (headcountSummaryValue.estTotal > 0 ? 25 : 0)
-        + (guestCount > 0 ? 25 : 0)
-        + (guestCount > 0 ? Math.round((invitedCount / guestCount) * 25) : 0)
-        + (rsvp.rate !== null ? Math.round((rsvp.rate / 100) * 25) : 0),
-      detail: guestCount > 0 ? `${guestCount}명 · 회신 ${rsvp.rate ?? 0}%` : headcountSummaryValue.estTotal > 0 ? `예상 ${headcountSummaryValue.estTotal}명` : "명단 시작 전",
-      nextAction: guestCount === 0 ? "하객 명단 시작" : invitedCount < guestCount ? "초대 발송 표시" : rsvp.pending > 0 ? "미응답 확인" : "식수 최종 확인",
+      percent: consultationPct(guestConsultation, 20)
+        + (headcountSummaryValue.estTotal > 0 ? 20 : 0)
+        + (guestCount > 0 ? 20 : 0)
+        + (guestCount > 0 ? Math.round((invitedCount / guestCount) * 20) : 0)
+        + (rsvp.rate !== null ? Math.round((rsvp.rate / 100) * 20) : 0),
+      detail: guestCount > 0 ? `기준 ${guestConsultation.answered}/${guestConsultation.total} · ${guestCount}명 · 회신 ${rsvp.rate ?? 0}%` : headcountSummaryValue.estTotal > 0 ? `기준 ${guestConsultation.answered}/${guestConsultation.total} · 예상 ${headcountSummaryValue.estTotal}명` : `기준 ${guestConsultation.answered}/${guestConsultation.total}`,
+      nextAction: !guestConsultation.complete ? "하객 기준 답하기" : guestCount === 0 ? "하객 명단 시작" : invitedCount < guestCount ? "초대 발송 표시" : rsvp.pending > 0 ? "미응답 확인" : "식수 최종 확인",
       weight: 11,
       attention: (guestCount === 0 && dday !== null && dday <= 90) || (rsvp.invited >= 20 && (rsvp.rate ?? 100) < 50),
     }),
@@ -409,9 +455,9 @@ export function planningStatusReport(data: WeddingData, today: string = todayISO
       key: "budget",
       label: "예산",
       to: "/budget",
-      percent: budgetCount === 0 ? 0 : 30 + Math.round((budgetMoneyCount / budgetCount) * 30) + Math.round((paidBudgetCount / budgetCount) * 20) + (budget.overCount === 0 ? 20 : 0),
-      detail: budgetCount > 0 ? `${budgetCount}개 항목${budget.overCount > 0 ? ` · 초과 ${budget.overCount}` : ""}` : "예산표 시작 전",
-      nextAction: budgetCount === 0 ? "예산 템플릿 불러오기" : budget.overCount > 0 ? "초과 항목 확인" : mealCheck ? "식대 항목 확인" : "실제 지출 채우기",
+      percent: budgetCount === 0 ? consultationPct(budgetConsultation, 25) : consultationPct(budgetConsultation, 20) + 25 + Math.round((budgetMoneyCount / budgetCount) * 25) + Math.round((paidBudgetCount / budgetCount) * 15) + (budget.overCount === 0 ? 15 : 0),
+      detail: budgetCount > 0 ? `기준 ${budgetConsultation.answered}/${budgetConsultation.total} · ${budgetCount}개 항목${budget.overCount > 0 ? ` · 초과 ${budget.overCount}` : ""}` : `기준 ${budgetConsultation.answered}/${budgetConsultation.total}`,
+      nextAction: !budgetConsultation.complete ? "예산 기준 답하기" : budgetCount === 0 ? "예산 템플릿 불러오기" : budget.overCount > 0 ? "초과 항목 확인" : mealCheck ? "식대 항목 확인" : "실제 지출 채우기",
       weight: 10,
       attention: budget.overCount > 0 || !!mealCheck,
     }),
@@ -419,9 +465,9 @@ export function planningStatusReport(data: WeddingData, today: string = todayISO
       key: "checklist",
       label: "체크리스트",
       to: "/checklist",
-      percent: checklistTotal > 0 ? (checklistDone / checklistTotal) * 100 : 0,
-      detail: checklistTotal > 0 ? `${checklistDone}/${checklistTotal} 완료${overdue > 0 ? ` · 지난 마감 ${overdue}` : ""}` : "준비 타임라인 없음",
-      nextAction: checklistTotal === 0 ? "타임라인 불러오기" : overdue > 0 ? "지난 마감 처리" : "이번 주 할 일 확인",
+      percent: checklistTotal > 0 ? consultationPct(checklistConsultation, 15) + (checklistDone / checklistTotal) * 85 : consultationPct(checklistConsultation, 25),
+      detail: checklistTotal > 0 ? `기준 ${checklistConsultation.answered}/${checklistConsultation.total} · ${checklistDone}/${checklistTotal} 완료${overdue > 0 ? ` · 지난 마감 ${overdue}` : ""}` : `기준 ${checklistConsultation.answered}/${checklistConsultation.total}`,
+      nextAction: !checklistConsultation.complete ? "준비 리듬 답하기" : checklistTotal === 0 ? "타임라인 불러오기" : overdue > 0 ? "지난 마감 처리" : "이번 주 할 일 확인",
       weight: 10,
       attention: overdue > 0,
     }),
@@ -429,9 +475,9 @@ export function planningStatusReport(data: WeddingData, today: string = todayISO
       key: "ceremony",
       label: "식순",
       to: "/ceremony",
-      percent: ceremonySteps.length > 0 ? Math.max(35, (ceremonyDone / ceremonySteps.length) * 100) : 0,
-      detail: ceremonySteps.length > 0 ? `${ceremonyDone}/${ceremonySteps.length} 확인` : "식순 없음",
-      nextAction: ceremonySteps.length === 0 ? "기본 식순 불러오기" : ceremonyDone < ceremonySteps.length ? "진행 단계 확인" : "사회자용 시트 저장",
+      percent: ceremonySteps.length > 0 ? consultationPct(ceremonyConsultation, 20) + Math.max(25, (ceremonyDone / ceremonySteps.length) * 80) : consultationPct(ceremonyConsultation, 25),
+      detail: ceremonySteps.length > 0 ? `기준 ${ceremonyConsultation.answered}/${ceremonyConsultation.total} · ${ceremonyDone}/${ceremonySteps.length} 확인` : `기준 ${ceremonyConsultation.answered}/${ceremonyConsultation.total}`,
+      nextAction: !ceremonyConsultation.complete ? "본식 진행 기준 답하기" : ceremonySteps.length === 0 ? "기본 식순 불러오기" : ceremonyDone < ceremonySteps.length ? "진행 단계 확인" : "사회자용 시트 저장",
       weight: 5,
       attention: ceremonySteps.length === 0 && dday !== null && dday <= 45,
     }),
@@ -439,27 +485,29 @@ export function planningStatusReport(data: WeddingData, today: string = todayISO
       key: "video",
       label: "식전영상",
       to: "/video",
-      percent: (videoPhotos > 0 ? Math.min(70, 25 + videoPhotos * 5) : 0)
+      percent: consultationPct(videoConsultation, 20)
+        + (videoPhotos > 0 ? Math.min(55, 20 + videoPhotos * 4) : 0)
         + (videoActs > 0 ? 15 : 0)
-        + (data.video?.bgmUrl ? 10 : 0)
+        + (data.video?.bgmUrl ? 5 : 0)
         + (data.video?.ending?.message ? 5 : 0),
-      detail: videoPhotos > 0 ? `사진 ${videoPhotos}장 · 막 ${videoActs}` : "사진 없음",
-      nextAction: videoPhotos === 0 ? "사진 넣기" : data.video?.bgmUrl ? "미리보기 확인" : "BGM 정하기",
+      detail: videoPhotos > 0 ? `기준 ${videoConsultation.answered}/${videoConsultation.total} · 사진 ${videoPhotos}장` : `기준 ${videoConsultation.answered}/${videoConsultation.total}`,
+      nextAction: !videoConsultation.complete ? "영상 기준 답하기" : videoPhotos === 0 ? "사진 넣기" : data.video?.bgmUrl ? "미리보기 확인" : "BGM 정하기",
       weight: 3,
     }),
     sectionStatus({
       key: "share",
       label: "공유/백업",
       to: "/share",
-      percent: data.preferences.mode === "hosted" || data.preferences.mode === "supabase"
-        ? (data.publish ? 100 : 80)
+      percent: consultationPct(shareConsultation, 15)
+        + (data.preferences.mode === "hosted" || data.preferences.mode === "supabase"
+        ? (data.publish ? 85 : 65)
         : data.preferences.lastBackupAt
-          ? 75
+          ? 60
           : hasMeaningfulData
-            ? 40
-            : 0,
-      detail: data.publish ? "청첩장 링크 있음" : data.preferences.mode === "local" ? "이 기기에 저장 중" : "함께 편집 준비",
-      nextAction: data.publish ? "공유 센터 확인" : data.preferences.mode === "local" ? "백업 내려받기" : "공유 링크 만들기",
+            ? 30
+            : 0),
+      detail: data.publish ? "청첩장 링크 있음" : data.preferences.mode === "local" ? `기준 ${shareConsultation.answered}/${shareConsultation.total} · 이 기기에 저장 중` : `기준 ${shareConsultation.answered}/${shareConsultation.total} · 함께 편집 준비`,
+      nextAction: !shareConsultation.complete ? "공유 기준 답하기" : data.publish ? "공유 센터 확인" : data.preferences.mode === "local" ? "백업 내려받기" : "공유 링크 만들기",
       weight: 4,
       attention: data.preferences.mode === "local" && hasMeaningfulData && !data.preferences.lastBackupAt,
     }),

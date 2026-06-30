@@ -13,6 +13,7 @@ import { normalizeVideo } from "../lib/schema";
 import { WeddingVideo, buildScenes, VIDEO_W, VIDEO_H } from "../video/WeddingVideo";
 import Modal from "../components/Modal";
 import ChatbotBridgeModal from "../components/ChatbotBridgeModal";
+import DearieConfirmModal from "../components/DearieConfirmModal";
 import { videoEditPrompt, restoreDataUrls, BridgePrompt } from "../lib/chatbotBridge";
 import { STOCK_GALLERY } from "../data/stockPhotos";
 import { safeMediaSrc } from "../lib/security";
@@ -26,8 +27,24 @@ import {
   type VideoTemplate,
 } from "../data/videoTemplates";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
+import SectionConsultationPanel from "../components/SectionConsultationPanel";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
+
+type ConfirmState = {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  cancelLabel?: string;
+  tone?: "normal" | "warn";
+  onConfirm: () => void | Promise<void>;
+};
+
+type VideoNotice = {
+  title: string;
+  body: string;
+  tone?: "normal" | "warn";
+};
 
 const EFFECTS: { value: VideoEffect; label: string }[] = [
   { value: "kenBurnsIn", label: "확대" },
@@ -62,6 +79,8 @@ export default function Video({ data, update }: Props) {
   const [aiRequest, setAiRequest] = useState("");
   const [recording, setRecording] = useState(false);
   const [recordProgress, setRecordProgress] = useState(0);
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmState | null>(null);
+  const [videoNotice, setVideoNotice] = useState<VideoNotice | null>(null);
   const playerRef = useRef<PlayerRef>(null);
 
   const setVideo = (fn: (v: VideoConfig) => VideoConfig) => {
@@ -99,7 +118,11 @@ export default function Video({ data, update }: Props) {
   const addPhotos = (urls: string[]) => {
     const safe = urls.map((u) => safeMediaSrc(u)).filter((u): u is string => !!u);
     if (safe.length === 0) {
-      alert("https:// 로 시작하는 사진 주소만 추가할 수 있어요.");
+      setVideoNotice({
+        title: "사진을 읽지 못했어요",
+        body: "주소로 넣을 때는 https:// 로 시작하는 이미지 주소만 사용할 수 있어요. 휴대폰 사진은 파일로 추가하면 더 편합니다.",
+        tone: "warn",
+      });
       return;
     }
     const d = currentTemplate?.defaults;
@@ -137,53 +160,68 @@ export default function Video({ data, update }: Props) {
   // ── 템플릿 ──
   const applyTemplate = (template: VideoTemplate) => {
     const hasExisting = config.acts.length > 0 || !!config.templateId;
-    if (hasExisting) {
-      const ok = confirm(
-        `'${template.name}' 템플릿으로 바꿀까요?\n\n` +
-        `· 챕터가 새로 짜여요 (${config.acts.length} → ${template.chapters.length}개)\n` +
-        `· 기존 사진은 그대로 유지되지만 챕터 배정은 해제됩니다\n` +
-        `· 사진별 효과/필터/길이는 그대로 두고, 새로 추가하는 사진부터 이 템플릿의 기본값을 따릅니다`
-      );
-      if (!ok) return;
+    const commit = () => {
+      const newActs: VideoAct[] = template.chapters.map((ch, i) => ({
+        id: `act-${Date.now()}-${i}`,
+        title: ch.title,
+        subtitle: ch.subtitle,
+      }));
+      setVideo((v) => ({
+        ...v,
+        templateId: template.id,
+        acts: newActs,
+        photos: v.photos.map((p) => ({ ...p, actId: undefined })),
+      }));
+    };
+    if (!hasExisting) {
+      commit();
+      return;
     }
-    const newActs: VideoAct[] = template.chapters.map((ch, i) => ({
-      id: `act-${Date.now()}-${i}`,
-      title: ch.title,
-      subtitle: ch.subtitle,
-    }));
-    setVideo((v) => ({
-      ...v,
-      templateId: template.id,
-      acts: newActs,
-      photos: v.photos.map((p) => ({ ...p, actId: undefined })),
-    }));
+    setConfirmDialog({
+      title: "템플릿을 바꿀까요?",
+      body:
+        `${template.name} 분위기로 챕터를 다시 짭니다.\n\n` +
+        `기존 사진은 지우지 않고, 챕터 배정만 풀어둘게요. 사진별 효과·필터·길이는 그대로 둡니다.`,
+      confirmLabel: "템플릿 바꾸기",
+      onConfirm: commit,
+    });
   };
 
   const clearTemplate = () => {
-    if (!confirm("템플릿 선택을 해제할까요? 챕터는 그대로 두고 템플릿 표시만 없어집니다.")) return;
-    setVideo((v) => ({ ...v, templateId: undefined }));
+    setConfirmDialog({
+      title: "템플릿 표시를 뺄까요?",
+      body: "챕터와 사진은 그대로 두고, 선택한 템플릿 이름만 비워둘게요.",
+      confirmLabel: "표시 빼기",
+      onConfirm: () => setVideo((v) => ({ ...v, templateId: undefined })),
+    });
   };
 
   const autoAssignPhotosToChapters = () => {
     if (!currentTemplate || config.acts.length === 0) return;
-    if (!confirm("미배정 사진을 챕터 순서대로 자동 분배할까요?\n이미 챕터가 정해진 사진은 그대로 둡니다.")) return;
-    const validActIds = new Set(config.acts.map((a) => a.id));
-    const newPhotos = config.photos.map((p) => ({ ...p }));
-    // 챕터별로 권장량까지 미배정 사진을 흡수. flat 배열은 재정렬하지 않는다 — 렌더가 챕터별로 묶어 보여줘서 필요 없음.
-    for (let i = 0; i < config.acts.length; i++) {
-      const chapter = config.acts[i];
-      const target = currentTemplate.chapters[i]?.photoCount ?? 0;
-      const existing = newPhotos.filter((p) => p.actId === chapter.id).length;
-      let need = Math.max(0, target - existing);
-      for (let j = 0; j < newPhotos.length && need > 0; j++) {
-        const p = newPhotos[j];
-        if (!p.actId || !validActIds.has(p.actId)) {
-          newPhotos[j] = { ...p, actId: chapter.id };
-          need--;
+    setConfirmDialog({
+      title: "사진을 챕터에 나눠둘까요?",
+      body: "아직 챕터가 없는 사진만 템플릿 권장 수에 맞춰 순서대로 넣습니다. 이미 배정한 사진은 건드리지 않아요.",
+      confirmLabel: "Dearie가 나누기",
+      onConfirm: () => {
+        const validActIds = new Set(config.acts.map((a) => a.id));
+        const newPhotos = config.photos.map((p) => ({ ...p }));
+        // 챕터별로 권장량까지 미배정 사진을 흡수. flat 배열은 재정렬하지 않는다 — 렌더가 챕터별로 묶어 보여줘서 필요 없음.
+        for (let i = 0; i < config.acts.length; i++) {
+          const chapter = config.acts[i];
+          const target = currentTemplate.chapters[i]?.photoCount ?? 0;
+          const existing = newPhotos.filter((p) => p.actId === chapter.id).length;
+          let need = Math.max(0, target - existing);
+          for (let j = 0; j < newPhotos.length && need > 0; j++) {
+            const p = newPhotos[j];
+            if (!p.actId || !validActIds.has(p.actId)) {
+              newPhotos[j] = { ...p, actId: chapter.id };
+              need--;
+            }
+          }
         }
-      }
-    }
-    setVideo((v) => ({ ...v, photos: newPhotos }));
+        setVideo((v) => ({ ...v, photos: newPhotos }));
+      },
+    });
   };
 
   // ── 엔딩 자동 채우기 ──
@@ -216,22 +254,33 @@ export default function Video({ data, update }: Props) {
 
   const handleAutoRecord = async () => {
     if (config.photos.length === 0) {
-      alert("사진을 먼저 추가해주세요.");
+      setVideoNotice({
+        title: "사진이 먼저 필요해요",
+        body: "영상에 들어갈 사진을 추가하면 녹화와 저장을 이어갈 수 있어요.",
+        tone: "warn",
+      });
       return;
     }
     if (!canAutoRecord()) {
-      alert("이 브라우저는 자동 녹화를 지원하지 않아요. 아래 [화면 녹화 가이드]를 따라주세요.");
+      setVideoNotice({
+        title: "자동 녹화를 지원하지 않는 브라우저예요",
+        body: "아래 화면 녹화 가이드를 따라 기기 기본 녹화로 저장해주세요.",
+        tone: "warn",
+      });
       return;
     }
-    if (!confirm(
-      "🎬 자동 영상 녹화\n\n" +
-      "1. 곧 '어떤 화면을 공유할까요?' 창이 떠요.\n" +
-      "2. '현재 탭' (또는 Dearie 탭) 선택 + '탭 오디오 공유' 체크\n" +
-      "3. 자동으로 영상이 재생되고 녹화돼요.\n" +
-      "4. 영상 끝나면 WebM 파일이 자동 다운로드됩니다.\n\n" +
-      "총 약 " + durationSec + "초. 시작할까요?"
-    )) return;
+    setConfirmDialog({
+      title: "자동 녹화를 시작할까요?",
+      body:
+        "곧 화면 공유 창이 열립니다.\n\n" +
+        "현재 탭을 고르고, 소리가 필요하면 탭 오디오 공유를 켜주세요. Dearie가 처음부터 재생하고 끝나면 WebM 파일을 내려받습니다.\n\n" +
+        `예상 길이는 약 ${durationSec}초예요.`,
+      confirmLabel: "녹화 시작",
+      onConfirm: startAutoRecord,
+    });
+  };
 
+  const startAutoRecord = async () => {
     setRecording(true);
     setRecordProgress(0);
     try {
@@ -247,17 +296,24 @@ export default function Video({ data, update }: Props) {
       });
       downloadBlob(blob, `wedding-video-${Date.now()}.webm`);
       try { if (document.fullscreenElement) await document.exitFullscreen(); } catch {}
-      alert(
-        "✓ 영상이 다운로드됐어요.\n\n" +
-        "WebM 파일은 VLC·QuickTime 등에서 재생되고,\n" +
-        "MP4 변환이 필요하면 무료 도구(예: CloudConvert)에 올리시면 됩니다."
-      );
+      setVideoNotice({
+        title: "영상이 다운로드됐어요",
+        body: "WebM 파일은 VLC·QuickTime 등에서 재생할 수 있어요. 식장에서 MP4를 요구하면 변환 도구로 MP4로 바꿔 제출하세요.",
+      });
     } catch (e: any) {
       const msg = e?.message ?? "알 수 없는 오류";
       if (e?.name === "NotAllowedError") {
-        alert("화면 공유를 취소하셨어요.");
+        setVideoNotice({
+          title: "녹화를 시작하지 않았어요",
+          body: "화면 공유가 취소됐습니다. 다시 시도하거나 아래 기기 화면 녹화 가이드를 사용할 수 있어요.",
+          tone: "warn",
+        });
       } else {
-        alert("녹화 실패: " + msg);
+        setVideoNotice({
+          title: "녹화에 실패했어요",
+          body: msg,
+          tone: "warn",
+        });
       }
     } finally {
       setRecording(false);
@@ -283,26 +339,35 @@ export default function Video({ data, update }: Props) {
       photos: normalized.photos.filter((p) => !!safeMediaSrc(p.url)),
       bgmUrl: safeMediaSrc(normalized.bgmUrl),
     };
+    const commit = () => {
+      setVideo(() => safe);
+      setAiRequest("");
+      setBridge(null);
+    };
     // 3) 큰 변화 감지 — AI 가 실수로 사진/챕터를 통째로 날린 경우 사용자 확인
     if (config.photos.length > 0 && safe.photos.length < config.photos.length / 2) {
-      if (!confirm(
-        `⚠️ AI 답변에 사진이 ${config.photos.length}장 → ${safe.photos.length}장으로 줄었어요.\n\n` +
-        `의도한 변화가 아니라면 [취소] 누르고 다시 요청하세요.\n\n` +
-        `적용할까요?`
-      )) {
-        return;
-      }
+      setConfirmDialog({
+        title: "사진 수가 많이 줄었어요",
+        body:
+          `Dearie 답변을 적용하면 사진이 ${config.photos.length}장에서 ${safe.photos.length}장으로 줄어듭니다.\n\n` +
+          "의도한 수정이 아니라면 취소하고 다시 부탁하는 편이 안전해요.",
+        confirmLabel: "그래도 반영",
+        tone: "warn",
+        onConfirm: commit,
+      });
+      return;
     }
     if (config.acts.length > 0 && safe.acts.length === 0) {
-      if (!confirm(
-        `⚠️ AI 답변에 챕터가 모두 사라졌어요 (${config.acts.length}개 → 0개).\n적용할까요?`
-      )) {
-        return;
-      }
+      setConfirmDialog({
+        title: "챕터가 모두 사라져요",
+        body: `지금 적용하면 챕터 ${config.acts.length}개가 0개로 바뀝니다. 정말 막 없이 이어지는 영상으로 바꿀까요?`,
+        confirmLabel: "그래도 반영",
+        tone: "warn",
+        onConfirm: commit,
+      });
+      return;
     }
-    setVideo(() => safe);
-    setAiRequest("");
-    setBridge(null);
+    commit();
   };
 
   // ── 사진 그룹화 ──
@@ -348,6 +413,8 @@ export default function Video({ data, update }: Props) {
         <h1 className="font-serif text-[2rem] leading-none">식전영상</h1>
       </div>
 
+      <SectionConsultationPanel sectionId="video" data={data} update={update} />
+
       {/* 인트로 */}
       <div className="py-4 border-y border-hair">
         <p className="text-[13px] leading-relaxed text-ink mb-3">사진과 음악을 더해 결혼식 입장 전에 트는 영상을 만들어요.</p>
@@ -381,6 +448,26 @@ export default function Video({ data, update }: Props) {
           ...(!endingReady ? [{ label: "엔딩을 청첩장에서 채우기", onClick: pullEndingFromInvitation }] : []),
         ]}
       />
+
+      {videoNotice && (
+        <div className={`border-y py-4 ${videoNotice.tone === "warn" ? "border-gold/50 bg-gold/5" : "border-hair"}`}>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="eyebrow-gold mb-1">Dearie</div>
+              <p className="text-[14px] font-semibold text-ink">{videoNotice.title}</p>
+              <p className="mt-1 text-[13px] leading-relaxed text-soft">{videoNotice.body}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setVideoNotice(null)}
+              className="min-h-11 min-w-11 text-soft hover:text-ink"
+              aria-label="안내 닫기"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 미리보기 */}
       <div className="remotion-player overflow-hidden bg-ink">
@@ -611,7 +698,11 @@ export default function Video({ data, update }: Props) {
             onBlur={(e) => {
               const v = e.target.value;
               if (v && !safeMediaSrc(v)) {
-                alert("배경음악 주소는 https:// 로 시작해야 해요.");
+                setVideoNotice({
+                  title: "배경음악 주소를 확인해주세요",
+                  body: "외부 음악 주소는 https:// 로 시작해야 안전하게 미리보기와 저장에 사용할 수 있어요.",
+                  tone: "warn",
+                });
               }
             }}
             placeholder="https://...mp3"
@@ -667,24 +758,24 @@ export default function Video({ data, update }: Props) {
       <details className="py-4 border-b border-hair">
         <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4">
           <span>
-            <span className="eyebrow-gold block mb-1">말로 영상 고치기</span>
-            <span className="text-[12px] text-soft">사진 길이·필터·순서를 문장으로 요청</span>
+            <span className="eyebrow-gold block mb-1">Dearie에게 영상 고치기</span>
+            <span className="text-[12px] text-soft">사진 길이·필터·순서를 말로 부탁하기</span>
           </span>
           <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
         </summary>
         <div className="mt-4 space-y-4">
-          <p className="text-[12.5px] text-soft leading-relaxed">
-            "3번째 사진 더 길게", "전부 빈티지 필터로", "신랑 챕터 사진 순서 바꿔줘"처럼 적으면
-            ChatGPT · Claude가 영상 설정을 고쳐줘요.
+          <p className="text-[13px] text-soft leading-relaxed">
+            원하는 변화만 한 문장으로 적어주세요. Dearie가 영상 설정을 고친 뒤,
+            사진이 크게 줄거나 챕터가 사라질 때는 반영 전에 다시 물어봅니다.
           </p>
           <textarea
-            className="input-boxed text-[13px] min-h-[70px]"
+            className="input-boxed text-[14px] min-h-[88px]"
             placeholder="예: 모든 사진을 따뜻한 필터로 바꾸고, 첫 사진은 6초로"
             value={aiRequest}
             onChange={(e) => setAiRequest(e.target.value)}
           />
-          <button onClick={askAI} className="btn-primary w-full text-[12.5px]" disabled={!aiRequest.trim()}>
-            AI 프롬프트 만들기 →
+          <button onClick={askAI} className="btn-primary w-full text-[13px]" disabled={!aiRequest.trim()}>
+            Dearie에게 고쳐달라고 하기
           </button>
         </div>
       </details>
@@ -887,7 +978,16 @@ export default function Video({ data, update }: Props) {
               : "사진 추가"
           }
         >
-          <PhotoAdd onAdd={addPhotos} />
+          <PhotoAdd
+            onAdd={addPhotos}
+            onError={(body) =>
+              setVideoNotice({
+                title: "사진을 불러오지 못했어요",
+                body,
+                tone: "warn",
+              })
+            }
+          />
         </Modal>
       )}
 
@@ -896,6 +996,16 @@ export default function Video({ data, update }: Props) {
         onClose={() => setBridge(null)}
         prompt={bridge}
         onApply={applyAI}
+      />
+      <DearieConfirmModal
+        open={!!confirmDialog}
+        title={confirmDialog?.title ?? ""}
+        body={confirmDialog?.body ?? ""}
+        confirmLabel={confirmDialog?.confirmLabel ?? "확인"}
+        cancelLabel={confirmDialog?.cancelLabel}
+        tone={confirmDialog?.tone}
+        onClose={() => setConfirmDialog(null)}
+        onConfirm={async () => { await confirmDialog?.onConfirm(); }}
       />
     </div>
   );
@@ -1100,7 +1210,7 @@ function PhotoChips<T extends string>({
   );
 }
 
-function PhotoAdd({ onAdd }: { onAdd: (urls: string[]) => void }) {
+function PhotoAdd({ onAdd, onError }: { onAdd: (urls: string[]) => void; onError: (message: string) => void }) {
   const [selected, setSelected] = useState<string[]>([]);
   const [url, setUrl] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -1123,7 +1233,7 @@ function PhotoAdd({ onAdd }: { onAdd: (urls: string[]) => void }) {
       }
       onAdd(out);
     } catch (e: any) {
-      alert("일부 사진을 불러올 수 없었어요: " + (e?.message ?? "알 수 없는 오류"));
+      onError(e?.message ?? "일부 사진을 읽는 중 문제가 생겼어요. 파일 형식을 확인한 뒤 다시 시도해주세요.");
     } finally {
       setUploading(false);
       setProgress(0);
@@ -1149,10 +1259,10 @@ function PhotoAdd({ onAdd }: { onAdd: (urls: string[]) => void }) {
           disabled={uploading}
           className="btn-primary w-full text-sm disabled:opacity-50"
         >
-          {uploading ? `압축 중… ${progress}%` : "📤 내 사진 업로드 (여러 장)"}
+          {uploading ? `압축 중… ${progress}%` : "내 사진 여러 장 추가"}
         </button>
-        <p className="text-[11px] text-soft text-center mt-2">
-          영상용은 자동으로 1280px JPEG로 압축돼요 — 약 200~400KB/장
+        <p className="text-[12px] text-soft text-center mt-2 leading-relaxed">
+          영상용 크기로 자동 정리해서 휴대폰에서도 덜 무겁게 보관합니다.
         </p>
       </div>
 

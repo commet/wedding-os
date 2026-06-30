@@ -19,12 +19,21 @@ import { koBreak } from "../lib/typography";
 import { invitationReadiness, contractedVenue } from "../lib/derived";
 import MapEmbed from "../components/MapEmbed";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
+import SectionConsultationPanel from "../components/SectionConsultationPanel";
+import DearieConfirmModal from "../components/DearieConfirmModal";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type Tab = "edit" | "preview" | "guest";
 type Locale = "ko";
 type Theme = "cream" | "white" | "sage" | "rose" | "navy" | "sand" | "slate" | "blush";
 type FontStyle = "serif" | "sans" | "handwriting";
+type ConfirmState = {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  tone?: "normal" | "warn";
+  onConfirm: () => void | Promise<void>;
+};
 
 // 큐레이션된 에디토리얼 팔레트 — 생짜 Tailwind 기본색(rose-500·blue-900 등)이 아니라
 // 고급 청첩장 스테이셔너리에 어울리는 톤다운된 색만. accent=섹션 제목/D-day 글자색,
@@ -78,6 +87,8 @@ export default function Invitation({ data, update }: Props) {
 
   const [shareText, setShareText] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
+  const [invitationNotice, setInvitationNotice] = useState("");
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmState | null>(null);
   const openPublishEditor = () => {
     setTab("edit");
     window.setTimeout(() => {
@@ -94,7 +105,8 @@ export default function Invitation({ data, update }: Props) {
     // 신랑·신부 이름이 비어 있으면 공유 자체를 막는다 — 이름 없는 청첩장은
     // 의미가 없고, '신랑 ♥ 신부' 같은 자리표시자가 그대로 하객에게 나간다.
     if (!inv.groomName || !inv.brideName) {
-      alert("청첩장에 신랑·신부 이름이 아직 없어요.\n\n[편집] 탭에서 두 분 이름을 먼저 입력해주세요.");
+      setInvitationNotice("공유 전에 신랑·신부 이름을 먼저 넣어주세요.");
+      setTab("edit");
       return;
     }
     // 날짜·식장은 빠져도 '곧 청첩장 보낼게' 식으로 미리 공유할 수 있어 경고만 한다.
@@ -102,12 +114,21 @@ export default function Invitation({ data, update }: Props) {
       (m) => m !== "신랑 이름" && m !== "신부 이름",
     );
     if (softMissing.length > 0) {
-      const proceed = confirm(
-        `청첩장에 빠진 정보가 있어요:\n\n· ${softMissing.join("\n· ")}\n\n` +
-        `[편집] 탭에서 먼저 채우는 걸 권해요.\n\n그래도 지금 공유할까요?`
-      );
-      if (!proceed) return;
+      setConfirmDialog({
+        title: "빠진 정보가 있어요",
+        body:
+          `아직 ${softMissing.join(", ")}이 비어 있습니다.\n\n` +
+          "하객에게 보내기 전에는 먼저 채우는 편이 안전해요. 그래도 지금 공유할 수는 있습니다.",
+        confirmLabel: "그래도 공유",
+        tone: "warn",
+        onConfirm: shareReadyInvitation,
+      });
+      return;
     }
+    await shareReadyInvitation();
+  };
+
+  const shareReadyInvitation = async () => {
     // 모드 2: 실제 청첩장 링크 — 게스트 전용 라우트 /i 공유
     if (data.preferences.mode === "supabase") {
       const rsvpToken = data.preferences.supabase?.rsvpToken;
@@ -148,12 +169,8 @@ export default function Invitation({ data, update }: Props) {
       return;
     }
     // 아직 발행 전 — 진짜 링크를 만들도록 편집 탭의 발행 섹션으로 안내.
-    alert(
-      "아직 청첩장을 '발행'하지 않았어요.\n\n" +
-      "[편집] 탭 맨 위 '청첩장 발행'에서 진짜 링크를 만들면\n" +
-      "그 링크를 하객에게 보낼 수 있어요. (내용은 암호화돼 운영자도 못 봐요)",
-    );
-    setTab("edit");
+    setInvitationNotice("아직 하객용 링크를 만들지 않았어요. 발행 섹션에서 링크를 만들면 바로 공유할 수 있습니다.");
+    openPublishEditor();
   };
 
   const copyShareText = async () => {
@@ -197,7 +214,7 @@ export default function Invitation({ data, update }: Props) {
               <div className="eyebrow-gold mb-1">청첩장 만들기</div>
               <h1 className="font-serif text-xl text-ink">{koBreak("모바일 청첩장")}</h1>
             </div>
-            <button onClick={share} className="min-h-11 px-2 text-[12px] underline underline-offset-4 text-ink hover:text-gold transition">
+            <button onClick={() => { void share(); }} className="min-h-11 px-2 text-[12px] underline underline-offset-4 text-ink hover:text-gold transition">
               {shareCopied ? "복사됨" : data.publish || data.preferences.mode === "supabase" ? "공유 →" : "발행 →"}
             </button>
           </div>
@@ -223,6 +240,24 @@ export default function Invitation({ data, update }: Props) {
                 </span>
               );
             })()}
+          </div>
+        </div>
+      )}
+
+      {invitationNotice && !isGuestRoute && (
+        <div className="page pt-3">
+          <div className="anim-fade flex items-center justify-between gap-4 border-y border-hair py-3">
+            <p className="text-[13px] leading-relaxed text-soft">
+              <span className="font-semibold text-ink">Dearie</span> · {invitationNotice}
+            </p>
+            <button
+              type="button"
+              onClick={() => setInvitationNotice("")}
+              className="min-h-11 min-w-11 text-soft hover:text-ink"
+              aria-label="안내 닫기"
+            >
+              ×
+            </button>
           </div>
         </div>
       )}
@@ -314,6 +349,15 @@ export default function Invitation({ data, update }: Props) {
           </button>
         </div>
       </Modal>
+      <DearieConfirmModal
+        open={!!confirmDialog}
+        title={confirmDialog?.title ?? ""}
+        body={confirmDialog?.body ?? ""}
+        confirmLabel={confirmDialog?.confirmLabel ?? "확인"}
+        tone={confirmDialog?.tone}
+        onClose={() => setConfirmDialog(null)}
+        onConfirm={async () => { await confirmDialog?.onConfirm(); }}
+      />
     </div>
   );
 }
@@ -1084,6 +1128,7 @@ function PublishSection({ data, update }: { data: WeddingData; update: (patch: a
   const [rsvps, setRsvps] = useState<HostedRsvp[] | null>(null);
   const [rsvpBusy, setRsvpBusy] = useState(false);
   const [rsvpMsg, setRsvpMsg] = useState("");
+  const [confirmUnpublish, setConfirmUnpublish] = useState(false);
 
   // 옛 localStorage 발행 정보를 WeddingData(백업 대상)로 1회 이전.
   useEffect(() => {
@@ -1160,12 +1205,11 @@ function PublishSection({ data, update }: { data: WeddingData; update: (patch: a
 
   const doUnpublish = async () => {
     if (!published) return;
-    if (!confirm(
-      "발행을 취소할까요?\n\n" +
-      "하객이 받은 링크가 더 이상 열리지 않고,\n" +
-      "올라간 청첩장·받은 RSVP가 서버에서 삭제돼요.\n" +
-      "되돌릴 수 없어요.",
-    )) return;
+    setConfirmUnpublish(true);
+  };
+
+  const confirmUnpublishNow = async () => {
+    if (!published) return;
     setUnpubBusy(true);
     setMessage("");
     setIsError(false);
@@ -1310,6 +1354,15 @@ function PublishSection({ data, update }: { data: WeddingData; update: (patch: a
         발행 링크는 백업 파일에도 저장됩니다. 다른 기기에서 수정·발행 취소·RSVP 확인까지 하려면 편집 초대 링크도 필요해요.
         청첩장은 예식 6개월 뒤 자동 삭제됩니다.
       </p>
+      <DearieConfirmModal
+        open={confirmUnpublish}
+        title="발행을 취소할까요?"
+        body="하객이 받은 링크가 더 이상 열리지 않고, 올라간 청첩장과 받은 RSVP가 서버에서 삭제됩니다. 되돌릴 수 없어요."
+        confirmLabel="발행 취소"
+        tone="warn"
+        onClose={() => setConfirmUnpublish(false)}
+        onConfirm={confirmUnpublishNow}
+      />
     </div>
   );
 }
@@ -1531,6 +1584,8 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
           {saveLabel} · 입력하면 바로 반영됩니다
         </div>
       </div>
+
+      <SectionConsultationPanel sectionId="invitation" data={data} update={update} />
 
       {showQuickStart && <QuickStart inv={inv} set={set} onPreview={onPreview} contractedVenueName={contractedVenue(data)?.name} />}
 
@@ -1822,10 +1877,12 @@ function HeroUploadButton({ onUploaded, mode }: {
   mode: Mode | null;
 }) {
   const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
   const ref = useRef<HTMLInputElement>(null);
 
   const handle = async (file: File) => {
     setBusy(true);
+    setMessage("");
     try {
       // 모드 1: IndexedDB(idb:<id>) — localStorage 5MB 한도 회피.
       // 모드 2: base64 data URL — Supabase JSONB 로 두 기기 동기화.
@@ -1843,7 +1900,7 @@ function HeroUploadButton({ onUploaded, mode }: {
         onUploaded(url);
       }
     } catch (e: any) {
-      alert("사진을 불러올 수 없어요: " + (e?.message ?? "알 수 없는 오류"));
+      setMessage(e?.message ?? "사진을 불러올 수 없어요. 파일 형식을 확인한 뒤 다시 시도해주세요.");
     } finally {
       setBusy(false);
       if (ref.current) ref.current.value = "";
@@ -1869,6 +1926,7 @@ function HeroUploadButton({ onUploaded, mode }: {
       >
         {busy ? "압축 중…" : "내 사진 업로드"}
       </button>
+      {message && <p className="mt-2 text-center text-[12px] leading-relaxed text-gold">{message}</p>}
     </>
   );
 }
@@ -1879,11 +1937,13 @@ function GalleryUploadButton({ onUploaded, mode }: {
 }) {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [message, setMessage] = useState("");
   const ref = useRef<HTMLInputElement>(null);
 
   const handle = async (files: FileList) => {
     setBusy(true);
     setProgress(0);
+    setMessage("");
     const out: string[] = [];
     let totalDataSize = 0;
     try {
@@ -1897,13 +1957,10 @@ function GalleryUploadButton({ onUploaded, mode }: {
       }
       onUploaded(out);
       if (mode === "supabase" && totalDataSize > 3 * 1024 * 1024) {
-        alert(
-          `사진 ${files.length}장을 추가했어요 (${formatBytes(totalDataSize)}).\n` +
-          `Supabase row 크기가 커지면 동기화가 느려져요. 사진은 10장 이내 권장.`
-        );
+        setMessage(`사진 ${files.length}장을 추가했어요 (${formatBytes(totalDataSize)}). 동기화가 느려질 수 있어 10장 이내를 권합니다.`);
       }
     } catch (e: any) {
-      alert("일부 사진을 불러올 수 없었어요: " + (e?.message ?? "알 수 없는 오류"));
+      setMessage(e?.message ?? "일부 사진을 불러올 수 없었어요. 파일 형식을 확인한 뒤 다시 시도해주세요.");
     } finally {
       setBusy(false);
       setProgress(0);
@@ -1930,6 +1987,7 @@ function GalleryUploadButton({ onUploaded, mode }: {
       >
         {busy ? `압축 중… ${progress}%` : "여러 장 업로드"}
       </button>
+      {message && <p className="mt-2 text-center text-[12px] leading-relaxed text-soft">{message}</p>}
     </>
   );
 }

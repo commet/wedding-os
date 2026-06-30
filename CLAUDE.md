@@ -35,7 +35,7 @@
 - 백엔드 = 휴면 프로젝트 **sayu-db** 재활용 (Supabase 무료 2개 한도). `weddingos` 스키마 + `public.wos_*` RPC(ownerToken bcrypt). 결혼 데이터 전체를 `inviteCrypto`로 암호화해 `data` 컬럼에 암호문(`{ct,v}`)으로만 저장.
 - 키 모델: `weddingId`+`ownerToken`+`weddingKey`는 secrets(localStorage)+복구링크(`/recover#w=&t=&k=`)에만. 운영자 복호화 불가.
 - **로그인**(`/login`, `lib/auth.ts`): 이메일 매직링크 + 카카오·구글. *식별·복구·안심*용 — 내용 비밀과 무관. 복구번들을 passphrase로 감싸(`lib/account.ts`, PBKDF2→AES-GCM) `public.wos_accounts`(RLS 본인행)에 blob 저장. 운영자는 이메일만 알고 내용·키는 못 봄.
-- 공개 청첩장·RSVP는 기존 Blob 발행(`api/invite-*`) 재사용. 실시간 동기화는 없음(RPC-only RLS).
+- 공개 청첩장·RSVP는 기존 Blob 발행(`api/invite-*`) 재사용. 풀 realtime row 구독은 쓰지 않고, 저장 성공 시 본문 없는 broadcast 갱신 신호 + 앱 복귀·네트워크 복구·90초 주기 최신화 + 충돌 안내로 수렴.
 
 **관련 파일:** `lib/storage.hosted.ts`(암복호화 드라이버) · `lib/recovery.ts` · `lib/account.ts` · `lib/auth.ts` · `routes/HostedStart.tsx` · `routes/Recover.tsx` · `routes/Login.tsx` · `routes/Trust.tsx`(투명성) · `components/CipherPeek.tsx`.
 

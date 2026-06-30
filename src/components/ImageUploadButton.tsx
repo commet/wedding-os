@@ -19,11 +19,13 @@ export default function ImageUploadButton({
   className?: string;
 }) {
   const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
   const ref = useRef<HTMLInputElement>(null);
   const inline = mode === "supabase" || mode === "hosted"; // 동기화 모드는 base64 인라인
 
   const handle = async (file: File) => {
     setBusy(true);
+    setMessage("");
     try {
       if (inline) {
         const c = await compressImage(file, { maxWidth: 1200, maxHeight: 1200, quality: 0.82 });
@@ -36,7 +38,7 @@ export default function ImageUploadButton({
         onUploaded(await uploadImage(file, { mode, maxWidth: 1200, maxHeight: 1200, quality: 0.82 }));
       }
     } catch (e: any) {
-      alert("사진을 불러올 수 없어요: " + (e?.message ?? "알 수 없는 오류"));
+      setMessage(e?.message ?? "사진을 불러올 수 없어요. 파일 형식을 확인한 뒤 다시 시도해주세요.");
     } finally {
       setBusy(false);
       if (ref.current) ref.current.value = "";
@@ -55,6 +57,7 @@ export default function ImageUploadButton({
       <button onClick={() => ref.current?.click()} disabled={busy} className={`${className} disabled:opacity-50`}>
         {busy ? "압축 중…" : label}
       </button>
+      {message && <p className="mt-2 text-center text-[12px] leading-relaxed text-gold">{message}</p>}
     </>
   );
 }

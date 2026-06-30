@@ -2,9 +2,12 @@ import { useState, useEffect } from "react";
 import { NavLink, useLocation, Link, useNavigate } from "react-router-dom";
 import type { WeddingData, Mode } from "../lib/schema";
 import { daysSince } from "../lib/freshness";
-import { useSaveStatus, useRealtimeStatus, useConflictStatus, clearConflict } from "../lib/storage";
+import { useSaveStatus, useConflictStatus, clearConflict } from "../lib/storage";
 import MenuSheet from "./MenuSheet";
 import { PLANNING_STATE_LABEL, planningStatusReport, type PlanningSectionStatus } from "../lib/derived";
+import ChatbotBridgeModal from "./ChatbotBridgeModal";
+import { type BridgePrompt, weddingPlanStarterPrompt, weddingSectionTalkPrompt } from "../lib/chatbotBridge";
+import { applyStarterPlan } from "../lib/agentStarter";
 
 type Props = {
   data: WeddingData;
@@ -25,14 +28,14 @@ const TAB_PATHS = NAV.map((n) => n.to);
 // 데모 배너 dismiss 는 세션 단위 — 새 탭/새로고침 시 다시 보임(영영 안 보이는 사고 방지).
 const DEMO_BANNER_DISMISSED_KEY = "wedding-os/demo-banner-dismissed/v1";
 
-export default function AppShell({ data, children }: Props) {
+export default function AppShell({ data, update, children }: Props) {
   const location = useLocation();
   const navigate = useNavigate();
   const isWelcome = location.pathname === "/";
   const isSetup = location.pathname === "/setup";
   const isGuestInvitation = location.pathname === "/i";
   const isDashboard = location.pathname === "/dashboard";
-  const wideWorkspace = ["/dashboard", "/checklist", "/budget", "/guests", "/venues", "/rings", "/sdm", "/trip"].some(
+  const wideWorkspace = ["/dashboard", "/checklist", "/budget", "/guests", "/venues", "/rings", "/sdm", "/snap", "/trip"].some(
     (path) => location.pathname.startsWith(path),
   );
   const isDemo = !!data.preferences.isDemo;
@@ -57,12 +60,18 @@ export default function AppShell({ data, children }: Props) {
     hasMeaningfulData &&
     isBackupStale(data.preferences.lastBackupAt);
   const saveStatus = useSaveStatus();
-  const realtimeStatus = useRealtimeStatus();
   const conflictStatus = useConflictStatus();
 
   // "더보기" 전체 기능 시트 — 라우트가 바뀌면 닫는다.
   const [menuOpen, setMenuOpen] = useState(false);
+  const [deariePrompt, setDeariePrompt] = useState<BridgePrompt | null>(null);
+  const [dearieDockMessage, setDearieDockMessage] = useState("");
   useEffect(() => { setMenuOpen(false); }, [location.pathname]);
+  useEffect(() => {
+    if (!dearieDockMessage) return;
+    const timer = window.setTimeout(() => setDearieDockMessage(""), 4200);
+    return () => window.clearTimeout(timer);
+  }, [dearieDockMessage]);
   const isMoreActive = !TAB_PATHS.includes(location.pathname);
   const showAgentDock = showNav && !isDashboard && !isGuestInvitation && !isSetup && !menuOpen;
   const statusReport = planningStatusReport(data);
@@ -93,6 +102,27 @@ export default function AppShell({ data, children }: Props) {
   };
 
   const startMine = () => navigate("/", { state: { goModeSelect: true } });
+  const openDearieTalk = () => {
+    setDearieDockMessage("");
+    const talkTarget = currentStatus ?? dockStatus;
+    setDeariePrompt(talkTarget ? weddingSectionTalkPrompt(data, talkTarget) : weddingPlanStarterPrompt(data));
+  };
+  const applyDeariePlan = (parsed: unknown) => {
+    let appliedCount = 0;
+    let hasSummary = false;
+    update((prev: WeddingData) => {
+      const draft = applyStarterPlan(prev, parsed);
+      appliedCount = draft.appliedCount;
+      hasSummary = draft.hasSummary;
+      return draft.next;
+    });
+    const added = appliedCount + (hasSummary ? 1 : 0);
+    setDearieDockMessage(
+      added > 0
+        ? "Dearie가 준비판을 다시 정리했어요."
+        : "읽어봤지만 새로 반영할 항목은 없었어요.",
+    );
+  };
 
   return (
     <div className={`min-h-screen w-full mx-auto flex flex-col bg-paper ${wideWorkspace ? "lg:max-w-6xl" : "max-w-app"}`}>
@@ -146,22 +176,6 @@ export default function AppShell({ data, children }: Props) {
         </div>
       )}
 
-      {/* 실시간 끊김 알림 — 모드 2 동시 편집 깨진 신호 */}
-      {realtimeStatus === "disconnected" && !isGuestInvitation && (
-        <div className="anim-drop px-6 py-3 border-b border-hair flex items-center justify-between gap-3">
-          <span className="text-[12px] text-soft leading-relaxed">
-            실시간 동기화가 잠깐 끊겼어요. 작업한 내용은 그대로 있으니,
-            네트워크가 돌아오면 새로고침해 주세요.
-          </span>
-          <button
-            onClick={() => window.location.reload()}
-            className="min-h-11 px-2 text-[12px] underline underline-offset-4 text-ink"
-          >
-            새로고침
-          </button>
-        </div>
-      )}
-
       {/* 동시 편집 충돌 — 다른 기기(신랑/신부 다른 폰)가 먼저 저장함. 사용자 동작 잃은 상태 */}
       {conflictStatus === "detected" && !isGuestInvitation && (
         <div className="anim-drop px-6 py-3 border-b border-hair flex items-center justify-between gap-3 bg-gold/5">
@@ -201,7 +215,12 @@ export default function AppShell({ data, children }: Props) {
       {showNav && (
         <nav className={`fixed bottom-0 left-1/2 -translate-x-1/2 w-full bg-paper z-30 border-t border-hair pb-[env(safe-area-inset-bottom)] ${wideWorkspace ? "lg:max-w-6xl" : "max-w-app"}`}>
           {showAgentDock && dockStatus && (
-            <AgentActionDock status={dockStatus} currentPath={location.pathname} />
+            <AgentActionDock
+              status={dockStatus}
+              currentPath={location.pathname}
+              message={dearieDockMessage}
+              onTalk={openDearieTalk}
+            />
           )}
           <div className="grid grid-cols-5">
             {NAV.map((item) => (
@@ -242,6 +261,12 @@ export default function AppShell({ data, children }: Props) {
       )}
 
       <MenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} data={data} />
+      <ChatbotBridgeModal
+        open={!!deariePrompt}
+        onClose={() => setDeariePrompt(null)}
+        prompt={deariePrompt}
+        onApply={applyDeariePlan}
+      />
     </div>
   );
 }
@@ -271,7 +296,17 @@ function SaveBadge({ status, mode }: { status: "idle" | "saving" | "saved" | "er
   return <span className={`anim-pop eyebrow ${m.cls}`}>{m.text}</span>;
 }
 
-function AgentActionDock({ status, currentPath }: { status: PlanningSectionStatus; currentPath: string }) {
+function AgentActionDock({
+  status,
+  currentPath,
+  message,
+  onTalk,
+}: {
+  status: PlanningSectionStatus;
+  currentPath: string;
+  message?: string;
+  onTalk: () => void;
+}) {
   const isHere = currentPath === status.to || currentPath.startsWith(`${status.to}/`);
   const stateLabel = PLANNING_STATE_LABEL[status.state];
   const tone =
@@ -281,25 +316,36 @@ function AgentActionDock({ status, currentPath }: { status: PlanningSectionStatu
     "text-ink";
 
   return (
-    <div className="border-b border-hair bg-paper px-4">
-      <Link
-        to={status.to}
-        className="row-tap flex min-h-10 items-center justify-between gap-3 px-1"
-        aria-label="Dearie 다음 작업으로 이동"
-        title={`Dearie 다음 작업: ${status.nextAction}`}
-      >
-        <span className="flex min-w-0 items-baseline gap-2">
-          <span className="text-[10.5px] tracking-eyebrow uppercase text-gold font-semibold">Dearie</span>
-          <span className={`hidden text-[10.5px] tracking-eyebrow uppercase font-medium sm:inline ${tone}`}>{isHere ? "이 화면" : stateLabel}</span>
-          <span className="truncate text-[13.5px] font-semibold text-ink">
+    <div className="border-b border-hair bg-paper px-4 py-2">
+      {message && (
+        <p className="anim-fade mb-1 border-l border-gold pl-3 text-[12px] leading-relaxed text-soft">
+          {message}
+        </p>
+      )}
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+        <Link
+          to={status.to}
+          className="row-tap min-w-0 px-1 py-1"
+          aria-label="Dearie 다음 작업으로 이동"
+          title={`Dearie 다음 작업: ${status.nextAction}`}
+        >
+          <span className="mb-0.5 flex min-w-0 items-center gap-2">
+            <span className="text-[11.5px] tracking-eyebrow uppercase text-gold font-semibold">Dearie</span>
+            <span className={`text-[11.5px] tracking-eyebrow uppercase font-medium ${tone}`}>{isHere ? "이 화면" : stateLabel}</span>
+            <span className={`ml-auto text-[12px] font-medium tabular-nums ${tone}`}>{status.percent}%</span>
+          </span>
+          <span className="block truncate text-[13.5px] font-semibold leading-snug text-ink">
             {status.nextAction}
           </span>
-        </span>
-        <span className="flex flex-shrink-0 items-center gap-1.5">
-          <span className={`text-[12px] font-medium tabular-nums ${tone}`}>{status.percent}%</span>
-          <span className="text-ink">→</span>
-        </span>
-      </Link>
+        </Link>
+        <button
+          type="button"
+          onClick={onTalk}
+          className="min-h-11 border-l border-hair pl-3 text-[13px] font-semibold text-ink hover:text-gold"
+        >
+          말하기
+        </button>
+      </div>
     </div>
   );
 }

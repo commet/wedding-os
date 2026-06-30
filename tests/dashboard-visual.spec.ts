@@ -193,9 +193,9 @@ test.describe("dashboard visual smoke", () => {
 
     await page.goto("/dashboard");
     await page.getByTestId("dashboard-ai-starter").click();
-    await expect(page.getByText("현재 입력된 정보만 바탕으로 초안을 만들고")).toBeVisible();
-    await expect(page.getByText("비로그인 체험은 짧게만 가능해요")).toBeVisible();
-    await expect(page.getByRole("button", { name: "초안 만들기 →", exact: true })).toBeVisible();
+    await expect(page.getByText("지금 앱에 있는 내용만 보고 초안을 만들고")).toBeVisible();
+    await expect(page.getByText("로그인 없이도 짧게 써볼 수 있어요")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Dearie에게 초안 부탁하기", exact: true })).toBeVisible();
     await page.screenshot({
       path: join(screenshotDir, `dashboard-ai-modal-${projectName}.png`),
       fullPage: false,

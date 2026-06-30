@@ -3,11 +3,10 @@
 // 데이터는 사용자의 DB에 저장 — 본인은 절대 접근할 수 없다.
 
 import { createClient } from "@supabase/supabase-js";
-import type { StorageDriver, RealtimeStatus } from "./storage";
+import type { StorageDriver } from "./storage";
 import type { WeddingData } from "./schema";
 import { getOrCreateOwnerToken, isSupabaseHost } from "./security";
 
-const DEFAULT_TABLE = "wedding_data";
 const DEFAULT_CONFIG_ID = "default";
 
 // 짧은 지수 백오프 — 일시 네트워크 끊김 회복용. 너무 길게 잡으면 사용자 다음 편집이 밀려서 UX 망함.
@@ -80,30 +79,6 @@ export function createSupabaseStorage(
       } catch {
         return { ok: false };
       }
-    },
-    subscribe(cb, onStatus) {
-      const channel = client.channel(`wedding-data-${configId}`)
-        .on(
-          "postgres_changes" as any,
-          { event: "*", schema: "public", table: DEFAULT_TABLE, filter: `id=eq.${configId}` },
-          (payload: any) => {
-            const next = payload.new?.data ?? payload.record?.data;
-            const ver = payload.new?.version ?? payload.record?.version;
-            if (next) cb(next as WeddingData, typeof ver === "number" ? ver : undefined);
-          }
-        )
-        .subscribe((status) => {
-          if (!onStatus) return;
-          const map: Record<string, RealtimeStatus> = {
-            SUBSCRIBED: "subscribed",
-            CHANNEL_ERROR: "disconnected",
-            TIMED_OUT: "disconnected",
-            CLOSED: "disconnected",
-          };
-          onStatus(map[status] ?? "connecting");
-        });
-      onStatus?.("connecting");
-      return () => { client.removeChannel(channel); };
     },
   };
 }

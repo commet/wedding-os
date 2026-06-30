@@ -22,6 +22,7 @@ import {
 import { todayISO } from "../lib/freshness";
 import { koBreak } from "../lib/typography";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
+import SectionConsultationPanel from "../components/SectionConsultationPanel";
 import { safeHref } from "../lib/security";
 import {
   emptyFlightResearchDraft,
@@ -122,6 +123,8 @@ export default function Trip({ data, update }: Props) {
         <TripStarter onApply={applyTripStarter} onClose={() => setShowStarter(false)} />
       ) : (
         <>
+          <SectionConsultationPanel sectionId="trip" data={data} update={update} />
+
           <div className="flex items-center gap-6 border-b border-hair pb-3">
             <TabBtn active={tab === "destinations"} onClick={() => setTab("destinations")}>여행지</TabBtn>
             <TabBtn active={tab === "flights"} onClick={() => setTab("flights")}>항공</TabBtn>

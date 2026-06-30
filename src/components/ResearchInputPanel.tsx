@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { InputHTMLAttributes } from "react";
 import { AgentIdentity } from "./AgentIdentity";
 
@@ -41,15 +41,15 @@ type Props<T extends object> = {
 };
 
 export default function ResearchInputPanel<T extends object>({
-  title = "조사 입력",
-  subtitle = "붙여넣은 내용을 Dearie가 사실 칸으로 나눠 초안을 채웁니다.",
+  title = "Dearie에게 자료 읽히기",
+  subtitle = "후기·견적·홈페이지 내용을 붙이면 필요한 칸만 먼저 채웁니다.",
   rawPlaceholder,
   draft,
   sections,
   onDraftChange,
   onParse,
   onApply,
-  applyLabel = "조사 내용 저장 →",
+  applyLabel = "확인한 내용 저장",
   applyDisabled = false,
   applyHint,
   defaultOpen = false,
@@ -57,8 +57,13 @@ export default function ResearchInputPanel<T extends object>({
   const [open, setOpen] = useState(defaultOpen);
   const [raw, setRaw] = useState("");
   const [parsedCount, setParsedCount] = useState<number | null>(null);
+  const [fieldsOpen, setFieldsOpen] = useState(false);
   const fields = useMemo(() => sections.flatMap((section) => section.fields), [sections]);
   const filledCount = fields.filter((field) => hasValue(draft[field.key])).length;
+
+  useEffect(() => {
+    if (parsedCount !== null && filledCount > 0) setFieldsOpen(true);
+  }, [filledCount, parsedCount]);
 
   const setField = (field: ResearchField<T>, rawValue: string) => {
     const parsedNumber = Number(rawValue);
@@ -83,13 +88,13 @@ export default function ResearchInputPanel<T extends object>({
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex w-full items-baseline justify-between gap-4 py-1 text-left"
+      className="flex w-full items-center justify-between gap-4 py-2 text-left"
         aria-expanded={open}
       >
         <span>
           <span className="eyebrow-gold block mb-1">{title}</span>
-          <span className="text-[12px] text-soft leading-relaxed">
-            {filledCount > 0 ? `정리된 칸 ${filledCount}/${fields.length}` : subtitle}
+          <span className="text-[13px] text-soft leading-relaxed">
+            {filledCount > 0 ? `Dearie가 읽은 칸 ${filledCount}/${fields.length}` : subtitle}
           </span>
         </span>
         <span className="text-[12px] text-soft underline underline-offset-4">
@@ -102,14 +107,14 @@ export default function ResearchInputPanel<T extends object>({
           <div className="border-l border-gold/50 pl-4 space-y-3">
             <AgentIdentity compact mood="thinking" />
             <textarea
-              className="input-boxed text-[12.5px] min-h-[104px]"
+              className="input-boxed text-[14px] min-h-[126px]"
               value={raw}
               onChange={(event) => setRaw(event.target.value)}
               placeholder={rawPlaceholder}
             />
             <div className="flex flex-wrap items-center gap-3">
-              <button type="button" onClick={runParse} className="btn-primary px-4 py-2 text-[12px]">
-                Dearie가 초안 채우기
+              <button type="button" onClick={runParse} className="btn-primary px-4 py-2 text-[13px]">
+                Dearie가 읽고 채우기
               </button>
               {raw && (
                 <button
@@ -124,34 +129,51 @@ export default function ResearchInputPanel<T extends object>({
                 </button>
               )}
             </div>
-            <p className="text-[11.5px] text-soft leading-relaxed">
-              원문은 임시로만 읽고 저장하지 않아요. 확인한 사실, 출처, 계약 조건만 아래 칸에 남깁니다.
+            <p className="text-[12px] text-soft leading-relaxed">
+              원문은 저장하지 않고, 확인한 사실·출처·계약 조건만 남깁니다.
               {parsedCount !== null && (
                 <span className="text-ink"> 방금 {parsedCount}개 칸을 읽었어요.</span>
               )}
             </p>
           </div>
 
-          <div className="space-y-5">
-            {sections.map((section) => (
-              <section key={section.title} className="space-y-3">
-                <div>
-                  <div className="section-title">{section.title}</div>
-                  {section.helper && <p className="mt-1 text-[11.5px] text-soft leading-relaxed">{section.helper}</p>}
-                </div>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                  {section.fields.map((field) => (
-                    <ResearchFieldControl
-                      key={field.key}
-                      field={field}
-                      value={draft[field.key]}
-                      onChange={(next) => setField(field, next)}
-                    />
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
+          <details
+            open={fieldsOpen}
+            onToggle={(event) => setFieldsOpen(event.currentTarget.open)}
+            className="border-y border-hair py-3"
+          >
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4">
+              <span>
+                <span className="section-title">채운 내용 확인·수정</span>
+                <span className="mt-1 block text-[12px] text-soft">
+                  직접 입력도 가능하지만, 필요한 칸만 열어 확인하면 됩니다.
+                </span>
+              </span>
+              <span className="text-[12px] text-soft underline underline-offset-4">
+                {fieldsOpen ? "접기" : "열기"}
+              </span>
+            </summary>
+            <div className="mt-4 space-y-5">
+              {sections.map((section) => (
+                <section key={section.title} className="space-y-3">
+                  <div>
+                    <div className="section-title">{section.title}</div>
+                    {section.helper && <p className="mt-1 text-[12px] text-soft leading-relaxed">{section.helper}</p>}
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                    {section.fields.map((field) => (
+                      <ResearchFieldControl
+                        key={field.key}
+                        field={field}
+                        value={draft[field.key]}
+                        onChange={(next) => setField(field, next)}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </details>
 
           {onApply && (
             <div className="space-y-2">

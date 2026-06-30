@@ -5,6 +5,7 @@ import { BridgePrompt, CHAT_LINKS, extractJSON } from "../lib/chatbotBridge";
 import { hasDirectAi, runAiPrompt } from "../lib/aiClient";
 import { getAiConfig } from "../lib/security";
 import { currentAccessToken } from "../lib/auth";
+import { AgentIdentity } from "./AgentIdentity";
 
 type Props = {
   open: boolean;
@@ -20,6 +21,7 @@ export default function ChatbotBridgeModal({ open, onClose, prompt, onApply }: P
   const [aiError, setAiError] = useState("");
   const [pending, setPending] = useState<unknown | null>(null);
   const [managedSignedIn, setManagedSignedIn] = useState(false);
+  const [copyHint, setCopyHint] = useState("");
 
   useEffect(() => {
     if (!open) return;
@@ -28,6 +30,7 @@ export default function ChatbotBridgeModal({ open, onClose, prompt, onApply }: P
     setAiStatus("idle");
     setAiError("");
     setPending(null);
+    setCopyHint("");
   }, [open, prompt?.title]);
 
   useEffect(() => {
@@ -41,12 +44,15 @@ export default function ChatbotBridgeModal({ open, onClose, prompt, onApply }: P
   const aiConfig = getAiConfig();
   const directAiReady = hasDirectAi(aiConfig);
   const pendingPreview = previewPending(pending, prompt.expectedShape);
-  const actionLabel = prompt.expectedShape === "text" ? "문안 다듬기 →" : "초안 만들기 →";
+  const actionLabel = prompt.expectedShape === "text" ? "Dearie에게 다듬어달라고 하기" : "Dearie에게 초안 부탁하기";
 
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(prompt.prompt);
-    } catch {}
+      setCopyHint("요청 내용을 복사했어요.");
+    } catch {
+      setCopyHint("복사하지 못했어요. 아래 내용을 직접 선택해 복사해주세요.");
+    }
   };
 
   const reviewReply = () => {
@@ -102,38 +108,45 @@ export default function ChatbotBridgeModal({ open, onClose, prompt, onApply }: P
     const example = "위 요청에 맞춰 앱이 읽을 수 있는 형식으로 다시 정리해주세요.";
     try {
       await navigator.clipboard.writeText(example);
-      alert("힌트가 복사됐어요. 챗봇에 이어서 보내주세요.");
-    } catch {}
+      setCopyHint("다시 요청할 문장을 복사했어요.");
+    } catch {
+      setCopyHint("복사하지 못했어요. 문장을 직접 선택해 보내주세요.");
+    }
   };
 
   return (
     <Modal open={open} onClose={onClose} title={prompt.title}>
       <div className="space-y-5">
-        <p className="text-[12.5px] text-soft leading-relaxed">
-          {directAiReady
-            ? "현재 입력된 정보만 바탕으로 초안을 만들고, 적용 전 한 번 더 확인합니다."
-            : "아래 요청을 평소 쓰는 AI에 보내고, 답변을 다시 붙여넣으면 적용 전 확인할 수 있어요."}
-        </p>
-
         <div className="border-y border-hair py-4">
+          <div className="mb-4 flex gap-3">
+            <AgentIdentity compact mood={aiStatus === "running" ? "thinking" : "ready"} />
+            <div className="min-w-0 flex-1 border-l border-gold/40 pl-4">
+              <p className="text-[14px] font-medium leading-relaxed text-ink">
+                제가 먼저 정리해볼게요.
+              </p>
+              <p className="mt-1 text-[13px] leading-relaxed text-soft">
+                지금 앱에 있는 내용만 보고 초안을 만들고, 반영 전에는 꼭 한 번 보여드려요.
+              </p>
+            </div>
+          </div>
           {directAiReady ? (
             <>
               <button
-                className="btn-primary w-full py-3 text-[12px] disabled:opacity-50"
+                className="btn-primary w-full py-3 text-[13px] disabled:opacity-50"
                 onClick={runDirect}
                 disabled={aiStatus === "running"}
               >
-                {aiStatus === "running" ? "정리하는 중…" : actionLabel}
+                {aiStatus === "running" ? "Dearie가 정리하는 중…" : actionLabel}
               </button>
-              <p className="text-[11px] text-soft text-center mt-2">
+              <p className="text-[12px] text-soft text-center mt-3 leading-relaxed">
                 {aiConfig.provider === "managed" && !managedSignedIn
-                  ? "비로그인 체험은 짧게만 가능해요. 로그인하면 중요한 초안도 더 안정적으로 쓸 수 있습니다."
+                  ? "로그인 없이도 짧게 써볼 수 있어요. 자주 쓰게 되면 로그인하면 됩니다."
                   : "추천은 시작점이에요. 가격·일정·계약 조건은 직접 확인해 주세요."}
               </p>
               {aiConfig.provider === "managed" && (
                 <p className="text-center mt-2">
-                  <a href="/ai" className="inline-flex min-h-11 items-center text-[11px] underline underline-offset-4 text-soft hover:text-ink">
-                    내 API 키로 직접 쓰기 →
+                  <a href="/ai" className="inline-flex min-h-11 items-center text-[12px] underline underline-offset-4 text-soft hover:text-ink">
+                    사용 방식 바꾸기
                   </a>
                 </p>
               )}
@@ -141,10 +154,10 @@ export default function ChatbotBridgeModal({ open, onClose, prompt, onApply }: P
           ) : (
             <div className="flex items-center justify-between gap-4">
               <p className="text-[11.5px] text-soft leading-relaxed">
-                AI 연결을 켜면 이 단계를 앱 안에서 바로 실행할 수 있어요.
+                앱 안 실행을 켜면 복사 없이 바로 부탁할 수 있어요. 지금은 다른 AI 답변을 붙여넣어 반영할 수 있습니다.
               </p>
               <a href={aiConfig.provider === "managed" ? "/login" : "/ai"} className="inline-flex min-h-11 items-center px-2 text-[12px] underline underline-offset-4 text-ink hover:text-gold whitespace-nowrap">
-                {aiConfig.provider === "managed" ? "로그인 →" : "설정 →"}
+                {aiConfig.provider === "managed" ? "로그인" : "설정"}
               </a>
             </div>
           )}
@@ -154,55 +167,120 @@ export default function ChatbotBridgeModal({ open, onClose, prompt, onApply }: P
         <details open={!directAiReady} className="border-y border-hair py-4">
           <summary className="list-none cursor-pointer flex items-baseline justify-between gap-4">
             <span>
-              <span className="eyebrow-gold block mb-1">{directAiReady ? "직접 확인" : "다른 AI로 사용"}</span>
+              <span className="eyebrow-gold block mb-1">{directAiReady ? "대체 방법" : "다른 AI로 이어가기"}</span>
               <span className="font-serif text-[15px] text-ink">
-                {directAiReady ? "요청 내용 보기 · 다른 AI에 보내기" : "요청을 복사해 챗봇에 보내기"}
+                {directAiReady ? "요청 내용 보기" : "요청을 복사해 답변 붙여넣기"}
               </span>
             </span>
             <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
           </summary>
           <div className="pt-4 space-y-4">
             <div className="bg-cream p-4 border-l-2 border-hair max-h-[34vh] overflow-y-auto">
-              <pre className="text-[11px] whitespace-pre-wrap font-mono text-ink/80 leading-relaxed">{prompt.prompt}</pre>
+              <pre className="text-[12px] whitespace-pre-wrap font-mono text-ink/80 leading-relaxed">{prompt.prompt}</pre>
             </div>
 
             <button className="min-h-11 text-[12px] underline underline-offset-4 text-ink hover:text-gold" onClick={copy}>
-              프롬프트 복사 →
+              다른 AI에 보낼 내용 복사
             </button>
+            {copyHint && <p className="text-[12px] text-soft leading-relaxed">{copyHint}</p>}
 
             <div className="flex gap-3 flex-wrap pt-2 border-t border-hair">
               <a className="inline-flex min-h-11 items-center text-[12px] underline underline-offset-4 text-ink hover:text-gold" href={CHAT_LINKS.claude} target="_blank" rel="noopener noreferrer">Claude 열기 ↗</a>
               <a className="inline-flex min-h-11 items-center text-[12px] underline underline-offset-4 text-ink hover:text-gold" href={CHAT_LINKS.chatgpt} target="_blank" rel="noopener noreferrer">ChatGPT 열기 ↗</a>
               <a className="inline-flex min-h-11 items-center text-[12px] underline underline-offset-4 text-ink hover:text-gold" href={CHAT_LINKS.gemini} target="_blank" rel="noopener noreferrer">Gemini 열기 ↗</a>
             </div>
+
+            {!directAiReady && (
+              <div className="pt-4 border-t border-hair">
+                <label className="label">답변 붙여넣기</label>
+                <textarea
+                  className="input-boxed min-h-[120px] text-[13px]"
+                  placeholder="챗봇이 준 답변을 그대로 복사해서 붙여넣기…"
+                  value={reply}
+                  onChange={(e) => setReply(e.target.value)}
+                />
+                {parseError && (
+                  <div className="mt-3 pl-4 border-l-2 border-gold/50 text-[12px] space-y-2">
+                    <p className="text-soft whitespace-pre-line">{parseError}</p>
+                    {prompt.expectedShape === "json" && (
+                      <button onClick={copyExpectedShape} className="text-ink underline underline-offset-4 hover:text-gold">
+                        다시 요청할 문장 복사
+                      </button>
+                    )}
+                  </div>
+                )}
+                <p className="text-[12px] text-soft text-center mt-4 mb-3 leading-relaxed">
+                  답변을 먼저 읽어보고, 반영 가능한 초안만 따로 보여드릴게요.
+                </p>
+                <button className="btn-primary w-full py-3 text-[13px]" onClick={reviewReply}>
+                  초안 확인하기 →
+                </button>
+              </div>
+            )}
           </div>
         </details>
 
-        <div className="pt-5 border-t border-hair">
-          <label className="label">다른 AI 답변 붙여넣기</label>
-          <textarea
-            className="input-boxed min-h-[120px] text-[13px]"
-            placeholder="챗봇이 준 답변을 그대로 복사해서 붙여넣기…"
-            value={reply}
-            onChange={(e) => setReply(e.target.value)}
-          />
-          {parseError && (
-            <div className="mt-3 pl-4 border-l-2 border-gold/50 text-[12px] space-y-2">
-              <p className="text-soft whitespace-pre-line">{parseError}</p>
-              {prompt.expectedShape === "json" && (
-                <button onClick={copyExpectedShape} className="text-ink underline underline-offset-4 hover:text-gold">
-                  다시 요청할 문장 복사
-                </button>
+        {directAiReady && aiError && (
+          <div className="border-y border-hair py-4">
+            <p className="text-[13px] leading-relaxed text-soft">
+              지금은 직접 실행이 막혔어요. 위 대체 방법을 열어 다른 AI 답변을 붙여넣으면 같은 방식으로 확인하고 반영할 수 있습니다.
+            </p>
+          </div>
+        )}
+
+        {!directAiReady && (
+          <div className="pt-1">
+            <p className="text-[12px] text-soft text-center leading-relaxed">
+              앱 안 실행을 켜면 이 붙여넣기 단계가 사라집니다.
+            </p>
+          </div>
+        )}
+
+        {!directAiReady && parseError && prompt.expectedShape === "json" && copyHint && (
+          <p className="text-[12px] text-soft leading-relaxed">{copyHint}</p>
+        )}
+
+        {!directAiReady && (
+          <div className="sr-only" aria-live="polite">
+            {copyHint}
+          </div>
+        )}
+
+        {!directAiReady && false && (
+          <div>
+            {/* kept unreachable to prevent layout churn if future bridge-only review moves out of details */}
+          </div>
+        )}
+
+        {directAiReady && (
+          <details open className="border-b border-hair pb-4">
+            <summary className="list-none cursor-pointer flex min-h-11 items-center justify-between gap-4">
+              <span className="text-[13px] font-medium text-soft">답변을 직접 붙여넣어도 돼요</span>
+              <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
+            </summary>
+            <div className="mt-3">
+              <textarea
+                className="input-boxed min-h-[104px] text-[13px]"
+                placeholder="챗봇이 준 답변을 그대로 복사해서 붙여넣기…"
+                value={reply}
+                onChange={(e) => setReply(e.target.value)}
+              />
+              {parseError && (
+                <div className="mt-3 pl-4 border-l-2 border-gold/50 text-[12px] space-y-2">
+                  <p className="text-soft whitespace-pre-line">{parseError}</p>
+                  {prompt.expectedShape === "json" && (
+                    <button onClick={copyExpectedShape} className="text-ink underline underline-offset-4 hover:text-gold">
+                      다시 요청할 문장 복사
+                    </button>
+                  )}
+                </div>
               )}
+              <button className="btn-secondary mt-3 text-[12px]" onClick={reviewReply}>
+                초안 확인하기 →
+              </button>
             </div>
-          )}
-          <p className="text-[11px] text-soft text-center mt-4 mb-3 leading-relaxed">
-            만든 초안을 먼저 보여드릴게요. 그대로 반영하거나, 필요한 부분만 고쳐 써도 돼요.
-          </p>
-          <button className="btn-primary w-full py-3 text-[12.5px]" onClick={reviewReply}>
-            초안 확인하기 →
-          </button>
-        </div>
+          </details>
+        )}
 
         {pending !== null && (
           <div className="border-y border-hair py-4 space-y-4">

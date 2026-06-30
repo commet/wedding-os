@@ -7,8 +7,8 @@
 // 자격증명(url·key·weddingId·weddingKey·ownerToken)을 파라미터로 받는다 — 테스트 가능하도록.
 // 실제 값 조립(env + 시크릿)은 storage.ts 의 selectDriver 가 한다.
 //
-// 실시간(realtime)은 RPC-only RLS 구조라 postgres_changes 가 동작하지 않는다 →
-// v1 은 subscribe 없이 load-on-focus + 충돌 UI 로 수렴. (계획상 알려진 제약)
+// Postgres changes 기반 full realtime 은 쓰지 않는다.
+// storage.ts 가 본문 없는 Broadcast 갱신 신호 + load-on-focus/주기 최신화로 수렴한다.
 
 import { createClient } from "@supabase/supabase-js";
 import type { StorageDriver } from "./storage";

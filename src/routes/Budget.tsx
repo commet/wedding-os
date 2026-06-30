@@ -8,6 +8,8 @@ import {
 } from "../lib/derived";
 import { koBreak } from "../lib/typography";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
+import SectionConsultationPanel from "../components/SectionConsultationPanel";
+import DearieConfirmModal from "../components/DearieConfirmModal";
 
 type Props = { data: WeddingData; update: (patch: any) => void };
 type View = "all" | "current" | "unpaid" | "over";
@@ -20,6 +22,7 @@ export default function Budget({ data, update }: Props) {
   const ct = contractedTotals(data); // 계약 선금·잔금 합계
   const [view, setView] = useState<View>("all");
   const [customName, setCustomName] = useState("");
+  const [confirmWipe, setConfirmWipe] = useState(false);
 
   const totals = useMemo(() => {
     const planned = items.reduce((s, b) => s + (b.planned ?? 0), 0);
@@ -41,7 +44,10 @@ export default function Budget({ data, update }: Props) {
   };
 
   const wipeAll = () => {
-    if (!confirm("예산 항목을 모두 지울까요? 되돌릴 수 없어요.")) return;
+    setConfirmWipe(true);
+  };
+
+  const confirmWipeAll = () => {
     update((prev: WeddingData) => ({ ...prev, budget: [] }));
   };
 
@@ -129,6 +135,9 @@ export default function Budget({ data, update }: Props) {
             기본 항목을 불러온 뒤 필요한 것만 남기고<br />두 분의 금액을 채워보세요.
           </p>
         </div>
+        <div className="text-left">
+          <SectionConsultationPanel sectionId="budget" data={data} update={update} />
+        </div>
         <p className="text-[12.5px] text-soft leading-relaxed border-y border-hair py-4">
           {BUDGET_TOTAL_NOTE}
         </p>
@@ -161,6 +170,8 @@ export default function Budget({ data, update }: Props) {
         <div className="eyebrow-gold mb-2">예산과 지출</div>
         <h1 className="h-page">{koBreak("비용 관리")}</h1>
       </div>
+
+      <SectionConsultationPanel sectionId="budget" data={data} update={update} />
 
       <ProcessAgentPanel
         title={totals.overCount > 0 ? "초과 항목부터 다시 보는 중" : mealBudgetLow ? "식대 예산을 보정해야 해요" : "돈 흐름을 계약과 맞추는 중"}
@@ -385,6 +396,15 @@ export default function Budget({ data, update }: Props) {
       <p className="text-[10.5px] text-soft text-center leading-relaxed">
         기본 금액은 실제 견적 전 감을 잡기 위한 참고치입니다. 지역·시즌·요일·보증인원·계약 조건에 따라 크게 달라집니다.
       </p>
+      <DearieConfirmModal
+        open={confirmWipe}
+        title="예산 항목을 모두 지울까요?"
+        body="예상 금액, 실제 지출, 결제 완료 표시가 모두 사라집니다. 새로 시작하려는 상황이 아니면 취소하고 필요한 항목만 삭제하는 편이 안전해요."
+        confirmLabel="모두 지우기"
+        tone="warn"
+        onClose={() => setConfirmWipe(false)}
+        onConfirm={confirmWipeAll}
+      />
     </div>
   );
 }

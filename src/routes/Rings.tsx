@@ -5,12 +5,23 @@ import { RING_CATALOG } from "../data/ringsTemplate";
 import FreshnessBadge from "../components/FreshnessBadge";
 import ChatbotBridgeModal from "../components/ChatbotBridgeModal";
 import Modal from "../components/Modal";
+import DearieConfirmModal from "../components/DearieConfirmModal";
+import { AgentIdentity } from "../components/AgentIdentity";
 import VendorActions from "../components/VendorActions";
 import SafeImg from "../components/SafeImg";
 import ResearchInputPanel, { type ResearchSection } from "../components/ResearchInputPanel";
 import { ringPriceCheckPrompt, BridgePrompt } from "../lib/chatbotBridge";
 import { koBreak } from "../lib/typography";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
+import {
+  RING_CONSULTATION_QUESTIONS,
+  answerRingConsultation,
+  nextRingConsultationQuestion,
+  ringConsultationAnswers,
+  type RingConsultationAnswers,
+  type RingConsultationQuestion,
+  type RingConsultationQuestionId,
+} from "../lib/ringConsultation";
 import {
   emptyRingResearchDraft,
   parseRingResearchText,
@@ -67,6 +78,7 @@ type Who = "groom" | "bride";
 type RingBudgetBand = "under100" | "100to200" | "200to300" | "over300";
 type RingDiamondPref = "all" | "simple" | "diamond";
 type StarterRingPick = { ring: Ring; reason: string };
+type RingMaterialPref = "전체" | "플래티넘" | "화이트골드" | "로즈골드" | "옐로우골드";
 
 // 카탈로그 자동 시드를 기기당 한 번만 — 사용자가 목록을 비운 뒤 재진입해도 되살아나지 않게.
 const RINGS_SEEDED_KEY = "wedding-os/rings-seeded";
@@ -113,6 +125,7 @@ export default function Rings({ data, update }: Props) {
   const [brandFilter, setBrandFilter] = useState<string>("전체");
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [showStarter, setShowStarter] = useState(() => searchParams.get("starter") === "1");
+  const [confirmReset, setConfirmReset] = useState(false);
   const [introDismissed, setIntroDismissed] = useState(() => {
     try { return !!localStorage.getItem(RINGS_INTRO_DISMISSED_KEY); } catch { return false; }
   });
@@ -182,6 +195,15 @@ export default function Rings({ data, update }: Props) {
   const priceMissing = top5.find((r) => !r.priceKRW || !r.lastVerified);
   const whoMarked = who === "bride" ? brideMarked : groomMarked;
   const otherMarked = who === "bride" ? groomMarked : brideMarked;
+  const consultationAnswers = useMemo(() => ringConsultationAnswers(data), [data]);
+  const consultationQuestion = nextRingConsultationQuestion(consultationAnswers);
+  const consultationAnswered = RING_CONSULTATION_QUESTIONS.filter((question) => consultationAnswers[question.id]).length;
+  const consultationTotal = RING_CONSULTATION_QUESTIONS.length;
+  const consultationPicks = useMemo(
+    () => pickStarterRings({ answers: consultationAnswers }),
+    [consultationAnswers],
+  );
+  const consultationComplete = consultationAnswered === consultationTotal;
 
   const toggle = (id: string, kind: "starred" | "liked") => {
     update((prev: WeddingData) => ({
@@ -208,7 +230,10 @@ export default function Rings({ data, update }: Props) {
   };
 
   const resetCatalog = () => {
-    if (!confirm("카탈로그를 처음 상태로 되돌릴까요? 직접 추가한 반지와 ★/♥ 표시가 사라져요.")) return;
+    setConfirmReset(true);
+  };
+
+  const confirmResetCatalog = () => {
     update((prev: WeddingData) => ({ ...prev, rings: RING_CATALOG.map((r) => ({ ...r })) }));
   };
 
@@ -227,6 +252,10 @@ export default function Rings({ data, update }: Props) {
       return { ...prev, rings: [...additions, ...marked] };
     });
     setShowStarter(false);
+  };
+
+  const answerConsultation = (questionId: RingConsultationQuestionId, value: string) => {
+    update((prev: WeddingData) => answerRingConsultation(prev, questionId, value));
   };
 
   const openPriceCheck = (ring: Ring) => {
@@ -267,7 +296,7 @@ export default function Rings({ data, update }: Props) {
       </div>
 
       {/* 첫 진입 안내 — 카탈로그가 미리 채워진 이유를 한 번만 설명 */}
-      {!introDismissed && rings.length > 0 && (
+      {!showStarter && !introDismissed && rings.length > 0 && (
         <div className="anim-drop border-y border-hair py-4 flex items-start gap-3">
           <p className="flex-1 text-[12.5px] leading-[1.85] text-soft break-keep">
             <span className="text-ink">둘러보기예요</span> — 마음에 드는 디자인은 <span className="text-gold">♥</span>, 아닌 건 넘기면 후보가 좁혀져요.
@@ -283,6 +312,7 @@ export default function Rings({ data, update }: Props) {
       )}
 
       {/* 신랑/신부 — underline 탭 */}
+      {!showStarter && (
       <div className="flex items-baseline justify-between border-b border-hair pb-3">
         <span className="eyebrow">지금 고르는 사람</span>
         <div className="flex gap-5">
@@ -300,38 +330,62 @@ export default function Rings({ data, update }: Props) {
           </button>
         </div>
       </div>
+      )}
 
+      {showStarter && (
+        <RingStarter
+          who={who}
+          onWhoChange={setWho}
+          answers={consultationAnswers}
+          picks={consultationPicks}
+          onAnswer={answerConsultation}
+          onApply={applyStarter}
+          onClose={() => setShowStarter(false)}
+        />
+      )}
+
+      {!showStarter && (
       <ProcessAgentPanel
-        title={mutual.length > 0 ? "겹치는 취향을 후보로 좁히는 중" : whoMarked < 3 ? "먼저 취향 신호를 모으는 중" : "상대 선택을 기다리는 중"}
+        title={
+          !consultationComplete
+            ? "반지 기준을 먼저 묻는 중"
+            : mutual.length > 0
+              ? "겹치는 취향을 후보로 좁히는 중"
+              : whoMarked < 3
+                ? "이 기준으로 마음 표시를 모으는 중"
+                : "상대 선택을 기다리는 중"
+        }
         summary={
-          mutual.length > 0
-            ? `두 사람이 함께 표시한 후보가 ${mutual.length}개 있어요. 이제 가격 확인과 매장 동선을 잡으면 됩니다.`
-            : whoMarked < 3
-              ? `${who === "bride" ? "신부" : "신랑"} 쪽 표시가 아직 적어요. 마음에 드는 후보를 3개 정도 눌러야 취향이 읽힙니다.`
-              : "한쪽 취향은 충분히 보였어요. 이제 상대가 같은 방식으로 눌러야 겹치는 후보를 찾을 수 있습니다."
+          !consultationComplete
+            ? `${consultationQuestion?.title ?? "기준이 거의 잡혔어요"} 답하면 추천 후보와 매장 질문이 더 선명해집니다.`
+            : mutual.length > 0
+              ? `두 사람이 함께 표시한 후보가 ${mutual.length}개 있어요. 이제 가격 확인과 매장 동선을 잡으면 됩니다.`
+              : whoMarked < 3
+                ? `${who === "bride" ? "신부" : "신랑"} 쪽 표시가 아직 적어요. Dearie가 고른 후보 중 3개 정도만 마음 표시해보세요.`
+                : "한쪽 취향은 충분히 보였어요. 이제 상대가 같은 방식으로 눌러야 겹치는 후보를 찾을 수 있습니다."
         }
         mood={mutual.length > 0 ? "ready" : "thinking"}
         metrics={[
+          { label: "기준", value: `${consultationAnswered}/${consultationTotal}`, tone: consultationComplete ? "normal" : "warn" },
           { label: "신부 표시", value: `${brideMarked}개`, tone: brideMarked < 3 ? "warn" : "normal" },
           { label: "신랑 표시", value: `${groomMarked}개`, tone: groomMarked < 3 ? "warn" : "normal" },
-          { label: "겹침", value: `${mutual.length}개`, tone: mutual.length > 0 ? "normal" : "muted" },
         ]}
         steps={[
+          { label: "생활 방식·예산·디자인 기준 답하기", detail: "질문은 한 번에 하나씩만 묻고, 답하면 후보가 바로 다시 정렬됩니다.", done: consultationComplete },
           { label: "각자 마음에 드는 후보 3개 표시", detail: "좋아요는 넓게, 즐겨찾기는 진짜 후보에만 눌러요.", done: brideMarked >= 3 && groomMarked >= 3 },
           { label: "둘 다 표시한 후보 확인", detail: "겹치는 후보가 매장 상담 우선순위가 됩니다.", done: mutual.length > 0 },
           { label: "Top 후보 가격 재확인", detail: "카탈로그 가격은 참고용이라 공식 판매처 또는 매장에서 다시 확인해야 합니다.", done: top5.length > 0 && !priceMissing },
         ]}
         actions={[
-          { label: "취향 기준 열기 →", onClick: () => setShowStarter(true), tone: "primary" },
+          { label: consultationComplete ? "추천 후보 보기 →" : "다음 기준 답하기 →", onClick: () => setShowStarter(true), tone: "primary" },
           ...(otherMarked < 3 ? [{ label: `${who === "bride" ? "신랑" : "신부"} 선택으로 전환`, onClick: () => setWho(who === "bride" ? "groom" : "bride") }] : []),
           ...(priceMissing ? [{ label: "Top 후보 가격 확인 →", onClick: () => openPriceCheck(priceMissing), tone: "primary" as const }] : []),
           { label: "카탈로그 열기", onClick: () => setCatalogOpen(true) },
         ]}
       />
+      )}
 
-      {showStarter ? (
-        <RingStarter who={who} onApply={applyStarter} onClose={() => setShowStarter(false)} />
-      ) : (
+      {!showStarter && (
         <button
           onClick={() => setShowStarter(true)}
           className="w-full text-left border-y border-hair py-4 flex items-baseline justify-between gap-4"
@@ -450,6 +504,15 @@ export default function Rings({ data, update }: Props) {
         onClose={() => { setBridgePrompt(null); setBridgeTarget(null); }}
         prompt={bridgePrompt}
         onApply={applyPrice}
+      />
+      <DearieConfirmModal
+        open={confirmReset}
+        title="반지 카탈로그를 처음 상태로 되돌릴까요?"
+        body="직접 추가한 반지와 두 분의 표시가 사라집니다. 카탈로그를 완전히 새로 펼치고 싶을 때만 진행하세요."
+        confirmLabel="처음 상태로"
+        tone="warn"
+        onClose={() => setConfirmReset(false)}
+        onConfirm={confirmResetCatalog}
       />
     </div>
   );
@@ -766,28 +829,30 @@ function shouldKeepUnmappedRing(ring: Ring): boolean {
 
 function RingStarter({
   who,
+  onWhoChange,
+  answers,
+  picks,
+  onAnswer,
   onApply,
   onClose,
 }: {
   who: Who;
+  onWhoChange: (who: Who) => void;
+  answers: RingConsultationAnswers;
+  picks: StarterRingPick[];
+  onAnswer: (questionId: RingConsultationQuestionId, value: string) => void;
   onApply: (items: Ring[]) => void;
   onClose: () => void;
 }) {
-  const [budget, setBudget] = useState<RingBudgetBand>("100to200");
-  const [material, setMaterial] = useState<string>("전체");
-  const [diamond, setDiamond] = useState<RingDiamondPref>("all");
-
-  const picks = useMemo(
-    () => pickStarterRings({ budget, material, diamond }),
-    [budget, material, diamond]
-  );
   const whoLabel = who === "bride" ? "신부" : "신랑";
+  const activeQuestion = nextRingConsultationQuestion(answers);
+  const answeredCount = RING_CONSULTATION_QUESTIONS.filter((question) => answers[question.id]).length;
 
   return (
     <section className="border-y border-hair py-5 space-y-5">
       <div className="flex items-baseline justify-between gap-4">
         <div>
-          <div className="eyebrow mb-2">기본 후보</div>
+          <div className="eyebrow mb-2">Dearie 상담 · {answeredCount}/{RING_CONSULTATION_QUESTIONS.length}</div>
           <h2 className="font-serif text-[18px] text-ink break-keep">반지 기준 잡기</h2>
         </div>
         <button onClick={onClose} className="text-[12px] text-soft underline underline-offset-4 hover:text-ink">
@@ -795,29 +860,60 @@ function RingStarter({
         </button>
       </div>
 
-      <p className="text-[15px] text-soft leading-relaxed break-keep">
-        조건 몇 개만 골라 먼저 비교할 후보를 잡습니다. 가격은 상담 전 감을 잡는 기준이라,
-        마음에 드는 후보는 {whoLabel}의 좋아요로 표시하고 매장 상담 전에 다시 확인하세요.
-      </p>
+      <div className="flex gap-3 border-l border-gold/40 pl-4">
+        <AgentIdentity compact mood={activeQuestion ? "thinking" : "ready"} />
+        <p className="min-w-0 flex-1 text-[15px] text-soft leading-relaxed break-keep">
+          제가 한 질문씩 묻고 후보를 좁힐게요. 좋아요는 지금 선택한 {whoLabel} 기준으로 저장돼요.
+        </p>
+      </div>
 
-      <StarterOption label="예산">
-        <Segment active={budget === "under100"} onClick={() => setBudget("under100")}>100만 이하</Segment>
-        <Segment active={budget === "100to200"} onClick={() => setBudget("100to200")}>100~200</Segment>
-        <Segment active={budget === "200to300"} onClick={() => setBudget("200to300")}>200~300</Segment>
-        <Segment active={budget === "over300"} onClick={() => setBudget("over300")}>300 이상</Segment>
-      </StarterOption>
+      <div className="flex items-baseline justify-between border-y border-hair py-3">
+        <span className="eyebrow">지금 표시할 사람</span>
+        <div className="flex gap-5">
+          <button
+            type="button"
+            onClick={() => onWhoChange("bride")}
+            className={who === "bride" ? "seg-active" : "seg"}
+          >
+            신부
+          </button>
+          <button
+            type="button"
+            onClick={() => onWhoChange("groom")}
+            className={who === "groom" ? "seg-active" : "seg"}
+          >
+            신랑
+          </button>
+        </div>
+      </div>
 
-      <StarterOption label="소재">
-        {["전체", "플래티넘", "화이트골드", "로즈골드", "옐로우골드"].map((m) => (
-          <Segment key={m} active={material === m} onClick={() => setMaterial(m)}>{m}</Segment>
-        ))}
-      </StarterOption>
+      {activeQuestion ? (
+        <RingQuestionCard question={activeQuestion} value={answers[activeQuestion.id]} onAnswer={onAnswer} />
+      ) : (
+        <div className="border-l border-gold pl-4">
+          <div className="eyebrow-gold mb-1">기준 완료</div>
+          <p className="text-[13.5px] leading-relaxed text-soft break-keep">
+            이제 아래 후보를 먼저 표시하고, 두 분이 겹치는 후보만 매장 상담 후보로 남기면 됩니다.
+          </p>
+        </div>
+      )}
 
-      <StarterOption label="디자인">
-        <Segment active={diamond === "all"} onClick={() => setDiamond("all")}>상관없음</Segment>
-        <Segment active={diamond === "simple"} onClick={() => setDiamond("simple")}>심플</Segment>
-        <Segment active={diamond === "diamond"} onClick={() => setDiamond("diamond")}>다이아</Segment>
-      </StarterOption>
+      <details className="border-y border-hair py-3">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4">
+          <span>
+            <span className="section-title">답한 기준</span>
+            <span className="mt-1 block text-[12px] text-soft">
+              바꾸고 싶은 기준은 여기서 다시 고르면 됩니다.
+            </span>
+          </span>
+          <span className="text-[12px] text-soft underline underline-offset-4">보기</span>
+        </summary>
+        <div className="mt-4 space-y-4">
+          {RING_CONSULTATION_QUESTIONS.map((question) => (
+            <RingAnsweredQuestion key={question.id} question={question} value={answers[question.id]} onAnswer={onAnswer} />
+          ))}
+        </div>
+      </details>
 
       <div className="border-y border-hair divide-y divide-hair">
         {picks.map(({ ring, reason }, idx) => (
@@ -854,34 +950,82 @@ function RingStarter({
   );
 }
 
-function StarterOption({ label, children }: { label: string; children: React.ReactNode }) {
+function RingQuestionCard({
+  question,
+  value,
+  onAnswer,
+}: {
+  question: RingConsultationQuestion;
+  value?: string;
+  onAnswer: (questionId: RingConsultationQuestionId, value: string) => void;
+}) {
   return (
-    <div>
-      <div className="eyebrow mb-3">{label}</div>
-      <div className="flex flex-wrap gap-x-5 gap-y-3">{children}</div>
+    <div className="border-l border-gold pl-4 space-y-4">
+      <div>
+        <div className="eyebrow-gold mb-2">{question.eyebrow}</div>
+        <h3 className="font-serif text-[20px] leading-snug text-ink break-keep">{question.title}</h3>
+        <p className="mt-2 text-[13px] leading-relaxed text-soft break-keep">{question.body}</p>
+      </div>
+      <div className="space-y-2">
+        {question.options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onAnswer(question.id, option.value)}
+            className={`w-full border-t border-hair py-3 text-left transition ${
+              value === option.value ? "text-ink" : "text-soft hover:text-ink"
+            }`}
+          >
+            <span className="flex items-baseline justify-between gap-3">
+              <span className="text-[14px] font-semibold leading-snug break-keep">{option.label}</span>
+              <span className="text-[12px]">{value === option.value ? "선택됨" : "선택"}</span>
+            </span>
+            <span className="mt-1 block text-[12.5px] leading-relaxed break-keep">{option.detail}</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
 
-function Segment({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function RingAnsweredQuestion({
+  question,
+  value,
+  onAnswer,
+}: {
+  question: RingConsultationQuestion;
+  value?: string;
+  onAnswer: (questionId: RingConsultationQuestionId, value: string) => void;
+}) {
+  const option = question.options.find((item) => item.value === value);
   return (
-    <button onClick={onClick} className={`tracking-wide ${active ? "seg-active" : "seg"}`}>
-      {children}
-    </button>
+    <div>
+      <div className="mb-2 flex items-baseline justify-between gap-3">
+        <div className="eyebrow">{question.eyebrow}</div>
+        <div className="text-[12px] font-medium text-ink">{option?.label ?? "미답"}</div>
+      </div>
+      <div className="flex flex-wrap gap-x-5 gap-y-2">
+        {question.options.map((item) => (
+          <button
+            key={item.value}
+            type="button"
+            onClick={() => onAnswer(question.id, item.value)}
+            className={`tracking-wide ${value === item.value ? "seg-active" : "seg"}`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
-function pickStarterRings({
-  budget,
-  material,
-  diamond,
-}: {
-  budget: RingBudgetBand;
-  material: string;
-  diamond: RingDiamondPref;
-}): StarterRingPick[] {
+function pickStarterRings({ answers }: { answers: RingConsultationAnswers }): StarterRingPick[] {
+  const budget = ringBudgetFromAnswers(answers);
+  const material = ringMaterialFromAnswers(answers);
+  const diamond = ringDiamondFromAnswers(answers);
   const scored = RING_CATALOG.map((ring) => {
-    let score = 0;
+    let score = ringConsultationScore(ring, answers);
     if (ring.priceKRW && isRingBudgetMatch(ring.priceKRW, budget)) score += 5;
     if (material === "전체" || ring.material === material) score += 3;
     if (diamond === "all") score += 1;
@@ -918,11 +1062,84 @@ function pickStarterRings({
 
   return selected.slice(0, 5).map(({ ring }) => ({
     ring,
-    reason: ringStarterReason(ring, budget, material, diamond),
+    reason: ringStarterReason(ring, answers, budget, material, diamond),
   }));
 }
 
-function ringStarterReason(ring: Ring, budget: RingBudgetBand, material: string, diamond: RingDiamondPref): string {
+function ringBudgetFromAnswers(answers: RingConsultationAnswers): RingBudgetBand {
+  const value = answers["rings-budget"];
+  return value === "under100" || value === "100to200" || value === "200to300" || value === "over300" ? value : "100to200";
+}
+
+function ringMaterialFromAnswers(answers: RingConsultationAnswers): RingMaterialPref {
+  const value = answers["rings-tone"];
+  if (value === "platinum") return "플래티넘";
+  if (value === "white") return "화이트골드";
+  if (value === "rose") return "로즈골드";
+  if (value === "yellow") return "옐로우골드";
+  return "전체";
+}
+
+function ringDiamondFromAnswers(answers: RingConsultationAnswers): RingDiamondPref {
+  const design = answers["rings-design"];
+  if (design === "diamond" || design === "signature") return "diamond";
+  if (design === "minimal" || design === "classic") return "simple";
+  return "all";
+}
+
+function ringConsultationScore(ring: Ring, answers: RingConsultationAnswers): number {
+  let score = 0;
+  const wear = answers["rings-wear"];
+  const design = answers["rings-design"];
+  const match = answers["rings-match"];
+  const priority = answers["rings-priority"];
+  const brandWeight = luxuryBrandScore(ring.brand);
+
+  if (wear === "daily") {
+    if (!ring.hasDiamond) score += 3;
+    if (ring.material === "플래티넘" || ring.material === "화이트골드") score += 2;
+  } else if (wear === "occasion") {
+    if (ring.hasDiamond) score += 2;
+    score += brandWeight;
+  } else if (wear === "balanced") {
+    score += ring.hasDiamond ? 1 : 2;
+  }
+
+  if (design === "minimal" && !ring.hasDiamond) score += 4;
+  if (design === "classic" && /밴드|웨딩|클래식|투게더|1895/i.test(ring.model)) score += 4;
+  if (design === "diamond" && ring.hasDiamond) score += 4;
+  if (design === "signature") score += Math.min(4, brandWeight + (ring.hasDiamond ? 1 : 0));
+
+  if (match === "same-line" && /밴드|웨딩|클래식|투게더|1895/i.test(ring.model)) score += 2;
+  if (match === "same-mood" && ring.material) score += 1;
+  if (match === "each-own") score += ring.hasDiamond || brandWeight >= 2 ? 1 : 0;
+
+  if (priority === "comfort") {
+    if (!ring.hasDiamond) score += 2;
+    if (ring.material === "플래티넘") score += 1;
+  } else if (priority === "brand") {
+    score += brandWeight + 1;
+  } else if (priority === "value") {
+    if ((ring.priceKRW ?? Number.MAX_SAFE_INTEGER) <= 2_000_000) score += 3;
+    if ((ring.source ?? "").includes("종로") || (ring.source ?? "").includes("백화점")) score += 1;
+  }
+
+  return score;
+}
+
+function luxuryBrandScore(brand: string): number {
+  if (["까르띠에", "티파니", "샤넬", "불가리", "반 클리프 아펠"].includes(brand)) return 3;
+  if (["부쉐론", "쇼메", "피아제", "쇼파드", "드 비어스"].includes(brand)) return 2;
+  return 1;
+}
+
+function ringStarterReason(
+  ring: Ring,
+  answers: RingConsultationAnswers,
+  budget: RingBudgetBand,
+  material: RingMaterialPref,
+  diamond: RingDiamondPref,
+): string {
   const parts: string[] = [];
   if (ring.priceKRW && isRingBudgetMatch(ring.priceKRW, budget)) {
     parts.push("예산대에 맞는 후보");
@@ -935,6 +1152,9 @@ function ringStarterReason(ring: Ring, budget: RingBudgetBand, material: string,
   else if (ring.material) parts.push(ring.material);
   if (diamond === "diamond" && ring.hasDiamond) parts.push("다이아 디자인");
   if (diamond === "simple" && !ring.hasDiamond) parts.push("심플 디자인");
+  if (answers["rings-priority"] === "comfort" && !ring.hasDiamond) parts.push("착용감 우선");
+  if (answers["rings-priority"] === "brand") parts.push("브랜드 우선");
+  if (answers["rings-match"] === "same-line") parts.push("커플 라인으로 보기 쉬움");
   return parts.slice(0, 3).join(" · ");
 }
 

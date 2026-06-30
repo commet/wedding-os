@@ -7,6 +7,7 @@ import { GIFT_TIER_LABEL, GIFT_IDEAS, GIFT_TIP } from "../data/giftCatalog";
 import { koBreak } from "../lib/typography";
 import { buildChecklistSheet, shareOrDownloadText } from "../lib/textExport";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
+import SectionConsultationPanel from "../components/SectionConsultationPanel";
 
 type Props = { data: WeddingData; update: (patch: any) => void; };
 type View = "category" | "timeline";
@@ -145,6 +146,9 @@ export default function Checklist({ data, update }: Props) {
             먼저 <Link to="/invitation" className="underline underline-offset-2">청첩장</Link>에서 결혼식 날짜를 입력하면 더 정확해요.
           </p>
         )}
+        <div className="text-left">
+          <SectionConsultationPanel sectionId="checklist" data={data} update={update} />
+        </div>
         <ProcessAgentPanel
           title="날짜가 생기면 준비 순서를 바로 짭니다"
           summary="체크리스트는 할 일을 많이 보여주는 화면이 아니라, 지금 시점에 늦은 것과 이번 주 할 일을 먼저 꺼내는 운영판입니다."
@@ -182,6 +186,8 @@ export default function Checklist({ data, update }: Props) {
       <div className="w-full h-px bg-line relative">
         <div className="absolute top-0 left-0 h-px bg-ink transition-all" style={{ width: `${allItems.length ? (doneCount / allItems.length) * 100 : 0}%` }} />
       </div>
+
+      <SectionConsultationPanel sectionId="checklist" data={data} update={update} />
 
       <ProcessAgentPanel
         title={overdueCount > 0 ? "지난 마감부터 끌어올리는 중" : weekCount > 0 ? "이번 주 할 일을 추리는 중" : "다음 마감까지 조용히 정렬 중"}

@@ -82,7 +82,7 @@ Supabase 대시보드 → Authentication:
 
 ## 알아둘 한계 / 후속
 
-- **간편 모드 실시간 동기화 없음** (RPC-only RLS) — 부부 편집은 새로고침/재진입 시 반영 + 충돌 안내 UI.
+- **본문 없는 부분 realtime** — 저장 성공 시 Supabase Broadcast로 “새 버전 있음” 신호만 보내고, 실제 데이터는 기존 RPC load로 다시 읽습니다. 신호를 놓쳐도 앱 복귀·네트워크 복구·90초 주기 최신화가 안전망이고, 같은 정보를 동시에 고치면 충돌 안내 UI로 수렴합니다.
 - **남용 방지**: AI 발행은 로그인 세션, RSVP는 링크별 capability, API는 IP burst limit을 확인합니다. Dearie AI는 비로그인 체험을 IP·signed cookie·브라우저 trial id·공유망 보조 한도로 제한하고, 로그인 사용자는 사용자별 시간당 제한과 deep 모델 전용 제한을 추가 적용합니다. Vercel Firewall/BotID도 추가 방어로 켭니다.
 - **암호문구 분실 = 로그인 복구 불가** (영지식 E2E의 대가). 복구 링크를 백업으로 안내.
 - sayu-db는 RLS 전수 잠금 완료. 남은 공개-쓰기는 Sayu 앱의 append성 테이블(views·worldcup·feedback)뿐 — 비민감.

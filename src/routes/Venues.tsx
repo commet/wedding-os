@@ -11,8 +11,10 @@ import {
 import VendorActions from "../components/VendorActions";
 import MapEmbed from "../components/MapEmbed";
 import Modal from "../components/Modal";
+import DearieConfirmModal from "../components/DearieConfirmModal";
 import FreshnessBadge from "../components/FreshnessBadge";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
+import SectionConsultationPanel from "../components/SectionConsultationPanel";
 import ResearchInputPanel, { type ResearchSection } from "../components/ResearchInputPanel";
 import { safeHref } from "../lib/security";
 import {
@@ -31,6 +33,12 @@ import {
 
 type Props = { data: WeddingData; update: (patch: any) => void };
 type Tab = "mine" | "catalog";
+type ConfirmState = {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  onConfirm: () => void | Promise<void>;
+};
 
 const STATUS_OPTIONS: WeddingVenue["status"][] = ["관심", "투어", "계약"];
 const CONTRACT_FIELDS: { key: keyof ContractCheck; label: string; placeholder: string }[] = [
@@ -117,6 +125,8 @@ export default function Venues({ data, update }: Props) {
   const [showGuide, setShowGuide] = useState<VenueHallType | null>(null);
   const [showStarter, setShowStarter] = useState(starterOpen);
   const [selectedMapVenueId, setSelectedMapVenueId] = useState<string | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmState | null>(null);
+  const [venueNotice, setVenueNotice] = useState("");
 
   const myVenues = data.venues ?? [];
   const haveStatusCount: Record<NonNullable<WeddingVenue["status"]>, number> = useMemo(() => {
@@ -181,16 +191,22 @@ export default function Venues({ data, update }: Props) {
   };
 
   const applyToInvitation = (v: WeddingVenue) => {
-    if (!confirm(`'${v.name}' 을 청첩장의 예식장으로 설정할까요?\n\n주소·지역 정보도 함께 채워집니다.`)) return;
-    update((prev: WeddingData) => ({
-      ...prev,
-      invitation: {
-        ...prev.invitation,
-        venue: v.name,
-        venueAddress: prev.invitation.venueAddress || v.region,
+    setConfirmDialog({
+      title: "청첩장에 이 식장을 넣을까요?",
+      body: `${v.name}을 청첩장 예식장으로 넣고, 주소가 비어 있으면 지역 정보도 함께 채웁니다.`,
+      confirmLabel: "청첩장에 넣기",
+      onConfirm: () => {
+        update((prev: WeddingData) => ({
+          ...prev,
+          invitation: {
+            ...prev.invitation,
+            venue: v.name,
+            venueAddress: prev.invitation.venueAddress || v.region,
+          },
+        }));
+        setVenueNotice("청첩장에 예식장을 반영했어요.");
       },
-    }));
-    alert("✓ 청첩장에 적용됐어요.");
+    });
   };
 
   const addCustom = (v: Omit<WeddingVenue, "id">) => {
@@ -199,7 +215,7 @@ export default function Venues({ data, update }: Props) {
       (x) => x.name.trim().toLowerCase() === v.name.trim().toLowerCase(),
     );
     if (dup) {
-      alert(`'${v.name}' 은(는) 이미 내 후보에 있어요.`);
+      setVenueNotice(`${v.name}은 이미 내 후보에 있어요.`);
       return;
     }
     update((prev: WeddingData) => ({
@@ -228,6 +244,8 @@ export default function Venues({ data, update }: Props) {
         <h1 className="h-page">예식장</h1>
       </div>
 
+      {!showStarter && <SectionConsultationPanel sectionId="venues" data={data} update={update} />}
+
       <ProcessAgentPanel
         title={myVenues.length === 0 ? "후보를 먼저 좁히는 중" : contracted ? "계약 이후 빠질 조건을 확인 중" : "상담 순서를 잡는 중"}
         summary={venueAgentSummary}
@@ -250,6 +268,24 @@ export default function Venues({ data, update }: Props) {
           { label: "카탈로그 열기", onClick: () => setTab("catalog") },
         ]}
       />
+
+      {venueNotice && (
+        <div className="anim-fade border-y border-hair py-3">
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-[13px] leading-relaxed text-soft">
+              <span className="font-semibold text-ink">Dearie</span> · {venueNotice}
+            </p>
+            <button
+              type="button"
+              onClick={() => setVenueNotice("")}
+              className="min-h-11 min-w-11 text-soft hover:text-ink"
+              aria-label="안내 닫기"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
 
       {showStarter ? (
         <VenueStarter onApply={applyVenueStarter} onClose={() => setShowStarter(false)} />
@@ -493,6 +529,14 @@ export default function Venues({ data, update }: Props) {
           );
         })()}
       </Modal>
+      <DearieConfirmModal
+        open={!!confirmDialog}
+        title={confirmDialog?.title ?? ""}
+        body={confirmDialog?.body ?? ""}
+        confirmLabel={confirmDialog?.confirmLabel ?? "확인"}
+        onClose={() => setConfirmDialog(null)}
+        onConfirm={async () => { await confirmDialog?.onConfirm(); }}
+      />
     </div>
   );
 }

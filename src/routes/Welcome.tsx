@@ -208,7 +208,7 @@ export default function Welcome({ data, update }: Props) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-hair">
-                  <tr><td className="py-3 text-soft">가입</td><td className="text-center">없음</td><td className="text-center">없음</td><td className="text-center">외부 서비스</td><td className="text-center">GitHub</td></tr>
+                  <tr><td className="py-3 text-soft">가입</td><td className="text-center">없음</td><td className="text-center">로그인</td><td className="text-center">외부 서비스</td><td className="text-center">GitHub</td></tr>
                   <tr><td className="py-3 text-soft">저장 위치</td><td className="text-center">이 기기</td><td className="text-center">암호화 저장</td><td className="text-center">내 저장소</td><td className="text-center">내가 정함</td></tr>
                   <tr><td className="py-3 text-soft">함께 편집</td><td className="text-center">전환 후</td><td className="text-center">바로</td><td className="text-center">바로</td><td className="text-center">구현 자유</td></tr>
                   <tr><td className="py-3 text-soft">청첩장 링크</td><td className="text-center">발행 가능</td><td className="text-center">가능</td><td className="text-center">가능</td><td className="text-center">구현 자유</td></tr>

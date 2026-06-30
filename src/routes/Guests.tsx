@@ -8,9 +8,18 @@ import {
   headcountSummary, mealCostRange, formatKRW, GUEST_CATEGORIES, GUEST_CATEGORY_LABEL,
 } from "../lib/derived";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
+import SectionConsultationPanel from "../components/SectionConsultationPanel";
+import DearieConfirmModal from "../components/DearieConfirmModal";
 
 type Props = { data: WeddingData; update: (patch: any) => void };
 type Filter = "all" | "groom" | "bride" | "attending" | "pending";
+type ConfirmState = {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  tone?: "normal" | "warn";
+  onConfirm: () => void | Promise<void>;
+};
 
 const SIDE_LABEL: Record<GuestSide, string> = {
   groom: "신랑 측",
@@ -34,6 +43,7 @@ export default function Guests({ data, update }: Props) {
   const [rsvpStatus, setRsvpStatus] = useState<"idle" | "loading" | "ok" | "fail">("idle");
   const [rsvpMsg, setRsvpMsg] = useState("");
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<ConfirmState | null>(null);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -92,14 +102,20 @@ export default function Guests({ data, update }: Props) {
 
   const markAllScheduledInvited = () => {
     if (notInvited === 0) return;
-    if (!confirm(`초대 예정 ${notInvited}명을 모두 '초대 완료'로 바꿀까요?`)) return;
-    const today = new Date().toISOString().split("T")[0];
-    update((prev: WeddingData) => ({
-      ...prev,
-      guests: (prev.guests ?? []).map((g) =>
-        g.status === "초대 예정" ? { ...g, status: "초대 완료" as const, invitedAt: g.invitedAt ?? today } : g
-      ),
-    }));
+    setConfirmDialog({
+      title: "초대 완료로 넘길까요?",
+      body: `초대 예정 ${notInvited}명을 모두 초대 완료로 바꾸고, 초대일이 비어 있으면 오늘 날짜로 채웁니다.`,
+      confirmLabel: "초대 완료 처리",
+      onConfirm: () => {
+        const today = new Date().toISOString().split("T")[0];
+        update((prev: WeddingData) => ({
+          ...prev,
+          guests: (prev.guests ?? []).map((g) =>
+            g.status === "초대 예정" ? { ...g, status: "초대 완료" as const, invitedAt: g.invitedAt ?? today } : g
+          ),
+        }));
+      },
+    });
   };
 
   const exportCsv = () => {
@@ -160,19 +176,25 @@ export default function Guests({ data, update }: Props) {
   const bulkSetStatus = (status: GuestStatus) => {
     const ids = new Set(filtered.map((g) => g.id));
     if (ids.size === 0) return;
-    if (!confirm(`지금 보이는 ${ids.size}명의 상태를 '${STATUS_LABEL[status]}'(으)로 바꿀까요?`)) return;
-    const today = new Date().toISOString().split("T")[0];
-    update((prev: WeddingData) => ({
-      ...prev,
-      guests: (prev.guests ?? []).map((g) => {
-        if (!ids.has(g.id)) return g;
-        const patch: Partial<Guest> = { status };
-        // '초대 완료'로 넘길 때 초대일이 비어 있으면 오늘로 채운다(행의 '초대 미전송' 해소).
-        if (status === "초대 완료" && !g.invitedAt) patch.invitedAt = today;
-        return { ...g, ...patch };
-      }),
-    }));
-    setBulkOpen(false);
+    setConfirmDialog({
+      title: "보이는 하객 상태를 바꿀까요?",
+      body: `현재 필터에 보이는 ${ids.size}명의 상태를 ${STATUS_LABEL[status]}로 바꿉니다. 초대 완료로 바꾸는 경우 초대일이 비어 있으면 오늘로 채워요.`,
+      confirmLabel: `${STATUS_LABEL[status]}로 변경`,
+      onConfirm: () => {
+        const today = new Date().toISOString().split("T")[0];
+        update((prev: WeddingData) => ({
+          ...prev,
+          guests: (prev.guests ?? []).map((g) => {
+            if (!ids.has(g.id)) return g;
+            const patch: Partial<Guest> = { status };
+            // '초대 완료'로 넘길 때 초대일이 비어 있으면 오늘로 채운다(행의 '초대 미전송' 해소).
+            if (status === "초대 완료" && !g.invitedAt) patch.invitedAt = today;
+            return { ...g, ...patch };
+          }),
+        }));
+        setBulkOpen(false);
+      },
+    });
   };
 
   const removeGuest = (id: string) => {
@@ -180,14 +202,20 @@ export default function Guests({ data, update }: Props) {
     const name = g?.name?.trim();
     const hasGift = typeof g?.giftKRW === "number" && g.giftKRW > 0;
     // 축의금이 적힌 하객은 실수 삭제 시 손실이 크므로 더 또렷이 경고.
-    const msg = hasGift
-      ? `'${name || "이 하객"}' 님을 삭제할까요?\n축의금 기록도 함께 사라지고 되돌릴 수 없어요.`
-      : `'${name || "이 하객"}' 님을 삭제할까요?\n되돌릴 수 없어요.`;
-    if (!confirm(msg)) return;
-    update((prev: WeddingData) => ({
-      ...prev,
-      guests: (prev.guests ?? []).filter((g) => g.id !== id),
-    }));
+    setConfirmDialog({
+      title: `${name || "이 하객"} 님을 삭제할까요?`,
+      body: hasGift
+        ? "축의금 기록도 함께 사라지고 되돌릴 수 없어요. 착오 삭제가 아니라면 진행하세요."
+        : "명단에서만 삭제합니다. 다시 필요하면 새로 추가할 수 있어요.",
+      confirmLabel: "삭제하기",
+      tone: hasGift ? "warn" : "normal",
+      onConfirm: () => {
+        update((prev: WeddingData) => ({
+          ...prev,
+          guests: (prev.guests ?? []).filter((g) => g.id !== id),
+        }));
+      },
+    });
   };
 
   const importRsvps = async () => {
@@ -247,6 +275,7 @@ export default function Guests({ data, update }: Props) {
           </p>
         </div>
         <div className="text-left">
+          <SectionConsultationPanel sectionId="guests" data={data} update={update} />
           <ProcessAgentPanel
             title="명단 전에도 식수를 먼저 추정할 수 있어요"
             summary={agentSummary}
@@ -297,6 +326,8 @@ export default function Guests({ data, update }: Props) {
         <div className="eyebrow-gold mb-2">초대와 참석</div>
         <h1 className="h-page">하객 명단</h1>
       </div>
+
+      <SectionConsultationPanel sectionId="guests" data={data} update={update} />
 
       <ProcessAgentPanel
         title={stats.pending > 0 ? "회신 대기를 줄이는 중" : seatingGroups.total > 0 ? "좌석 묶음까지 읽는 중" : "명단을 식수로 바꾸는 중"}
@@ -488,6 +519,15 @@ export default function Guests({ data, update }: Props) {
       <p className="text-[11px] text-soft text-center pt-2">
         축의금 · 식수 합계는 자동 계산. 혼자 쓰는 동안에는 이 기기에만 저장됩니다.
       </p>
+      <DearieConfirmModal
+        open={!!confirmDialog}
+        title={confirmDialog?.title ?? ""}
+        body={confirmDialog?.body ?? ""}
+        confirmLabel={confirmDialog?.confirmLabel ?? "확인"}
+        tone={confirmDialog?.tone}
+        onClose={() => setConfirmDialog(null)}
+        onConfirm={async () => { await confirmDialog?.onConfirm(); }}
+      />
     </div>
   );
 }

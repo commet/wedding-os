@@ -5,11 +5,11 @@ import { recalcDueDates } from "../data/checklistTemplate";
 import { daysUntilISODate, parseISODateLocal } from "../lib/date";
 import ChatbotBridgeModal from "../components/ChatbotBridgeModal";
 import { type BridgePrompt, weddingPlanStarterPrompt } from "../lib/chatbotBridge";
-import { defaultData } from "../lib/schema";
 import { AGENT_PRIORITIES, type AgentPriority } from "../lib/agentProfile";
 import { applyAgentAnswer, nextAgentQuestion, type AgentLoopQuestion } from "../lib/agentLoop";
 import { AgentIdentity } from "../components/AgentIdentity";
 import { buildMenuGroups } from "../lib/menu";
+import { applyStarterPlan, normalizeTargetPath, type StarterResult } from "../lib/agentStarter";
 import {
   budgetTotals, overdueChecklistCount, formatKRW, upcomingBalances, upcomingEvents,
   weddingPhase, rsvpReadiness, mealBudgetCheck, contractedVenue, planningHeadcount, venueCapacityFit,
@@ -25,14 +25,6 @@ type FocusItem = {
   title: string;
   desc: string;
   tag: string;
-};
-
-type StarterResult = {
-  tasks: number;
-  budget: number;
-  regions: number;
-  today: number;
-  greeting: boolean;
 };
 
 export default function Dashboard({ data, update }: Props) {
@@ -127,130 +119,23 @@ export default function Dashboard({ data, update }: Props) {
   };
 
   const applyAiStarter = (parsed: any) => {
-    const now = Date.now();
-    const checklistItems = Array.isArray(parsed?.checklistItems) ? parsed.checklistItems : [];
-    const budgetItems = Array.isArray(parsed?.budgetItems) ? parsed.budgetItems : [];
-    const honeymoonRegions = Array.isArray(parsed?.honeymoonRegions) ? parsed.honeymoonRegions : [];
-    const todayItems = Array.isArray(parsed?.today) ? parsed.today : [];
-    const summary = typeof parsed?.summary === "string" ? parsed.summary.trim() : "";
-    const greeting = typeof parsed?.invitationGreeting === "string" ? parsed.invitationGreeting.trim() : "";
-    const defaultGreeting = defaultData().invitation.greeting.trim();
-    const result: StarterResult = {
-      tasks: 0,
-      budget: 0,
-      regions: 0,
-      today: 0,
-      greeting: false,
-    };
-
+    let applied = 0;
+    let hasSummary = false;
+    let starter: StarterResult | null = null;
     update((prev: WeddingData) => {
-      let next: WeddingData = { ...prev };
-
-      const newTasks = checklistItems
-        .map((item: any, idx: number) => ({
-          id: `ai-task-${now}-${idx}`,
-          text: typeof item?.text === "string" ? item.text.trim() : "",
-          done: false,
-          source: "ai" as const,
-          ddayOffset: typeof item?.ddayOffset === "number" ? item.ddayOffset : undefined,
-          priority: ["red", "yellow", "green"].includes(item?.priority) ? item.priority : "yellow",
-        }))
-        .filter((item: any) => item.text);
-      if (newTasks.length > 0) {
-        const sectionId = "ai-starter";
-        const existing = next.checklist.find((section) => section.id === sectionId);
-        const checklist = existing
-          ? next.checklist.map((section) =>
-              section.id === sectionId
-                ? { ...section, items: [...newTasks, ...section.items].slice(0, 12) }
-                : section,
-            )
-          : [
-              {
-                id: sectionId,
-                icon: "AI",
-                title: "AI 시작 정리",
-                items: newTasks,
-              },
-              ...next.checklist,
-            ];
-        next = {
-          ...next,
-          checklist: recalcDueDates(checklist, next.invitation.date),
-        };
-        result.tasks = newTasks.length;
-      }
-
-      const budgetCategories = new Set((next.budget ?? []).map((item) => item.category.trim()));
-      const newBudget = budgetItems
-        .map((item: any, idx: number) => ({
-          id: `ai-budget-${now}-${idx}`,
-          category: typeof item?.category === "string" ? item.category.trim() : "",
-          planned: typeof item?.planned === "number" && item.planned > 0 ? Math.round(item.planned) : undefined,
-          notes: typeof item?.notes === "string" ? item.notes.trim() : undefined,
-        }))
-        .filter((item: any) => item.category && !budgetCategories.has(item.category));
-      if (newBudget.length > 0) {
-        next = { ...next, budget: [...(next.budget ?? []), ...newBudget] };
-        result.budget = newBudget.length;
-      }
-
-      const regionNames = new Set(next.honeymoon.regions.map((region) => region.name.trim()));
-      const newRegions = honeymoonRegions
-        .map((item: any, idx: number) => ({
-          id: `ai-region-${now}-${idx}`,
-          name: typeof item?.name === "string" ? item.name.trim() : "",
-          durationDays: typeof item?.durationDays === "number" ? Math.round(item.durationDays) : undefined,
-          notes: typeof item?.notes === "string" ? item.notes.trim() : undefined,
-        }))
-        .filter((item: any) => item.name && !regionNames.has(item.name));
-      if (newRegions.length > 0) {
-        next = {
-          ...next,
-          honeymoon: {
-            ...next.honeymoon,
-            regions: [...next.honeymoon.regions, ...newRegions],
-          },
-        };
-        result.regions = newRegions.length;
-      }
-
-      if (greeting && (!next.invitation.greeting.trim() || next.invitation.greeting.trim() === defaultGreeting)) {
-        next = { ...next, invitation: { ...next.invitation, greeting } };
-        result.greeting = true;
-      }
-
-      const normalizedToday = todayItems
-        .map((item: any) => ({
-          title: typeof item?.title === "string" ? item.title.trim() : "",
-          reason: typeof item?.reason === "string" ? item.reason.trim() : undefined,
-          targetPath: normalizeTargetPath(item?.targetPath),
-        }))
-        .filter((item: { title: string }) => item.title)
-        .slice(0, 3);
-      if (summary || normalizedToday.length > 0) {
-        next = {
-          ...next,
-          ai: {
-            ...(next.ai ?? {}),
-            starterSummary: summary || next.ai?.starterSummary,
-            today: normalizedToday.length > 0 ? normalizedToday : next.ai?.today,
-            updatedAt: new Date(now).toISOString(),
-          },
-        };
-        result.today = normalizedToday.length;
-      }
-
-      return next;
+      const draft = applyStarterPlan(prev, parsed);
+      applied = draft.appliedCount;
+      hasSummary = draft.hasSummary;
+      starter = draft.result;
+      return draft.next;
     });
 
-    const applied = result.tasks + result.budget + result.regions + result.today + (result.greeting ? 1 : 0);
-    const added = applied + (summary ? 1 : 0);
-    setStarterResult(applied > 0 ? result : null);
+    const added = applied + (hasSummary ? 1 : 0);
+    setStarterResult(applied > 0 ? starter : null);
     setAiMessage(added > 0 ? "시작점을 만들었어요. 아래에서 바로 이어갈 수 있습니다." : "답변은 받았지만 반영할 항목이 없었어요.");
   };
 
- const focusItems = useMemo<FocusItem[]>(() => {
+  const focusItems = useMemo<FocusItem[]>(() => {
     const items: FocusItem[] = [];
     const aiToday = (data.ai?.today ?? [])
       .map((item) => ({
@@ -867,26 +752,6 @@ function StarterResultPanel({ result }: { result: StarterResult }) {
       </div>
     </div>
   );
-}
-
-const SAFE_TARGET_PATHS = new Set([
-  "/dashboard",
-  "/checklist",
-  "/budget",
-  "/guests",
-  "/invitation",
-  "/rings",
-  "/trip",
-  "/venues",
-  "/share",
-  "/setup",
-  "/settings",
-]);
-
-function normalizeTargetPath(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined;
-  const path = value.trim();
-  return SAFE_TARGET_PATHS.has(path) ? path : undefined;
 }
 
 function dedupeFocusItems(items: FocusItem[]): FocusItem[] {

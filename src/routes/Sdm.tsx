@@ -12,6 +12,7 @@ import VendorActions from "../components/VendorActions";
 import { koBreak } from "../lib/typography";
 import { formatKRW, upcomingBalances } from "../lib/derived";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
+import SectionConsultationPanel from "../components/SectionConsultationPanel";
 import FreshnessBadge from "../components/FreshnessBadge";
 import ResearchInputPanel, { type ResearchSection } from "../components/ResearchInputPanel";
 import {
@@ -100,6 +101,7 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
   const [catalogOpen, setCatalogOpen] = useState(() => data.sdm.every((vendor) => vendor.category !== initialCategory));
   const [showAdd, setShowAdd] = useState(false);
   const [showChannels, setShowChannels] = useState(false);
+  const [notice, setNotice] = useState("");
 
   const inCat = data.sdm.filter((v) => v.category === cat);
 
@@ -145,7 +147,7 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
       (x) => x.category === v.category && x.name.trim().toLowerCase() === v.name.trim().toLowerCase(),
     );
     if (dup) {
-      alert(`'${v.name}' 은(는) 이미 ${CAT_LABEL[v.category]} 후보에 있어요.`);
+      setNotice(`${v.name}은 이미 ${CAT_LABEL[v.category]} 후보에 있어요.`);
       return;
     }
     update((prev: WeddingData) => ({ ...prev, sdm: [...prev.sdm, { ...v, id: `sdm-${Date.now()}` }] }));
@@ -187,6 +189,8 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
         <h1 className="font-serif text-[2rem] leading-none">{koBreak(snapOnly ? "본식 스냅" : "스드메")}</h1>
       </div>
 
+      <SectionConsultationPanel sectionId={snapOnly ? "snap" : "sdm"} data={data} update={update} />
+
       {/* 카테고리 — underline 탭 */}
       {!snapOnly && (
       <div className="flex items-center gap-6 border-b border-hair pb-3 overflow-x-auto -mx-6 px-6">
@@ -223,6 +227,19 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
           { label: "후기 채널 보기", onClick: () => setShowChannels(true) },
         ]}
       />
+
+      {notice && (
+        <div className="anim-fade border-y border-hair py-3">
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-[13px] leading-relaxed text-soft">
+              <span className="font-semibold text-ink">Dearie</span> · {notice}
+            </p>
+            <button type="button" onClick={() => setNotice("")} className="min-h-11 min-w-11 text-soft hover:text-ink" aria-label="안내 닫기">
+              ×
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 가이드 (접이식) — hairline */}
       <details className="border-b border-hair pb-5">

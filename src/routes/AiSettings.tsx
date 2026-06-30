@@ -336,7 +336,7 @@ export default function AiSettings(_: Props) {
         <div className="space-y-2 text-[12px] text-soft leading-relaxed">
           <p>
             AI 응답은 자동으로 덮어쓰지 않고 적용 전 확인합니다. 복붙 모드와 본인 API 키 방식은 운영자가 프롬프트를 받지 않지만,
-            Dearie AI는 오남용 방지와 실행을 위해 서버를 거칩니다. 공개 청첩장 링크와 복구 링크는 AI 프롬프트에 넣지 마세요.
+            Dearie AI는 오남용 방지와 실행을 위해 서버를 거칩니다. 공개 청첩장 링크와 복구 링크는 AI 요청 내용에 넣지 마세요.
           </p>
           <p>
             개인 API 키는 이 브라우저에만 저장됩니다. 공용 PC에서는 쓰지 말고, 키가 노출됐다고 느끼면 각 AI 콘솔에서 바로 폐기하세요.

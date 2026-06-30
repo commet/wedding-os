@@ -27,7 +27,7 @@ export function buildMenuGroups(data: WeddingData): MenuGroup[] {
       items: [
         { to: "/venues", label: "예식장", sub: sub("venues", "후보 비교 · 답사") },
         { to: "/sdm", label: "스드메", sub: sub("sdm", "스튜디오 · 드레스 · 메이크업") },
-        { to: "/snap", label: "본식 스냅", sub: snapCount > 0 ? `${snapCount}곳 담음` : "당일 촬영 · 원판 · 앨범" },
+        { to: "/snap", label: "본식 스냅", sub: sub("snap", snapCount > 0 ? `${snapCount}곳 담음` : "당일 촬영 · 원판 · 앨범") },
         { to: "/rings", label: "결혼반지", sub: sub("rings", "취향 후보 · 가격") },
         { to: "/trip", label: "신혼여행", sub: sub("trip", "지역 · 항공 · 숙소") },
       ],

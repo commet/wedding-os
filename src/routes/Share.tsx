@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import type { WeddingData } from "../lib/schema";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
+import SectionConsultationPanel from "../components/SectionConsultationPanel";
 import { exportData } from "../lib/storage";
 import {
   copyInvitationText,
@@ -126,6 +127,8 @@ export default function Share({ data, update }: Props) {
         <div className="eyebrow-gold mb-2">링크와 파일</div>
         <h1 className="h-page">{koBreak("공유 센터")}</h1>
       </div>
+
+      <SectionConsultationPanel sectionId="share" data={data} update={update} />
 
       <ProcessAgentPanel
         title={hasPublished ? "공유 채널을 분리해 관리하는 중" : "하객용 링크 발행이 먼저예요"}

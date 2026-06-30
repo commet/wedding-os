@@ -138,6 +138,40 @@ test.describe("critical product flows", () => {
     );
   });
 
+  test("keeps Dearie consultation answers across direct route reloads", async ({ page }) => {
+    const seeded = defaultData();
+    seeded.preferences.mode = "local";
+    seeded.invitation.groomName = "김민준";
+    seeded.invitation.brideName = "이서연";
+    seeded.invitation.date = "2026-11-14";
+
+    await page.goto("/");
+    await page.evaluate((data) => {
+      localStorage.clear();
+      sessionStorage.clear();
+      localStorage.setItem("wedding-os/v1", JSON.stringify(data));
+    }, seeded);
+
+    await page.goto("/snap");
+    await expect(page.getByRole("heading", { name: "본식 스냅 기준 잡기" })).toBeVisible();
+    await page.getByRole("button", { name: /자연스러운 기록/ }).click();
+    await expect(page.getByRole("heading", { name: "어디부터 찍히면 좋을까요?" })).toBeVisible();
+
+    await page.goto("/rings?starter=1");
+    await expect(page.getByRole("heading", { name: "반지 기준 잡기" })).toBeVisible();
+    await page.getByRole("button", { name: /매일 편하게/ }).click();
+    await expect(page.getByRole("heading", { name: "두 분 한 쌍 예산 상한은 어디에 가까워요?" })).toBeVisible();
+
+    const stored = await readStoredData(page);
+    expect(stored.ai?.dialogue?.some((item) => item.id === "snap-style" && item.answer === "자연스러운 기록")).toBe(true);
+    expect(stored.ai?.dialogue?.some((item) => item.id === "rings-wear" && item.answer === "매일 편하게")).toBe(true);
+
+    await page.goto("/dashboard");
+    await page.getByText(/전체 영역 \d+개/).click();
+    await expect(page.getByText("스냅 기준 답하기").first()).toBeVisible();
+    await expect(page.getByText("반지 취향 질문 이어가기").first()).toBeVisible();
+  });
+
   test("lets AI starter output create a useful first board without calling an API", async ({ page }) => {
     const seeded = seededWeddingData();
     seeded.budget = [];
@@ -631,6 +665,19 @@ test.describe("critical product flows", () => {
 
     const viteConfig = fs.readFileSync("vite.config.ts", "utf8");
     expect(viteConfig).toContain("navigateFallbackDenylist: [/^\\/api\\//, /^\\/i\\//]");
+
+    const storageSource = fs.readFileSync("src/lib/storage.ts", "utf8");
+    const directStorageSource = fs.readFileSync("src/lib/storage.supabase.ts", "utf8");
+    const shellSource = fs.readFileSync("src/components/AppShell.tsx", "utf8");
+    expect(storageSource).toContain("REMOTE_REFRESH_INTERVAL_MS = 90_000");
+    expect(storageSource).toContain('REMOTE_SIGNAL_EVENT = "wedding-updated"');
+    expect(storageSource).toContain('type: "broadcast"');
+    expect(storageSource).toContain('refreshRemote("signal")');
+    expect(storageSource).toContain("publishRemoteInvalidation(remoteSignal.scope, remoteSignal.version)");
+    expect(storageSource).toContain('window.addEventListener("focus", onFocus)');
+    expect(storageSource).toContain('document.addEventListener("visibilitychange", onVisibility)');
+    expect(directStorageSource).not.toContain("postgres_changes");
+    expect(shellSource).not.toContain("useRealtimeStatus");
   });
 });
 

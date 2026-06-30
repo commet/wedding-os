@@ -4,7 +4,8 @@
 //
 // 페이지는 useWeddingData() 훅으로만 데이터를 만지고, 백엔드를 알 필요 없다.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createClient, type RealtimeChannel, type SupabaseClient } from "@supabase/supabase-js";
 import { defaultData, WeddingData, SCHEMA_VERSION } from "./schema";
 import { createSupabaseStorage } from "./storage.supabase";
 import { demoData } from "../data/demoData";
@@ -24,7 +25,8 @@ const DEVICE_WIPE_KEY = "wedding-os-control/device-wipe/v1";
 let _wipeGeneration = typeof localStorage !== "undefined" ? localStorage.getItem(DEVICE_WIPE_KEY) : null;
 let _deviceWiped = false;
 
-export type RealtimeStatus = "idle" | "connecting" | "subscribed" | "disconnected";
+const REMOTE_SIGNAL_EVENT = "wedding-updated";
+const REMOTE_SIGNAL_THROTTLE_MS = 3_000;
 
 export type LoadResult = { data: WeddingData; version?: number } | null;
 export type SaveResult = {
@@ -39,13 +41,6 @@ export type StorageDriver = {
   load: () => Promise<LoadResult>;
   /** expectedVersion 을 주면 낙관적 동시성 검사를 수행. 없으면 무조건 덮어씀 (모드 1 / 첫 save). */
   save: (data: WeddingData, expectedVersion?: number) => Promise<SaveResult>;
-  /** 외부에서 변경됐을 때 알림 (Supabase realtime 등) — 모드 1에선 no-op.
-   *  onStatus 가 주어지면 채널 상태(SUBSCRIBED / CHANNEL_ERROR / TIMED_OUT / CLOSED) 도 전달.
-   *  payload 의 새 version 도 함께 전달해서 클라이언트 ref 갱신. */
-  subscribe?: (
-    cb: (data: WeddingData, version?: number) => void,
-    onStatus?: (status: RealtimeStatus) => void,
-  ) => () => void;
 };
 
 // 저장 실패 (특히 QuotaExceeded) 시 한 번만 사용자에게 알림.
@@ -90,31 +85,35 @@ export const localStorageDriver: StorageDriver = {
     }
   },
   async save(data, expectedVersion) {
-    try {
-      const currentRevision = Number(localStorage.getItem(LS_REVISION_KEY) ?? "0") || 0;
-      if (expectedVersion !== undefined && expectedVersion !== currentRevision) {
-        return { ok: false, conflict: true, version: currentRevision };
-      }
-      const nextRevision = currentRevision + 1;
-      localStorage.setItem(LS_REVISION_KEY, String(nextRevision));
-      try {
-        localStorage.setItem(LS_KEY, JSON.stringify(data));
-      } catch (error) {
-        // 본문 쓰기 실패 시 revision만 앞서 나가면 이후 모든 저장이 충돌로 거절된다.
-        try { localStorage.setItem(LS_REVISION_KEY, String(currentRevision)); } catch { /* 원래 오류를 유지 */ }
-        throw error;
-      }
-      return { ok: true, version: nextRevision };
-    } catch (e: any) {
-      // QuotaExceededError 또는 비슷한 — 사용자에게 알림
-      const name = e?.name ?? "";
-      if (name === "QuotaExceededError" || name === "NS_ERROR_DOM_QUOTA_REACHED") {
-        notifyQuotaError();
-      }
-      return { ok: false };
-    }
+    return saveLocalImmediate(data, expectedVersion);
   },
 };
+
+function saveLocalImmediate(data: WeddingData, expectedVersion?: number): SaveResult {
+  try {
+    const currentRevision = Number(localStorage.getItem(LS_REVISION_KEY) ?? "0") || 0;
+    if (expectedVersion !== undefined && expectedVersion !== currentRevision) {
+      return { ok: false, conflict: true, version: currentRevision };
+    }
+    const nextRevision = currentRevision + 1;
+    localStorage.setItem(LS_REVISION_KEY, String(nextRevision));
+    try {
+      localStorage.setItem(LS_KEY, JSON.stringify(data));
+    } catch (error) {
+      // 본문 쓰기 실패 시 revision만 앞서 나가면 이후 모든 저장이 충돌로 거절된다.
+      try { localStorage.setItem(LS_REVISION_KEY, String(currentRevision)); } catch { /* 원래 오류를 유지 */ }
+      throw error;
+    }
+    return { ok: true, version: nextRevision };
+  } catch (e: any) {
+    // QuotaExceededError 또는 비슷한 — 사용자에게 알림
+    const name = e?.name ?? "";
+    if (name === "QuotaExceededError" || name === "NS_ERROR_DOM_QUOTA_REACHED") {
+      notifyQuotaError();
+    }
+    return { ok: false };
+  }
+}
 
 export function hasCorruptLocalBackup(): boolean {
   try { return !!localStorage.getItem(CORRUPT_BACKUP_KEY); } catch { return false; }
@@ -254,6 +253,14 @@ function migrate(raw: unknown): WeddingData {
               targetPath: typeof item.targetPath === "string" ? item.targetPath.slice(0, 100) : undefined,
             })).filter((item) => item.title)
           : undefined,
+        dialogue: Array.isArray(rawAi.dialogue)
+          ? rawAi.dialogue.filter(isPlainObject).slice(-80).map((item) => ({
+              id: typeof item.id === "string" ? item.id.slice(0, 100) : "",
+              question: typeof item.question === "string" ? item.question.slice(0, 500) : "",
+              answer: typeof item.answer === "string" ? item.answer.slice(0, 500) : "",
+              answeredAt: typeof item.answeredAt === "string" ? item.answeredAt.slice(0, 100) : "",
+            })).filter((item) => item.id && item.answer)
+          : undefined,
         updatedAt: typeof rawAi.updatedAt === "string" ? rawAi.updatedAt : undefined,
         profile: {
           priority,
@@ -359,13 +366,36 @@ function selectDriver(data: WeddingData | null): StorageDriver {
   return localStorageDriver;
 }
 
+function storageScopeKey(data: WeddingData | null): string {
+  const mode = data?.preferences.mode;
+  if (mode === "hosted") {
+    const cfg = getHostedConfig();
+    return cfg ? `hosted:${cfg.weddingId}` : "local";
+  }
+  if (mode === "supabase" && data?.preferences.supabase) {
+    const sb = data.preferences.supabase;
+    return `supabase:${sb.url}:${sb.configId ?? "default"}`;
+  }
+  return "local";
+}
+
 // ──────────────────────────────────────────────────────────────
 // 낙관적 동시성 — 모듈 레벨로 현재 알고 있는 server version 유지.
-// useWeddingData 가 init/realtime 에서 갱신, enqueueSave 가 save 직전에 읽음.
+// useWeddingData 가 init/remote refresh 에서 갱신, enqueueSave 가 save 직전에 읽음.
 // (configId 가 단일 'default' 이고 hook 도 App.tsx 단일 인스턴스라 module state OK)
 // ──────────────────────────────────────────────────────────────
+let _activeStorageScope: string | undefined = undefined;
 let _localVersion: number | undefined = undefined;
 let _localMirrorVersion: number | undefined = undefined;
+let _lastRemoteRefreshAt = 0;
+const REMOTE_REFRESH_THROTTLE_MS = 15_000;
+const REMOTE_REFRESH_INTERVAL_MS = 90_000;
+const _remoteSignalClientId = createEphemeralClientId();
+let _remoteSignalPublisher: { scope: string; channel: RealtimeChannel } | null = null;
+let _lastRemoteSignalAt = 0;
+let _queuedRemoteSignal: { scope: string; version?: number } | null = null;
+let _remoteSignalTimer: ReturnType<typeof setTimeout> | null = null;
+let _lastRemoteSaveSignal: { scope: string; version?: number } | null = null;
 export type ConflictStatus = "none" | "detected";
 let _conflictStatus: ConflictStatus = "none";
 const _conflictListeners = new Set<(s: ConflictStatus) => void>();
@@ -388,6 +418,106 @@ export function useConflictStatus(): ConflictStatus {
 
 export function clearConflict() { _emitConflict("none"); }
 
+function createEphemeralClientId(): string {
+  const c = typeof globalThis !== "undefined" ? globalThis.crypto : undefined;
+  if (c?.randomUUID) return c.randomUUID();
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function bytesToUrlToken(bytes: Uint8Array): string {
+  let bin = "";
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+async function sha256UrlToken(value: string): Promise<string> {
+  const c = typeof globalThis !== "undefined" ? globalThis.crypto : undefined;
+  if (!c?.subtle) throw new Error("crypto unavailable");
+  const hash = await c.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return bytesToUrlToken(new Uint8Array(hash));
+}
+
+async function remoteSignalTopic(scope: string): Promise<string> {
+  const token = await sha256UrlToken(`${scope}:${getOrCreateOwnerToken()}`);
+  return `dearie-${token.slice(0, 48)}`;
+}
+
+function remoteConnection(data: WeddingData | null): { scope: string; url: string; anonKey: string } | null {
+  if (!data) return null;
+  const mode = data.preferences.mode;
+  if (mode === "hosted") {
+    const cfg = getHostedConfig();
+    const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+    if (!cfg || !url || !anonKey || !isSupabaseHost(url)) return null;
+    return { scope: `hosted:${cfg.weddingId}`, url, anonKey };
+  }
+  if (mode === "supabase" && data.preferences.supabase) {
+    const sb = data.preferences.supabase;
+    if (!isSupabaseHost(sb.url)) return null;
+    return { scope: `supabase:${sb.url}:${sb.configId ?? "default"}`, url: sb.url, anonKey: sb.anonKey };
+  }
+  return null;
+}
+
+function setActiveStorageScope(scope: string): void {
+  if (_activeStorageScope === scope) return;
+  _activeStorageScope = scope;
+  _localVersion = undefined;
+  _lastRemoteRefreshAt = 0;
+}
+
+function remoteRefreshBlocked(): boolean {
+  return _pending > 0 || _saveStatus === "error" || _conflictStatus === "detected";
+}
+
+function isRemoteSignalPayload(value: unknown): value is { by: string; version?: number; at?: number } {
+  if (!value || typeof value !== "object") return false;
+  const payload = value as { by?: unknown; version?: unknown; at?: unknown };
+  return (
+    typeof payload.by === "string" &&
+    (payload.version === undefined || (typeof payload.version === "number" && Number.isFinite(payload.version))) &&
+    (payload.at === undefined || (typeof payload.at === "number" && Number.isFinite(payload.at)))
+  );
+}
+
+function flushRemoteSignal(): void {
+  if (_remoteSignalTimer) {
+    clearTimeout(_remoteSignalTimer);
+    _remoteSignalTimer = null;
+  }
+  const queued = _queuedRemoteSignal;
+  _queuedRemoteSignal = null;
+  if (!queued) return;
+  const publisher = _remoteSignalPublisher;
+  if (!publisher || publisher.scope !== queued.scope) return;
+  _lastRemoteSignalAt = Date.now();
+  const payload: { by: string; version?: number; at: number } = {
+    by: _remoteSignalClientId,
+    at: _lastRemoteSignalAt,
+  };
+  if (typeof queued.version === "number") payload.version = queued.version;
+  void publisher.channel.send({
+    type: "broadcast",
+    event: REMOTE_SIGNAL_EVENT,
+    payload,
+  }).catch(() => undefined);
+}
+
+function publishRemoteInvalidation(scope: string, version?: number): void {
+  const publisher = _remoteSignalPublisher;
+  if (!publisher || publisher.scope !== scope) return;
+  _queuedRemoteSignal = { scope, version };
+  const wait = REMOTE_SIGNAL_THROTTLE_MS - (Date.now() - _lastRemoteSignalAt);
+  if (wait <= 0) {
+    flushRemoteSignal();
+    return;
+  }
+  if (!_remoteSignalTimer) {
+    _remoteSignalTimer = setTimeout(flushRemoteSignal, wait);
+  }
+}
+
 async function mirrorToLocal(data: WeddingData): Promise<void> {
   const result = await localStorageDriver.save(data, _localMirrorVersion);
   if (result.ok && typeof result.version === "number") {
@@ -406,6 +536,11 @@ async function mirrorToLocal(data: WeddingData): Promise<void> {
 export function useWeddingData() {
   const [data, setData] = useState<WeddingData | null>(null);
   const [loading, setLoading] = useState(true);
+  const dataRef = useRef<WeddingData | null>(null);
+
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
 
   // 초기 로드 — cancelled 로 StrictMode race 차단 (상세 설명은 아래)
   useEffect(() => {
@@ -427,7 +562,8 @@ export function useWeddingData() {
         }
         _localMirrorVersion = fromLocal.version;
         const driver = selectDriver(fromLocal.data);
-        const fromActual = (await driver.load()) ?? fromLocal;
+        const loadedRemote = driver !== localStorageDriver ? await driver.load() : null;
+        const fromActual = loadedRemote ?? fromLocal;
         if (cancelled) return;
         let normalized: WeddingData;
         try {
@@ -439,7 +575,8 @@ export function useWeddingData() {
           _emitConflict("detected");
         }
         setData(normalized);
-        _localVersion = fromActual.version;
+        _activeStorageScope = storageScopeKey(normalized);
+        _localVersion = driver === localStorageDriver ? undefined : loadedRemote?.version;
         if (driver !== localStorageDriver && normalized !== fromLocal.data) void mirrorToLocal(normalized);
         setLoading(false);
         return;
@@ -450,7 +587,9 @@ export function useWeddingData() {
       // 경로로 들어온다. 공개 청첩장은 /i/<code> 가 별도(Blob) 처리하므로, 여기서 운영자
       // env supabase 를 직접 읽지 않는다 (옛 단일테넌트 경로 제거).
       if (cancelled) return;
-      setData(demoData());
+      const demo = demoData();
+      _activeStorageScope = storageScopeKey(demo);
+      setData(demo);
       setLoading(false);
     })();
     return () => { cancelled = true; };
@@ -517,54 +656,123 @@ export function useWeddingData() {
     []
   );
 
-  // 실시간 협업 — 모드 2일 때만, Supabase Realtime postgres_changes 구독.
-  // 신랑·신부 동시 편집 시 다른 쪽 화면이 자동 갱신됨.
-  const supabaseUrl = data?.preferences.supabase?.url;
-  const supabaseKey = data?.preferences.supabase?.anonKey;
-  const isSupabaseMode = data?.preferences.mode === "supabase";
-  useEffect(() => {
-    // supabase 연결(프로젝트·모드)이 바뀌면 이전 프로젝트의 server version 은 무효다.
-    // 초기화하지 않으면 다음 save 가 엉뚱한 expectedVersion 을 보내 거짓 충돌이나
-    // 조용한 덮어쓰기를 일으킬 수 있다. (마운트 시엔 초기 load 가 곧 올바른 값으로 덮어씀.)
-    _localVersion = undefined;
-    if (!isSupabaseMode || !supabaseUrl || !supabaseKey) {
-      _emitRealtimeStatus("idle");
+  const refreshRemote = useCallback(async (reason: "focus" | "visible" | "online" | "interval" | "signal") => {
+    const current = dataRef.current;
+    if (!current) return;
+    const mode = current.preferences.mode;
+    if (mode !== "hosted" && mode !== "supabase") return;
+    if (remoteRefreshBlocked()) return;
+    if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+    const now = Date.now();
+    if (reason !== "interval" && reason !== "signal" && now - _lastRemoteRefreshAt < REMOTE_REFRESH_THROTTLE_MS) return;
+    _lastRemoteRefreshAt = now;
+
+    const scope = storageScopeKey(current);
+    const driver = selectDriver(current);
+    if (driver === localStorageDriver) return;
+    const remote = await driver.load();
+    if (!remote?.data) return;
+    if (remoteRefreshBlocked()) return;
+    if (storageScopeKey(dataRef.current) !== scope) return;
+    if (typeof remote.version === "number" && typeof _localVersion === "number") {
+      if (remote.version <= _localVersion) return;
+    }
+
+    let normalized: WeddingData;
+    try {
+      assertImportBounds(remote.data);
+      assertImportFieldTypes(remote.data);
+      normalized = migrate(remote.data);
+    } catch {
+      _emitConflict("detected");
       return;
     }
-    const driver = createSupabaseStorage(supabaseUrl, supabaseKey, data?.preferences.supabase?.configId);
-    if (!driver.subscribe) return;
-    const unsubscribe = driver.subscribe(
-      (next, version) => {
-        // 로컬 저장이 진행 중이면 원격 스냅샷을 적용하지 않는다 — 그대로 덮어쓰면
-        // 내 미저장 편집이 사라지고, _localVersion 이 갱신돼 내 save 가 거짓 성공하며
-        // 상대 변경까지 날린다. 건너뛰면 내 save 가 옛 버전으로 충돌 감지되어
-        // '새로고침' 안내로 안전하게 수렴한다. (저장 큐가 비면 다음 이벤트가 정상 적용.)
-        if (_pending > 0) return;
-        let normalized: WeddingData;
-        try {
-          assertImportBounds(next);
-          assertImportFieldTypes(next);
-          normalized = migrate(next);
-        } catch {
-          _emitConflict("detected");
-          return;
-        }
-        if (typeof version === "number") _localVersion = version;
-        setData((prev) => {
-          if (!prev) return normalized;
-          if (JSON.stringify(prev) === JSON.stringify(normalized)) return prev;
-          return normalized;
-        });
-        void mirrorToLocal(normalized);
-      },
-      (status) => _emitRealtimeStatus(status),
-    );
-    return () => {
-      try { unsubscribe(); } catch {}
-      _emitRealtimeStatus("idle");
+    if (typeof remote.version === "number") _localVersion = remote.version;
+    setData((prev) => {
+      if (!prev || storageScopeKey(prev) !== scope) return prev;
+      return JSON.stringify(prev) === JSON.stringify(normalized) ? prev : normalized;
+    });
+    void mirrorToLocal(normalized);
+  }, []);
+
+  const remoteRefreshScope = data ? storageScopeKey(data) : "none";
+  const isRemoteMode = data?.preferences.mode === "hosted" || data?.preferences.mode === "supabase";
+  useEffect(() => {
+    // 연결(프로젝트·모드)이 바뀌면 이전 저장소의 server version 은 무효다.
+    // 초기화하지 않으면 다음 save 가 엉뚱한 expectedVersion 을 보내 거짓 충돌이나
+    // 조용한 덮어쓰기를 일으킬 수 있다. (마운트 시엔 초기 load 가 곧 올바른 값으로 덮어씀.)
+    setActiveStorageScope(remoteRefreshScope);
+  }, [remoteRefreshScope]);
+
+  // 풀 realtime 대신 가벼운 최신화: 앱이 다시 보일 때, 네트워크가 돌아올 때,
+  // 오래 켜둔 상태에서만 원격 version 을 확인한다. 저장 중/저장 실패/충돌 상태면
+  // 사용자의 로컬 편집을 덮지 않고 멈춘다.
+  useEffect(() => {
+    if (!isRemoteMode) return;
+    const onFocus = () => { void refreshRemote("focus"); };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") void refreshRemote("visible");
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabaseUrl, supabaseKey, isSupabaseMode]);
+    const onOnline = () => { void refreshRemote("online"); };
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("online", onOnline);
+    document.addEventListener("visibilitychange", onVisibility);
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") void refreshRemote("interval");
+    }, REMOTE_REFRESH_INTERVAL_MS);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("online", onOnline);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.clearInterval(interval);
+    };
+  }, [isRemoteMode, remoteRefreshScope, refreshRemote]);
+
+  // 부분 realtime: 본문 데이터는 절대 보내지 않고 "새 version 이 있다"는 작은
+  // broadcast 신호만 주고받는다. 신호를 받으면 기존 RPC load 로 암호문을 다시 읽는다.
+  useEffect(() => {
+    if (!isRemoteMode) {
+      _remoteSignalPublisher = null;
+      return;
+    }
+    let disposed = false;
+    let client: SupabaseClient | null = null;
+    let channel: RealtimeChannel | null = null;
+    (async () => {
+      const connection = remoteConnection(dataRef.current);
+      if (!connection) return;
+      const topic = await remoteSignalTopic(connection.scope);
+      if (disposed) return;
+      client = createClient(connection.url, connection.anonKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      channel = client.channel(topic, { config: { broadcast: { self: false, ack: false } } });
+      channel
+        .on("broadcast", { event: REMOTE_SIGNAL_EVENT }, (message) => {
+          const signal = (message as { payload?: unknown })?.payload;
+          if (!isRemoteSignalPayload(signal)) return;
+          if (signal.by === _remoteSignalClientId) return;
+          if (typeof signal.version === "number" && typeof _localVersion === "number" && signal.version <= _localVersion) return;
+          void refreshRemote("signal");
+        })
+        .subscribe((status) => {
+          if (disposed || !channel) return;
+          if (status === "SUBSCRIBED") {
+            _remoteSignalPublisher = { scope: connection.scope, channel };
+            return;
+          }
+          if ((status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") &&
+              _remoteSignalPublisher?.channel === channel) {
+            _remoteSignalPublisher = null;
+          }
+        });
+    })();
+    return () => {
+      disposed = true;
+      if (_remoteSignalPublisher?.channel === channel) _remoteSignalPublisher = null;
+      if (client && channel) void client.removeChannel(channel).catch(() => undefined);
+    };
+  }, [isRemoteMode, remoteRefreshScope, refreshRemote]);
 
   return { data, loading, update };
 }
@@ -606,37 +814,52 @@ export function useSaveStatus(): SaveStatus {
   return s;
 }
 
-// 실시간 채널 상태 — 끊겼을 때 헤더에 작게 알림(부부 동시 편집이 깨졌다는 신호).
-let _realtimeStatus: RealtimeStatus = "idle";
-const _realtimeListeners = new Set<(s: RealtimeStatus) => void>();
-function _emitRealtimeStatus(s: RealtimeStatus) {
-  if (_realtimeStatus === s) return;
-  _realtimeStatus = s;
-  _realtimeListeners.forEach((l) => l(s));
-}
-
-export function useRealtimeStatus(): RealtimeStatus {
-  const [s, setS] = useState<RealtimeStatus>(_realtimeStatus);
-  useEffect(() => {
-    setS(_realtimeStatus);
-    const listener = (next: RealtimeStatus) => setS(next);
-    _realtimeListeners.add(listener);
-    return () => { _realtimeListeners.delete(listener); };
-  }, []);
-  return s;
-}
-
 function enqueueSave(next: WeddingData) {
   const queuedWipeGeneration = _wipeGeneration;
+  const nextScope = storageScopeKey(next);
+  setActiveStorageScope(nextScope);
   const driver = selectDriver(next);
   _pending++;
   if (_savedClearTimer) { clearTimeout(_savedClearTimer); _savedClearTimer = null; }
   _emitSaveStatus("saving");
+  if (driver === localStorageDriver) {
+    _lastRemoteSaveSignal = null;
+    try {
+      const currentWipeGeneration = localStorage.getItem(DEVICE_WIPE_KEY);
+      if (_deviceWiped || currentWipeGeneration !== queuedWipeGeneration) {
+        _deviceWiped = true;
+      } else {
+        const r = saveLocalImmediate(next, _localMirrorVersion);
+        if (r.ok) {
+          if (typeof r.version === "number") _localMirrorVersion = r.version;
+        } else {
+          _lastError = true;
+          if (r.conflict) _emitConflict("detected");
+        }
+      }
+    } catch {
+      _lastError = true;
+    }
+    _pending--;
+    if (_pending === 0) {
+      const finalStatus: SaveStatus = _deviceWiped ? "idle" : _lastError ? "error" : "saved";
+      _lastError = false;
+      _emitSaveStatus(finalStatus);
+      if (finalStatus === "saved") {
+        _savedClearTimer = setTimeout(() => {
+          if (_saveStatus === "saved") _emitSaveStatus("idle");
+          _savedClearTimer = null;
+        }, 2500);
+      }
+    }
+    return;
+  }
   saveChain = saveChain
     .then(async () => {
       const currentWipeGeneration = localStorage.getItem(DEVICE_WIPE_KEY);
       if (_deviceWiped || currentWipeGeneration !== queuedWipeGeneration) {
         _deviceWiped = true;
+        _lastRemoteSaveSignal = null;
         _pending--;
         if (_pending === 0) _emitSaveStatus("idle");
         return;
@@ -648,6 +871,9 @@ function enqueueSave(next: WeddingData) {
           if (typeof r.version === "number") {
             if (driver === localStorageDriver) _localMirrorVersion = r.version;
             else _localVersion = r.version;
+          }
+          if (driver !== localStorageDriver) {
+            _lastRemoteSaveSignal = { scope: nextScope, version: r.version };
           }
         } else {
           _lastError = true;
@@ -662,8 +888,13 @@ function enqueueSave(next: WeddingData) {
       _pending--;
       if (_pending === 0) {
         const finalStatus: SaveStatus = _lastError ? "error" : "saved";
+        const remoteSignal = _lastRemoteSaveSignal;
+        _lastRemoteSaveSignal = null;
         _lastError = false;
         _emitSaveStatus(finalStatus);
+        if (finalStatus === "saved" && remoteSignal) {
+          publishRemoteInvalidation(remoteSignal.scope, remoteSignal.version);
+        }
         if (finalStatus === "saved") {
           _savedClearTimer = setTimeout(() => {
             if (_saveStatus === "saved") _emitSaveStatus("idle");
