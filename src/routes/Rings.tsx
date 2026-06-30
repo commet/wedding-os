@@ -197,7 +197,7 @@ export default function Rings({ data, update }: Props) {
   const otherMarked = who === "bride" ? groomMarked : brideMarked;
   const consultationAnswers = useMemo(() => ringConsultationAnswers(data), [data]);
   const consultationQuestion = nextRingConsultationQuestion(consultationAnswers);
-  const consultationAnswered = RING_CONSULTATION_QUESTIONS.filter((question) => consultationAnswers[question.id]).length;
+  const consultationAnswered = RING_CONSULTATION_QUESTIONS.filter((question) => (consultationAnswers[question.id]?.length ?? 0) > 0).length;
   const consultationTotal = RING_CONSULTATION_QUESTIONS.length;
   const consultationPicks = useMemo(
     () => pickStarterRings({ answers: consultationAnswers }),
@@ -845,8 +845,18 @@ function RingStarter({
   onClose: () => void;
 }) {
   const whoLabel = who === "bride" ? "신부" : "신랑";
-  const activeQuestion = nextRingConsultationQuestion(answers);
-  const answeredCount = RING_CONSULTATION_QUESTIONS.filter((question) => answers[question.id]).length;
+  const [activeQuestionId, setActiveQuestionId] = useState<RingConsultationQuestionId | null>(null);
+  const nextQuestion = nextRingConsultationQuestion(answers);
+  const activeQuestion = activeQuestionId
+    ? RING_CONSULTATION_QUESTIONS.find((question) => question.id === activeQuestionId) ?? nextQuestion
+    : nextQuestion;
+  const answeredCount = RING_CONSULTATION_QUESTIONS.filter((question) => (answers[question.id]?.length ?? 0) > 0).length;
+
+  const answerQuestion = (questionId: RingConsultationQuestionId, value: string) => {
+    const question = RING_CONSULTATION_QUESTIONS.find((item) => item.id === questionId);
+    onAnswer(questionId, value);
+    setActiveQuestionId(question?.multiple ? question.id : null);
+  };
 
   return (
     <section className="border-y border-hair py-5 space-y-5">
@@ -888,7 +898,12 @@ function RingStarter({
       </div>
 
       {activeQuestion ? (
-        <RingQuestionCard question={activeQuestion} value={answers[activeQuestion.id]} onAnswer={onAnswer} />
+        <RingQuestionCard
+          question={activeQuestion}
+          value={answers[activeQuestion.id]}
+          onAnswer={answerQuestion}
+          onContinue={() => setActiveQuestionId(null)}
+        />
       ) : (
         <div className="border-l border-gold pl-4">
           <div className="eyebrow-gold mb-1">기준 완료</div>
@@ -910,7 +925,7 @@ function RingStarter({
         </summary>
         <div className="mt-4 space-y-4">
           {RING_CONSULTATION_QUESTIONS.map((question) => (
-            <RingAnsweredQuestion key={question.id} question={question} value={answers[question.id]} onAnswer={onAnswer} />
+            <RingAnsweredQuestion key={question.id} question={question} value={answers[question.id]} onAnswer={answerQuestion} />
           ))}
         </div>
       </details>
@@ -954,36 +969,56 @@ function RingQuestionCard({
   question,
   value,
   onAnswer,
+  onContinue,
 }: {
   question: RingConsultationQuestion;
-  value?: string;
+  value?: string[];
   onAnswer: (questionId: RingConsultationQuestionId, value: string) => void;
+  onContinue: () => void;
 }) {
+  const selectedValues = value ?? [];
+  const hasSelection = selectedValues.length > 0;
   return (
     <div className="border-l border-gold pl-4 space-y-4">
       <div>
-        <div className="eyebrow-gold mb-2">{question.eyebrow}</div>
+        <div className="eyebrow-gold mb-2">
+          {question.eyebrow}{question.multiple ? " · 복수 선택 가능" : ""}
+        </div>
         <h3 className="font-serif text-[20px] leading-snug text-ink break-keep">{question.title}</h3>
         <p className="mt-2 text-[13px] leading-relaxed text-soft break-keep">{question.body}</p>
       </div>
       <div className="space-y-2">
-        {question.options.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() => onAnswer(question.id, option.value)}
-            className={`w-full border-t border-hair py-3 text-left transition ${
-              value === option.value ? "text-ink" : "text-soft hover:text-ink"
-            }`}
-          >
-            <span className="flex items-baseline justify-between gap-3">
-              <span className="text-[14px] font-semibold leading-snug break-keep">{option.label}</span>
-              <span className="text-[12px]">{value === option.value ? "선택됨" : "선택"}</span>
-            </span>
-            <span className="mt-1 block text-[12.5px] leading-relaxed break-keep">{option.detail}</span>
-          </button>
-        ))}
+        {question.options.map((option) => {
+          const selected = selectedValues.includes(option.value);
+          return (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => onAnswer(question.id, option.value)}
+              className={`w-full border px-4 py-3 text-left transition active:scale-[0.99] ${
+                selected ? "border-gold bg-gold/5 text-ink" : "border-hair text-soft hover:border-gold hover:text-ink"
+              }`}
+            >
+              <span className="flex items-baseline justify-between gap-3">
+                <span className="text-[14px] font-semibold leading-snug break-keep">{option.label}</span>
+                <span className="text-[12px]">{selected ? "반영됨" : question.multiple ? "추가" : "선택"}</span>
+              </span>
+              <span className="mt-1 block text-[12.5px] leading-relaxed break-keep">{option.detail}</span>
+            </button>
+          );
+        })}
       </div>
+      {question.multiple && (
+        <button
+          type="button"
+          onClick={onContinue}
+          disabled={!hasSelection}
+          className="btn-primary min-h-12 w-full text-[13px] disabled:opacity-40"
+        >
+          선택한 기준으로 다음 질문 →
+        </button>
+      )}
     </div>
   );
 }
@@ -994,27 +1029,34 @@ function RingAnsweredQuestion({
   onAnswer,
 }: {
   question: RingConsultationQuestion;
-  value?: string;
+  value?: string[];
   onAnswer: (questionId: RingConsultationQuestionId, value: string) => void;
 }) {
-  const option = question.options.find((item) => item.value === value);
+  const selectedValues = value ?? [];
+  const selectedLabels = question.options.filter((item) => selectedValues.includes(item.value)).map((item) => item.label);
   return (
     <div>
       <div className="mb-2 flex items-baseline justify-between gap-3">
-        <div className="eyebrow">{question.eyebrow}</div>
-        <div className="text-[12px] font-medium text-ink">{option?.label ?? "미답"}</div>
+        <div className="eyebrow">
+          {question.eyebrow}{question.multiple ? " · 복수" : ""}
+        </div>
+        <div className="text-[12px] font-medium text-ink">{selectedLabels.join(", ") || "미답"}</div>
       </div>
       <div className="flex flex-wrap gap-x-5 gap-y-2">
-        {question.options.map((item) => (
-          <button
-            key={item.value}
-            type="button"
-            onClick={() => onAnswer(question.id, item.value)}
-            className={`tracking-wide ${value === item.value ? "seg-active" : "seg"}`}
-          >
-            {item.label}
-          </button>
-        ))}
+        {question.options.map((item) => {
+          const selected = selectedValues.includes(item.value);
+          return (
+            <button
+              key={item.value}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => onAnswer(question.id, item.value)}
+              className={`tracking-wide ${selected ? "seg-active" : "seg"}`}
+            >
+              {item.label}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -1067,12 +1109,13 @@ function pickStarterRings({ answers }: { answers: RingConsultationAnswers }): St
 }
 
 function ringBudgetFromAnswers(answers: RingConsultationAnswers): RingBudgetBand {
-  const value = answers["rings-budget"];
+  const value = firstRingAnswer(answers, "rings-budget");
   return value === "under100" || value === "100to200" || value === "200to300" || value === "over300" ? value : "100to200";
 }
 
 function ringMaterialFromAnswers(answers: RingConsultationAnswers): RingMaterialPref {
-  const value = answers["rings-tone"];
+  const values = answers["rings-tone"] ?? [];
+  const value = values.length === 1 ? values[0] : undefined;
   if (value === "platinum") return "플래티넘";
   if (value === "white") return "화이트골드";
   if (value === "rose") return "로즈골드";
@@ -1081,18 +1124,20 @@ function ringMaterialFromAnswers(answers: RingConsultationAnswers): RingMaterial
 }
 
 function ringDiamondFromAnswers(answers: RingConsultationAnswers): RingDiamondPref {
-  const design = answers["rings-design"];
-  if (design === "diamond" || design === "signature") return "diamond";
-  if (design === "minimal" || design === "classic") return "simple";
+  const designs = answers["rings-design"] ?? [];
+  const wantsDiamond = designs.some((design) => design === "diamond" || design === "signature");
+  const wantsSimple = designs.some((design) => design === "minimal" || design === "classic");
+  if (wantsDiamond && !wantsSimple) return "diamond";
+  if (wantsSimple && !wantsDiamond) return "simple";
   return "all";
 }
 
 function ringConsultationScore(ring: Ring, answers: RingConsultationAnswers): number {
   let score = 0;
-  const wear = answers["rings-wear"];
-  const design = answers["rings-design"];
-  const match = answers["rings-match"];
-  const priority = answers["rings-priority"];
+  const wear = firstRingAnswer(answers, "rings-wear");
+  const match = firstRingAnswer(answers, "rings-match");
+  const priority = firstRingAnswer(answers, "rings-priority");
+  const tones = answers["rings-tone"] ?? [];
   const brandWeight = luxuryBrandScore(ring.brand);
 
   if (wear === "daily") {
@@ -1105,10 +1150,15 @@ function ringConsultationScore(ring: Ring, answers: RingConsultationAnswers): nu
     score += ring.hasDiamond ? 1 : 2;
   }
 
-  if (design === "minimal" && !ring.hasDiamond) score += 4;
-  if (design === "classic" && /밴드|웨딩|클래식|투게더|1895/i.test(ring.model)) score += 4;
-  if (design === "diamond" && ring.hasDiamond) score += 4;
-  if (design === "signature") score += Math.min(4, brandWeight + (ring.hasDiamond ? 1 : 0));
+  if (hasRingAnswer(answers, "rings-design", "minimal") && !ring.hasDiamond) score += 4;
+  if (hasRingAnswer(answers, "rings-design", "classic") && /밴드|웨딩|클래식|투게더|1895/i.test(ring.model)) score += 4;
+  if (hasRingAnswer(answers, "rings-design", "diamond") && ring.hasDiamond) score += 4;
+  if (hasRingAnswer(answers, "rings-design", "signature")) score += Math.min(4, brandWeight + (ring.hasDiamond ? 1 : 0));
+
+  if (tones.includes("platinum") && ring.material === "플래티넘") score += 2;
+  if (tones.includes("white") && ring.material === "화이트골드") score += 2;
+  if (tones.includes("rose") && ring.material === "로즈골드") score += 2;
+  if (tones.includes("yellow") && ring.material === "옐로우골드") score += 2;
 
   if (match === "same-line" && /밴드|웨딩|클래식|투게더|1895/i.test(ring.model)) score += 2;
   if (match === "same-mood" && ring.material) score += 1;
@@ -1152,10 +1202,18 @@ function ringStarterReason(
   else if (ring.material) parts.push(ring.material);
   if (diamond === "diamond" && ring.hasDiamond) parts.push("다이아 디자인");
   if (diamond === "simple" && !ring.hasDiamond) parts.push("심플 디자인");
-  if (answers["rings-priority"] === "comfort" && !ring.hasDiamond) parts.push("착용감 우선");
-  if (answers["rings-priority"] === "brand") parts.push("브랜드 우선");
-  if (answers["rings-match"] === "same-line") parts.push("커플 라인으로 보기 쉬움");
+  if (hasRingAnswer(answers, "rings-priority", "comfort") && !ring.hasDiamond) parts.push("착용감 우선");
+  if (hasRingAnswer(answers, "rings-priority", "brand")) parts.push("브랜드 우선");
+  if (hasRingAnswer(answers, "rings-match", "same-line")) parts.push("커플 라인으로 보기 쉬움");
   return parts.slice(0, 3).join(" · ");
+}
+
+function firstRingAnswer(answers: RingConsultationAnswers, questionId: RingConsultationQuestionId): string | undefined {
+  return answers[questionId]?.[0];
+}
+
+function hasRingAnswer(answers: RingConsultationAnswers, questionId: RingConsultationQuestionId, value: string): boolean {
+  return answers[questionId]?.includes(value) ?? false;
 }
 
 function isRingBudgetMatch(price: number, band: RingBudgetBand): boolean {

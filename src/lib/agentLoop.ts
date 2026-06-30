@@ -12,6 +12,7 @@ export type AgentLoopQuestion = {
   eyebrow: string;
   title: string;
   body: string;
+  multiple?: boolean;
   options: AgentLoopOption[];
 };
 
@@ -66,7 +67,8 @@ export function nextAgentQuestion(data: WeddingData): AgentLoopQuestion | null {
       id: "invitation-final-check",
       eyebrow: "다음 질문",
       title: "청첩장은 무엇부터 점검할까요?",
-      body: "공유 전에 한 번만 잡아두면 실수가 크게 줄어드는 부분입니다.",
+      body: "공유 전에 한 번만 잡아두면 실수가 크게 줄어드는 부분입니다. 필요한 항목을 여러 개 골라도 됩니다.",
+      multiple: true,
       options: [
         { label: "이름·날짜 오탈자", value: "typo", desc: "가장 치명적인 기본 정보 검수" },
         { label: "계좌·연락처 공개 범위", value: "privacy", desc: "민감 정보 노출 줄이기" },
@@ -80,7 +82,8 @@ export function nextAgentQuestion(data: WeddingData): AgentLoopQuestion | null {
       id: "trip-style",
       eyebrow: "다음 질문",
       title: "신혼여행은 어떤 분위기로 좁힐까요?",
-      body: "같은 지역도 분위기를 정해야 숙소와 동선 기준이 선명해집니다.",
+      body: "같은 지역도 분위기를 정해야 숙소와 동선 기준이 선명해집니다. 섞고 싶은 분위기는 같이 골라도 됩니다.",
+      multiple: true,
       options: [
         { label: "휴양 위주", value: "rest", desc: "풀빌라·리조트·스파 중심" },
         { label: "관광과 맛집", value: "city", desc: "동선과 예약 난이도 중심" },
@@ -92,11 +95,13 @@ export function nextAgentQuestion(data: WeddingData): AgentLoopQuestion | null {
   return null;
 }
 
-export function applyAgentAnswer(data: WeddingData, question: AgentLoopQuestion, value: string): { next: WeddingData; message: string } {
-  if (question.id === "headcount-scale") return applyHeadcount(data, question, value);
-  if (question.id === "venue-first-tour") return applyVenueTour(data, question, value);
-  if (question.id === "invitation-final-check") return applyInvitationCheck(data, question, value);
-  if (question.id === "trip-style") return applyTripStyle(data, question, value);
+export function applyAgentAnswer(data: WeddingData, question: AgentLoopQuestion, value: string | string[]): { next: WeddingData; message: string } {
+  const values = normalizeAnswerValues(question, value);
+  if (values.length === 0) return { next: data, message: "먼저 하나 이상 골라주세요." };
+  if (question.id === "headcount-scale") return applyHeadcount(data, question, values[0]);
+  if (question.id === "venue-first-tour") return applyVenueTour(data, question, values[0]);
+  if (question.id === "invitation-final-check") return applyInvitationCheck(data, question, values);
+  if (question.id === "trip-style") return applyTripStyle(data, question, values);
   return { next: rememberAnswer(data, question, value), message: "답을 저장했어요." };
 }
 
@@ -170,39 +175,41 @@ function applyVenueTour(data: WeddingData, question: AgentLoopQuestion, value: s
   return { next, message: `${venue?.name ?? "선택한 후보"}를 첫 상담 후보로 표시했어요.` };
 }
 
-function applyInvitationCheck(data: WeddingData, question: AgentLoopQuestion, value: string) {
+function applyInvitationCheck(data: WeddingData, question: AgentLoopQuestion, values: string[]) {
   const textByValue: Record<string, string> = {
     typo: "청첩장 이름·날짜·시간·장소 오탈자 최종 검수",
     privacy: "청첩장 계좌·연락처·혼주 정보 공개 범위 확인",
     map: "청첩장 지도·주차·대중교통 안내 문구 확인",
   };
-  const next = addAgentTask(rememberAnswer(data, question, value), {
+  const tasks = values.map((value) => ({
     text: textByValue[value] ?? "청첩장 공유 전 최종 검수",
     ddayOffset: -35,
     priority: value === "typo" ? "red" : "yellow",
-  });
-  return { next, message: "청첩장 공유 전 점검 항목을 추가했어요." };
+  } as const));
+  const next = addAgentTasks(rememberAnswer(data, question, values), tasks);
+  return { next, message: `청첩장 공유 전 점검 항목 ${tasks.length}개를 추가했어요.` };
 }
 
-function applyTripStyle(data: WeddingData, question: AgentLoopQuestion, value: string) {
+function applyTripStyle(data: WeddingData, question: AgentLoopQuestion, values: string[]) {
   const noteByValue: Record<string, string> = {
     rest: "휴양 위주: 리조트 위치, 객실 컨디션, 수영장·스파, 이동 피로를 우선 비교",
     city: "관광과 맛집: 주요 동선, 예약 필요한 식당, 대중교통·렌터카 난이도를 우선 비교",
     luxury: "럭셔리: 객실 등급, 전망, 허니문 베네핏, 올인클루시브 포함 범위를 우선 비교",
   };
-  const nextBase = rememberAnswer(data, question, value);
+  const notes = values.map((item) => noteByValue[item]).filter(Boolean);
+  const nextBase = rememberAnswer(data, question, values);
   const next: WeddingData = {
     ...nextBase,
     honeymoon: {
       ...nextBase.honeymoon,
-      notes: noteByValue[value] ?? "여행 분위기 기준 정리",
+      notes: notes.join("\n") || "여행 분위기 기준 정리",
     },
     ai: {
       ...(nextBase.ai ?? {}),
       today: [
         {
           title: "신혼여행 후보를 분위기 기준으로 다시 비교하기",
-          reason: noteByValue[value],
+          reason: notes.join(" / "),
           targetPath: "/trip",
         },
         ...(nextBase.ai?.today ?? []),
@@ -210,11 +217,15 @@ function applyTripStyle(data: WeddingData, question: AgentLoopQuestion, value: s
       updatedAt: new Date().toISOString(),
     },
   };
-  return { next, message: "신혼여행 비교 기준을 저장했어요." };
+  return { next, message: `신혼여행 비교 기준 ${values.length}개를 저장했어요.` };
 }
 
-function rememberAnswer(data: WeddingData, question: AgentLoopQuestion, value: string): WeddingData {
-  const option = question.options.find((item) => item.value === value);
+function rememberAnswer(data: WeddingData, question: AgentLoopQuestion, value: string | string[]): WeddingData {
+  const values = normalizeAnswerValues(question, value);
+  const answer = question.options
+    .filter((item) => values.includes(item.value))
+    .map((item) => item.label)
+    .join(", ");
   const answeredAt = new Date().toISOString();
   return {
     ...data,
@@ -225,7 +236,7 @@ function rememberAnswer(data: WeddingData, question: AgentLoopQuestion, value: s
         {
           id: question.id,
           question: question.title,
-          answer: option?.label ?? value,
+          answer: answer || values.join(", "),
           answeredAt,
         },
       ].slice(-12),
@@ -234,21 +245,32 @@ function rememberAnswer(data: WeddingData, question: AgentLoopQuestion, value: s
   };
 }
 
+function normalizeAnswerValues(question: AgentLoopQuestion, value: string | string[]): string[] {
+  const incoming = Array.isArray(value) ? value : [value];
+  const allowed = new Set(question.options.map((item) => item.value));
+  const unique = incoming.filter((item, index) => allowed.has(item) && incoming.indexOf(item) === index);
+  return question.multiple ? unique : unique.slice(0, 1);
+}
+
 function addAgentTask(data: WeddingData, item: Pick<CheckItem, "text" | "ddayOffset" | "priority">): WeddingData {
+  return addAgentTasks(data, [item]);
+}
+
+function addAgentTasks(data: WeddingData, items: Array<Pick<CheckItem, "text" | "ddayOffset" | "priority">>): WeddingData {
   const now = Date.now();
   const sectionId = "agent-followup";
-  const task: CheckItem = {
-    id: `agent-followup-${now}`,
+  const tasks: CheckItem[] = items.map((item, index) => ({
+    id: `agent-followup-${now}-${index}`,
     text: item.text,
     done: false,
     source: "ai",
     ddayOffset: item.ddayOffset,
     priority: item.priority,
-  };
+  }));
   const existing = data.checklist.find((section) => section.id === sectionId);
   const checklist = existing
-    ? data.checklist.map((section) => section.id === sectionId ? { ...section, items: [task, ...section.items].slice(0, 10) } : section)
-    : [{ id: sectionId, icon: "AI", title: "Dearie의 후속 정리", items: [task] }, ...data.checklist];
+    ? data.checklist.map((section) => section.id === sectionId ? { ...section, items: [...tasks, ...section.items].slice(0, 10) } : section)
+    : [{ id: sectionId, icon: "AI", title: "Dearie의 후속 정리", items: tasks }, ...data.checklist];
   return { ...data, checklist: recalcDueDates(checklist, data.invitation.date) };
 }
 

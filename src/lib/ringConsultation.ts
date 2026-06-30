@@ -19,6 +19,7 @@ export type RingConsultationQuestion = {
   eyebrow: string;
   title: string;
   body: string;
+  multiple?: boolean;
   options: RingConsultationOption[];
 };
 
@@ -50,7 +51,8 @@ export const RING_CONSULTATION_QUESTIONS: RingConsultationQuestion[] = [
     id: "rings-tone",
     eyebrow: "03 · 색감",
     title: "손에 올렸을 때 편한 금속 색은요?",
-    body: "소재 색은 사진보다 실제 착용감이 중요해서, 처음엔 비교 축으로만 잡아두면 좋아요.",
+    body: "소재 색은 사진보다 실제 착용감이 중요해서, 끌리는 색은 여러 개 남겨두고 매장에서 비교해도 좋아요.",
+    multiple: true,
     options: [
       { value: "platinum", label: "플래티넘", detail: "차분하고 단단한 느낌" },
       { value: "white", label: "화이트골드", detail: "밝고 깔끔한 은색 계열" },
@@ -63,7 +65,8 @@ export const RING_CONSULTATION_QUESTIONS: RingConsultationQuestion[] = [
     id: "rings-design",
     eyebrow: "04 · 디자인",
     title: "첫인상은 어느 쪽이 더 좋아요?",
-    body: "여기서 고른 답은 후보의 다이아 여부와 존재감을 좁히는 기준이 됩니다.",
+    body: "여기서 고른 답은 후보의 다이아 여부와 존재감을 좁히는 기준이 됩니다. 동시에 끌리는 인상이 있으면 같이 골라도 됩니다.",
+    multiple: true,
     options: [
       { value: "minimal", label: "심플한 밴드", detail: "오래 봐도 질리지 않는 쪽" },
       { value: "classic", label: "클래식 웨딩", detail: "브랜드 기본기와 안정감" },
@@ -97,7 +100,7 @@ export const RING_CONSULTATION_QUESTIONS: RingConsultationQuestion[] = [
 
 export const RING_CONSULTATION_IDS = RING_CONSULTATION_QUESTIONS.map((question) => question.id);
 
-export type RingConsultationAnswers = Partial<Record<RingConsultationQuestionId, string>>;
+export type RingConsultationAnswers = Partial<Record<RingConsultationQuestionId, string[]>>;
 
 export function ringConsultationAnswers(data: WeddingData): RingConsultationAnswers {
   const dialogue = data.ai?.dialogue ?? [];
@@ -105,20 +108,23 @@ export function ringConsultationAnswers(data: WeddingData): RingConsultationAnsw
   for (const question of RING_CONSULTATION_QUESTIONS) {
     const item = dialogue.find((entry) => entry.id === question.id);
     if (!item) continue;
-    const matched = question.options.find((option) => option.value === item.answer || option.label === item.answer);
-    if (matched) answers[question.id] = matched.value;
+    const tokens = item.answer.split(",").map((entry) => entry.trim()).filter(Boolean);
+    const matched = question.options.filter((option) => tokens.includes(option.value) || tokens.includes(option.label));
+    if (matched.length > 0) answers[question.id] = question.multiple
+      ? matched.map((option) => option.value)
+      : [matched[0].value];
   }
   return answers;
 }
 
 export function ringConsultationProgress(data: WeddingData) {
   const answers = ringConsultationAnswers(data);
-  const answered = RING_CONSULTATION_QUESTIONS.filter((question) => answers[question.id]).length;
+  const answered = RING_CONSULTATION_QUESTIONS.filter((question) => (answers[question.id]?.length ?? 0) > 0).length;
   return { answered, total: RING_CONSULTATION_QUESTIONS.length, complete: answered === RING_CONSULTATION_QUESTIONS.length };
 }
 
 export function nextRingConsultationQuestion(answers: RingConsultationAnswers) {
-  return RING_CONSULTATION_QUESTIONS.find((question) => !answers[question.id]) ?? null;
+  return RING_CONSULTATION_QUESTIONS.find((question) => (answers[question.id]?.length ?? 0) === 0) ?? null;
 }
 
 export function answerRingConsultation(data: WeddingData, questionId: RingConsultationQuestionId, value: string): WeddingData {
@@ -127,23 +133,40 @@ export function answerRingConsultation(data: WeddingData, questionId: RingConsul
   const option = question.options.find((item) => item.value === value);
   if (!option) return data;
   const answeredAt = new Date().toISOString();
+  const currentValues = ringConsultationAnswers(data)[question.id] ?? [];
+  const nextValues = question.multiple
+    ? toggleRingAnswerValue(question, currentValues, value)
+    : [value];
+  const nextOptions = question.options.filter((item) => nextValues.includes(item.value));
+  const filteredDialogue = (data.ai?.dialogue ?? []).filter((item) => item.id !== question.id);
+  if (nextOptions.length === 0) {
+    return {
+      ...data,
+      ai: {
+        ...(data.ai ?? {}),
+        dialogue: filteredDialogue.slice(-80),
+        updatedAt: answeredAt,
+      },
+    };
+  }
+  const answerLabel = nextOptions.map((item) => item.label).join(", ");
   return {
     ...data,
     ai: {
       ...(data.ai ?? {}),
       dialogue: [
-        ...(data.ai?.dialogue ?? []).filter((item) => item.id !== question.id),
+        ...filteredDialogue,
         {
           id: question.id,
           question: question.title,
-          answer: option.label,
+          answer: answerLabel,
           answeredAt,
         },
       ].slice(-80),
       today: [
         {
           title: "반지 후보를 취향 기준으로 좁히기",
-          reason: `${option.label} 기준을 반영했어요. 겹치는 후보와 가격 확인 순서까지 이어가면 됩니다.`,
+          reason: `${answerLabel} 기준을 반영했어요. 겹치는 후보와 가격 확인 순서까지 이어가면 됩니다.`,
           targetPath: "/rings",
         },
         ...(data.ai?.today ?? []).filter((item) => item.targetPath !== "/rings"),
@@ -151,4 +174,17 @@ export function answerRingConsultation(data: WeddingData, questionId: RingConsul
       updatedAt: answeredAt,
     },
   };
+}
+
+function toggleRingAnswerValue(question: RingConsultationQuestion, currentValues: string[], value: string): string[] {
+  const exclusiveValues: Partial<Record<RingConsultationQuestionId, string[]>> = {
+    "rings-tone": ["unsure"],
+  };
+  const exclusive = exclusiveValues[question.id] ?? [];
+  const withoutExclusive = exclusive.includes(value)
+    ? []
+    : currentValues.filter((item) => !exclusive.includes(item));
+  return currentValues.includes(value)
+    ? currentValues.filter((item) => item !== value)
+    : [...withoutExclusive, value];
 }

@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import type { WeddingData } from "../lib/schema";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { recalcDueDates } from "../data/checklistTemplate";
 import { daysUntilISODate, parseISODateLocal } from "../lib/date";
 import ChatbotBridgeModal from "../components/ChatbotBridgeModal";
@@ -138,7 +138,7 @@ export default function Dashboard({ data, update }: Props) {
     setAgentChoosing(false);
   };
 
-  const answerAgentQuestion = (question: AgentLoopQuestion, value: string) => {
+  const answerAgentQuestion = (question: AgentLoopQuestion, value: string | string[]) => {
     const result = applyAgentAnswer(data, question, value);
     update(() => result.next);
     setAiMessage(result.message);
@@ -609,28 +609,74 @@ function PriorityChooser({ onPriority, onCancel }: { onPriority: (priority: Agen
   );
 }
 
-function MasterQuestionCard({ question, onAnswer }: { question: AgentLoopQuestion; onAnswer: (question: AgentLoopQuestion, value: string) => void }) {
+function MasterQuestionCard({
+  question,
+  onAnswer,
+}: {
+  question: AgentLoopQuestion;
+  onAnswer: (question: AgentLoopQuestion, value: string | string[]) => void;
+}) {
+  const [draftValues, setDraftValues] = useState<string[]>([]);
+  const hasDraft = draftValues.length > 0;
+
+  useEffect(() => {
+    setDraftValues([]);
+  }, [question.id]);
+
+  const toggleDraft = (value: string) => {
+    setDraftValues((current) =>
+      current.includes(value)
+        ? current.filter((item) => item !== value)
+        : [...current, value],
+    );
+  };
+
+  const applyDraft = () => {
+    if (!hasDraft) return;
+    onAnswer(question, draftValues);
+    setDraftValues([]);
+  };
+
   return (
     <div className="mt-2 border-y border-hair py-2.5">
       <div className="mb-1 flex items-baseline justify-between gap-3">
         <span className="eyebrow-gold">{question.eyebrow}</span>
-        <span className="text-[11px] text-soft">선택하면 바로 반영</span>
+        <span className="text-[11px] text-soft">{question.multiple ? "여러 개 선택 가능" : "선택하면 바로 반영"}</span>
       </div>
       <h3 className="text-[13.5px] font-semibold leading-snug text-ink break-keep">{question.title}</h3>
-      <p className="mt-0.5 truncate text-[11.5px] leading-relaxed text-soft">{question.body}</p>
-      <div className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-2">
-        {question.options.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() => onAnswer(question, option.value)}
-            className="row-tap min-h-10 border border-hair px-2.5 py-1.5 text-left"
-          >
-            <span className="block truncate text-[12px] font-semibold text-ink">{option.label}</span>
-            {option.desc && <span className="mt-0.5 block truncate text-[10.5px] leading-relaxed text-soft">{option.desc}</span>}
-          </button>
-        ))}
+      <p className="mt-0.5 text-[11.5px] leading-relaxed text-soft break-keep">{question.body}</p>
+      <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+        {question.options.map((option) => {
+          const selected = draftValues.includes(option.value);
+          return (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => question.multiple ? toggleDraft(option.value) : onAnswer(question, option.value)}
+              className={`row-tap min-h-10 border px-2.5 py-1.5 text-left transition ${
+                selected ? "border-gold bg-gold/5 text-ink" : "border-hair text-soft hover:border-gold hover:text-ink"
+              }`}
+            >
+              <span className="flex items-baseline justify-between gap-2">
+                <span className="block truncate text-[12px] font-semibold text-ink">{option.label}</span>
+                {question.multiple && <span className="text-[10.5px] text-soft">{selected ? "선택됨" : "추가"}</span>}
+              </span>
+              {option.desc && <span className="mt-0.5 block text-[10.5px] leading-relaxed text-soft break-keep">{option.desc}</span>}
+            </button>
+          );
+        })}
       </div>
+      {question.multiple && (
+        <button
+          type="button"
+          onClick={applyDraft}
+          disabled={!hasDraft}
+          className="btn-primary mt-2 min-h-10 w-full text-[12px] disabled:opacity-40"
+        >
+          선택한 항목 {draftValues.length}개 반영 →
+        </button>
+      )}
     </div>
   );
 }

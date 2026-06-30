@@ -182,6 +182,57 @@ test.describe("critical product flows", () => {
     await expect(page.getByText("반지 취향 질문 이어가기").first()).toBeVisible();
   });
 
+  test("supports multi-select Dearie answers before committing the next action", async ({ page }) => {
+    const seeded = seededWeddingData();
+    await seedBrowserStorage(page, seeded);
+
+    await page.goto("/dashboard");
+    await expect(page.getByRole("heading", { name: "청첩장은 무엇부터 점검할까요?" })).toBeVisible();
+    await page.getByRole("button", { name: /이름·날짜 오탈자/ }).click();
+    await page.getByRole("button", { name: /지도·주차 안내/ }).click();
+    await expect(page.getByRole("button", { name: "선택한 항목 2개 반영 →" })).toBeEnabled();
+    await page.getByRole("button", { name: "선택한 항목 2개 반영 →" }).click();
+    await expect(page.getByText("청첩장 공유 전 점검 항목 2개를 추가했어요.")).toBeVisible();
+
+    await expect.poll(async () => {
+      const stored = await readStoredData(page);
+      const followups = stored.checklist.find((section) => section.id === "agent-followup")?.items ?? [];
+      return {
+        answer: stored.ai?.dialogue?.find((item) => item.id === "invitation-final-check")?.answer,
+        typo: followups.some((item) => item.text.includes("오탈자")),
+        map: followups.some((item) => item.text.includes("지도")),
+      };
+    }).toEqual({
+      answer: "이름·날짜 오탈자, 지도·주차 안내",
+      typo: true,
+      map: true,
+    });
+
+    await page.goto("/rings?starter=1");
+    await expect(page.getByRole("heading", { name: "반지 기준 잡기" })).toBeVisible();
+    await page.getByRole("button", { name: /매일 편하게/ }).click();
+    await page.getByRole("button", { name: /100~200만/ }).click();
+    await expect(page.getByRole("heading", { name: "손에 올렸을 때 편한 금속 색은요?" })).toBeVisible();
+    await page.getByRole("button", { name: /플래티넘/ }).click();
+    await page.getByRole("button", { name: /화이트골드/ }).click();
+    await page.getByRole("button", { name: "선택한 기준으로 다음 질문 →" }).click();
+    await expect(page.getByRole("heading", { name: "첫인상은 어느 쪽이 더 좋아요?" })).toBeVisible();
+    await page.getByRole("button", { name: /심플한 밴드/ }).click();
+    await page.getByRole("button", { name: /다이아 포인트/ }).click();
+    await page.getByRole("button", { name: "선택한 기준으로 다음 질문 →" }).click();
+
+    await expect.poll(async () => {
+      const stored = await readStoredData(page);
+      return {
+        tone: stored.ai?.dialogue?.find((item) => item.id === "rings-tone")?.answer,
+        design: stored.ai?.dialogue?.find((item) => item.id === "rings-design")?.answer,
+      };
+    }).toEqual({
+      tone: "플래티넘, 화이트골드",
+      design: "심플한 밴드, 다이아 포인트",
+    });
+  });
+
   test("lets AI starter output create a useful first board without calling an API", async ({ page }) => {
     const seeded = seededWeddingData();
     seeded.budget = [];
