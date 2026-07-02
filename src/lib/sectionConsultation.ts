@@ -402,6 +402,45 @@ export function nextConsultationQuestion(data: WeddingData, sectionId: Consultat
   return consultationQuestions(sectionId).find((question) => (answers[question.id]?.length ?? 0) === 0) ?? null;
 }
 
+/**
+ * 답변을 "판단 재료" 문장으로 승격 — "지역: 강남·청담, 여의도" 형태.
+ * 상담 답변이 진행률 카운트로만 소비되지 않고 결정 카드·공유 문구에 실제로 흐르게 하는 통로.
+ */
+export function consultationFacts(data: WeddingData, sectionId: ConsultationSectionId, limit = 3): string[] {
+  const answers = consultationAnswers(data, sectionId);
+  const facts: string[] = [];
+  for (const question of consultationQuestions(sectionId)) {
+    const values = answers[question.id];
+    if (!values || values.length === 0) continue;
+    const labels = question.options
+      .filter((option) => values.includes(option.value))
+      .map((option) => option.label);
+    if (labels.length === 0) continue;
+    // eyebrow "01 · 지역" → "지역"
+    const key = question.eyebrow.split("·").pop()?.trim() || question.eyebrow;
+    facts.push(`${key}: ${labels.join(", ")}`);
+    if (facts.length >= limit) break;
+  }
+  return facts;
+}
+
+/** 특정 질문의 선택 value 배열 — 결정 규칙이 답변 내용으로 분기할 때 사용. */
+export function consultationChoice(data: WeddingData, sectionId: ConsultationSectionId, questionId: string): string[] {
+  return consultationAnswers(data, sectionId)[questionId] ?? [];
+}
+
+/** 하객 규모 답변 → 대략 숫자 밴드. 계산기·명단이 비어도 보증인원 판단에 쓸 수 있다. */
+export function consultationHeadcountBand(data: WeddingData): number | null {
+  const fromGuests = consultationChoice(data, "guests", "guests-scale")[0];
+  const fromVenues = consultationChoice(data, "venues", "venues-scale")[0];
+  const value = fromGuests ?? fromVenues;
+  if (!value) return null;
+  if (value === "small") return fromGuests ? 130 : 100;
+  if (value === "medium") return 200;
+  if (value === "large") return 300;
+  return null; // unknown
+}
+
 export function answerConsultation(
   data: WeddingData,
   sectionId: ConsultationSectionId,
@@ -433,7 +472,7 @@ export function answerConsultation(
     };
   }
   const answerLabel = nextOptions.map((item) => item.label).join(", ");
-  return {
+  const nextData: WeddingData = {
     ...data,
     ai: {
       ...(data.ai ?? {}),
@@ -446,12 +485,28 @@ export function answerConsultation(
           answeredAt,
         },
       ].slice(-80),
+      updatedAt: answeredAt,
+    },
+  };
+  // 답변이 카운트로 끝나지 않게 — 다음 행동을 구체적으로 가리킨다.
+  const remaining = nextConsultationQuestion(nextData, sectionId);
+  const followUp = remaining
+    ? {
+        title: `다음 질문: ${remaining.title}`,
+        reason: `${answerLabel} 기준을 반영했어요. ${remaining.eyebrow.split("·").pop()?.trim() ?? "다음"} 기준까지 정하면 후보가 더 좁혀져요.`,
+        targetPath: meta.route,
+      }
+    : {
+        title: `${meta.label} 기준 완성 — 후보 비교로 이어가기`,
+        reason: `정한 기준(${consultationFacts(nextData, sectionId, 2).join(" · ") || answerLabel})으로 후보를 비교하면 됩니다.`,
+        targetPath: meta.route,
+      };
+  return {
+    ...nextData,
+    ai: {
+      ...(nextData.ai ?? {}),
       today: [
-        {
-          title: `${meta.label} 기준 이어가기`,
-          reason: `${answerLabel} 기준을 골랐어요. 다음 결정도 같은 흐름으로 좁혀볼게요.`,
-          targetPath: meta.route,
-        },
+        followUp,
         ...(data.ai?.today ?? []).filter((item) => item.targetPath !== meta.route),
       ].slice(0, 3),
       updatedAt: answeredAt,

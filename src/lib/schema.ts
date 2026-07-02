@@ -52,6 +52,8 @@ export type Hotel = Verifiable & {
   rooms?: { type: string; pricePerNight?: number; breakfast?: boolean; }[];
   otaPrices?: { ota: string; price?: number; url?: string; }[];
   notes?: string;
+  /** 무료취소 마감일 (ISO) — 지나면 취소 수수료 발생. D-day 손해 신호로 승격된다. */
+  freeCancelUntil?: string;
 };
 
 export type Flight = Verifiable & {
@@ -128,6 +130,12 @@ export type WeddingVenue = Verifiable & {
   balanceKRW?: number;      // 잔금
   balanceDueAt?: string;    // 잔금 납부일 (ISO)
   contract?: ContractCheck;  // 계약 조건 확인 메모
+  /** 무료취소(위약금 없는 취소) 마감일 (ISO) — 미루면 손해 신호의 핵심 필드. */
+  freeCancelUntil?: string;
+  /** 가계약(홀딩) 만료일 (ISO) — 이 날짜 전에 본계약 여부를 정해야 한다. */
+  holdExpiresAt?: string;
+  /** 보증인원 확정 마감일 (ISO) — 지나면 보증 미달분도 식대를 낸다. */
+  guaranteeDueAt?: string;
 };
 
 // ── 예산 ──
@@ -140,6 +148,20 @@ export type BudgetItem = {
   notes?: string;
   /** 참고 기준값. 사용자가 못 바꾸는 read-only 힌트. */
   avgKRW?: number;
+  /** 결제·확정 마감일 (ISO) — 잔금일, 위약금 발생일처럼 날짜가 걸린 항목만. */
+  dueDate?: string;
+};
+
+/** 예산 스코프 — 템플릿 일괄 주입 전에 "무엇까지 이 예산인가"를 먼저 정한다. */
+export type BudgetMeta = {
+  /** 총 예산 상한 (원). 모든 후보 비교의 공통 기준. */
+  capKRW?: number;
+  /** 신혼집(전세·가전·가구)을 이 예산에 포함하는지 */
+  includeHome?: boolean;
+  /** 예단·예물·폐백을 이 예산에 포함하는지 */
+  includeYedan?: boolean;
+  /** 스코프를 정한 시점 — 템플릿 주입 전 질문을 다시 띄울지 판단 */
+  decidedAt?: string;
 };
 
 // ── 하객 ──
@@ -192,6 +214,8 @@ export type SdmVendor = Verifiable & {
   balanceKRW?: number;      // 잔금
   balanceDueAt?: string;    // 잔금 납부일 (ISO)
   contract?: ContractCheck;  // 계약 조건 확인 메모
+  /** 무료취소(위약금 없는 취소) 마감일 (ISO) — 미루면 손해 신호로 승격. */
+  freeCancelUntil?: string;
 };
 
 // ── 식순 (당일 진행표) ──
@@ -366,6 +390,8 @@ export type WeddingData = {
   video: VideoConfig;
   venues?: WeddingVenue[];
   budget?: BudgetItem[];
+  /** 예산 스코프·상한 — Budget 진입 시 템플릿보다 먼저 정하는 기준. */
+  budgetMeta?: BudgetMeta;
   guests?: Guest[];
   /**
    * 예상 인원 계산기 — 측·분류별 추정치. 명단(guests)과 함께 reconcile 된다.

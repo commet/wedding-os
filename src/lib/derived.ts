@@ -2,7 +2,8 @@
 // 모든 화면이 같은 계산을 공유하도록 단일 소스로 모은다(읽기 전용, 사용자 데이터를 덮어쓰지 않음).
 import type { WeddingData, WeddingVenue, GuestCategory, SdmCategory } from "./schema";
 import { ringConsultationProgress } from "./ringConsultation";
-import { consultationProgress } from "./sectionConsultation";
+import { consultationProgress, consultationFacts, consultationHeadcountBand } from "./sectionConsultation";
+import { collectLossDeadlines, lossDdayLabel, type LossDeadline } from "./lossDeadlines";
 
 // 하객 분류 — 계산기/명단 공통 라벨과 표시 순서.
 export const GUEST_CATEGORIES: { key: GuestCategory; label: string }[] = [
@@ -46,9 +47,13 @@ export function estimateTotal(data: WeddingData): number {
 /**
  * 계획 인원 — 계약/예산/보증인원 판단에 쓰는 '현재 최선 추정'.
  * 명단이 비었어도 계산기 추정으로 동작하고, 명단이 추정을 넘어서면 명단을 따른다.
+ * 계산기·명단이 모두 비어 있으면 상담 답변(규모 밴드)을 대신 쓴다 —
+ * 첫 답변부터 보증인원·식대 판단이 바로 작동하게.
  */
 export function planningHeadcount(data: WeddingData): number {
-  return Math.max(estimateTotal(data), expectedHeadcount(data));
+  const measured = Math.max(estimateTotal(data), expectedHeadcount(data));
+  if (measured > 0) return measured;
+  return consultationHeadcountBand(data) ?? 0;
 }
 
 export type HeadcountSummary = {
@@ -147,7 +152,7 @@ export function upcomingBalances(data: WeddingData, today: string = todayISO()):
   return out.sort((a, b) => a.daysLeft - b.daysLeft);
 }
 
-export type TimelineKind = "wedding" | "task" | "balance" | "visit";
+export type TimelineKind = "wedding" | "task" | "balance" | "visit" | "deadline";
 export type TimelineEvent = { date: string; daysLeft: number; label: string; kind: TimelineKind; targetPath: string };
 /**
  * 흩어진 모든 날짜를 하나의 시간축으로 — 예식 당일·체크리스트 마감·벤더 잔금일·답사일.
@@ -174,6 +179,11 @@ export function upcomingEvents(data: WeddingData, today: string = todayISO(), li
   }
   for (const s of data.sdm ?? []) {
     if (s.status === "계약" && (s.balanceKRW ?? 0) > 0) push(s.balanceDueAt, `${s.name} 잔금`, "balance", s.category === "snap" ? "/snap" : "/sdm");
+  }
+  // 미루면 손해 마감(무료취소·가계약·보증인원·결제)도 같은 시간축에 — 잔금은 위에서 이미 넣었으므로 제외.
+  for (const loss of collectLossDeadlines(data, today)) {
+    if (loss.kind === "balance") continue;
+    push(loss.date, `${loss.name} ${loss.label}`, "deadline", loss.targetPath);
   }
   events.sort((a, b) => a.daysLeft - b.daysLeft || a.label.localeCompare(b.label));
   return events.slice(0, limit);
@@ -620,6 +630,7 @@ export function decisionMap(data: WeddingData, today: string = todayISO()): Deci
   const invitation = invitationReadiness(data);
   const overdue = overdueChecklistCount(data, today);
   const balances = upcomingBalances(data, today);
+  const lossDeadlines = collectLossDeadlines(data, today);
   const venueConsultation = consultationProgress(data, "venues");
   const sdmConsultation = consultationProgress(data, "sdm");
   const tripConsultation = consultationProgress(data, "trip");
@@ -652,6 +663,35 @@ export function decisionMap(data: WeddingData, today: string = todayISO()): Deci
     });
   };
 
+  // ── 미루면 손해 — 돈이 걸린 마감이 가장 먼저 올라온다 ──
+  // 잔금(balance)은 아래 payment-upcoming 이 다루므로 그 외 마감(무료취소·가계약·보증인원·결제)만.
+  const urgentLoss = lossDeadlines.find((entry) => entry.kind !== "balance" && entry.daysLeft <= 21);
+  if (urgentLoss) {
+    const lossTitleByKind: Record<LossDeadline["kind"], string> = {
+      "free-cancel": "무료취소 기한 전에 유지·취소 정하기",
+      "hold-expiry": "가계약 만료 전에 본계약 정하기",
+      "guarantee-due": "보증인원 확정하기",
+      balance: "다가오는 잔금 확인하기",
+      "budget-due": "결제 마감 확인하기",
+    };
+    add({
+      id: "loss-deadline",
+      section: urgentLoss.targetPath === "/budget" ? "budget" : urgentLoss.targetPath === "/trip" ? "trip" : urgentLoss.targetPath === "/sdm" || urgentLoss.targetPath === "/snap" ? "sdm" : "venues",
+      stage: "now",
+      title: lossTitleByKind[urgentLoss.kind],
+      whyNow: `${urgentLoss.name}의 ${urgentLoss.label}이 ${lossDdayLabel(urgentLoss.daysLeft)}이에요. ${urgentLoss.lossHint}.`,
+      preparedFacts: compactFacts([
+        `${urgentLoss.name} · ${urgentLoss.label} ${urgentLoss.date.slice(5).replace("-", ".")}`,
+        urgentLoss.amountKRW ? `걸린 금액 약 ${formatKRW(urgentLoss.amountKRW)}` : undefined,
+      ]),
+      missingInputs: ["유지할지 취소할지", "조건 변경 가능 여부", "다음 확인 통화 날짜"],
+      nextAction: "마감 조건 보기",
+      to: urgentLoss.targetPath,
+      risk: { level: urgentLoss.daysLeft <= 7 ? "high" : "medium", label: `${urgentLoss.label} ${lossDdayLabel(urgentLoss.daysLeft)}` },
+      score: urgentLoss.daysLeft <= 7 ? 100 : 93,
+    });
+  }
+
   if (!data.invitation.date && (data.invitation.groomName || data.invitation.brideName || data.preferences.mode)) {
     add({
       id: "basics-date",
@@ -682,7 +722,7 @@ export function decisionMap(data: WeddingData, today: string = todayISO()): Deci
         : "후보가 모였을 때 1순위만 같이 고르면 상담이 훨씬 빨라져요.",
       preparedFacts: compactFacts([
         venues.length > 0 ? `후보 ${venues.length}곳` : undefined,
-        venueConsultation.answered > 0 ? `예식장 기준 ${venueConsultation.answered}/${venueConsultation.total}` : undefined,
+        ...consultationFacts(data, "venues", 2),
         data.invitation.venue ? `입력된 장소: ${data.invitation.venue}` : undefined,
       ]),
       missingInputs: ["답사 1순위", "상담 가능한 날짜", "식대·보증인원 상한"],
@@ -714,7 +754,7 @@ export function decisionMap(data: WeddingData, today: string = todayISO()): Deci
     });
   }
 
-  if ((data.budget ?? []).length === 0 || budget.planned === 0) {
+  if (((data.budget ?? []).length === 0 || budget.planned === 0) && !data.budgetMeta?.capKRW) {
     const stage: DecisionStage = venueContract || venues.length > 0 || (dday !== null && dday <= 240) ? "now" : "soon";
     add({
       id: "budget-total-cap",
@@ -723,6 +763,7 @@ export function decisionMap(data: WeddingData, today: string = todayISO()): Deci
       title: "전체 예산 상한 정하기",
       whyNow: "예산 상한이 있어야 식대, 스드메, 반지, 여행 후보를 같은 기준으로 비교할 수 있어요.",
       preparedFacts: compactFacts([
+        ...consultationFacts(data, "budget", 2),
         venues.length > 0 ? `예식장 후보 ${venues.length}곳` : undefined,
         headcount > 0 ? `예상 하객 ${headcount}명` : undefined,
       ]),
@@ -763,6 +804,7 @@ export function decisionMap(data: WeddingData, today: string = todayISO()): Deci
       title: "예상 하객 범위 정하기",
       whyNow: "하객 범위가 있어야 보증인원, 식대 예산, 청첩장 발송 시점을 같이 볼 수 있어요.",
       preparedFacts: compactFacts([
+        ...consultationFacts(data, "guests", 2),
         venueContract ? `계약 식장: ${venueContract.name}` : undefined,
         venues.length > 0 ? `비교 중인 식장 ${venues.length}곳` : undefined,
       ]),
@@ -847,7 +889,7 @@ export function decisionMap(data: WeddingData, today: string = todayISO()): Deci
       whyNow: "촬영과 가봉 일정은 뒤로 갈수록 선택지가 줄어들 수 있어요. 먼저 상담할 조합만 정해도 다음 단계가 열립니다.",
       preparedFacts: compactFacts([
         sdmCore.length > 0 ? `후보 ${sdmCore.length}곳` : undefined,
-        sdmConsultation.answered > 0 ? `기준 ${sdmConsultation.answered}/${sdmConsultation.total}` : undefined,
+        ...consultationFacts(data, "sdm", 2),
         sdmContracted > 0 ? `계약 ${sdmContracted}/3` : undefined,
       ]),
       missingInputs: ["상담 1순위", "촬영 희망 시기", "드레스/메이크업 우선순위"],
@@ -867,7 +909,7 @@ export function decisionMap(data: WeddingData, today: string = todayISO()): Deci
       title: "신혼여행 방향 정하기",
       whyNow: "여행지는 항공권과 숙소 가격이 같이 움직여요. 지역 2~3곳만 정해도 실제 예산 비교가 시작됩니다.",
       preparedFacts: compactFacts([
-        tripConsultation.answered > 0 ? `여행 기준 ${tripConsultation.answered}/${tripConsultation.total}` : undefined,
+        ...consultationFacts(data, "trip", 2),
         tripRegionCount > 0 ? `여행지 후보 ${tripRegionCount}곳` : undefined,
         data.flights.length > 0 ? `항공 후보 ${data.flights.length}개` : undefined,
         data.hotels.length > 0 ? `숙소 후보 ${data.hotels.length}곳` : undefined,
@@ -1096,6 +1138,126 @@ export function breakEven(data: WeddingData): BreakEven | null {
   const mealCost = meal ? (meal.max ?? meal.min ?? null) : null;
   const plannedBudget = (data.budget ?? []).reduce((s, b) => s + (b.planned ?? 0), 0);
   return { gift: income.total, mealCost, plannedBudget, vsMeal: mealCost !== null ? income.total - mealCost : null };
+}
+
+// ── 파트 간 숫자 흐름 — 각 화면의 확정 숫자가 예산으로 자동 제안된다 ──
+
+export type TripCostEstimate = {
+  flightKRW?: number;   // 가장 싼 항공 후보
+  hotelKRW?: number;    // 가장 싼 숙소 × 박수
+  nights?: number;
+  total: number;
+  basis: string;        // "항공 최저 150만 + 숙소 5박 200만"
+};
+/** 신혼여행 예상 총액 — 담아둔 항공·숙소 후보에서 최저 조합을 파생. */
+export function tripCostEstimate(data: WeddingData): TripCostEstimate | null {
+  const flightPrices = data.flights.map((f) => f.priceKRW ?? 0).filter((p) => p > 0);
+  const flightKRW = flightPrices.length ? Math.min(...flightPrices) : undefined;
+  let nights: number | undefined;
+  if (data.honeymoon.startDate && data.honeymoon.endDate) {
+    const n = Math.round((Date.parse(data.honeymoon.endDate.slice(0, 10)) - Date.parse(data.honeymoon.startDate.slice(0, 10))) / 86_400_000);
+    if (Number.isFinite(n) && n > 0) nights = n;
+  }
+  const hotelNightPrices = (data.hotels ?? [])
+    .map((h) => Math.min(...(h.rooms ?? []).map((r) => r.pricePerNight ?? Infinity)))
+    .filter((p) => Number.isFinite(p) && p > 0);
+  const cheapestNight = hotelNightPrices.length ? Math.min(...hotelNightPrices) : undefined;
+  const hotelKRW = cheapestNight !== undefined ? cheapestNight * (nights ?? 5) : undefined;
+  const total = (flightKRW ?? 0) + (hotelKRW ?? 0);
+  if (total <= 0) return null;
+  const basisParts = [
+    flightKRW ? `항공 최저 ${formatKRW(flightKRW)}` : undefined,
+    hotelKRW ? `숙소 ${nights ?? 5}박 약 ${formatKRW(hotelKRW)}` : undefined,
+  ].filter(Boolean);
+  return { flightKRW, hotelKRW, nights, total, basis: basisParts.join(" + ") };
+}
+
+export type BudgetSyncSuggestion = {
+  key: string;
+  /** 매칭된 기존 예산 항목 (없으면 새로 만들 것을 제안) */
+  itemId?: string;
+  categoryLabel: string;   // 항목 이름 (새로 만들 때 사용)
+  suggestedKRW: number;
+  currentKRW?: number;     // 매칭된 항목의 현재 planned
+  basis: string;           // 근거 — "계약 식장 식대 9만원 × 200명"
+  from: string;            // 출처 화면 라벨
+  to: string;              // 출처 화면 경로
+};
+/**
+ * 예산 동기화 제안 — 예식장·스드메·반지·여행의 확정/후보 숫자를 예산표 항목과 비교해
+ * "가져오기" 한 번으로 반영할 수 있는 제안 목록을 만든다. 사용자가 같은 숫자를 두 번 치지 않게.
+ */
+export function budgetSyncSuggestions(data: WeddingData): BudgetSyncSuggestion[] {
+  const out: BudgetSyncSuggestion[] = [];
+  const items = data.budget ?? [];
+  const findItem = (pattern: RegExp) => items.find((b) => pattern.test(b.category));
+  const propose = (
+    key: string,
+    pattern: RegExp,
+    categoryLabel: string,
+    suggestedKRW: number,
+    basis: string,
+    from: string,
+    to: string,
+  ) => {
+    if (!suggestedKRW || suggestedKRW <= 0) return;
+    const item = findItem(pattern);
+    const currentKRW = item?.planned;
+    // 이미 비슷하게 잡혀 있으면(±10%) 제안하지 않는다 — 소음 방지
+    if (currentKRW && Math.abs(currentKRW - suggestedKRW) <= suggestedKRW * 0.1) return;
+    out.push({ key, itemId: item?.id, categoryLabel, suggestedKRW, currentKRW, basis, from, to });
+  };
+
+  const venue = contractedVenue(data);
+  const headcount = planningHeadcount(data);
+  const meal = mealCostRange(venue, headcount);
+  if (venue && meal) {
+    const expected = meal.max ?? meal.min ?? 0;
+    const unit = venue.mealPriceMax ?? venue.mealPriceMin ?? 0;
+    propose(
+      "venue-meal", /식대|식사/, "예식장 식대", expected,
+      `${venue.name} 식대 ${formatKRW(unit)} × ${headcount}명`, "예식장", "/venues",
+    );
+  }
+  if (venue && ((venue.depositKRW ?? 0) > 0 || (venue.balanceKRW ?? 0) > 0)) {
+    propose(
+      "venue-contract", /대관|홀비/, "예식장 대관·홀비",
+      (venue.depositKRW ?? 0) + (venue.balanceKRW ?? 0),
+      `${venue.name} 계약금 ${formatKRW(venue.depositKRW ?? 0)} + 잔금 ${formatKRW(venue.balanceKRW ?? 0)}`,
+      "예식장", "/venues",
+    );
+  }
+
+  const sdmContracts = data.sdm.filter((s) => s.category !== "snap" && s.status === "계약");
+  const sdmTotal = sdmContracts.reduce((sum, s) => sum + (s.depositKRW ?? 0) + (s.balanceKRW ?? 0), 0);
+  if (sdmTotal > 0) {
+    propose(
+      "sdm-contract", /스튜디오|스드메/, "스튜디오 (촬영)", sdmTotal,
+      `계약 ${sdmContracts.length}곳 계약금+잔금 합계`, "스드메", "/sdm",
+    );
+  }
+  const snapContracts = data.sdm.filter((s) => s.category === "snap" && s.status === "계약");
+  const snapTotal = snapContracts.reduce((sum, s) => sum + (s.depositKRW ?? 0) + (s.balanceKRW ?? 0), 0);
+  if (snapTotal > 0) {
+    propose("snap-contract", /본식 스냅/, "본식 스냅", snapTotal, `계약 ${snapContracts.length}곳 계약금+잔금 합계`, "본식 스냅", "/snap");
+  }
+
+  const pickedRings = data.rings.filter((r) => (r.priceKRW ?? 0) > 0 && ((r.likedBy?.length ?? 0) > 0 || (r.starredBy?.length ?? 0) > 0));
+  if (pickedRings.length > 0) {
+    const cheapestPair = [...pickedRings].sort((a, b) => (a.priceKRW ?? 0) - (b.priceKRW ?? 0)).slice(0, 2);
+    const ringTotal = cheapestPair.reduce((sum, r) => sum + (r.priceKRW ?? 0), 0) * (cheapestPair.length === 1 ? 2 : 1);
+    propose(
+      "rings", /결혼반지|예물/, "결혼반지 (커플)", ringTotal,
+      `마음 표시한 후보 중 최저가 기준${cheapestPair.length === 1 ? " ×2" : ""}`, "반지", "/rings",
+    );
+  }
+
+  const trip = tripCostEstimate(data);
+  if (trip) {
+    propose("trip", /항공권|신혼여행|허니문/, "항공권 (2인)", trip.total, trip.basis, "신혼여행", "/trip");
+  }
+
+  return out;
 }
 
 /** 만원 단위 한국어 포맷 (예: 145000000 → "1억 4,500만") */

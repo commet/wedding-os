@@ -7,6 +7,7 @@ import {
   type DecisionSection,
   type DecisionStage,
 } from "./derived";
+import { collectLossDeadlines } from "./lossDeadlines";
 
 export type DecisionCalendarEvent = {
   title: string;
@@ -132,6 +133,10 @@ function suggestedDecisionDate(item: DecisionItem, data: WeddingData, today: str
     const balance = upcomingBalances(data, today).find((entry) => entry.daysLeft <= 14);
     return balance?.dueAt ?? today;
   }
+  if (item.id === "loss-deadline") {
+    const loss = collectLossDeadlines(data, today).find((entry) => entry.kind !== "balance" && entry.daysLeft <= 21);
+    return loss?.date ?? today;
+  }
   if (item.id === "checklist-overdue") return today;
   if (item.id === "invitation-public-info") return relativeToWedding(data, -70, today, 5);
   if (item.id === "venues-tour-order") return relativeToWedding(data, -180, today, 3);
@@ -152,6 +157,7 @@ function relativeToWedding(data: WeddingData, offsetDays: number, today: string,
 }
 
 function outcomeForDecision(item: DecisionItem): string {
+  if (item.id === "loss-deadline") return "위약금·조건 손해 없이 마감 전에 결정을 끝낼 수 있어요.";
   if (item.id.startsWith("venues")) return "상담 순서와 계약 질문이 선명해져요.";
   if (item.id.startsWith("budget") || item.id === "payment-upcoming") return "예산표와 실제 결제 흐름이 맞춰져요.";
   if (item.id.startsWith("guests")) return "보증인원, 식대, 초대 범위를 같은 기준으로 볼 수 있어요.";
