@@ -3,6 +3,7 @@
 // 발행된 청첩장의 암호문(payload.enc)을 그대로 돌려준다.
 // 운영자도 못 읽는 불투명 바이트 — 게스트 브라우저가 링크의 # 키로 복호화한다.
 // Blob 은 private — 토큰을 가진 이 함수만 읽을 수 있고, 응답은 같은 출처라 CORS 무관.
+// 모든 응답은 privateNoStoreHeaders 로 cache-control: private, no-store 를 붙인다.
 
 import { get } from "@vercel/blob";
 import { privateNoStoreHeaders, rateLimit, rateLimitByKey } from "./_security";

@@ -304,7 +304,7 @@ export default function Dashboard({ data, update }: Props) {
     capitalRisk ? { to: capFit === "under" ? "/venues" : "/guests", label: "예상 인원과 예식장 조건 확인" } : null,
     rsvpNudge ? { to: "/guests", label: `회신 ${rsvp.rate}% · 미응답 ${rsvp.pending}명` } : null,
     mealCheck ? { to: "/budget", label: "식대 예산 다시 확인" } : null,
-  ].filter((item): item is { to: string; label: string } => !!item).slice(0, 2);
+  ].filter((item): item is { to: string; label: string } => !!item).slice(0, 3);
 
   return (
     <div className="pb-10">
@@ -560,7 +560,7 @@ function MasterPlannerPanel({
               </button>
 
               {alertItems.length > 0 && (
-                <div className="mt-2 hidden divide-y divide-hair border-y border-hair bg-gold/5 md:block">
+                <div className="mt-2 divide-y divide-hair border-y border-hair bg-gold/5">
                   {alertItems.map((item) => (
                     <Link key={`${item.to}-${item.label}`} to={item.to} className="row-tap flex min-h-10 items-center justify-between gap-3 px-3 py-1.5">
                       <span className="text-[12.5px] font-medium text-ink break-keep">{item.label}</span>

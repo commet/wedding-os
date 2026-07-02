@@ -19,7 +19,7 @@ test.describe("critical product flows", () => {
     await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
     await page.reload();
 
-    await page.getByRole("button", { name: "Dearie와 시작하기 →" }).click();
+    await page.getByRole("button", { name: "질문 5개 시작하기 →" }).click();
     await page.getByPlaceholder("예: 김민준").fill("김민준");
     await page.getByPlaceholder("예: 이서연").fill("이서연");
     await page.getByRole("button", { name: "계속 →" }).click();
@@ -29,7 +29,7 @@ test.describe("critical product flows", () => {
     await page.getByRole("button", { name: "이 지역으로 보기 →" }).click();
     await page.getByRole("button", { name: "예식장을 찾고 싶어요" }).click();
     await page.getByRole("button", { name: "우선 이 기기에서 시작" }).click();
-    await page.getByRole("button", { name: "이 순서로 준비 시작하기 →" }).click();
+    await page.getByRole("button", { name: "준비 화면 열기 →" }).click();
 
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(page.getByText("Dearie · 정리 중").first()).toBeVisible();
@@ -179,7 +179,7 @@ test.describe("critical product flows", () => {
     await page.goto("/dashboard");
     await expect(page.getByRole("heading", { name: "앞으로 할 일" })).toBeVisible();
     await expect(page.getByText("스냅 기준 답하기").first()).toBeVisible();
-    await expect(page.getByText("반지 취향 질문 이어가기").first()).toBeVisible();
+    await expect(page.getByText("반지 취향 이어 고르기").first()).toBeVisible();
   });
 
   test("supports multi-select Dearie answers before committing the next action", async ({ page }) => {
@@ -442,8 +442,9 @@ test.describe("critical product flows", () => {
     expect(parseRecoveryFragment(`#w=${bundle.weddingId}&t=short&k=${bundle.weddingKey}`)).toBeNull();
     expect(parseRecoveryFragment(`#w=${bundle.weddingId}&t=${bundle.ownerToken}&k=not-a-key`)).toBeNull();
 
-    const wrapped = await wrapBundle(bundle, "twelve-letters-or-more");
-    await expect(unwrapBundle(wrapped.blob, wrapped.salt, "twelve-letters-or-more")).resolves.toEqual(bundle);
+    const passphrase = "twelve letters or more 2026!";
+    const wrapped = await wrapBundle(bundle, passphrase);
+    await expect(unwrapBundle(wrapped.blob, wrapped.salt, passphrase)).resolves.toEqual(bundle);
     await expect(unwrapBundle("a".repeat(5000), wrapped.salt, "twelve-letters-or-more")).rejects.toThrow();
 
     const seeded = seededWeddingData();
@@ -529,7 +530,7 @@ test.describe("critical product flows", () => {
       await storage.clearLocalDeviceData();
     });
     await expect(secondTab).toHaveURL(/\/$/);
-    await expect(secondTab.getByRole("button", { name: "Dearie와 시작하기 →" })).toBeVisible();
+    await expect(secondTab.getByRole("button", { name: "질문 5개 시작하기 →" })).toBeVisible();
     expect(await secondTab.evaluate(() => localStorage.getItem("wedding-os/v1"))).toBeNull();
     await secondTab.close();
   });

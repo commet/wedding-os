@@ -328,7 +328,11 @@ values (
   crypt('__WEDDING_OS_OWNER_TOKEN__', gen_salt('bf')),
   crypt('__WEDDING_OS_RSVP_TOKEN__', gen_salt('bf'))
 )
-on conflict (id) do nothing;
+on conflict (id) do update
+set owner_token_hash = coalesce(public.wedding_data.owner_token_hash, excluded.owner_token_hash),
+    rsvp_token_hash = coalesce(public.wedding_data.rsvp_token_hash, excluded.rsvp_token_hash)
+where public.wedding_data.owner_token_hash is null
+   or public.wedding_data.rsvp_token_hash is null;
 
 -- 완료. 이 SQL이 정상적으로 실행되면 "Success. No rows returned" 가 보입니다.
 
