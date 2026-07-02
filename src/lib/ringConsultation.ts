@@ -166,7 +166,7 @@ export function answerRingConsultation(data: WeddingData, questionId: RingConsul
       today: [
         {
           title: "반지 후보를 취향 기준으로 좁히기",
-          reason: `${answerLabel} 기준을 반영했어요. 겹치는 후보와 가격 확인 순서까지 이어가면 됩니다.`,
+          reason: `${answerLabel} 기준을 골랐어요. 겹치는 후보와 가격 확인 순서까지 이어가면 됩니다.`,
           targetPath: "/rings",
         },
         ...(data.ai?.today ?? []).filter((item) => item.targetPath !== "/rings"),

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import type { WeddingData, HoneymoonRegion, Flight, Hotel } from "../lib/schema";
+import type { WeddingData, WeddingUpdate, HoneymoonRegion, Flight, Hotel } from "../lib/schema";
 import { HONEYMOON_CATALOG, type HoneymoonPick } from "../data/honeymoonCatalog";
 import { OTA_LIST } from "../data/hotelOtaTemplate";
 import {
@@ -23,6 +23,7 @@ import { todayISO } from "../lib/freshness";
 import { koBreak } from "../lib/typography";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import SectionConsultationPanel from "../components/SectionConsultationPanel";
+import { SectionDecisionLoop } from "../components/DecisionLoopPanel";
 import { safeHref } from "../lib/security";
 import {
   emptyFlightResearchDraft,
@@ -35,7 +36,7 @@ import {
   type HotelResearchDraft,
 } from "../lib/researchCapture";
 
-type Props = { data: WeddingData; update: (patch: any) => void };
+type Props = { data: WeddingData; update: (patch: WeddingUpdate) => void };
 type Tab = "destinations" | "flights" | "stays";
 type TripMood = "rest" | "balanced" | "active" | "short";
 type TripBudget = "value" | "mid" | "luxury";
@@ -118,6 +119,8 @@ export default function Trip({ data, update }: Props) {
         <div className="eyebrow-gold mb-2">여행 계획</div>
         <h1 className="h-page">{koBreak("신혼여행")}</h1>
       </div>
+
+      <SectionDecisionLoop data={data} sectionId="trip" />
 
       {showStarter ? (
         <TripStarter onApply={applyTripStarter} onClose={() => setShowStarter(false)} />
@@ -484,7 +487,7 @@ function RegionCard({
         <button onClick={onToggle} className="flex-1 min-w-0 text-left py-1">
           <div className="flex items-center gap-2">
             <div className="font-serif text-[18px] text-ink truncate">{koBreak(region.name)}</div>
-            <span className="text-[11px] text-soft">{open ? "접기" : "펼치기"}</span>
+            <span className="text-[11px] text-soft">{open ? "간단히" : "자세히"}</span>
           </div>
           <div className="eyebrow mt-1">
             {region.durationDays ? `${region.durationDays}일` : "기간 미정"}
@@ -529,7 +532,7 @@ function RegionCard({
           <MapEmbed query={region.name} heightClass="h-40" label={`${region.name} 지도`} />
 
           <p className="text-[12px] text-soft leading-relaxed">
-            기간·예산은 후보 비교용입니다. 마이리얼트립·클룩·구글 같은 외부 사이트 검색에는 자동 필터로 반영되지 않습니다.
+            기간·예산은 후보 비교용입니다. 마이리얼트립·클룩·구글 같은 외부 사이트 검색에는 자동으로 넘어가지 않습니다.
           </p>
 
           <textarea

@@ -214,7 +214,7 @@ export default function AiSettings(_: Props) {
               <div className="eyebrow mb-2">사용 가능</div>
               <p className="text-[13px] text-soft leading-relaxed">
                 별도 API 키 없이 Dearie AI를 사용할 수 있습니다. 프롬프트는 Dearie 서버와 Anthropic을 거치며,
-                결과는 확인한 뒤 직접 반영합니다. 하객 명단·계좌·복구 링크처럼 민감한 내용은 요청 전에 빼주세요.
+                결과는 확인한 뒤 직접 적용합니다. 하객 명단·계좌·복구 링크처럼 민감한 내용은 요청 전에 빼주세요.
               </p>
             </div>
           ) : (

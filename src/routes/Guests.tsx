@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import type { WeddingData, Guest, GuestSide, GuestStatus, GuestCategory } from "../lib/schema";
+import type { WeddingData, WeddingUpdate, Guest, GuestSide, GuestStatus, GuestCategory } from "../lib/schema";
 import { listRsvps, type RsvpRow } from "../lib/storage.supabase";
 import { koBreak } from "../lib/typography";
 import {
@@ -9,9 +9,10 @@ import {
 } from "../lib/derived";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import SectionConsultationPanel from "../components/SectionConsultationPanel";
+import { SectionDecisionLoop } from "../components/DecisionLoopPanel";
 import DearieConfirmModal from "../components/DearieConfirmModal";
 
-type Props = { data: WeddingData; update: (patch: any) => void };
+type Props = { data: WeddingData; update: (patch: WeddingUpdate) => void };
 type Filter = "all" | "groom" | "bride" | "attending" | "pending";
 type ConfirmState = {
   title: string;
@@ -275,6 +276,7 @@ export default function Guests({ data, update }: Props) {
           </p>
         </div>
         <div className="text-left">
+          <SectionDecisionLoop data={data} sectionId="guests" />
           <ProcessAgentPanel
             title="명단 전에도 식수를 먼저 추정할 수 있어요"
             summary={agentSummary}
@@ -326,6 +328,8 @@ export default function Guests({ data, update }: Props) {
         <div className="eyebrow-gold mb-2">초대와 참석</div>
         <h1 className="h-page">하객 명단</h1>
       </div>
+
+      <SectionDecisionLoop data={data} sectionId="guests" />
 
       <ProcessAgentPanel
         title={stats.pending > 0 ? "회신 대기를 줄이는 중" : seatingGroups.total > 0 ? "좌석 묶음까지 읽는 중" : "명단을 식수로 바꾸는 중"}
@@ -534,7 +538,7 @@ export default function Guests({ data, update }: Props) {
 
 // 예상 인원 계산기 — 명단을 다 적기 전에도 측·분류별로 몇 명 올지 가늠하고,
 // 보증인원·식대·균형을 즉시 계산해 알려준다. 명단·회신이 들어오면 자동으로 reconcile.
-function HeadcountEstimator({ data, update }: { data: WeddingData; update: (patch: any) => void }) {
+function HeadcountEstimator({ data, update }: { data: WeddingData; update: (patch: WeddingUpdate) => void }) {
   const sum = headcountSummary(data);
   const hasEst = sum.estTotal > 0;
   const [editing, setEditing] = useState(false);
@@ -914,7 +918,7 @@ function GuestRow({ g, onChange, onRemove }: { g: Guest; onChange: (p: Partial<G
           </div>
 
           <div>
-            <label className="label">분류 <span className="text-mute normal-case tracking-normal">· 예상 인원에 반영</span></label>
+            <label className="label">분류 <span className="text-mute normal-case tracking-normal">· 예상 인원에 포함</span></label>
             <div className="flex flex-wrap gap-x-5 gap-y-2">
               {GUEST_CATEGORIES.map(({ key, label }) => (
                 <button

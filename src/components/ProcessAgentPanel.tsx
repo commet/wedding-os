@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { AgentIdentity } from "./AgentIdentity";
 
 export type ProcessAgentMetric = {
@@ -55,7 +55,7 @@ export default function ProcessAgentPanel({
   const stageLabel = stageCopy(mood, openStepCount);
 
   return (
-    <section className="border-y border-hair py-4 text-left md:py-5">
+    <section className="agent-panel md:px-5 md:py-5">
       <div className="flex items-start gap-3">
         <AgentIdentity compact mood={mood} />
         <div className="min-w-0 flex-1">
@@ -69,7 +69,7 @@ export default function ProcessAgentPanel({
       </div>
 
       {previewMetrics.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Dearie 판단 근거">
+        <div className="mt-3 flex flex-wrap gap-1.5" aria-label="Dearie가 본 기준">
           {previewMetrics.map((metric) => (
             <span
               key={metric.label}
@@ -77,8 +77,8 @@ export default function ProcessAgentPanel({
                 metric.tone === "warn"
                   ? "border-gold bg-gold/10 text-gold"
                   : metric.tone === "muted"
-                    ? "border-hair bg-cream/35 text-soft"
-                    : "border-hair text-ink"
+                    ? "border-line bg-shell text-soft"
+                    : "border-line bg-vellum/85 text-ink"
               }`}
             >
               <span className="font-medium text-soft">{metric.label}</span>
@@ -89,10 +89,10 @@ export default function ProcessAgentPanel({
       )}
 
       {actions.length > 0 && (
-        <div className="mt-4 border-y border-hair py-3">
+        <div className="mt-4 border-t border-line pt-3">
           <div className="mb-3 flex items-baseline justify-between gap-3">
-            <div className="eyebrow-gold">선택지</div>
-            {nextAction && <span className="text-[11px] text-soft">누르면 바로 반영됩니다</span>}
+            <div className="eyebrow-gold">바로 할 일</div>
+            {nextAction && <span className="text-[11px] text-soft">누르면 바로 적용돼요</span>}
           </div>
           {nextAction && (
             <button
@@ -102,8 +102,8 @@ export default function ProcessAgentPanel({
               disabled={nextAction.disabled}
               className={`group flex min-h-12 w-full items-center justify-between gap-4 px-4 py-3 text-left text-[14px] font-semibold transition active:scale-[0.99] disabled:opacity-40 ${
                 nextAction.tone === "warn"
-                  ? "border border-gold text-gold hover:bg-cream/50"
-                  : "bg-ink text-paper hover:bg-ink/90"
+                  ? "decision-cta text-gold hover:bg-cream/50"
+                  : "btn-primary"
               }`}
             >
               <span className="min-w-0">
@@ -120,7 +120,7 @@ export default function ProcessAgentPanel({
                   type="button"
                   onClick={action.onClick}
                   disabled={action.disabled}
-                  className="min-h-11 border border-hair px-3 py-2 text-left text-[12.5px] font-medium text-ink transition hover:border-gold hover:text-gold disabled:opacity-40"
+                  className="app-tile min-h-11 px-3 py-2 text-left text-[12.5px] font-medium text-ink transition hover:text-gold disabled:opacity-40"
                 >
                   <span className="flex items-center justify-between gap-3">
                     <span className="break-keep">{labelFor(action.label)}</span>
@@ -143,7 +143,7 @@ export default function ProcessAgentPanel({
                     type="button"
                     onClick={action.onClick}
                     disabled={action.disabled}
-                    className="min-h-11 border border-hair px-3 py-2 text-left text-[12.5px] font-medium text-ink transition hover:border-gold hover:text-gold disabled:opacity-40"
+                    className="app-tile min-h-11 px-3 py-2 text-left text-[12.5px] font-medium text-ink transition hover:text-gold disabled:opacity-40"
                   >
                     {labelFor(action.label)}
                   </button>
@@ -155,12 +155,12 @@ export default function ProcessAgentPanel({
       )}
 
       {steps.length > 0 && (
-        <details className="mt-2 border-b border-hair pb-2">
+        <details className="mt-3 border-t border-line pt-2">
           <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-4">
-            <span className="eyebrow">{openStepCount > 0 ? `판단 근거와 다음 순서 · ${openStepCount}개 남음` : "판단 근거와 정리된 순서"}</span>
+            <span className="eyebrow">{openStepCount > 0 ? `기준과 다음 순서 · ${openStepCount}개 남음` : "기준과 정리된 순서"}</span>
             <span className="text-[12px] text-soft underline underline-offset-4">보기</span>
           </summary>
-          <ol className="mt-2 divide-y divide-hair border-y border-hair">
+          <ol className="mt-2 group-card">
             {visibleSteps.map((step, index) => (
               <AgentStepRow key={`${step.label}-${index}`} step={step} index={index} />
             ))}
@@ -171,7 +171,7 @@ export default function ProcessAgentPanel({
                 <span className="eyebrow">나머지 순서 {hiddenSteps.length}개</span>
                 <span>보기</span>
               </summary>
-              <ol className="mt-2 divide-y divide-hair border-y border-hair">
+              <ol className="mt-2 group-card">
                 {hiddenSteps.map((step, index) => (
                   <AgentStepRow key={`${step.label}-${index + visibleSteps.length}`} step={step} index={index + visibleSteps.length} />
                 ))}
@@ -185,31 +185,9 @@ export default function ProcessAgentPanel({
 }
 
 function TypingBrief({ text }: { text: string }) {
-  const [shown, setShown] = useState(text);
-
-  useEffect(() => {
-    const reduceMotion =
-      typeof window !== "undefined" &&
-      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    if (reduceMotion || text.length < 12) {
-      setShown(text);
-      return;
-    }
-    setShown("");
-    let index = 0;
-    const timer = window.setInterval(() => {
-      index += 2;
-      setShown(text.slice(0, index));
-      if (index >= text.length) window.clearInterval(timer);
-    }, 18);
-    return () => window.clearInterval(timer);
-  }, [text]);
-
-  const typing = shown.length < text.length;
   return (
-    <p className="mt-2 max-w-3xl text-[13px] leading-relaxed text-soft break-keep md:text-[13.5px]" aria-label={text}>
-      <span aria-hidden="true">{shown}</span>
-      {typing && <span aria-hidden="true" className="ml-0.5 text-gold">|</span>}
+    <p className="mt-2 max-w-3xl text-[13px] leading-relaxed text-soft break-keep md:text-[13.5px]">
+      {text}
     </p>
   );
 }
@@ -219,7 +197,7 @@ function AgentStepRow({ step, index }: { step: ProcessAgentStep; index: number }
     <li className="flex gap-3 py-3">
       <span
         className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center border text-[10px] ${
-          step.done ? "border-ink bg-ink text-paper" : "border-gold text-gold"
+          step.done ? "border-plum bg-plum text-paper" : "border-gold text-gold"
         }`}
         aria-hidden="true"
       >

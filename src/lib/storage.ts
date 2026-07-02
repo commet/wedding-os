@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient, type RealtimeChannel, type SupabaseClient } from "@supabase/supabase-js";
-import { defaultData, WeddingData, SCHEMA_VERSION } from "./schema";
+import { defaultData, SCHEMA_VERSION, type WeddingData, type WeddingUpdate } from "./schema";
 import { createSupabaseStorage } from "./storage.supabase";
 import { demoData } from "../data/demoData";
 import {
@@ -172,7 +172,9 @@ function isPlainObject(x: unknown): x is Record<string, unknown> {
 // ──────────────────────────────────────────────────────────────
 type RawData = Record<string, unknown>;
 const migrations: Record<number, (prev: RawData) => RawData> = {
-  // 2: (v1) => ({ ...v1, newField: ... }),
+  // v2 기준: ai.profile/today, hosted recovery fields, decision-map inputs 등은
+  // 아래 shape sanitize 단계에서 기본값과 안전한 타입으로 보충된다.
+  2: (v1) => v1,
 };
 
 function applyMigrations(raw: RawData, fromVersion: number, toVersion: number): RawData {
@@ -654,7 +656,7 @@ export function useWeddingData() {
   }, []);
 
   const update = useCallback(
-    async (patch: Partial<WeddingData> | ((prev: WeddingData) => WeddingData)) => {
+    async (patch: WeddingUpdate) => {
       setData((prev) => {
         const base = prev ?? defaultData();
         const next = typeof patch === "function" ? patch(base) : { ...base, ...patch };

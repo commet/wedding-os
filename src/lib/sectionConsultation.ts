@@ -249,7 +249,7 @@ export const CONSULTATION_QUESTIONS: Record<ConsultationSectionId, ConsultationQ
     q("guests-meal", "04 · 식수", "식사 인원은 얼마나 보수적으로 볼까요?", "식권과 식대 정산은 참석자보다 식사 여부가 더 중요합니다.", [
       o("safe", "넉넉하게", "부족 리스크 줄이기"),
       o("exact", "회신 기준", "확정된 사람 중심"),
-      o("tight", "보수적으로", "노쇼와 불참 가능성 반영"),
+      o("tight", "보수적으로", "노쇼와 불참 가능성 감안"),
     ]),
   ],
   budget: [
@@ -449,7 +449,7 @@ export function answerConsultation(
       today: [
         {
           title: `${meta.label} 기준 이어가기`,
-          reason: `${answerLabel} 기준을 반영했어요. 다음 결정도 같은 흐름으로 좁혀볼게요.`,
+          reason: `${answerLabel} 기준을 골랐어요. 다음 결정도 같은 흐름으로 좁혀볼게요.`,
           targetPath: meta.route,
         },
         ...(data.ai?.today ?? []).filter((item) => item.targetPath !== meta.route),

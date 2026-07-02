@@ -1,6 +1,6 @@
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
-import type { WeddingData } from "../lib/schema";
+import type { WeddingData, WeddingUpdate } from "../lib/schema";
 import { defaultData } from "../lib/schema";
 import { markOwner } from "../lib/security";
 import { defaultChecklist } from "../data/checklistTemplate";
@@ -13,7 +13,7 @@ import { koBreak } from "../lib/typography";
 
 type Props = {
   data: WeddingData;
-  update: (patch: any) => void;
+  update: (patch: WeddingUpdate) => void;
 };
 
 // 프라이버시 ↔ 편의 스펙트럼. 간편(hosted)이 기본 추천.

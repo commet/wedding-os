@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from "react";
-import type { ContractCheck, WeddingData, SdmVendor, SdmCategory } from "../lib/schema";
+import type { ContractCheck, WeddingData, WeddingUpdate, SdmVendor, SdmCategory } from "../lib/schema";
 import {
   SDM_GUIDE,
   SDM_CATALOG,
@@ -13,6 +13,7 @@ import { koBreak } from "../lib/typography";
 import { formatKRW, upcomingBalances } from "../lib/derived";
 import ProcessAgentPanel, { type ProcessAgentAction } from "../components/ProcessAgentPanel";
 import SectionConsultationPanel from "../components/SectionConsultationPanel";
+import { SectionDecisionLoop } from "../components/DecisionLoopPanel";
 import FreshnessBadge from "../components/FreshnessBadge";
 import ResearchInputPanel, { type ResearchSection } from "../components/ResearchInputPanel";
 import { consultationProgress, nextConsultationQuestion } from "../lib/sectionConsultation";
@@ -30,7 +31,7 @@ function dDayLabel(daysLeft: number): string {
   return `D-${daysLeft}`;
 }
 
-type Props = { data: WeddingData; update: (patch: any) => void; initialCategory?: SdmCategory };
+type Props = { data: WeddingData; update: (patch: WeddingUpdate) => void; initialCategory?: SdmCategory };
 
 const CAT_LABEL: Record<SdmCategory, string> = {
   studio: "스튜디오",
@@ -239,6 +240,8 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
           <h1 className="font-serif text-[2rem] leading-none">{koBreak(snapOnly ? "본식 스냅" : "스드메")}</h1>
         </div>
 
+        <SectionDecisionLoop data={data} sectionId="sdm" />
+
         {/* 카테고리 — underline 탭 */}
         {!snapOnly && (
         <div className="flex items-center gap-6 border-b border-hair pb-3 overflow-x-auto -mx-6 px-6">
@@ -346,7 +349,7 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
         <summary className="cursor-pointer flex items-baseline justify-between gap-4">
           <span>
             <span className="section-title block">{guide.title}</span>
-            <span className="mt-1 block text-[11.5px] text-soft">고를 때 헷갈리는 기준만 접어뒀어요.</span>
+            <span className="mt-1 block text-[11.5px] text-soft">고를 때 헷갈리는 기준을 짧게 정리했어요.</span>
           </span>
           <span className="text-soft text-[12px] group-open:rotate-180 transition">보기</span>
         </summary>

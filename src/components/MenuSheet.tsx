@@ -74,12 +74,12 @@ export default function MenuSheet({ open, onClose, data }: Props) {
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="anim-sheet absolute inset-x-0 bottom-0 mx-auto max-w-app bg-paper max-h-[88vh] flex flex-col outline-none"
+        className="menu-sheet anim-sheet absolute inset-x-0 bottom-0 mx-auto flex max-h-[88vh] max-w-app flex-col outline-none"
       >
         <div className="flex items-center justify-between px-6 pt-6 pb-4">
           <div>
             <div className="eyebrow-gold mb-1">전체 메뉴</div>
-            <div className="font-serif text-[20px] leading-none tracking-tight text-ink">{koBreak("준비 도구")}</div>
+            <div className="font-serif text-[20px] leading-none text-ink">{koBreak("준비 도구")}</div>
           </div>
           <button
             onClick={onClose}
@@ -89,13 +89,12 @@ export default function MenuSheet({ open, onClose, data }: Props) {
             ✕
           </button>
         </div>
-        <div className="hairline" />
-        <nav className="flex-1 overflow-y-auto px-6 pt-5 pb-[calc(2rem+env(safe-area-inset-bottom))] space-y-7">
+        <nav className="flex-1 overflow-y-auto px-6 pt-2 pb-[calc(2rem+env(safe-area-inset-bottom))] space-y-6">
           {nextStatus && (
             <Link
               to={nextStatus.to}
               onClick={onClose}
-              className="row-tap block border-y border-hair py-4"
+              className="decision-cta block"
             >
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
@@ -119,13 +118,13 @@ export default function MenuSheet({ open, onClose, data }: Props) {
           {groups.map((group) => (
             <div key={group.title}>
               <h2 className="eyebrow mb-3">{group.title}</h2>
-              <ul className="border-y border-hair divide-y divide-hair">
+              <ul className="group-card">
                 {group.items.map((item) => (
                   <li key={item.to}>
                     <Link
                       to={item.to}
                       onClick={onClose}
-                      className="row-tap flex items-baseline justify-between gap-4 px-1 py-3.5"
+                      className="row-tap flex items-baseline justify-between gap-4 px-4 py-3.5"
                     >
                       <div className="min-w-0">
                         <div className="font-serif text-[15px] text-ink leading-tight break-keep">{item.label}</div>

@@ -6,7 +6,7 @@
 
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { WeddingData } from "../lib/schema";
+import type { WeddingData, WeddingUpdate } from "../lib/schema";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import { defaultData } from "../lib/schema";
 import { defaultChecklist } from "../data/checklistTemplate";
@@ -27,7 +27,7 @@ import { createHostedStorage } from "../lib/storage.hosted";
 import { migrateImagesIdbToDataUrl, stripUnresolvedIdb } from "../lib/imageStore";
 import { koBreak } from "../lib/typography";
 
-type Props = { data: WeddingData; update: (patch: any) => void };
+type Props = { data: WeddingData; update: (patch: WeddingUpdate) => void };
 
 export default function HostedStart({ data, update }: Props) {
   const navigate = useNavigate();

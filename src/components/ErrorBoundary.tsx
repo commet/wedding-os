@@ -24,7 +24,7 @@ export default class ErrorBoundary extends Component<Props, State> {
     return (
       <div className="agent-canvas min-h-screen max-w-app mx-auto px-6 pt-24 pb-12">
         <div className="eyebrow-gold mb-4">잠시 문제가 생겼어요</div>
-        <h1 className="font-serif text-[26px] leading-[1.4] tracking-[-0.005em] text-ink break-keep">
+        <h1 className="font-serif text-[26px] leading-[1.4] text-ink break-keep">
           화면을 그리는 중 오류가 났어요.
         </h1>
         <p className="mt-4 max-w-[20rem] text-[15px] leading-[1.85] text-soft">

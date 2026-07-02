@@ -542,6 +542,7 @@ export type DecisionSection =
   | "trip"
   | "checklist"
   | "ceremony"
+  | "video"
   | "share";
 export type DecisionStage = "now" | "soon" | "later";
 export type DecisionRiskLevel = "low" | "medium" | "high";
@@ -628,6 +629,19 @@ export function decisionMap(data: WeddingData, today: string = todayISO()): Deci
   const sdmCore = data.sdm.filter((vendor) => vendor.category !== "snap");
   const sdmContracted = sdmCore.filter((vendor) => vendor.status === "계약").length;
   const tripRegionCount = data.honeymoon.regions.length;
+  const ceremonySteps = data.ceremony ?? [];
+  const ceremonyDone = ceremonySteps.filter((step) => step.done).length;
+  const videoPhotoCount = data.video?.photos?.length ?? 0;
+  const videoActCount = data.video?.acts?.length ?? 0;
+  const hasMeaningfulData = !!(
+    data.invitation.groomName ||
+    data.invitation.brideName ||
+    venues.length ||
+    data.sdm.length ||
+    data.rings.length ||
+    (data.budget ?? []).length ||
+    (data.guests ?? []).length
+  );
 
   const add = (item: DecisionItem) => {
     if (items.some((existing) => existing.id === item.id)) return;
@@ -767,8 +781,8 @@ export function decisionMap(data: WeddingData, today: string = todayISO()): Deci
       stage: "now",
       title: "보증인원과 초대 범위 맞추기",
       whyNow: capacityFit === "over"
-        ? "예상 인원이 수용 범위를 넘으면 테이블, 식수, 홀 변경을 빨리 확인해야 해요."
-        : "예상 인원이 최소 보증보다 적으면 식대와 보증금 손해가 생길 수 있어요.",
+        ? "초대 규모가 수용 범위를 넘으면 테이블, 식수, 홀 변경을 빨리 확인해야 해요."
+        : "초대 규모가 최소 보증보다 적으면 식대와 보증금 손해가 생길 수 있어요.",
       preparedFacts: compactFacts([
         `예상 하객 ${headcount}명`,
         venueContract.capacityMin ? `최소 보증 ${venueContract.capacityMin}명` : undefined,
@@ -886,6 +900,56 @@ export function decisionMap(data: WeddingData, today: string = todayISO()): Deci
     });
   }
 
+  if (dday !== null && dday <= 45 && ceremonySteps.length > 0 && ceremonyDone < ceremonySteps.length) {
+    const roleMissing = ceremonySteps.filter((step) => !step.role?.trim()).length;
+    const musicMissing = ceremonySteps.filter((step) => !step.music?.trim()).length;
+    add({
+      id: "ceremony-run-of-show",
+      section: "ceremony",
+      stage: dday <= 21 ? "now" : "soon",
+      title: "본식 진행표 같이 확인하기",
+      whyNow: "식순은 사회자, 식장, 가족 동선이 함께 맞아야 해서 늦게 보면 현장 질문이 늘어날 수 있어요.",
+      preparedFacts: compactFacts([
+        `식순 ${ceremonyDone}/${ceremonySteps.length} 확인`,
+        roleMissing > 0 ? `담당 없음 ${roleMissing}개` : "담당 입력됨",
+        musicMissing > 0 ? `음악 없음 ${musicMissing}개` : "음악 입력됨",
+      ]),
+      missingInputs: compactFacts([
+        roleMissing > 0 ? "담당자 빈칸" : undefined,
+        musicMissing > 0 ? "음악 빈칸" : undefined,
+        "사회자에게 보낼 최종본",
+      ]),
+      nextAction: "진행표 보기",
+      to: "/ceremony",
+      risk: dday <= 21 ? { level: "medium", label: "본식 임박" } : undefined,
+      score: dday <= 21 ? 82 : 64,
+    });
+  }
+
+  if (dday !== null && dday <= 70 && (videoPhotoCount < 30 || videoActCount === 0 || !data.video?.ending?.venue)) {
+    add({
+      id: "video-storyboard",
+      section: "video",
+      stage: dday <= 45 ? "now" : "soon",
+      title: "식전영상 구성 정하기",
+      whyNow: "영상은 사진을 고르는 시간이 오래 걸려요. 챕터와 엔딩 정보만 먼저 정해도 편집 막판 혼선을 줄일 수 있습니다.",
+      preparedFacts: compactFacts([
+        videoActCount > 0 ? `챕터 ${videoActCount}개` : undefined,
+        videoPhotoCount > 0 ? `사진 ${videoPhotoCount}장` : undefined,
+        data.video?.ending?.venue ? "엔딩 장소 있음" : undefined,
+      ]),
+      missingInputs: compactFacts([
+        videoActCount === 0 ? "영상 챕터" : undefined,
+        videoPhotoCount < 30 ? "사진 30장 이상" : undefined,
+        !data.video?.ending?.venue ? "엔딩 날짜·장소" : undefined,
+      ]),
+      nextAction: "영상 구성 보기",
+      to: "/video",
+      risk: dday <= 45 ? { level: "medium", label: "편집 시간 필요" } : undefined,
+      score: dday <= 45 ? 76 : 58,
+    });
+  }
+
   const nextBalance = balances.find((balance) => balance.daysLeft <= 14);
   if (nextBalance) {
     add({
@@ -903,6 +967,26 @@ export function decisionMap(data: WeddingData, today: string = todayISO()): Deci
       to: nextBalance.targetPath,
       risk: { level: nextBalance.daysLeft <= 3 ? "high" : "medium", label: "결제 임박" },
       score: nextBalance.daysLeft <= 3 ? 100 : 90,
+    });
+  }
+
+  if (hasMeaningfulData && data.preferences.mode === "local" && !data.preferences.lastBackupAt) {
+    add({
+      id: "share-collaboration-safe",
+      section: "share",
+      stage: "soon",
+      title: "같이 볼 준비판 안전하게 공유하기",
+      whyNow: "혼자 정리한 내용이 많아졌다면, 하객 링크와 편집 링크를 구분해두는 게 먼저예요.",
+      preparedFacts: compactFacts([
+        venues.length > 0 ? `예식장 후보 ${venues.length}곳` : undefined,
+        (data.budget ?? []).length > 0 ? `예산 항목 ${(data.budget ?? []).length}개` : undefined,
+        (data.guests ?? []).length > 0 ? `하객 ${(data.guests ?? []).length}명` : undefined,
+      ]),
+      missingInputs: ["함께 편집 방식", "최신 백업", "하객용 링크와 편집 링크 구분"],
+      nextAction: "공유 센터 보기",
+      to: "/share",
+      risk: { level: "medium", label: "기기 저장만 사용" },
+      score: 66,
     });
   }
 

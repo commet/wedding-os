@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import type { WeddingData, BudgetItem, GuestCategory } from "../lib/schema";
+import type { WeddingData, WeddingUpdate, BudgetItem, GuestCategory } from "../lib/schema";
 import { defaultBudget, BUDGET_TEMPLATE, BUDGET_TOTAL_NOTE } from "../data/budgetTemplate";
 import {
   planningHeadcount, formatKRW, contractedVenue, mealCostRange, upcomingBalances, contractedTotals,
@@ -9,9 +9,10 @@ import {
 import { koBreak } from "../lib/typography";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import SectionConsultationPanel from "../components/SectionConsultationPanel";
+import { SectionDecisionLoop } from "../components/DecisionLoopPanel";
 import DearieConfirmModal from "../components/DearieConfirmModal";
 
-type Props = { data: WeddingData; update: (patch: any) => void };
+type Props = { data: WeddingData; update: (patch: WeddingUpdate) => void };
 type View = "all" | "current" | "unpaid" | "over";
 
 export default function Budget({ data, update }: Props) {
@@ -130,10 +131,13 @@ export default function Budget({ data, update }: Props) {
       <div className="page pt-12 pb-10 text-center space-y-6 md:pt-20 md:space-y-8">
         <div>
           <div className="eyebrow-gold mb-4">비용 관리</div>
-          <h1 className="display-sm mb-4">{koBreak("무엇에 얼마가 드는지")}<br /><span className="italic font-light text-gold">{koBreak("먼저 펼쳐볼까요?")}</span></h1>
+          <h1 className="display-sm mb-4">{koBreak("무엇에 얼마가 드는지")}<br /><span className="italic font-light text-gold">{koBreak("같이 정리해볼까요?")}</span></h1>
           <p className="text-[13px] text-soft leading-relaxed">
             기본 항목을 불러온 뒤 필요한 것만 남기고<br />두 분의 금액을 채워보세요.
           </p>
+        </div>
+        <div className="text-left">
+          <SectionDecisionLoop data={data} sectionId="budget" />
         </div>
         <p className="border-y border-hair py-3 text-[12.5px] leading-relaxed text-soft md:hidden">
           실제 견적을 받으면 참고값을 두 분 금액으로 바꾸면 됩니다.
@@ -143,14 +147,14 @@ export default function Budget({ data, update }: Props) {
         </p>
         <ProcessAgentPanel
           title="예산표를 계약과 하객에 연결할 준비"
-          summary="처음에는 정확한 금액보다 빠진 항목을 줄이는 게 중요해요. 기본 항목을 깔고, 이후 식대·잔금·축의금 추정치를 자동으로 맞춰갑니다."
+          summary="처음에는 정확한 금액보다 빠진 항목을 줄이는 게 중요해요. 기본 항목을 준비하고, 이후 식대·잔금·축의금 추정치를 자동으로 맞춰갑니다."
           metrics={[
             { label: "항목", value: "0개", tone: "warn" },
             { label: "하객 기준", value: headcount ? `${headcount}명` : "미정", tone: headcount ? "normal" : "muted" },
             { label: "계약 잔금", value: balances.length ? `${balances.length}건` : "없음", tone: balances.length ? "warn" : "muted" },
           ]}
           steps={[
-            { label: "기본 비용 항목 펼치기", detail: "식장·스드메·청첩장·신혼여행처럼 큰 덩어리를 먼저 깔아요.", done: false },
+            { label: "기본 비용 항목 준비하기", detail: "식장·스드메·청첩장·신혼여행처럼 큰 비용부터 먼저 잡아요.", done: false },
             { label: "견적 받는 즉시 실제 지출로 교체하기", detail: "참고값은 감 잡기용이고, 계약 금액이 들어오면 그 값이 기준입니다." },
           ]}
           actions={[
@@ -171,6 +175,8 @@ export default function Budget({ data, update }: Props) {
         <h1 className="h-page">{koBreak("비용 관리")}</h1>
       </div>
 
+      <SectionDecisionLoop data={data} sectionId="budget" />
+
       <ProcessAgentPanel
         title={totals.overCount > 0 ? "초과 항목부터 다시 보는 중" : mealBudgetLow ? "식대 예산을 보정해야 해요" : "돈 흐름을 계약과 맞추는 중"}
         summary={
@@ -187,7 +193,7 @@ export default function Budget({ data, update }: Props) {
           { label: "미결제", value: `${totals.unpaidCount}개`, tone: totals.unpaidCount > 0 ? "warn" : "muted" },
         ]}
         steps={[
-          { label: "기본 항목을 빠짐없이 펼치기", detail: "항목이 있어야 견적을 받았을 때 바로 교체할 수 있어요.", done: items.length >= 8 },
+          { label: "기본 항목을 빠짐없이 준비하기", detail: "항목이 있어야 견적을 받았을 때 바로 실제 금액으로 바꿀 수 있어요.", done: items.length >= 8 },
           { label: "계약 잔금과 예산표 맞추기", detail: balances.length ? "예식장·스드메 잔금이 예산표와 별도로 잡혀 있어요." : "잔금일이 들어오면 이 화면에서 같이 보입니다.", done: balances.length === 0 || totals.unpaidCount > 0 },
           { label: "식대 예산을 하객 기준으로 보정하기", detail: mealExpected ? `현재 계산값 ${formatKRW(mealExpected)}.` : "계약 식장과 예상 인원이 있으면 자동 계산됩니다.", done: !mealBudgetLow },
         ]}
@@ -413,7 +419,7 @@ export default function Budget({ data, update }: Props) {
 // 1인 평균은 분류별 가정치(조정 가능). 식대·총예산과 자동 reconcile.
 function GiftBreakEven({ data, update, income, be }: {
   data: WeddingData;
-  update: (patch: any) => void;
+  update: (patch: WeddingUpdate) => void;
   income: GiftIncome;
   be: BreakEven;
 }) {

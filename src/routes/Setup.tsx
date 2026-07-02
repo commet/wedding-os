@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import type { WeddingData } from "../lib/schema";
+import type { WeddingData, WeddingUpdate } from "../lib/schema";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import { exportData } from "../lib/storage";
 import { createSupabaseStorage, pingSupabase } from "../lib/storage.supabase";
@@ -10,7 +10,7 @@ import { koBreak } from "../lib/typography";
 import { todayISO } from "../lib/freshness";
 import SchemaText from "../supabase-schema-text";
 
-type Props = { data: WeddingData; update: (patch: any) => void; };
+type Props = { data: WeddingData; update: (patch: WeddingUpdate) => void; };
 
 const STEPS = [
   { n: 1, label: "계정" },

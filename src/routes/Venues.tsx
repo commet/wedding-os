@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
-import type { ContractCheck, WeddingData, WeddingVenue, VenueHallType } from "../lib/schema";
+import type { ContractCheck, WeddingData, WeddingUpdate, WeddingVenue, VenueHallType } from "../lib/schema";
 import {
   VENUE_CATALOG,
   HALL_TYPE_LABEL,
@@ -15,6 +15,7 @@ import DearieConfirmModal from "../components/DearieConfirmModal";
 import FreshnessBadge from "../components/FreshnessBadge";
 import { AgentIdentity } from "../components/AgentIdentity";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
+import { SectionDecisionLoop } from "../components/DecisionLoopPanel";
 import ResearchInputPanel, { type ResearchSection } from "../components/ResearchInputPanel";
 import { safeHref } from "../lib/security";
 import {
@@ -31,7 +32,7 @@ import {
   type BalanceDue,
 } from "../lib/derived";
 
-type Props = { data: WeddingData; update: (patch: any) => void };
+type Props = { data: WeddingData; update: (patch: WeddingUpdate) => void };
 type Tab = "mine" | "catalog";
 type ConfirmState = {
   title: string;
@@ -160,7 +161,7 @@ export default function Venues({ data, update }: Props) {
   const venueAgentSummary = myVenues.length === 0
     ? "지역, 하객, 분위기, 우선순위만 답하면 Dearie가 공개 카탈로그에서 상담 후보를 먼저 좁혀둘게요. 제휴 추천이 아니라 출발점으로만 씁니다."
     : contracted
-      ? `${contracted.name}을 계약 후보로 보고 있어요. 이제 청첩장 반영과 결제·취소 조건 기록을 같이 잠가두면 됩니다.`
+      ? `${contracted.name}을 계약 후보로 보고 있어요. 이제 청첩장에 넣을 정보와 결제·취소 조건을 같이 잠가두면 됩니다.`
       : tourCount > 0
         ? "답사/상담 단계까지 왔어요. 이제 견적 기준과 취소·변경 조건을 비교해야 계약 후 흔들리지 않습니다."
         : "후보는 담겼고 아직 상담 후보가 정해지지 않았어요. 한 곳만 투어 상태로 올리면 다음 질문이 훨씬 선명해집니다.";
@@ -232,7 +233,7 @@ export default function Venues({ data, update }: Props) {
             venueAddress: prev.invitation.venueAddress || v.region,
           },
         }));
-        setVenueNotice("청첩장에 예식장을 반영했어요.");
+        setVenueNotice("청첩장에 예식장 정보를 넣었어요.");
       },
     });
   };
@@ -273,7 +274,7 @@ export default function Venues({ data, update }: Props) {
         }));
       return { ...prev, venues: [...baseVenues, ...additions] };
     });
-    setVenueNotice(`Dearie가 고른 후보 ${picks.length}곳을 내 후보에 반영했어요. 기존 예시 후보는 정리했어요.`);
+    setVenueNotice(`후보 ${picks.length}곳을 내 목록에 남겼어요. 예시 후보는 정리했어요.`);
     setTab("mine");
     setShowStarter(false);
   };
@@ -284,6 +285,8 @@ export default function Venues({ data, update }: Props) {
         <div className="eyebrow-gold mb-2">장소 찾기</div>
         <h1 className="h-page">예식장</h1>
       </div>
+
+      <SectionDecisionLoop data={data} sectionId="venues" />
 
       {!showStarter && (
         <ProcessAgentPanel
@@ -607,7 +610,7 @@ const VENUE_AGENT_QUESTIONS: VenueAgentQuestion[] = [
     id: "area",
     eyebrow: "첫 질문",
     title: "가장 먼저 볼 지역은 어디에 가까울까요?",
-    helper: "처음부터 전 지역을 펼치면 비교가 흐려져요. 이동 동선이 맞는 권역을 여러 개 골라도 됩니다.",
+    helper: "처음부터 모든 지역을 보면 비교가 흐려져요. 이동 동선이 맞는 권역만 먼저 골라도 됩니다.",
     multiple: true,
     options: [
       { id: "seoul", label: "서울 전체", detail: "강남·중구·한남·기타 서울권을 넓게 보기" },
@@ -723,7 +726,7 @@ function VenueStarter({
               {complete ? "제가 고른 후보로 준비판을 정리할게요" : "조건을 여러 개 받아서 제가 먼저 추릴게요"}
             </h2>
             <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-soft break-keep">
-              복수 선택이 가능한 질문은 여러 개 골라도 됩니다. 답을 고를 때마다 후보군을 다시 계산하고, 반영하면 기존 예시 후보는 이 결과로 정리됩니다.
+              여러 개를 골라도 괜찮아요. 답을 고르면 후보 초안이 바로 좁혀지고, 마지막에 마음에 드는 후보만 내 목록에 남길 수 있습니다.
             </p>
           </div>
         </div>
@@ -803,7 +806,7 @@ function VenueStarter({
                   >
                     <span className="flex items-baseline justify-between gap-3">
                       <span className="block text-[14px] font-semibold text-ink break-keep">{option.label}</span>
-                      <span className="text-[11px] text-soft">{selected ? "반영됨" : currentQuestion.multiple ? "추가" : "선택"}</span>
+                      <span className="text-[11px] text-soft">{selected ? "선택됨" : currentQuestion.multiple ? "추가" : "선택"}</span>
                     </span>
                     <span className="mt-1 block text-[12px] leading-relaxed text-soft break-keep">{option.detail}</span>
                   </button>
@@ -823,7 +826,7 @@ function VenueStarter({
               이 후보들로 상담 순서를 시작할 수 있어요
             </h3>
             <p className="mt-2 text-[13px] leading-relaxed text-soft break-keep">
-              반영하면 기존 예시 후보는 정리되고, 아래 후보만 내 후보에 남습니다. 견적 기준·취소 조건·포함 항목은 공식 상담에서 다시 확인하세요.
+              정리하면 아래 후보만 내 목록에 남아요. 견적 기준·취소 조건·포함 항목은 공식 상담에서 다시 확인하세요.
             </p>
           </div>
         )}
@@ -878,7 +881,7 @@ function VenueStarter({
           </button>
         ) : (
           <div className="flex items-center justify-between gap-4 text-[13px]">
-            <span className="text-soft break-keep">답 {remaining}단계만 더 하면 Dearie가 후보를 내 후보로 정리할 수 있어요.</span>
+            <span className="text-soft break-keep">답 {remaining}개만 더 고르면 상담 후보를 정리할 수 있어요.</span>
             <span className="eyebrow tabular-nums whitespace-nowrap">{answeredCount}/4</span>
           </div>
         )}
@@ -914,16 +917,16 @@ function VenueAgentImpactPanel({
   const latestItems = items.slice(-2);
   const activeLabel = currentQuestion
     ? currentQuestionAnswered
-      ? `${VENUE_AGENT_STEP_LABELS[currentQuestion.id]} 기준을 반영했어요`
-      : `${VENUE_AGENT_STEP_LABELS[currentQuestion.id]} 기준을 묻는 중`
-    : "후보 반영만 남았어요";
+      ? `${VENUE_AGENT_STEP_LABELS[currentQuestion.id]} 기준을 골랐어요`
+      : `${VENUE_AGENT_STEP_LABELS[currentQuestion.id]} 기준을 보는 중`
+    : "후보 정리만 남았어요";
   return (
     <div className="border-y border-hair py-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-baseline md:justify-between">
         <div>
-          <div className="eyebrow-gold mb-2">Dearie가 방금 반영한 내용</div>
+          <div className="eyebrow-gold mb-2">지금 정리된 조건</div>
           <h3 className="font-serif text-[18px] leading-snug text-ink break-keep md:text-[19px]">
-            {answeredCount === 0 ? "답을 고르면 후보군이 바로 움직여요" : activeLabel}
+            {answeredCount === 0 ? "답을 고르면 후보가 바로 좁혀져요" : activeLabel}
           </h3>
         </div>
         <span className="eyebrow tabular-nums">{answeredCount}/4</span>
@@ -1017,7 +1020,7 @@ function buildVenueAgentImpact(
     const next = VENUE_CATALOG.filter((venue) => matchesVenueAgentArea(venue, answers.area));
     items.push({
       key: "area",
-      label: "지역 반영",
+      label: "지역 기준",
       value: `${VENUE_CATALOG.length}곳 → ${next.length}곳`,
       detail: `${formatVenueAgentAnswerLabels("area", answers)} 권역만 먼저 보게 바꿨어요.`,
       done: true,
@@ -1030,7 +1033,7 @@ function buildVenueAgentImpact(
     const next = pool.filter((venue) => matchesVenueAgentScale(venue, answers.scale));
     items.push({
       key: "scale",
-      label: "하객 반영",
+      label: "하객 기준",
       value: `${before}곳 → ${next.length}곳`,
       detail: answers.scale === "unknown"
         ? "인원은 열어두고 다른 기준으로 먼저 좁혀요."
@@ -1045,7 +1048,7 @@ function buildVenueAgentImpact(
     const next = pool.filter((venue) => matchesVenueAgentMood(venue, answers.mood));
     items.push({
       key: "mood",
-      label: "분위기 반영",
+      label: "분위기 기준",
       value: `${before}곳 → ${next.length}곳`,
       detail: `${formatVenueAgentAnswerLabels("mood", answers)} 쪽 후보를 앞에 두도록 계산했어요.`,
       done: true,
@@ -1067,7 +1070,7 @@ function buildVenueAgentImpact(
     return [
       {
         key: "waiting",
-        label: "후보군 대기",
+        label: "후보 준비 중",
         value: `${VENUE_CATALOG.length}곳`,
         detail: "첫 답을 고르면 후보 숫자와 상담 질문이 바로 바뀌고, 완료하면 고른 후보만 준비판에 남습니다.",
       },

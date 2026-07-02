@@ -27,7 +27,7 @@ export default function Terms() {
           <li>표시는 추천·순위·광고·제휴·공식 대리 관계를 의미하지 않습니다.</li>
           <li>카탈로그는 공개적으로 확인 가능한 사실, 공식 페이지, 사용자가 직접 입력한 메모, 상담 확인일을 중심으로 정리합니다.</li>
           <li>후기 원문, 유료 DB, 회원 전용 게시물, 타 서비스의 편집 배열을 복제해 저장하지 않는 것을 원칙으로 합니다.</li>
-          <li>정정·삭제·권리침해 신고는 <Link to="/contact" className="underline underline-offset-2 text-ink">문의</Link>로 보내주세요. 확인 가능한 요청은 신속히 반영합니다.</li>
+          <li>정정·삭제·권리침해 신고는 <Link to="/contact" className="underline underline-offset-2 text-ink">문의</Link>로 보내주세요. 확인 가능한 요청은 신속히 처리합니다.</li>
         </ul>
       </Section>
 

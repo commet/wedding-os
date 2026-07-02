@@ -1,6 +1,6 @@
 import { cloneElement, isValidElement, useId, useState, useRef, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import type { WeddingData, InvitationContent, Mode } from "../lib/schema";
+import type { WeddingData, WeddingUpdate, InvitationContent, Mode } from "../lib/schema";
 import Modal from "../components/Modal";
 import ChatbotBridgeModal from "../components/ChatbotBridgeModal";
 import { STOCK_HERO, STOCK_GALLERY } from "../data/stockPhotos";
@@ -20,9 +20,10 @@ import { invitationReadiness, contractedVenue } from "../lib/derived";
 import MapEmbed from "../components/MapEmbed";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import SectionConsultationPanel from "../components/SectionConsultationPanel";
+import { SectionDecisionLoop } from "../components/DecisionLoopPanel";
 import DearieConfirmModal from "../components/DearieConfirmModal";
 
-type Props = { data: WeddingData; update: (patch: any) => void; };
+type Props = { data: WeddingData; update: (patch: WeddingUpdate) => void; };
 type Tab = "edit" | "preview" | "guest";
 type Locale = "ko";
 type Theme = "cream" | "white" | "sage" | "rose" | "navy" | "sand" | "slate" | "blush";
@@ -1114,7 +1115,7 @@ function storePublished(p: PublishedInvite | null) {
 
 // 청첩장 '간편 발행' — 운영자 호스팅으로 진짜 링크를 만든다.
 // 본문은 암호화돼 올라가고 키는 링크 '#' 에만 — 운영자는 내용을 못 읽는다.
-function PublishSection({ data, update }: { data: WeddingData; update: (patch: any) => void }) {
+function PublishSection({ data, update }: { data: WeddingData; update: (patch: WeddingUpdate) => void }) {
   // 발행 자격증명의 진실은 WeddingData.publish (백업에 포함). 옛 사용자는 localStorage 에만
   // 있을 수 있으므로 그걸 폴백으로 읽고, 마운트 시 WeddingData 로 한 번 옮긴다.
   const [published, setPublished] = useState<PublishedInvite | null>(
@@ -1151,7 +1152,7 @@ function PublishSection({ data, update }: { data: WeddingData; update: (patch: a
     }));
     if (published) {
       setIsError(false);
-      setMessage("링크 미리보기 사진 설정을 바꿨어요. 재발행하면 공유 카드에 반영됩니다.");
+      setMessage("링크 미리보기 사진 설정을 바꿨어요. 재발행하면 공유 카드가 업데이트됩니다.");
     }
   };
 
@@ -1289,7 +1290,7 @@ function PublishSection({ data, update }: { data: WeddingData; update: (patch: a
               disabled={busy || unpubBusy}
               className="text-[12px] text-soft underline underline-offset-4 hover:text-ink disabled:opacity-40"
             >
-              {busy ? "갱신 중…" : "수정 내용 다시 반영 (재발행)"}
+              {busy ? "갱신 중…" : "수정 내용으로 재발행"}
             </button>
             <button
               onClick={doUnpublish}
@@ -1564,7 +1565,7 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
   set: (k: any, v: any) => void;
   mode: Mode | null;
   data: WeddingData;
-  update: (patch: any) => void;
+  update: (patch: WeddingUpdate) => void;
   onPreview?: () => void;
 }) {
   const [picker, setPicker] = useState<null | "hero" | "gallery">(null);
@@ -1594,13 +1595,15 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
     <div className={`page ${showQuickStart ? "pt-14" : "pt-2"} pb-6`}>
       {!showQuickStart && <div className="sticky top-[145px] z-10 -mx-6 px-6 py-2 bg-paper/95 backdrop-blur border-b border-hair">
         <div className={`eyebrow ${saveStatus === "error" ? "text-gold" : saveStatus === "saved" ? "text-sage" : "text-soft"}`}>
-          {saveLabel} · 입력하면 바로 반영됩니다
+          {saveLabel} · 입력하면 바로 저장돼요
         </div>
       </div>}
 
       {showQuickStart && <QuickStart inv={inv} set={set} onPreview={onPreview} contractedVenueName={contractedVenue(data)?.name} />}
 
       {!showQuickStart && <>
+      <SectionDecisionLoop data={data} sectionId="invitation" />
+
       <ProcessAgentPanel
         title={publishReady ? "공유 전 마지막 점검 중" : "청첩장 빈칸을 채우는 중"}
         summary={
@@ -1618,7 +1621,7 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
           { label: "이름·날짜·식장 채우기", detail: "카톡 미리보기와 하객 문의에 가장 크게 영향을 줍니다.", done: publishReady },
           { label: "모시는 글 검수", detail: "AI 문안은 초안일 뿐이라, 이름·계좌·개인정보가 섞이지 않았는지 봅니다.", done: !!inv.greeting.trim() },
           { label: "대표 사진과 지도 확인", detail: "공개 링크에서 보이는 인상과 찾아오는 길을 마지막으로 봅니다.", done: !!inv.heroImageUrl && !!inv.venue },
-          { label: "하객용 링크 발행", detail: "발행 후에는 수정 내용 반영을 위해 재발행 버튼을 사용합니다.", done: !!data.publish },
+          { label: "하객용 링크 발행", detail: "발행 후 수정한 내용은 재발행으로 업데이트합니다.", done: !!data.publish },
         ]}
         actions={[
           ...(canFillVenue ? [{ label: `계약한 ‘${contracted!.name}’ 넣기 →`, onClick: applyContractedVenue, tone: "primary" as const }] : []),

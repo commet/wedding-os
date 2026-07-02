@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { WeddingData } from "../lib/schema";
+import type { WeddingData, WeddingUpdate } from "../lib/schema";
 import {
   CONSULTATION_META,
   answerConsultation,
@@ -15,7 +15,7 @@ import { AgentIdentity } from "./AgentIdentity";
 type Props = {
   sectionId: ConsultationSectionId;
   data: WeddingData;
-  update: (patch: any) => void;
+  update: (patch: WeddingUpdate) => void;
   defaultOpen?: boolean;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -63,7 +63,7 @@ export default function SectionConsultationPanel({ sectionId, data, update, defa
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="group flex min-h-16 w-full items-center justify-between gap-4 border-y border-hair py-3 text-left"
+        className="soft-action group min-h-16 gap-4 px-4 py-3"
       >
         <span className="min-w-0">
           <span className="eyebrow-gold block">
@@ -81,7 +81,7 @@ export default function SectionConsultationPanel({ sectionId, data, update, defa
   }
 
   return (
-    <section className="border-y border-hair py-5 space-y-5">
+    <section className="agent-panel space-y-5 md:px-5 md:py-5">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 gap-3">
           <AgentIdentity compact mood={activeQuestion ? "thinking" : "ready"} />
@@ -118,14 +118,14 @@ export default function SectionConsultationPanel({ sectionId, data, update, defa
           onContinue={() => setActiveQuestionId(null)}
         />
       ) : (
-        <div className="border-y border-hair py-4">
+        <div className="panel-muted px-4 py-4">
           <div className="eyebrow-gold mb-1">기준 완료</div>
           <p className="text-[13.5px] leading-relaxed text-soft break-keep">{meta.summary}</p>
         </div>
       )}
 
       {progress.answered > 0 && (
-        <details className="border-y border-hair py-3">
+        <details className="panel-muted px-4 py-3">
           <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4">
             <span>
               <span className="section-title">답한 기준 수정</span>
@@ -160,7 +160,7 @@ function QuestionCard({
   const selectedValues = value ?? [];
   const hasSelection = selectedValues.length > 0;
   return (
-    <div className="border-y border-hair py-4 space-y-4">
+    <div className="panel-muted space-y-4 px-4 py-4">
       <div>
         <div className="eyebrow-gold mb-2">
           {question.eyebrow}{question.multiple ? " · 복수 선택 가능" : ""}
@@ -177,13 +177,13 @@ function QuestionCard({
               type="button"
               aria-pressed={selected}
               onClick={() => onAnswer(question, option.value)}
-              className={`w-full border px-4 py-3 text-left transition active:scale-[0.99] ${
-                selected ? "border-gold bg-gold/5 text-ink" : "border-hair text-soft hover:border-gold hover:text-ink"
+              className={`app-tile w-full px-4 py-3 text-left transition active:scale-[0.99] ${
+                selected ? "border-gold bg-gold/5 text-ink" : "text-soft hover:text-ink"
               }`}
             >
               <span className="flex items-baseline justify-between gap-3">
                 <span className="text-[14px] font-semibold leading-snug break-keep">{option.label}</span>
-                <span className="text-[12px]">{selected ? "반영됨" : question.multiple ? "추가" : "선택"}</span>
+                <span className="text-[12px]">{selected ? "선택됨" : question.multiple ? "추가" : "선택"}</span>
               </span>
               <span className="mt-1 block text-[12.5px] leading-relaxed break-keep">{option.detail}</span>
             </button>
@@ -213,17 +213,17 @@ type ConsultationChangeItem = {
 
 function ConsultationChangeLog({ items }: { items: ConsultationChangeItem[] }) {
   return (
-    <div className="border-y border-hair py-4">
+    <div className="panel-muted px-4 py-4">
       <div className="mb-3 flex items-baseline justify-between gap-3">
-        <div className="eyebrow-gold">Dearie가 방금 반영한 내용</div>
-        <span className="text-[11px] text-soft">다음 질문에 바로 적용됨</span>
+        <div className="eyebrow-gold">지금 정리된 기준</div>
+        <span className="text-[11px] text-soft">다음 질문에 이어져요</span>
       </div>
       <div className="grid gap-2 md:grid-cols-2">
         {items.map((item, index) => (
           <div
             key={item.key}
             className={`border px-3 py-3 ${
-              index === 0 ? "border-gold bg-gold/10" : "border-hair bg-cream/45"
+              index === 0 ? "border-gold bg-gold/10" : "border-line bg-vellum/80"
             }`}
           >
             <div className="flex items-baseline justify-between gap-3">
@@ -251,8 +251,8 @@ function buildConsultationChangeItems(
     return [
       {
         key: "waiting",
-        label: "반영 대기",
-        value: "아직 반영 전",
+        label: "답변 전",
+        value: "아직 선택 전",
         detail: nextQuestion
           ? `답을 고르면 ${nextQuestion.eyebrow.replace(/^\d+\s*·\s*/, "")} 기준으로 이어갑니다.`
           : "답을 고르면 Dearie가 이 화면의 다음 행동을 다시 잡습니다.",
@@ -265,9 +265,9 @@ function buildConsultationChangeItems(
   const items: ConsultationChangeItem[] = [
     {
       key: `answer-${latest.id}`,
-      label: "방금 반영",
+      label: "방금 고른 기준",
       value: `${latest.eyebrow.replace(/^\d+\s*·\s*/, "")} · ${latestLabels}`,
-      detail: `${meta.label} 화면의 다음 행동에 이 기준을 넣었습니다.`,
+      detail: `${meta.label} 화면의 다음 행동을 이 기준으로 이어갈게요.`,
     },
     {
       key: "next",

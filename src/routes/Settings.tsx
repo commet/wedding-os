@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import type { WeddingData } from "../lib/schema";
+import type { WeddingData, WeddingUpdate } from "../lib/schema";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import { clearLocalDeviceData, exportData, importData, purgeServerData, hasCorruptLocalBackup, downloadCorruptLocalBackup } from "../lib/storage";
 import { daysSince, todayISO } from "../lib/freshness";
@@ -10,7 +10,7 @@ import { rotateHostedOwnerToken } from "../lib/storage.hosted";
 import { authAvailable, currentEmail, hasLinkedAccount, linkedAccountKnownOnDevice, signOut, deleteLinkedAccount } from "../lib/auth";
 import { koBreak } from "../lib/typography";
 
-type Props = { data: WeddingData; update: (patch: any) => void; };
+type Props = { data: WeddingData; update: (patch: WeddingUpdate) => void; };
 
 export default function Settings({ data, update }: Props) {
   const navigate = useNavigate();

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import type { WeddingData, Ring } from "../lib/schema";
+import type { WeddingData, WeddingUpdate, Ring } from "../lib/schema";
 import { RING_CATALOG } from "../data/ringsTemplate";
 import FreshnessBadge from "../components/FreshnessBadge";
 import ChatbotBridgeModal from "../components/ChatbotBridgeModal";
@@ -13,6 +13,7 @@ import ResearchInputPanel, { type ResearchSection } from "../components/Research
 import { ringPriceCheckPrompt, BridgePrompt } from "../lib/chatbotBridge";
 import { koBreak } from "../lib/typography";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
+import { SectionDecisionLoop } from "../components/DecisionLoopPanel";
 import {
   RING_CONSULTATION_QUESTIONS,
   answerRingConsultation,
@@ -73,7 +74,7 @@ const RING_RESEARCH_SECTIONS: ResearchSection<RingResearchDraft>[] = [
   },
 ];
 
-type Props = { data: WeddingData; update: (patch: any) => void; };
+type Props = { data: WeddingData; update: (patch: WeddingUpdate) => void; };
 type Who = "groom" | "bride";
 type RingBudgetBand = "under100" | "100to200" | "200to300" | "over300";
 type RingDiamondPref = "all" | "simple" | "diamond";
@@ -295,6 +296,8 @@ export default function Rings({ data, update }: Props) {
         </div>
       </div>
 
+      <SectionDecisionLoop data={data} sectionId="rings" />
+
       {/* 첫 진입 안내 — 카탈로그가 미리 채워진 이유를 한 번만 설명 */}
       {!showStarter && !introDismissed && rings.length > 0 && (
         <div className="anim-drop border-y border-hair py-4 flex items-start gap-3">
@@ -508,7 +511,7 @@ export default function Rings({ data, update }: Props) {
       <DearieConfirmModal
         open={confirmReset}
         title="반지 카탈로그를 처음 상태로 되돌릴까요?"
-        body="직접 추가한 반지와 두 분의 표시가 사라집니다. 카탈로그를 완전히 새로 펼치고 싶을 때만 진행하세요."
+        body="직접 추가한 반지와 두 분의 표시가 사라집니다. 카탈로그를 처음부터 다시 보고 싶을 때만 진행하세요."
         confirmLabel="처음 상태로"
         tone="warn"
         onClose={() => setConfirmReset(false)}
@@ -1002,7 +1005,7 @@ function RingQuestionCard({
             >
               <span className="flex items-baseline justify-between gap-3">
                 <span className="text-[14px] font-semibold leading-snug break-keep">{option.label}</span>
-                <span className="text-[12px]">{selected ? "반영됨" : question.multiple ? "추가" : "선택"}</span>
+                <span className="text-[12px]">{selected ? "선택됨" : question.multiple ? "추가" : "선택"}</span>
               </span>
               <span className="mt-1 block text-[12.5px] leading-relaxed break-keep">{option.detail}</span>
             </button>
@@ -1230,20 +1233,22 @@ function isRingBudgetWithinLooseRange(price: number, band: RingBudgetBand): bool
   return price >= 2_600_000;
 }
 
-function AddRingModal({ open, onClose, update }: { open: boolean; onClose: () => void; update: (patch: any) => void; }) {
+function AddRingModal({ open, onClose, update }: { open: boolean; onClose: () => void; update: (patch: WeddingUpdate) => void; }) {
   const [draft, setDraft] = useState<RingResearchDraft>(() => emptyRingResearchDraft());
 
   const submit = () => {
     const patch = ringResearchDraftToPatch(draft);
-    if (!patch.brand?.trim() || !patch.model?.trim()) return;
+    const brand = patch.brand?.trim();
+    const model = patch.model?.trim();
+    if (!brand || !model) return;
     update((prev: WeddingData) => ({
       ...prev,
       rings: [
         {
-          id: `ring-${Date.now()}`,
-          brand: patch.brand,
-          model: patch.model,
           ...patch,
+          id: `ring-${Date.now()}`,
+          brand,
+          model,
         },
         ...prev.rings,
       ],

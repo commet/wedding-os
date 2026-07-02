@@ -151,7 +151,7 @@ export default function ChatbotBridgeModal({ open, onClose, prompt, onApply }: P
           ) : (
             <div className="flex items-center justify-between gap-4">
               <p className="text-[11.5px] text-soft leading-relaxed">
-                앱 안 실행을 켜면 복사 없이 바로 부탁할 수 있어요. 지금은 다른 AI 답변을 붙여넣어 반영할 수 있습니다.
+                앱 안 실행을 켜면 복사 없이 바로 부탁할 수 있어요. 지금은 다른 AI 답변을 붙여넣어 적용할 수 있습니다.
               </p>
               <a href={aiConfig.provider === "managed" ? "/login" : "/ai"} className="inline-flex min-h-11 items-center px-2 text-[12px] underline underline-offset-4 text-ink hover:text-gold whitespace-nowrap">
                 {aiConfig.provider === "managed" ? "로그인" : "설정"}
@@ -207,7 +207,7 @@ export default function ChatbotBridgeModal({ open, onClose, prompt, onApply }: P
                   </div>
                 )}
                 <p className="text-[12px] text-soft text-center mt-4 mb-3 leading-relaxed">
-                  답변을 먼저 읽어보고, 반영 가능한 초안만 따로 보여드릴게요.
+                  답변을 먼저 읽어보고, 적용 가능한 초안만 따로 보여드릴게요.
                 </p>
                 <button className="btn-primary w-full py-3 text-[13px]" onClick={reviewReply}>
                   초안 확인하기 →
@@ -220,7 +220,7 @@ export default function ChatbotBridgeModal({ open, onClose, prompt, onApply }: P
         {directAiReady && aiError && (
           <div className="border-y border-hair py-4">
             <p className="text-[13px] leading-relaxed text-soft">
-              지금은 직접 실행이 막혔어요. 위 대체 방법을 열어 다른 AI 답변을 붙여넣으면 같은 방식으로 확인하고 반영할 수 있습니다.
+              지금은 직접 실행이 막혔어요. 위 대체 방법을 열어 다른 AI 답변을 붙여넣으면 같은 방식으로 확인하고 적용할 수 있습니다.
             </p>
           </div>
         )}
@@ -300,7 +300,7 @@ export default function ChatbotBridgeModal({ open, onClose, prompt, onApply }: P
                 className="btn-primary py-3 text-[12px]"
                 onClick={applyPending}
               >
-                이대로 반영 →
+                이대로 적용 →
               </button>
             </div>
           </div>
@@ -334,5 +334,5 @@ function previewPending(value: unknown, shape: BridgePrompt["expectedShape"]): s
   if (typeof data.invitationGreeting === "string" && data.invitationGreeting.trim()) {
     lines.push(`청첩장 문안 초안\n${data.invitationGreeting.trim()}`);
   }
-  return lines.length > 0 ? lines.join("\n\n") : "추가할 내용을 찾았습니다. 반영한 뒤 각 화면에서 다시 수정할 수 있어요.";
+  return lines.length > 0 ? lines.join("\n\n") : "추가할 내용을 찾았습니다. 적용한 뒤 각 화면에서 다시 수정할 수 있어요.";
 }

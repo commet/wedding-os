@@ -1,8 +1,9 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
-import type { WeddingData } from "../lib/schema";
+import type { WeddingData, WeddingUpdate } from "../lib/schema";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import SectionConsultationPanel from "../components/SectionConsultationPanel";
+import { DecisionLoopList, SectionDecisionLoop } from "../components/DecisionLoopPanel";
 import { exportData } from "../lib/storage";
 import {
   copyInvitationText,
@@ -19,7 +20,7 @@ import { buildRecoveryLink } from "../lib/recovery";
 import { daysSince, todayISO } from "../lib/freshness";
 import { koBreak } from "../lib/typography";
 
-type Props = { data: WeddingData; update: (patch: any) => void };
+type Props = { data: WeddingData; update: (patch: WeddingUpdate) => void };
 
 type ActionStatus = "idle" | "working" | "done" | "fail";
 
@@ -129,6 +130,8 @@ export default function Share({ data, update }: Props) {
         <h1 className="h-page">{koBreak("공유 센터")}</h1>
       </div>
 
+      <SectionDecisionLoop data={data} sectionId="share" />
+
       <ProcessAgentPanel
         title={hasPublished ? "공유 채널을 분리해 관리하는 중" : "하객용 링크 발행이 먼저예요"}
         summary={shareAgentSummary}
@@ -161,6 +164,8 @@ export default function Share({ data, update }: Props) {
           { label: "백업 파일 만들기 →", onClick: () => run("전체 데이터 백업", backup) },
         ]}
       />
+
+      <DecisionLoopList data={data} />
 
       <SectionConsultationPanel sectionId="share" data={data} update={update} />
 
@@ -198,7 +203,7 @@ export default function Share({ data, update }: Props) {
       >
         <Action
           title="청첩장 발행 화면 열기"
-          desc="하객에게 보낼 웹 링크를 발행하거나 최신 내용으로 다시 반영합니다."
+          desc="하객에게 보낼 웹 링크를 발행하거나 최신 내용으로 업데이트합니다."
           onClick={() => { window.location.href = "/invitation?edit=publish#publish-invitation"; }}
           primary
         />
@@ -265,7 +270,7 @@ export default function Share({ data, update }: Props) {
             <span className="eyebrow block mb-1">필요할 때</span>
             <span className="font-serif text-lg text-ink">{koBreak("파일로 내보내기와 백업")}</span>
           </span>
-          <span className="text-[12px] text-soft">펼쳐보기</span>
+          <span className="text-[12px] text-soft">보기</span>
         </summary>
         <div className="space-y-9 pb-5 pt-6">
           <Section num="03" title={koBreak("한 파일로 정리")} desc="전체 준비 내용을 Excel이나 인쇄용 문서로 만듭니다.">

@@ -260,7 +260,7 @@ function AgentStep({ eyebrow, title, message, children }: { eyebrow: string; tit
   return (
     <section className="page-enter">
       <div className="eyebrow-gold mb-3">{eyebrow}</div>
-      <h1 className="font-serif text-[26px] leading-[1.38] tracking-[-0.005em] text-ink break-keep [text-wrap:balance] max-w-[19rem]">{title}</h1>
+      <h1 className="font-serif text-[26px] leading-[1.38] text-ink break-keep [text-wrap:balance] max-w-[19rem]">{title}</h1>
       {message && <p className="mt-3 max-w-[20rem] text-[15px] leading-[1.75] text-soft">{message}</p>}
       {children}
     </section>

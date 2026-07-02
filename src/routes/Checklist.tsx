@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
-import type { WeddingData, CheckItem, ChecklistSection } from "../lib/schema";
+import type { WeddingData, WeddingUpdate, CheckItem, ChecklistSection } from "../lib/schema";
 import { defaultChecklist, recalcDueDates } from "../data/checklistTemplate";
 import { daysSince } from "../lib/freshness";
 import { GIFT_TIER_LABEL, GIFT_IDEAS, GIFT_TIP } from "../data/giftCatalog";
@@ -8,8 +8,9 @@ import { koBreak } from "../lib/typography";
 import { buildChecklistSheet, shareOrDownloadText } from "../lib/textExport";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import SectionConsultationPanel from "../components/SectionConsultationPanel";
+import { SectionDecisionLoop } from "../components/DecisionLoopPanel";
 
-type Props = { data: WeddingData; update: (patch: any) => void; };
+type Props = { data: WeddingData; update: (patch: WeddingUpdate) => void; };
 type View = "category" | "timeline";
 
 export default function Checklist({ data, update }: Props) {
@@ -184,6 +185,8 @@ export default function Checklist({ data, update }: Props) {
         <div className="absolute top-0 left-0 h-px bg-ink transition-all" style={{ width: `${allItems.length ? (doneCount / allItems.length) * 100 : 0}%` }} />
       </div>
 
+      <SectionDecisionLoop data={data} sectionId="checklist" />
+
       <ProcessAgentPanel
         title={overdueCount > 0 ? "지난 마감부터 끌어올리는 중" : weekCount > 0 ? "이번 주 할 일을 추리는 중" : "다음 마감까지 조용히 정렬 중"}
         summary={
@@ -262,8 +265,8 @@ export default function Checklist({ data, update }: Props) {
 
       {triageTimeline && (
         <div className="border-y border-hair py-3 text-[12px] leading-relaxed text-soft">
-          <span className="font-medium text-ink">Dearie가 급한 것부터 접어뒀어요.</span>{" "}
-          각 묶음은 처음 {TRIAGE_LIMIT}개만 보이고, 검색하면 전체가 펼쳐집니다.
+          <span className="font-medium text-ink">급한 일부터 먼저 보여드려요.</span>{" "}
+          각 묶음은 처음 {TRIAGE_LIMIT}개까지 보이고, 검색하면 전체 결과를 확인할 수 있습니다.
         </div>
       )}
 

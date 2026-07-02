@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { NavLink, useLocation, Link, useNavigate } from "react-router-dom";
-import type { WeddingData, Mode } from "../lib/schema";
+import type { WeddingData, WeddingUpdate, Mode } from "../lib/schema";
 import { daysSince } from "../lib/freshness";
 import { useSaveStatus, useConflictStatus, clearConflict } from "../lib/storage";
 import MenuSheet from "./MenuSheet";
@@ -11,7 +11,7 @@ import { applyStarterPlan } from "../lib/agentStarter";
 
 type Props = {
   data: WeddingData;
-  update: (patch: any) => void;
+  update: (patch: WeddingUpdate) => void;
   children: React.ReactNode;
 };
 
@@ -124,14 +124,14 @@ export default function AppShell({ data, update, children }: Props) {
     setDearieDockMessage(
       added > 0
         ? "Dearie가 준비판을 다시 정리했어요."
-        : "읽어봤지만 새로 반영할 항목은 없었어요.",
+        : "읽어봤지만 새로 적용할 항목은 없었어요.",
     );
   };
 
   return (
-    <div className={`min-h-screen w-full mx-auto flex flex-col bg-paper ${wideWorkspace ? "lg:max-w-6xl" : "max-w-app"}`}>
+    <div className={`app-frame min-h-screen w-full mx-auto flex flex-col ${wideWorkspace ? "lg:max-w-6xl" : "max-w-app"}`}>
       {showChrome && (
-        <header className="sticky top-0 z-30 bg-paper">
+        <header className="chrome-bar sticky top-0 z-30">
           <div className="px-6 h-14 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               {showBack && (
@@ -143,7 +143,7 @@ export default function AppShell({ data, update, children }: Props) {
                   ←
                 </button>
               )}
-              <Link to="/dashboard" className="font-serif text-base tracking-[-0.01em] text-ink truncate min-h-11 flex items-center">
+              <Link to="/dashboard" className="font-serif text-base text-ink truncate min-h-11 flex items-center">
                 Dearie
               </Link>
             </div>
@@ -156,13 +156,12 @@ export default function AppShell({ data, update, children }: Props) {
               ) : null}
             </div>
           </div>
-          <div className="hairline" />
         </header>
       )}
 
       {/* 데모 띠 — 작은 안내. 세션 단위로 닫기 가능 (× 버튼) */}
       {isDemo && !isWelcome && !isGuestInvitation && !bannerDismissed && (
-        <div className="anim-drop px-6 py-2.5 flex items-center justify-between gap-3 border-b border-hair">
+        <div className="anim-drop px-6 py-2.5 flex items-center justify-between gap-3 border-b border-line bg-vellum/70">
           <div className="text-[11.5px] leading-tight flex-1 min-w-0 flex items-baseline gap-2">
             <span className="eyebrow-gold">예시</span>
             <span className="text-soft truncate">둘러본 뒤 내 정보로 시작할 수 있어요</span>
@@ -182,7 +181,7 @@ export default function AppShell({ data, update, children }: Props) {
 
       {/* 동시 편집 충돌 — 다른 기기(신랑/신부 다른 폰)가 먼저 저장함. 사용자 동작 잃은 상태 */}
       {conflictStatus === "detected" && !isGuestInvitation && (
-        <div className="anim-drop px-6 py-3 border-b border-hair flex items-center justify-between gap-3 bg-gold/5">
+        <div className="anim-drop px-6 py-3 border-b border-line flex items-center justify-between gap-3 bg-gold/5">
           <span className="text-[12px] text-ink leading-relaxed">
             <strong>다른 기기에서 먼저 저장했어요.</strong>
             <br />
@@ -204,7 +203,7 @@ export default function AppShell({ data, update, children }: Props) {
 
       {/* 백업 알림 — 가는 띠 */}
       {backupStale && !isGuestInvitation && (
-        <div className="anim-drop px-6 py-3 border-b border-hair flex items-center justify-between gap-3">
+        <div className="anim-drop px-6 py-3 border-b border-line bg-vellum/60 flex items-center justify-between gap-3">
           <span className="text-[12px] text-soft leading-relaxed">
             준비 내용이 이 휴대폰에만 있어요. 한 번 내려받아 두면 기기를 바꿔도 안심이에요.
           </span>
@@ -217,7 +216,7 @@ export default function AppShell({ data, update, children }: Props) {
       <main className={`flex-1 page-enter ${showNav ? showAgentDock ? "pb-[calc(7.5rem+env(safe-area-inset-bottom))]" : "pb-[calc(5.75rem+env(safe-area-inset-bottom))]" : ""}`}>{children}</main>
 
       {showNav && (
-        <nav className={`fixed bottom-0 left-1/2 -translate-x-1/2 w-full bg-paper z-30 border-t border-hair pb-[env(safe-area-inset-bottom)] ${wideWorkspace ? "lg:max-w-6xl" : "max-w-app"}`}>
+        <nav className={`bottom-nav fixed bottom-0 left-1/2 z-30 w-full -translate-x-1/2 pb-[env(safe-area-inset-bottom)] ${wideWorkspace ? "lg:max-w-6xl" : "max-w-app"}`}>
           {showAgentDock && dockStatus && (
             <AgentActionDock
               status={dockStatus}
@@ -240,7 +239,7 @@ export default function AppShell({ data, update, children }: Props) {
                 {({ isActive }) => (
                   <>
                     {isActive && (
-                      <span className="anim-fade absolute top-0 left-1/2 -translate-x-1/2 w-8 h-px bg-ink" />
+                      <span className="nav-active-mark anim-fade absolute top-0 left-1/2 h-[2px] w-8 -translate-x-1/2" />
                     )}
                     {item.label}
                   </>
@@ -256,7 +255,7 @@ export default function AppShell({ data, update, children }: Props) {
               }`}
             >
               {isMoreActive && (
-                <span className="anim-fade absolute top-0 left-1/2 -translate-x-1/2 w-8 h-px bg-ink" />
+                <span className="nav-active-mark anim-fade absolute top-0 left-1/2 h-[2px] w-8 -translate-x-1/2" />
               )}
               더보기
             </button>
@@ -320,7 +319,7 @@ function AgentActionDock({
     "text-ink";
 
   return (
-    <div className="border-b border-hair bg-paper px-4 py-2">
+    <div className="agent-dock px-4 py-2">
       {message && (
         <p className="anim-fade mb-1 border-l border-gold pl-3 text-[12px] leading-relaxed text-soft">
           {message}

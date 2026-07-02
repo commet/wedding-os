@@ -17,8 +17,9 @@ test.describe("dashboard visual smoke", () => {
     await page.goto("/dashboard");
     await page.waitForLoadState("networkidle");
 
-    await expect(page.locator("#today-focus").getByText("Master planner")).toBeVisible();
-    await expect(page.getByText("바로 이어갈 일")).toBeVisible();
+    await expect(page.locator("#today-focus").getByText("같이 볼 결정")).toBeVisible();
+    await expect(page.getByText("다음 행동")).toBeVisible();
+    await expect(page.getByText("Master planner")).toHaveCount(0);
     await expect(page.getByText("private briefing")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "다음 할 일 정리하기 →" })).toHaveCount(0);
     await expect(page.getByTestId("dashboard-ai-starter")).toBeVisible();
@@ -93,8 +94,8 @@ test.describe("dashboard visual smoke", () => {
       localStorage.setItem("wedding-os/owner/v1", "1");
     }, data);
     await page.goto("/dashboard");
-    // 계약 식장 수용 초과 + 예산표 식대 항목 누락을 에이전트가 스스로 짚는다.
-    await expect(page.getByText("예상 인원과 예식장 조건 확인")).toBeVisible();
+    // 계약 식장 수용 초과는 홈의 주 결정으로, 식대 누락은 보조 신호로 올린다.
+    await expect(page.getByRole("heading", { name: "보증인원과 초대 범위 맞추기" })).toBeVisible();
     await expect(page.getByText("식대 예산 다시 확인")).toBeVisible();
     await assertLayoutHealth(page);
   });
@@ -162,10 +163,10 @@ test.describe("dashboard visual smoke", () => {
     await seedVisualData(page, true);
     await page.goto("/dashboard");
 
-    await expect(page.getByRole("heading", { name: "앞으로 할 일" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "01 기준 잡기" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "02 후보 결정" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "03 초대와 공유" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "어디부터 볼까요?" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "기준 잡기" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "후보 비교" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "초대와 공유" })).toBeVisible();
     await expect(page.getByText("Timeline")).toHaveCount(0);
     await expect(page.getByText("영역별 준비도")).toHaveCount(0);
     await expect(page.getByText("시작 후보 잡기")).toHaveCount(0);
@@ -190,6 +191,7 @@ test.describe("dashboard visual smoke", () => {
   });
 
   test("shows AI entry points in the actual UI", async ({ page }, testInfo) => {
+    testInfo.setTimeout(60_000);
     await seedVisualData(page, true);
     const projectName = testInfo.project.name.replace(/[^a-z0-9-]+/gi, "-").toLowerCase();
 

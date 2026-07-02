@@ -34,7 +34,7 @@ export function AgentIdentity({ compact = false, mood = "ready", caption }: Mark
           Dearie · {MOOD_LABEL[mood]}
         </div>
         <div
-          className={`${compact ? "text-[15px] mt-1" : "text-[19px] mt-1.5"} font-serif leading-none tracking-[-0.01em] text-ink`}
+          className={`${compact ? "text-[15px] mt-1" : "text-[19px] mt-1.5"} font-serif leading-none text-ink`}
         >
           Dearie
         </div>

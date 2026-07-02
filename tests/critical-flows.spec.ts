@@ -32,11 +32,11 @@ test.describe("critical product flows", () => {
     await page.getByRole("button", { name: "준비 화면 열기 →" }).click();
 
     await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(page.getByText("Dearie · 정리 중").first()).toBeVisible();
-    await expect(page.getByRole("heading", { name: "서울 강남구 예식장 후보 추리기" })).toBeVisible();
+    await expect(page.locator("#today-focus").getByText("오늘 같이 볼 결정")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "예식 날짜 기준 정하기" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "예상 하객은 어느 정도로 잡을까요?" })).toBeVisible();
     await page.getByRole("button", { name: /200명 안팎/ }).click();
-    await expect(page.getByText("예상 하객 200명과 식대 기준을 준비판에 반영했어요.")).toBeVisible();
+    await expect(page.getByText("예상 하객 200명과 식대 기준을 준비판에 넣었어요.")).toBeVisible();
 
     const stored = await readStoredData(page);
     expect(stored.preferences.mode).toBe("local");
@@ -56,7 +56,8 @@ test.describe("critical product flows", () => {
     expect(stored.ai?.profile?.onboardedAt).toBeTruthy();
     expect(await page.evaluate((key) => localStorage.getItem(key), OWNER_KEY)).toBe("1");
     await page.reload();
-    await expect(page.getByRole("heading", { name: "예상 하객 200명 기준으로 예식장 다시 보기" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "예식 날짜 기준 정하기" })).toBeVisible();
+    await expect(page.getByText("예식장 기준 답하기").first()).toBeVisible();
     expect((await readStoredData(page)).ai?.profile?.priority).toBe("venue");
   });
 
@@ -177,7 +178,7 @@ test.describe("critical product flows", () => {
     expect(stored.ai?.dialogue?.some((item) => item.id === "rings-wear" && item.answer === "매일 편하게")).toBe(true);
 
     await page.goto("/dashboard");
-    await expect(page.getByRole("heading", { name: "앞으로 할 일" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "어디부터 볼까요?" })).toBeVisible();
     await expect(page.getByText("스냅 기준 답하기").first()).toBeVisible();
     await expect(page.getByText("반지 취향 이어 고르기").first()).toBeVisible();
   });
@@ -190,8 +191,8 @@ test.describe("critical product flows", () => {
     await expect(page.getByRole("heading", { name: "청첩장은 무엇부터 점검할까요?" })).toBeVisible();
     await page.getByRole("button", { name: /이름·날짜 오탈자/ }).click();
     await page.getByRole("button", { name: /지도·주차 안내/ }).click();
-    await expect(page.getByRole("button", { name: "선택한 항목 2개 반영 →" })).toBeEnabled();
-    await page.getByRole("button", { name: "선택한 항목 2개 반영 →" }).click();
+    await expect(page.getByRole("button", { name: "선택한 항목 2개 적용 →" })).toBeEnabled();
+    await page.getByRole("button", { name: "선택한 항목 2개 적용 →" }).click();
     await expect(page.getByText("청첩장 공유 전 점검 항목 2개를 추가했어요.")).toBeVisible();
 
     await expect.poll(async () => {
@@ -263,7 +264,7 @@ test.describe("critical product flows", () => {
     }));
     await page.getByRole("button", { name: "초안 확인하기 →" }).click();
     await expect(page.getByText("적용 전 확인", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "이대로 반영 →" }).click();
+    await page.getByRole("button", { name: "이대로 적용 →" }).click();
 
     await expect.poll(() => readStoredData(page).then((stored) => {
       const aiSection = stored.checklist.find((section) => section.id === "ai-starter");
@@ -284,7 +285,7 @@ test.describe("critical product flows", () => {
       today: "반지 예산 상한 정하기",
     });
 
-    await expect(page.getByText("예산과 여행 후보를 먼저 잡으면 다음 결정이 쉬워집니다.")).toBeVisible();
+    await expect(page.getByText("시작점을 만들었어요. 아래에서 바로 이어갈 수 있습니다.")).toBeVisible();
     await expect(page.getByText("반지 예산 상한 정하기")).toBeVisible();
   });
 
@@ -303,7 +304,7 @@ test.describe("critical product flows", () => {
     await page.getByPlaceholder("챗봇이 준 답변을 그대로 복사해서 붙여넣기…").fill(greeting);
     await page.getByRole("button", { name: "초안 확인하기 →" }).click();
     await expect(page.getByText("적용 전 확인", { exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "이대로 반영 →" }).click();
+    await page.getByRole("button", { name: "이대로 적용 →" }).click();
 
     await expect.poll(() => readStoredData(page).then((stored) => stored.invitation.greeting)).toBe(greeting);
   });

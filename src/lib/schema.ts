@@ -1,7 +1,7 @@
 // 전체 데이터 스키마 — 모드 1 / 모드 2 모두 같은 모양으로 직렬화된다.
 // 모드 2 (Supabase) 에서는 이 객체 전체를 `wedding_data` 테이블의 `data` JSON 컬럼에 저장.
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 // local      — 이 기기에만 (오프라인)
 // hosted     — 운영자 호스팅 + 종단간 암호화 (간편). 운영자 서버엔 암호문만.
@@ -376,6 +376,8 @@ export type WeddingData = {
   /** 발행한 청첩장의 code·keyRaw. 미발행이면 undefined. */
   publish?: PublishedInvite;
 };
+
+export type WeddingUpdate = Partial<WeddingData> | ((prev: WeddingData) => WeddingData);
 
 export function defaultData(): WeddingData {
   return {

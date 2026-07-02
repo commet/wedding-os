@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef } from "react";
 import { Player, type PlayerRef } from "@remotion/player";
 import type {
-  WeddingData,
+  WeddingData, WeddingUpdate,
   VideoConfig,
   VideoAct,
   VideoPhoto,
@@ -28,8 +28,9 @@ import {
 } from "../data/videoTemplates";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import SectionConsultationPanel from "../components/SectionConsultationPanel";
+import { SectionDecisionLoop } from "../components/DecisionLoopPanel";
 
-type Props = { data: WeddingData; update: (patch: any) => void; };
+type Props = { data: WeddingData; update: (patch: WeddingUpdate) => void; };
 
 type ConfirmState = {
   title: string;
@@ -351,7 +352,7 @@ export default function Video({ data, update }: Props) {
         body:
           `Dearie 답변을 적용하면 사진이 ${config.photos.length}장에서 ${safe.photos.length}장으로 줄어듭니다.\n\n` +
           "의도한 수정이 아니라면 취소하고 다시 부탁하는 편이 안전해요.",
-        confirmLabel: "그래도 반영",
+        confirmLabel: "그래도 적용",
         tone: "warn",
         onConfirm: commit,
       });
@@ -361,7 +362,7 @@ export default function Video({ data, update }: Props) {
       setConfirmDialog({
         title: "챕터가 모두 사라져요",
         body: `지금 적용하면 챕터 ${config.acts.length}개가 0개로 바뀝니다. 정말 막 없이 이어지는 영상으로 바꿀까요?`,
-        confirmLabel: "그래도 반영",
+        confirmLabel: "그래도 적용",
         tone: "warn",
         onConfirm: commit,
       });
@@ -412,6 +413,8 @@ export default function Video({ data, update }: Props) {
         <div className="eyebrow-gold mb-2">영상 만들기</div>
         <h1 className="font-serif text-[2rem] leading-none">식전영상</h1>
       </div>
+
+      <SectionDecisionLoop data={data} sectionId="video" />
 
       <ProcessAgentPanel
         title={!currentTemplate ? "영상 구조를 먼저 고르는 중" : config.photos.length < minPhotoCount ? "사진 수를 채우는 중" : hasUnassigned ? "챕터 배정을 정리하는 중" : "상영 전 검수 단계"}
@@ -766,7 +769,7 @@ export default function Video({ data, update }: Props) {
         <div className="mt-4 space-y-4">
           <p className="text-[13px] text-soft leading-relaxed">
             원하는 변화만 한 문장으로 적어주세요. 영상 설정을 바꾼 뒤,
-            사진이 크게 줄거나 챕터가 사라질 때는 반영 전에 다시 물어봅니다.
+            사진이 크게 줄거나 챕터가 사라질 때는 적용 전에 다시 물어봅니다.
           </p>
           <textarea
             className="input-boxed text-[14px] min-h-[88px]"

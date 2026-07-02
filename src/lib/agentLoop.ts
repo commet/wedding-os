@@ -138,7 +138,7 @@ function applyHeadcount(data: WeddingData, question: AgentLoopQuestion, value: s
       updatedAt: new Date().toISOString(),
     },
   };
-  return { next, message: `예상 하객 ${total}명과 식대 기준을 준비판에 반영했어요.` };
+  return { next, message: `예상 하객 ${total}명과 식대 기준을 준비판에 넣었어요.` };
 }
 
 function applyVenueTour(data: WeddingData, question: AgentLoopQuestion, value: string) {

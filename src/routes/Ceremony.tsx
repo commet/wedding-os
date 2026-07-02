@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import type { WeddingData, CeremonyStep } from "../lib/schema";
+import type { WeddingData, WeddingUpdate, CeremonyStep } from "../lib/schema";
 import { defaultCeremony } from "../data/ceremonyTemplate";
 import { koBreak } from "../lib/typography";
 import { parseISODateLocal } from "../lib/date";
@@ -8,6 +8,7 @@ import { buildCeremonySheet, shareOrDownloadText } from "../lib/textExport";
 import { attendingCount, mealTicketCount } from "../lib/derived";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import SectionConsultationPanel from "../components/SectionConsultationPanel";
+import { SectionDecisionLoop } from "../components/DecisionLoopPanel";
 import DearieConfirmModal from "../components/DearieConfirmModal";
 
 const KO_WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -20,7 +21,7 @@ function formatCeremonyDate(iso?: string): string {
   return `${ymd} ${KO_WEEKDAYS[d.getDay()]}`;
 }
 
-type Props = { data: WeddingData; update: (patch: any) => void };
+type Props = { data: WeddingData; update: (patch: WeddingUpdate) => void };
 type ConfirmState = {
   title: string;
   body: string;
@@ -191,6 +192,8 @@ export default function Ceremony({ data, update }: Props) {
       </div>
 
       <div className="mt-6 space-y-6">
+        <SectionDecisionLoop data={data} sectionId="ceremony" />
+
         <ProcessAgentPanel
           title={roleMissing > 0 || musicMissing > 0 ? "빈 담당과 음악을 찾는 중" : "사회자 공유 준비가 거의 끝났어요"}
           summary={
