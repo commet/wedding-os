@@ -8,8 +8,8 @@ export type MenuGroup = { title: string; items: MenuItem[] };
  * 전역 메뉴의 단일 소스 — Dashboard 의 접이식 메뉴와 AppShell 의 "더보기" 시트가
  * 같은 정의를 공유한다. sub 카운트가 data 에 의존하므로 함수로 만든다.
  *
- * 메뉴 순서는 실제 결혼 준비 흐름을 따른다 — 먼저 큰 예약을 잡고(결정·예약),
- * 청첩장·영상을 만들고(함께 만들기), 그 뒤 꾸준히 관리. 도구·설정은 뒤로.
+ * 메뉴 순서는 실제 결혼 준비 흐름을 따른다. 홈의 상태판은 "다음 행동"을 보여주고,
+ * 이 메뉴는 어디로 이동할지 고르는 전체 지도 역할만 한다.
  */
 export function buildMenuGroups(data: WeddingData): MenuGroup[] {
   const snapCount = data.sdm.filter((v) => v.category === "snap").length;
@@ -23,7 +23,15 @@ export function buildMenuGroups(data: WeddingData): MenuGroup[] {
 
   return [
     {
-      title: "결정 · 예약",
+      title: "01 시작 기준",
+      items: [
+        { to: "/invitation", label: "기본 정보·청첩장", sub: sub("basics", "이름 · 날짜 · 장소") },
+        { to: "/budget", label: "예산", sub: sub("budget", "전체 비용 · 결제") },
+        { to: "/checklist", label: "체크리스트", sub: sub("checklist", "준비 리듬 · 마감") },
+      ],
+    },
+    {
+      title: "02 후보 결정",
       items: [
         { to: "/venues", label: "예식장", sub: sub("venues", "후보 비교 · 답사") },
         { to: "/sdm", label: "스드메", sub: sub("sdm", "스튜디오 · 드레스 · 메이크업") },
@@ -33,42 +41,29 @@ export function buildMenuGroups(data: WeddingData): MenuGroup[] {
       ],
     },
     {
-      title: "함께 만들기",
+      title: "03 초대 관리",
       items: [
-        { to: "/invitation", label: "모바일 청첩장", sub: sub("invitation", "정보 입력 · 하객용 링크") },
-        { to: "/ceremony", label: "식순", sub: sub("ceremony", "당일 진행표 · 음악 · 담당") },
-        { to: "/video", label: "식전영상", sub: sub("video", "사진 · BGM · 자연어 편집") },
+        { to: "/guests", label: "하객", sub: sub("guests", "명단 · 회신 · 식수") },
+        { to: "/share", label: "공유/백업", sub: sub("share", "공유 링크 · 백업") },
       ],
     },
     {
-      title: "꾸준히 관리",
+      title: "04 본식 당일",
       items: [
-        { to: "/checklist", label: "체크리스트", sub: sub("checklist", "일정 · 할 일") },
-        { to: "/budget", label: "비용 관리", sub: sub("budget", "예산 · 결제 · 초과 비용") },
-        { to: "/guests", label: "하객 명단", sub: sub("guests", "이름 · 축의금 · 식수") },
+        { to: "/ceremony", label: "식순", sub: sub("ceremony", "진행표 · 음악 · 담당") },
+        { to: "/video", label: "식전 영상", sub: sub("video", "사진 · BGM · 미리보기") },
       ],
     },
     {
-      title: "도구",
+      title: "05 설정",
       items: [
-        { to: "/share", label: "공유 센터", sub: sub("share", "청첩장 · 초대 링크 · 백업") },
         {
           to: "/start-hosted",
           label: "함께 편집",
           sub: data.preferences.mode === "hosted" ? "편집·복구 링크" : "배우자 초대 · 다른 기기",
         },
         { to: "/ai", label: "AI 연결", sub: "복붙 모드 · API 키 · 로컬 LLM" },
-      ],
-    },
-    {
-      title: "설정 · 정보",
-      items: [
         { to: "/settings", label: "설정", sub: "저장 방식 · 백업 · 로그인" },
-        { to: "/setup", label: "직접 저장소", sub: "Supabase 직접 운영" },
-        { to: "/trust", label: "투명성", sub: "운영자도 못 보는 구조" },
-        { to: "/privacy", label: "개인정보 · 보안", sub: "처리방침 · 안내" },
-        { to: "/terms", label: "이용 조건", sub: "정정 · 권리 · 보안 신고" },
-        { to: "/contact", label: "문의", sub: "오류 신고 · 도움 요청" },
       ],
     },
   ];

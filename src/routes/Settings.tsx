@@ -16,14 +16,22 @@ export default function Settings({ data, update }: Props) {
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
   const [inviteCopied, setInviteCopied] = useState(false);
+  const [backupNotice, setBackupNotice] = useState("");
 
   const handleExport = async () => {
     // exportData 는 idb 사진을 base64 로 인라인하느라 async — 큰 갤러리면 잠깐 걸림.
-    await exportData(data);
+    const result = await exportData(data);
+    if (result === "cancelled") {
+      setBackupNotice("백업 저장을 취소했어요.");
+      window.setTimeout(() => setBackupNotice(""), 2600);
+      return;
+    }
     update((prev: WeddingData) => ({
       ...prev,
       preferences: { ...prev.preferences, lastBackupAt: todayISO() },
     }));
+    setBackupNotice(result === "shared" ? "백업 파일을 공유 시트로 열었어요." : "백업 파일을 내려받았어요.");
+    window.setTimeout(() => setBackupNotice(""), 2600);
   };
 
   const handleImport = async (file: File) => {
@@ -218,7 +226,7 @@ export default function Settings({ data, update }: Props) {
           { label: "위험한 작업은 마지막에 실행", detail: "서버 데이터와 로그인 복구 정보까지 함께 지울 수 있어요.", done: true },
         ]}
         actions={[
-          { label: "지금 백업 만들기 →", onClick: handleExport, tone: "primary" },
+          { label: "백업 파일 만들기 →", onClick: handleExport, tone: "primary" },
           { label: "공유 센터 점검 →", onClick: () => navigate("/share") },
           ...(data.preferences.mode === "local" ? [{ label: "함께 편집 시작 →", onClick: () => navigate("/start-hosted") }] : []),
           ...(data.preferences.mode === "hosted" ? [
@@ -265,7 +273,7 @@ export default function Settings({ data, update }: Props) {
         </p>
         <div className="flex gap-6">
           <button onClick={handleExport} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
-          백업 파일 내려받기 →
+          백업 파일 만들기 →
           </button>
           <input
             ref={fileRef}
@@ -287,6 +295,14 @@ export default function Settings({ data, update }: Props) {
             마지막 백업 · <span className="tabular-nums">{data.preferences.lastBackupAt}</span>
           </p>
         )}
+        {backupNotice && (
+          <p role="status" className="mt-3 text-[12px] leading-relaxed text-gold">
+            {backupNotice}
+          </p>
+        )}
+        <p className="mt-3 text-[11px] leading-relaxed text-soft">
+          휴대폰에서는 지원되는 경우 파일 공유 시트가 먼저 열리고, 안 되면 브라우저 다운로드로 저장됩니다.
+        </p>
         {hasCorruptLocalBackup() && (
           <div className="mt-4 border border-gold/30 bg-gold/5 p-3">
             <p className="text-[12px] text-ink leading-relaxed mb-2">손상된 이전 로컬 데이터 원문을 보존하고 있습니다.</p>

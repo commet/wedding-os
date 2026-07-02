@@ -129,18 +129,21 @@ export default function Ceremony({ data, update }: Props) {
   // 빈 상태
   if (steps.length === 0) {
     return (
-      <div className="page pt-5 pb-10 space-y-5">
-        <div className="flex items-baseline justify-between gap-4">
-          <div>
-            <div className="eyebrow-gold mb-1">예식 진행</div>
-            <h1 className="font-serif text-[22px] leading-tight text-ink">식순 기준부터 잡기</h1>
-          </div>
-          <span className="eyebrow tabular-nums">0단계</span>
+      <div className="page pt-12 pb-10 text-center space-y-6 md:pt-20 md:space-y-8">
+        <div>
+          <div className="eyebrow-gold mb-4">예식 진행</div>
+          <h1 className="display-sm mb-4">
+            {koBreak("예식 순서를")}
+            <br />
+            <span className="italic font-light text-gold">{koBreak("함께 짜볼까요?")}</span>
+          </h1>
+          <p className="text-[15px] text-soft leading-[1.85]">
+            입장부터 행진까지 순서를 적어두면, 당일 사회자와 두 분이 그대로 따라갈 큐시트가 됩니다.
+          </p>
         </div>
-        <SectionConsultationPanel sectionId="ceremony" data={data} update={update} />
         <ProcessAgentPanel
-          title="기본 식순을 불러오세요"
-          summary="입장부터 행진까지 표준 흐름을 먼저 깔고, 주례·축가·혼인서약처럼 두 분 예식에 맞지 않는 단계만 지우면 됩니다."
+          title="사회자에게 보낼 큐시트를 준비합니다"
+          summary="처음엔 기본 식순을 불러온 뒤, 주례 여부·축가·혼인서약처럼 실제 예식에 맞지 않는 단계만 지우면 됩니다."
           metrics={[
             { label: "단계", value: "0개", tone: "warn" },
             { label: "예식 정보", value: contextParts.length ? "있음" : "미정", tone: contextParts.length ? "normal" : "muted" },
@@ -155,6 +158,9 @@ export default function Ceremony({ data, update }: Props) {
             { label: "빈 순서로 시작", onClick: addStep },
           ]}
         />
+        <div className="text-left">
+          <SectionConsultationPanel sectionId="ceremony" data={data} update={update} />
+        </div>
       </div>
     );
   }
@@ -185,8 +191,6 @@ export default function Ceremony({ data, update }: Props) {
       </div>
 
       <div className="mt-6 space-y-6">
-        <SectionConsultationPanel sectionId="ceremony" data={data} update={update} />
-
         <ProcessAgentPanel
           title={roleMissing > 0 || musicMissing > 0 ? "빈 담당과 음악을 찾는 중" : "사회자 공유 준비가 거의 끝났어요"}
           summary={
@@ -206,11 +210,13 @@ export default function Ceremony({ data, update }: Props) {
             { label: "사회자에게 보낼 시트 저장", detail: "식권·축의금 담당은 하객 데이터와 함께 당일 운영에서 봅니다.", done: doneCount === steps.length },
           ]}
           actions={[
-            { label: "사회자에게 보내기 →", onClick: shareSheet, tone: "primary" },
+            { label: "진행표 내보내기 →", onClick: shareSheet, tone: "primary" },
             { label: "단계 추가", onClick: addStep },
             { label: "기본 식순으로 다시 채우기", onClick: confirmLoadDefault },
           ]}
         />
+
+        <SectionConsultationPanel sectionId="ceremony" data={data} update={update} />
       </div>
 
       <p className="mt-4 text-[13px] text-soft leading-[1.8] break-keep">

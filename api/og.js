@@ -9,6 +9,25 @@ export const config = { runtime: "nodejs" };
 
 const h = React.createElement;
 const buckets = new Map();
+const EXTERNAL_FETCH_TIMEOUT_MS = 1800;
+
+function withTimeout(promise, timeoutMs = EXTERNAL_FETCH_TIMEOUT_MS) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error("timeout")), timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = EXTERNAL_FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 function privateHeaders(contentType = "text/plain; charset=utf-8") {
   return {
@@ -47,17 +66,19 @@ async function loadKoreanFont() {
     // Do not use Google Fonts' text= subsetting here: the rendered names/date
     // are personal invitation metadata and must not be sent to a third party.
     const url = "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700";
-    const css = await fetch(url, {
+    const cssRes = await fetchWithTimeout(url, {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       },
-    }).then((res) => res.text());
+    });
+    if (!cssRes.ok) return null;
+    const css = await withTimeout(cssRes.text());
     const match = css.match(/src:\s*url\(([^)]+)\)\s*format\(['"](?:opentype|truetype|woff2?)['"]\)/);
     if (!match) return null;
-    const fontRes = await fetch(match[1]);
+    const fontRes = await fetchWithTimeout(match[1]);
     if (!fontRes.ok) return null;
-    return await fontRes.arrayBuffer();
+    return await withTimeout(fontRes.arrayBuffer());
   } catch {
     return null;
   }
@@ -67,9 +88,9 @@ async function loadFromBlob(code) {
   const token = process.env.BLOB_READ_WRITE_TOKEN || "";
   if (!token) return null;
   try {
-    const res = await blobGet(`invite/${code}/meta.json`, { access: "private", useCache: false, token });
+    const res = await withTimeout(blobGet(`invite/${code}/meta.json`, { access: "private", useCache: false, token }));
     if (!res || res.statusCode !== 200) return null;
-    const stored = await new Response(res.stream).json();
+    const stored = await withTimeout(new Response(res.stream).json());
     if (stored.expiresAt && new Date(stored.expiresAt).getTime() < Date.now()) return null;
     const og = stored.ogMeta;
     if (!og) return null;

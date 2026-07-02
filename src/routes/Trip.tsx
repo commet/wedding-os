@@ -23,7 +23,6 @@ import { todayISO } from "../lib/freshness";
 import { koBreak } from "../lib/typography";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import SectionConsultationPanel from "../components/SectionConsultationPanel";
-import { answerConsultation } from "../lib/sectionConsultation";
 import { safeHref } from "../lib/security";
 import {
   emptyFlightResearchDraft,
@@ -40,7 +39,6 @@ type Props = { data: WeddingData; update: (patch: any) => void };
 type Tab = "destinations" | "flights" | "stays";
 type TripMood = "rest" | "balanced" | "active" | "short";
 type TripBudget = "value" | "mid" | "luxury";
-type TripStarterAnswers = { mood: TripMood; budget: TripBudget };
 
 const FLIGHT_RESEARCH_SECTIONS: ResearchSection<FlightResearchDraft>[] = [
   {
@@ -92,24 +90,21 @@ export default function Trip({ data, update }: Props) {
         ? "항공 후보까지 들어왔어요. 숙소 위치와 1박 단가를 확인하면 총예산 비교가 가능합니다."
         : "지역·항공·숙소가 모두 들어왔어요. 이제 가격 신선도와 일정 메모를 갱신하면서 최종안을 좁히면 됩니다.";
 
-  const applyTripStarter = (picks: HoneymoonPick[], answers: TripStarterAnswers) => {
+  const applyTripStarter = (picks: HoneymoonPick[]) => {
     update((prev: WeddingData) => {
-      let next = answerConsultation(prev, "trip", "trip-pace", answers.mood);
-      next = answerConsultation(next, "trip", "trip-budget", answers.budget);
-      const existingRegions = new Set(next.honeymoon.regions.map((r) => r.name));
       const names = new Set(prev.honeymoon.regions.map((r) => r.name));
       const additions = picks
-        .filter((pick) => !existingRegions.has(pick.region) && !names.has(pick.region))
+        .filter((pick) => !names.has(pick.region))
         .map((pick) => ({
           id: `region-${Date.now()}-${pick.id}`,
           name: pick.region,
           notes: starterTripNotes(pick),
         }));
       return {
-        ...next,
+        ...prev,
         honeymoon: {
-          ...next.honeymoon,
-          regions: [...next.honeymoon.regions, ...additions],
+          ...prev.honeymoon,
+          regions: [...prev.honeymoon.regions, ...additions],
         },
       };
     });
@@ -118,20 +113,16 @@ export default function Trip({ data, update }: Props) {
   };
 
   return (
-    <div className={showStarter ? "page pt-5 pb-10 space-y-5" : "page pt-8 pb-10 space-y-6"}>
-      {!showStarter && (
+    <div className="page pt-8 pb-10 space-y-6">
       <div>
         <div className="eyebrow-gold mb-2">여행 계획</div>
         <h1 className="h-page">{koBreak("신혼여행")}</h1>
       </div>
-      )}
 
       {showStarter ? (
         <TripStarter onApply={applyTripStarter} onClose={() => setShowStarter(false)} />
       ) : (
         <>
-          <SectionConsultationPanel sectionId="trip" data={data} update={update} />
-
           <div className="flex items-center gap-6 border-b border-hair pb-3">
             <TabBtn active={tab === "destinations"} onClick={() => setTab("destinations")}>여행지</TabBtn>
             <TabBtn active={tab === "flights"} onClick={() => setTab("flights")}>항공</TabBtn>
@@ -160,16 +151,7 @@ export default function Trip({ data, update }: Props) {
             ]}
           />
 
-          <button
-            onClick={() => setShowStarter(true)}
-            className="w-full text-left border-y border-hair py-4 flex items-baseline justify-between gap-4"
-          >
-            <span>
-              <span className="eyebrow block mb-1">기본 후보</span>
-              <span className="font-serif text-[18px] text-ink">여행 기준 잡기</span>
-            </span>
-            <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
-          </button>
+          {regionCount > 0 && <SectionConsultationPanel sectionId="trip" data={data} update={update} />}
 
           {tab === "destinations" && <Destinations data={data} update={update} />}
           {tab === "flights" && <Flights data={data} update={update} />}
@@ -207,7 +189,7 @@ function TripStarter({
   onApply,
   onClose,
 }: {
-  onApply: (picks: HoneymoonPick[], answers: TripStarterAnswers) => void;
+  onApply: (picks: HoneymoonPick[]) => void;
   onClose: () => void;
 }) {
   const [mood, setMood] = useState<TripMood>("balanced");
@@ -220,11 +202,11 @@ function TripStarter({
   );
 
   return (
-    <section className="border-y border-hair py-3 space-y-3">
+    <section className="border-y border-hair py-5 space-y-5">
       <div className="flex items-baseline justify-between gap-4">
         <div>
-          <div className="eyebrow-gold mb-1">여행 기준 잡기</div>
-          <h2 className="font-serif text-[20px] leading-snug text-ink break-keep">조건 3개만 고르세요</h2>
+          <div className="eyebrow mb-2">기본 후보</div>
+          <h2 className="font-serif text-xl text-ink">여행 기준 잡기</h2>
         </div>
         <button onClick={onClose} className="text-[12px] text-soft underline underline-offset-4 hover:text-ink">
           닫기
@@ -232,17 +214,8 @@ function TripStarter({
       </div>
 
       <p className="text-[12px] text-soft leading-relaxed">
-        톤과 기간을 고르면 먼저 비교할 지역 3곳만 담습니다.
+        여행 톤과 기간을 기준으로 먼저 비교할 지역을 잡습니다. 항공·숙소 가격과 시즌은 예약 전에 직접 다시 확인해야 합니다.
       </p>
-
-      <div className="border-y border-hair py-3">
-        <button onClick={() => onApply(picks, { mood, budget })} className="btn-primary w-full py-3 text-[13px]">
-          현재 기준으로 지역 3곳 담기 →
-        </button>
-        <p className="mt-2 text-[12px] leading-relaxed text-soft break-keep">
-          아래 답을 바꾸면 담길 지역도 바로 바뀝니다.
-        </p>
-      </div>
 
       <StarterOption label="여행 톤">
         <Segment active={mood === "rest"} onClick={() => setMood("rest")}>휴양 중심</Segment>
@@ -281,7 +254,7 @@ function TripStarter({
         ))}
       </div>
 
-      <button onClick={() => onApply(picks, { mood, budget })} className="btn-primary w-full py-3 text-[13px]">
+      <button onClick={() => onApply(picks)} className="btn-primary w-full py-3 text-[13px]">
         후보 3곳 담기 →
       </button>
     </section>
@@ -718,7 +691,7 @@ function FlightResearchInput({
   const [draft, setDraft] = useState<FlightResearchDraft>(() => emptyFlightResearchDraft(flight));
   return (
     <ResearchInputPanel
-      title="조사 입력"
+      title="메모 정리"
       subtitle="항공권 검색 결과를 가격·출처·일정으로 정리합니다."
       rawPlaceholder={
         "예: KE629 / ICN → DPS / 2026-06-29 17:50 출발 / 왕복 78만원 / 수하물 포함 / 확인일 2026.06.29 / 출처 URL"
@@ -749,7 +722,7 @@ function FlightAddForm({ onAdd }: { onAdd: (f: Flight) => void }) {
   return (
     <div className="space-y-3">
       <ResearchInputPanel
-        title="조사 입력"
+        title="메모 정리"
         subtitle="항공권 검색 결과를 붙여넣어 후보로 저장합니다."
         rawPlaceholder={
           "예: KE629 / ICN → DPS / 2026-06-29 17:50 출발 / 왕복 78만원 / 수하물 포함 / 출처 URL"
@@ -978,8 +951,8 @@ function HotelResearchInput({
   const [draft, setDraft] = useState<HotelResearchDraft>(() => emptyHotelResearchDraft(hotel));
   return (
     <ResearchInputPanel
-      title="조사 입력"
-      subtitle="숙소 가격·출처·조건을 칸으로 나눠 채웁니다."
+      title="메모 정리"
+      subtitle="숙소 가격·출처·조건을 Dearie가 정리합니다."
       rawPlaceholder={
         "예: 아고다 1박 45만원 / 조식 포함 / 무료취소 7일 전 / 리조트피 별도 / 확인일 2026.06.29 / 출처 URL"
       }
@@ -1009,7 +982,7 @@ function HotelAddForm({ onAdd }: { onAdd: (h: Hotel) => void }) {
   return (
     <div className="space-y-3">
       <ResearchInputPanel
-        title="조사 입력"
+        title="메모 정리"
         subtitle="OTA나 공식 사이트에서 확인한 숙소 정보를 저장합니다."
         rawPlaceholder={
           "예: 호텔 Four Seasons Resort Bali / 지역 발리 우붓 / 아고다 1박 45만원 / 조식 포함 / 출처 URL"

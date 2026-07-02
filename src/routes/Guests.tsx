@@ -266,32 +266,34 @@ export default function Guests({ data, update }: Props) {
   // 빈 상태
   if (guests.length === 0) {
     return (
-      <div className="page pt-5 pb-10 space-y-5">
-        <div className="flex items-baseline justify-between gap-4">
-          <div>
-            <div className="eyebrow-gold mb-1">하객 명단</div>
-            <h1 className="font-serif text-[22px] leading-tight text-ink">하객 기준부터 잡기</h1>
-          </div>
-          <span className="eyebrow tabular-nums">0명</span>
+      <div className="page pt-12 pb-10 text-center space-y-6 md:pt-20 md:space-y-8">
+        <div>
+          <div className="eyebrow-gold mb-4">하객 명단</div>
+          <h1 className="display-sm mb-4 [text-wrap:balance] max-w-[18rem] mx-auto">떠오르는 분부터 <span className="italic font-light">{koBreak("한 명씩 적어보세요.")}</span></h1>
+          <p className="text-[15px] text-soft leading-[1.85]">
+            이름과 어느 쪽 하객인지 먼저 적어두면 참석 여부와 식수는 자동으로 모입니다.
+          </p>
         </div>
-        <SectionConsultationPanel sectionId="guests" data={data} update={update} />
-        <ProcessAgentPanel
-          title="식수 기준을 먼저 잡으세요"
-          summary={agentSummary}
-          metrics={[
-            { label: "예상", value: `${planningHeadcount(data)}명`, tone: planningHeadcount(data) > 0 ? "normal" : "muted" },
-            { label: "명단", value: "0명", tone: "muted" },
-            { label: "회신", value: "0건", tone: "muted" },
-          ]}
-          steps={[
-            { label: "양가 하객 규모부터 잡기", detail: "신랑·신부 측을 분류별로 나누면 예식장 보증인원 판단이 시작됩니다.", done: headSummary.estTotal > 0 },
-            { label: "떠오르는 이름을 붙여넣기", detail: "정확한 관계·연락처는 나중에 상세에서 채워도 됩니다." },
-          ]}
-          actions={[
-            ...(headSummary.estTotal === 0 ? [{ label: "200명 기준으로 시작 →", onClick: seedHeadcount, tone: "primary" as const }] : []),
-          ]}
-        />
-        <HeadcountEstimator data={data} update={update} />
+        <div className="text-left">
+          <ProcessAgentPanel
+            title="명단 전에도 식수를 먼저 추정할 수 있어요"
+            summary={agentSummary}
+            metrics={[
+              { label: "예상", value: `${planningHeadcount(data)}명`, tone: planningHeadcount(data) > 0 ? "normal" : "muted" },
+              { label: "명단", value: "0명", tone: "muted" },
+              { label: "회신", value: "0건", tone: "muted" },
+            ]}
+            steps={[
+              { label: "양가 하객 규모부터 잡기", detail: "신랑·신부 측을 분류별로 나누면 예식장 보증인원 판단이 시작됩니다.", done: headSummary.estTotal > 0 },
+              { label: "떠오르는 이름을 붙여넣기", detail: "정확한 관계·연락처는 나중에 상세에서 채워도 됩니다." },
+            ]}
+            actions={[
+              ...(headSummary.estTotal === 0 ? [{ label: "200명 기준으로 시작 →", onClick: seedHeadcount, tone: "primary" as const }] : []),
+            ]}
+          />
+          <SectionConsultationPanel sectionId="guests" data={data} update={update} />
+          <HeadcountEstimator data={data} update={update} />
+        </div>
         <GuestAddBlock
           side={addSide}
           onSideChange={setAddSide}
@@ -325,8 +327,6 @@ export default function Guests({ data, update }: Props) {
         <h1 className="h-page">하객 명단</h1>
       </div>
 
-      <SectionConsultationPanel sectionId="guests" data={data} update={update} />
-
       <ProcessAgentPanel
         title={stats.pending > 0 ? "회신 대기를 줄이는 중" : seatingGroups.total > 0 ? "좌석 묶음까지 읽는 중" : "명단을 식수로 바꾸는 중"}
         summary={agentSummary}
@@ -348,6 +348,8 @@ export default function Guests({ data, update }: Props) {
           ...(data.preferences.mode === "supabase" ? [{ label: "RSVP 응답 가져오기 →", onClick: importRsvps }] : []),
         ]}
       />
+
+      <SectionConsultationPanel sectionId="guests" data={data} update={update} />
 
       <HeadcountEstimator data={data} update={update} />
 

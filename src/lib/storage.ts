@@ -28,6 +28,13 @@ let _deviceWiped = false;
 const REMOTE_SIGNAL_EVENT = "wedding-updated";
 const REMOTE_SIGNAL_THROTTLE_MS = 3_000;
 
+function localDateStamp(date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export type LoadResult = { data: WeddingData; version?: number } | null;
 export type SaveResult = {
   ok: boolean;
@@ -126,7 +133,7 @@ export function downloadCorruptLocalBackup(): void {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = `dearie-corrupt-backup-${new Date().toISOString().slice(0, 10)}.txt`;
+  anchor.download = `dearie-corrupt-backup-${localDateStamp()}.txt`;
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
@@ -960,7 +967,9 @@ export async function purgeServerData(data: WeddingData): Promise<{ ok: boolean;
   return { ok: errors.length === 0, errors };
 }
 
-export async function exportData(data: WeddingData): Promise<void> {
+export type ExportDataResult = "shared" | "downloaded" | "cancelled";
+
+export async function exportData(data: WeddingData): Promise<ExportDataResult> {
   const inlined: WeddingData = await inlineIdbForExport(data);
   // base64 인라인에 실패해 남은 idb: 참조는 다른 기기에서 못 푸므로 깨진 사진이 된다.
   // 백업에 죽은 참조를 담는 대신 들어내고, 몇 장이 빠졌는지 사용자에게 정직하게 알린다.
@@ -981,15 +990,38 @@ export async function exportData(data: WeddingData): Promise<void> {
     },
   };
   const blob = new Blob([JSON.stringify(sanitized, null, 2)], { type: "application/json" });
+  const name = `dearie-backup-${localDateStamp()}.json`;
+  const nav = typeof navigator !== "undefined" ? navigator : undefined;
+  if (nav && typeof nav.share === "function" && typeof File !== "undefined") {
+    const file = new File([blob], name, { type: "application/json" });
+    const canShareFile =
+      typeof nav.canShare === "function"
+        ? nav.canShare({ files: [file] })
+        : false;
+    if (canShareFile) {
+      try {
+        await nav.share({
+          title: "Dearie 백업",
+          text: "Dearie 결혼 준비 백업 파일입니다. 복구 링크처럼 민감하게 보관하세요.",
+          files: [file],
+        });
+        return "shared";
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return "cancelled";
+        // 파일 공유를 지원한다고 했지만 실패한 경우에는 기존 다운로드로 안전하게 폴백한다.
+      }
+    }
+  }
+
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  const name = `dearie-backup-${new Date().toISOString().split("T")[0]}.json`;
   a.href = url;
   a.download = name;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+  return "downloaded";
 }
 
 // import 시 환경설정(특히 preferences.supabase) 은 현재 값을 유지한다.

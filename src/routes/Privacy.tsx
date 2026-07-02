@@ -78,7 +78,7 @@ export default function Privacy() {
           <li>로컬 · 설정 → "모든 데이터 지우기"</li>
           <li>간편 · 설정 → "모든 데이터 지우기"를 누르면 운영자 서버의 암호문과 복구 연결도 함께 삭제됩니다.</li>
           <li>직접 운영 · 본인의 외부 저장소 대시보드에서 row/table 삭제</li>
-          <li>백업 · 설정 → "내려받기" 로 JSON 다운로드 가능 (보안상 anon key 등 시크릿은 제외됨)</li>
+          <li>백업 · 설정 → 백업 파일 만들기로 JSON 파일 공유/다운로드 가능 (보안상 anon key 등 시크릿은 제외됨)</li>
         </ul>
       </Section>
 

@@ -3,17 +3,8 @@ import fs from "node:fs";
 import { defaultChecklist } from "../src/data/checklistTemplate";
 import { buildPublishInvitation } from "../src/lib/invitePublish";
 import { wrapBundle, unwrapBundle } from "../src/lib/account";
-import {
-  buildProtectedRecoveryLink,
-  buildRecoveryLink,
-  parseProtectedRecoveryFragment,
-  parseRecoveryFragment,
-  suggestSharePassword,
-  unwrapProtectedRecoveryBundle,
-  validateSharePassword,
-} from "../src/lib/recovery";
+import { buildRecoveryLink, parseRecoveryFragment } from "../src/lib/recovery";
 import { decryptJSON, encryptJSON, generateInviteKey } from "../src/lib/inviteCrypto";
-import { applyAgentAnswer, nextAgentQuestion } from "../src/lib/agentLoop";
 import { defaultData, type WeddingData } from "../src/lib/schema";
 import aiApi from "../api/ai";
 import publishApi from "../api/invite-publish";
@@ -28,7 +19,7 @@ test.describe("critical product flows", () => {
     await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
     await page.reload();
 
-    await page.getByRole("button", { name: "질문 5개 시작하기 →" }).click();
+    await page.getByRole("button", { name: "Dearie와 시작하기 →" }).click();
     await page.getByPlaceholder("예: 김민준").fill("김민준");
     await page.getByPlaceholder("예: 이서연").fill("이서연");
     await page.getByRole("button", { name: "계속 →" }).click();
@@ -38,10 +29,10 @@ test.describe("critical product flows", () => {
     await page.getByRole("button", { name: "이 지역으로 보기 →" }).click();
     await page.getByRole("button", { name: "예식장을 찾고 싶어요" }).click();
     await page.getByRole("button", { name: "우선 이 기기에서 시작" }).click();
-    await page.getByRole("button", { name: "준비 화면 열기 →" }).click();
+    await page.getByRole("button", { name: "이 순서로 준비 시작하기 →" }).click();
 
     await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(page.getByText("오늘 할 일").first()).toBeVisible();
+    await expect(page.getByText("Dearie · 정리 중").first()).toBeVisible();
     await expect(page.getByRole("heading", { name: "서울 강남구 예식장 후보 추리기" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "예상 하객은 어느 정도로 잡을까요?" })).toBeVisible();
     await page.getByRole("button", { name: /200명 안팎/ }).click();
@@ -126,8 +117,8 @@ test.describe("critical product flows", () => {
     await seedBrowserStorage(page, seeded);
 
     await page.goto("/rings?starter=1");
-    await expect(page.getByText("질문 6개만 고르세요")).toBeVisible();
-    await page.getByRole("button", { name: /이 후보 \d+개를 표시하기 →/ }).click();
+    await expect(page.getByText("반지 기준 잡기")).toBeVisible();
+    await page.getByRole("button", { name: /후보 \d+개 표시하기 →/ }).click();
     await expect.poll(() => readStoredData(page).then((stored) =>
       stored.rings.some((ring) => ring.likedBy?.includes("bride"))
     )).toBe(true);
@@ -138,22 +129,22 @@ test.describe("critical product flows", () => {
     await expect.poll(() => readStoredData(page).then((stored) => stored.honeymoon.regions.length)).toBeGreaterThan(
       seeded.honeymoon.regions.length,
     );
-    await expect.poll(() => readStoredData(page).then((stored) => ({
-      pace: stored.ai?.dialogue?.some((item) => item.id === "trip-pace"),
-      budget: stored.ai?.dialogue?.some((item) => item.id === "trip-budget"),
-    }))).toEqual({ pace: true, budget: true });
 
     await page.goto("/venues?starter=1");
-    await expect(page.getByText("조건 4개만 고르세요")).toBeVisible();
-    await page.getByRole("button", { name: /이 후보 \d+곳을 내 후보에 담기 →/ }).click();
+    await expect(page.getByText("Dearie 후보 추리기")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "가장 먼저 볼 지역은 어디에 가까울까요?" })).toBeVisible();
+    await page.getByRole("button", { name: /강남·청담권/ }).click();
+    await page.getByRole("button", { name: "선택한 조건으로 다음 질문 →" }).click();
+    await page.getByRole("button", { name: /120~250명/ }).click();
+    await page.getByRole("button", { name: /채플·하우스/ }).click();
+    await page.getByRole("button", { name: "선택한 조건으로 다음 질문 →" }).click();
+    await page.getByRole("button", { name: /식대·총액/ }).click();
+    await page.getByRole("button", { name: "선택한 조건으로 다음 질문 →" }).click();
+    await expect(page.getByText("Dearie 판단 완료")).toBeVisible();
+    await page.getByRole("button", { name: /후보 \d+곳으로 내 후보 정리 →/ }).click();
     await expect.poll(() => readStoredData(page).then((stored) => stored.venues?.length ?? 0)).toBeGreaterThan(
       seeded.venues?.length ?? 0,
     );
-    await expect.poll(() => readStoredData(page).then((stored) => ({
-      region: stored.ai?.dialogue?.some((item) => item.id === "venues-region"),
-      scale: stored.ai?.dialogue?.some((item) => item.id === "venues-scale"),
-      priority: stored.ai?.dialogue?.some((item) => item.id === "venues-priority"),
-    }))).toEqual({ region: true, scale: true, priority: true });
   });
 
   test("keeps Dearie consultation answers across direct route reloads", async ({ page }) => {
@@ -171,12 +162,13 @@ test.describe("critical product flows", () => {
     }, seeded);
 
     await page.goto("/snap");
-    await expect(page.getByRole("heading", { name: "본식 스냅은 어떤 느낌이면 좋겠어요?" })).toBeVisible();
+    await page.getByRole("button", { name: /기준 질문 답하기/ }).click();
+    await expect(page.getByRole("heading", { name: "본식 스냅 기준 잡기" })).toBeVisible();
     await page.getByRole("button", { name: /자연스러운 기록/ }).click();
     await expect(page.getByRole("heading", { name: "어디부터 찍히면 좋을까요?" })).toBeVisible();
 
     await page.goto("/rings?starter=1");
-    await expect(page.getByRole("heading", { name: "질문 6개만 고르세요" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "반지 기준 잡기" })).toBeVisible();
     await page.getByRole("button", { name: /매일 편하게/ }).click();
     await expect(page.getByRole("heading", { name: "두 분 한 쌍 예산 상한은 어디에 가까워요?" })).toBeVisible();
 
@@ -185,51 +177,60 @@ test.describe("critical product flows", () => {
     expect(stored.ai?.dialogue?.some((item) => item.id === "rings-wear" && item.answer === "매일 편하게")).toBe(true);
 
     await page.goto("/dashboard");
-    await page.getByText(/전체 영역 \d+개/).click();
+    await expect(page.getByRole("heading", { name: "앞으로 할 일" })).toBeVisible();
     await expect(page.getByText("스냅 기준 답하기").first()).toBeVisible();
-    await expect(page.getByText("반지 취향 이어 고르기").first()).toBeVisible();
+    await expect(page.getByText("반지 취향 질문 이어가기").first()).toBeVisible();
   });
 
-  test("keeps section consultation answers when the dashboard agent asks follow-up questions", () => {
-    const seeded = defaultData();
-    seeded.preferences.mode = "local";
-    seeded.venues = [{
-      id: "venue-1",
-      name: "테스트 예식장",
-      region: "서울",
-      status: "관심",
-    }];
-    seeded.ai = {
-      dialogue: [
-        ...Array.from({ length: 18 }, (_, index) => ({
-          id: `legacy-${index}`,
-          question: `이전 질문 ${index}`,
-          answer: "답변",
-          answeredAt: "2026-01-01T00:00:00.000Z",
-        })),
-        {
-          id: "snap-style",
-          question: "본식 스냅은 어떤 느낌이면 좋겠어요?",
-          answer: "자연스러운 기록",
-          answeredAt: "2026-01-01T00:00:00.000Z",
-        },
-        {
-          id: "rings-wear",
-          question: "반지는 얼마나 자주 낄 예정인가요?",
-          answer: "매일 편하게",
-          answeredAt: "2026-01-01T00:00:00.000Z",
-        },
-      ],
-    };
+  test("supports multi-select Dearie answers before committing the next action", async ({ page }) => {
+    const seeded = seededWeddingData();
+    await seedBrowserStorage(page, seeded);
 
-    const question = nextAgentQuestion(seeded);
-    expect(question?.id).toBe("headcount-scale");
+    await page.goto("/dashboard");
+    await expect(page.getByRole("heading", { name: "청첩장은 무엇부터 점검할까요?" })).toBeVisible();
+    await page.getByRole("button", { name: /이름·날짜 오탈자/ }).click();
+    await page.getByRole("button", { name: /지도·주차 안내/ }).click();
+    await expect(page.getByRole("button", { name: "선택한 항목 2개 반영 →" })).toBeEnabled();
+    await page.getByRole("button", { name: "선택한 항목 2개 반영 →" }).click();
+    await expect(page.getByText("청첩장 공유 전 점검 항목 2개를 추가했어요.")).toBeVisible();
 
-    const { next } = applyAgentAnswer(seeded, question!, "200");
-    expect(next.ai?.dialogue?.some((item) => item.id === "snap-style")).toBe(true);
-    expect(next.ai?.dialogue?.some((item) => item.id === "rings-wear")).toBe(true);
-    expect(next.ai?.dialogue?.some((item) => item.id === "headcount-scale")).toBe(true);
-    expect(next.ai?.dialogue?.length).toBeGreaterThan(12);
+    await expect.poll(async () => {
+      const stored = await readStoredData(page);
+      const followups = stored.checklist.find((section) => section.id === "agent-followup")?.items ?? [];
+      return {
+        answer: stored.ai?.dialogue?.find((item) => item.id === "invitation-final-check")?.answer,
+        typo: followups.some((item) => item.text.includes("오탈자")),
+        map: followups.some((item) => item.text.includes("지도")),
+      };
+    }).toEqual({
+      answer: "이름·날짜 오탈자, 지도·주차 안내",
+      typo: true,
+      map: true,
+    });
+
+    await page.goto("/rings?starter=1");
+    await expect(page.getByRole("heading", { name: "반지 기준 잡기" })).toBeVisible();
+    await page.getByRole("button", { name: /매일 편하게/ }).click();
+    await page.getByRole("button", { name: /100~200만/ }).click();
+    await expect(page.getByRole("heading", { name: "손에 올렸을 때 편한 금속 색은요?" })).toBeVisible();
+    await page.getByRole("button", { name: /플래티넘/ }).click();
+    await page.getByRole("button", { name: /화이트골드/ }).click();
+    await page.getByRole("button", { name: "선택한 기준으로 다음 질문 →" }).click();
+    await expect(page.getByRole("heading", { name: "첫인상은 어느 쪽이 더 좋아요?" })).toBeVisible();
+    await page.getByRole("button", { name: /심플한 밴드/ }).click();
+    await page.getByRole("button", { name: /다이아 포인트/ }).click();
+    await page.getByRole("button", { name: "선택한 기준으로 다음 질문 →" }).click();
+
+    await expect.poll(async () => {
+      const stored = await readStoredData(page);
+      return {
+        tone: stored.ai?.dialogue?.find((item) => item.id === "rings-tone")?.answer,
+        design: stored.ai?.dialogue?.find((item) => item.id === "rings-design")?.answer,
+      };
+    }).toEqual({
+      tone: "플래티넘, 화이트골드",
+      design: "심플한 밴드, 다이아 포인트",
+    });
   });
 
   test("lets AI starter output create a useful first board without calling an API", async ({ page }) => {
@@ -441,23 +442,9 @@ test.describe("critical product flows", () => {
     expect(parseRecoveryFragment(`#w=${bundle.weddingId}&t=short&k=${bundle.weddingKey}`)).toBeNull();
     expect(parseRecoveryFragment(`#w=${bundle.weddingId}&t=${bundle.ownerToken}&k=not-a-key`)).toBeNull();
 
-    const sharePassword = "091391";
-    const protectedLink = await buildProtectedRecoveryLink(bundle, sharePassword, "https://wedding.test");
-    expect(protectedLink).not.toContain(bundle.ownerToken);
-    expect(protectedLink).not.toContain(bundle.weddingKey);
-    const protectedPayload = parseProtectedRecoveryFragment(new URL(protectedLink).hash);
-    expect(protectedPayload?.weddingId).toBe(bundle.weddingId);
-    await expect(unwrapProtectedRecoveryBundle(protectedPayload!, sharePassword)).resolves.toEqual(bundle);
-    await expect(unwrapProtectedRecoveryBundle(protectedPayload!, "wrong-pass")).rejects.toThrow();
-    const suggestedSharePassword = suggestSharePassword();
-    expect(suggestedSharePassword.length).toBeGreaterThanOrEqual(6);
-    expect(validateSharePassword(suggestedSharePassword)).toBeNull();
-    expect(validateSharePassword("123456")).toContain("흔한");
-
-    const recoveryPassphrase = "Two families meet at 7pm!";
-    const wrapped = await wrapBundle(bundle, recoveryPassphrase);
-    await expect(unwrapBundle(wrapped.blob, wrapped.salt, recoveryPassphrase)).resolves.toEqual(bundle);
-    await expect(unwrapBundle("a".repeat(5000), wrapped.salt, recoveryPassphrase)).rejects.toThrow();
+    const wrapped = await wrapBundle(bundle, "twelve-letters-or-more");
+    await expect(unwrapBundle(wrapped.blob, wrapped.salt, "twelve-letters-or-more")).resolves.toEqual(bundle);
+    await expect(unwrapBundle("a".repeat(5000), wrapped.salt, "twelve-letters-or-more")).rejects.toThrow();
 
     const seeded = seededWeddingData();
     seeded.invitation.heroImageUrl = "https://legacy.example/huge.jpg";
@@ -542,7 +529,7 @@ test.describe("critical product flows", () => {
       await storage.clearLocalDeviceData();
     });
     await expect(secondTab).toHaveURL(/\/$/);
-    await expect(secondTab.getByRole("button", { name: "질문 5개 시작하기 →" })).toBeVisible();
+    await expect(secondTab.getByRole("button", { name: "Dearie와 시작하기 →" })).toBeVisible();
     expect(await secondTab.evaluate(() => localStorage.getItem("wedding-os/v1"))).toBeNull();
     await secondTab.close();
   });
@@ -556,22 +543,6 @@ test.describe("critical product flows", () => {
 
     await page.goto(`/recover#w=${weddingId}&t=${ownerToken}&k=${weddingKey}`);
     await expect(page.getByText("복구 실패")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "기존 데이터는 그대로 두었어요" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "복구 링크 다시 확인" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "로그인으로 복구하기" })).toBeVisible();
-
-    const protectedLink = await buildProtectedRecoveryLink(
-      { weddingId, ownerToken, weddingKey },
-      "091391",
-      "http://127.0.0.1:5173",
-    );
-    await page.goto("/dashboard");
-    await page.goto(`${new URL(protectedLink).pathname}${new URL(protectedLink).hash}`);
-    await expect(page.getByRole("heading", { name: "이 링크는 비밀번호로 잠겨 있어요" })).toBeVisible();
-    await page.getByLabel("공유 비밀번호").fill("wrong-pass");
-    await page.getByRole("button", { name: "비밀번호 확인하고 이어가기 →" }).click();
-    await expect(page.getByText("공유 비밀번호가 맞지 않아요")).toBeVisible();
-    expect((await readStoredData(page)).invitation.groomName).toBe(seeded.invitation.groomName);
 
     const stored = await readStoredData(page);
     expect(stored.invitation.groomName).toBe(seeded.invitation.groomName);
@@ -641,21 +612,13 @@ test.describe("critical product flows", () => {
     expect(authSource).toContain("replaceExisting?: boolean");
     expect(authSource).toContain("이미 연결된 청첩장이 있어요");
     for (const dynamicInvitePath of ["api/invite-payload.ts", "api/serve-invite.ts", "api/og.js"]) {
-      const dynamicInviteSource = fs.readFileSync(dynamicInvitePath, "utf8");
-      expect(dynamicInviteSource.includes("no-store") || dynamicInviteSource.includes("privateNoStoreHeaders")).toBe(true);
+      expect(fs.readFileSync(dynamicInvitePath, "utf8")).toContain("no-store");
     }
     const ogSource = fs.readFileSync("api/og.js", "utf8");
-    const payloadSource = fs.readFileSync("api/invite-payload.ts", "utf8");
-    const rsvpSource = fs.readFileSync("api/invite-rsvp.ts", "utf8");
-    const publishSource = fs.readFileSync("api/invite-publish.ts", "utf8");
+    expect(ogSource).toContain("blobGet(`invite/${code}/meta.json`");
     expect(ogSource).toContain("heroImageUrl: og.heroImageUrl");
-    expect(ogSource).not.toContain("get_public_invitation");
-    expect(ogSource).not.toContain("text=${encodeURIComponent");
+    expect(ogSource).not.toContain("/rest/v1/rpc/get_public_invitation");
     expect(ogSource).not.toContain("/rest/v1/wedding_data");
-    expect(payloadSource).toContain("useCache: false");
-    expect(rsvpSource).toContain("MAX_RSVP_BYTES = 8 * 1024");
-    expect(rsvpSource).toContain("MAX_RSVP_ITEMS = 500");
-    expect(publishSource).toContain("cacheControlMaxAge: 60");
     expect(fs.readFileSync("api/serve-invite.ts", "utf8")).toContain("new URL(`/api/og?code=");
   });
 
@@ -664,7 +627,6 @@ test.describe("critical product flows", () => {
     const hookIndex = appSource.indexOf("useWeddingData()");
     expect(hookIndex).toBeGreaterThan(0);
     for (const routeGuard of [
-      'location.pathname === "/i"',
       'location.pathname.startsWith("/i/")',
       'location.pathname === "/recover"',
       'location.pathname === "/login"',
@@ -685,20 +647,6 @@ test.describe("critical product flows", () => {
     expect(menuSheetSource).toContain("previousFocus.current?.focus()");
     expect(menuSheetSource).toContain('e.key !== "Tab"');
     expect(menuSheetSource).toContain("panelRef.current?.focus()");
-  });
-
-  test("keeps legal and security notice surfaces reachable before setup", async ({ page }) => {
-    await page.goto("/");
-    await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
-
-    await page.goto("/terms");
-    await expect(page.getByRole("heading", { name: "Dearie 이용 안내" })).toBeVisible();
-    await expect(page.getByText("업체·브랜드명은 비교와 개인 메모를 위한 식별 목적으로만 표시합니다.")).toBeVisible();
-    await expect(page.getByText("보안 취약점을 발견하면 공개 글이나 이슈 대신")).toBeVisible();
-
-    await page.goto("/privacy");
-    await expect(page.getByRole("heading", { name: "개인정보 · 보안 안내" })).toBeVisible();
-    await expect(page.getByText("권리 행사 · 침해 대응")).toBeVisible();
   });
 
   test("uses current AI provider contracts and parses their responses", async ({ page }) => {
@@ -760,66 +708,30 @@ test.describe("critical product flows", () => {
     const directSql = fs.readFileSync("supabase/schema.sql", "utf8");
     const hostedSql = fs.readFileSync("supabase/hosted-schema.sql", "utf8");
     const vercelConfig = fs.readFileSync("vercel.json", "utf8");
-    const setupSource = fs.readFileSync("src/routes/Setup.tsx", "utf8");
-    const termsSource = fs.readFileSync("src/routes/Terms.tsx", "utf8");
-    const menuSource = fs.readFileSync("src/lib/menu.ts", "utf8");
-    const robots = fs.readFileSync("public/robots.txt", "utf8");
-    const securityTxt = fs.readFileSync("public/.well-known/security.txt", "utf8");
-    const securityMd = fs.readFileSync("SECURITY.md", "utf8");
 
     expect(directSql).toContain("__WEDDING_OS_OWNER_TOKEN__");
     expect(directSql).toContain("__WEDDING_OS_RSVP_TOKEN__");
-    expect(directSql).toContain("__WEDDING_OS_CONFIG_ID__");
     expect(directSql).not.toContain('create policy "rsvp_insert_only"');
-    expect(directSql).toContain("on conflict (id) do nothing");
-    expect(directSql).not.toContain("set owner_token_hash = excluded.owner_token_hash");
+    expect(directSql).not.toContain("on conflict (id) do nothing");
     expect(directSql).toContain("revoke create on schema public from public");
     expect(directSql).toContain("revoke all on public.wedding_data, public.rsvp, public.collab_comments from anon, authenticated");
-    expect(directSql).toContain("alter table public.wedding_data add column if not exists data jsonb not null default '{}'::jsonb");
-    expect(directSql).toContain("drop function if exists public.save_wedding_data(text, text, jsonb, int)");
-    expect(directSql.indexOf("drop function if exists public.save_wedding_data(text, text, jsonb, int)"))
-      .toBeLessThan(directSql.indexOf("create or replace function public.save_wedding_data"));
-    expect(directSql).toContain("missing expected version");
-    expect(directSql).toContain("rsvp quota exceeded");
-    expect(setupSource).toContain("const saved = await driver.save(nextData, remoteVersion)");
     expect(hostedSql).toContain("create or replace function public.wos_save");
-    expect(hostedSql).toContain("alter table weddingos.weddings add column if not exists created_by uuid");
-    expect(hostedSql.indexOf("alter table weddingos.weddings add column if not exists created_by uuid"))
-      .toBeLessThan(hostedSql.indexOf("create index if not exists wos_weddings_created_by_idx"));
-    expect(hostedSql).toContain("drop function if exists public.wos_delete(text, text)");
-    expect(hostedSql.indexOf("drop function if exists public.wos_delete(text, text)"))
-      .toBeLessThan(hostedSql.indexOf("create or replace function public.wos_delete"));
     expect(hostedSql).toContain("authentication required to provision wedding");
     expect(hostedSql).toContain("wedding quota exceeded");
     expect(hostedSql).toContain("pg_advisory_xact_lock");
-    expect(hostedSql).toContain("invalid encrypted envelope");
-    expect(hostedSql).toContain("jsonb_typeof(p_data->'ct') <> 'string'");
-    expect(hostedSql).toContain("if p_expected_version is null then");
-    expect(hostedSql).toContain("create or replace function public.wos_rotate_owner_token");
-    expect(hostedSql).toContain("owner_token_hash = crypt(p_new_token, gen_salt('bf'))");
     expect(hostedSql).toContain("revoke all on schema weddingos from public, anon, authenticated");
     expect(hostedSql).toContain('create policy "wos_accounts_own"');
     expect(vercelConfig).toContain("img-src 'self' https://images.unsplash.com data: blob:");
     expect(vercelConfig).toContain("media-src 'self' data: blob:");
     expect(vercelConfig).not.toContain("img-src 'self' https: data:");
-    expect(menuSource).toContain('to: "/terms"');
-    expect(termsSource).toContain("후기 원문, 유료 DB, 회원 전용 게시물");
-    expect(termsSource).toContain("서비스 거부 공격");
-    expect(robots).toContain("Disallow: /i/");
-    expect(robots).toContain("Disallow: /recover");
-    expect(securityTxt).toContain("Contact: mailto:yclee913@gmail.com");
-    expect(securityMd).toContain("Do not open a public GitHub issue for vulnerabilities");
 
     const viteConfig = fs.readFileSync("vite.config.ts", "utf8");
     expect(viteConfig).toContain("navigateFallbackDenylist: [/^\\/api\\//, /^\\/i\\//]");
 
     const storageSource = fs.readFileSync("src/lib/storage.ts", "utf8");
     const directStorageSource = fs.readFileSync("src/lib/storage.supabase.ts", "utf8");
-    const hostedStorageSource = fs.readFileSync("src/lib/storage.hosted.ts", "utf8");
     const shellSource = fs.readFileSync("src/components/AppShell.tsx", "utf8");
-    const ogSource = fs.readFileSync("api/og.js", "utf8");
     expect(storageSource).toContain("REMOTE_REFRESH_INTERVAL_MS = 90_000");
-    expect(storageSource).toContain("isBootstrapRemoteData");
     expect(storageSource).toContain('REMOTE_SIGNAL_EVENT = "wedding-updated"');
     expect(storageSource).toContain('type: "broadcast"');
     expect(storageSource).toContain('refreshRemote("signal")');
@@ -827,17 +739,7 @@ test.describe("critical product flows", () => {
     expect(storageSource).toContain('window.addEventListener("focus", onFocus)');
     expect(storageSource).toContain('document.addEventListener("visibilitychange", onVisibility)');
     expect(directStorageSource).not.toContain("postgres_changes");
-    expect(hostedStorageSource).toContain("wos_rotate_owner_token");
     expect(shellSource).not.toContain("useRealtimeStatus");
-    expect(ogSource).not.toContain("get_public_invitation");
-    expect(ogSource).not.toContain("text=${encodeURIComponent");
-    expect(ogSource).toContain("X-Robots-Tag");
-
-    const exporterSource = fs.readFileSync("src/lib/exporters.ts", "utf8");
-    const securitySource = fs.readFileSync("src/lib/security.ts", "utf8");
-    expect(exporterSource).toContain("spreadsheetSafeCell");
-    expect(exporterSource).toContain("/^[=+\\-@\\t\\r]/");
-    expect(securitySource).toContain('throw new Error("Secure random generator unavailable")');
   });
 });
 

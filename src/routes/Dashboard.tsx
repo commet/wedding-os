@@ -1,19 +1,19 @@
 import { Link } from "react-router-dom";
 import type { WeddingData } from "../lib/schema";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { recalcDueDates } from "../data/checklistTemplate";
 import { daysUntilISODate, parseISODateLocal } from "../lib/date";
 import ChatbotBridgeModal from "../components/ChatbotBridgeModal";
 import { type BridgePrompt, weddingPlanStarterPrompt } from "../lib/chatbotBridge";
 import { AGENT_PRIORITIES, type AgentPriority } from "../lib/agentProfile";
 import { applyAgentAnswer, nextAgentQuestion, type AgentLoopQuestion } from "../lib/agentLoop";
-import { buildMenuGroups } from "../lib/menu";
+import { AgentIdentity } from "../components/AgentIdentity";
 import { applyStarterPlan, normalizeTargetPath, type StarterResult } from "../lib/agentStarter";
 import {
   budgetTotals, overdueChecklistCount, formatKRW, upcomingBalances, upcomingEvents,
-  rsvpReadiness, mealBudgetCheck, contractedVenue, planningHeadcount, venueCapacityFit,
-  planningStatusReport, decisionMap, PLANNING_STATE_LABEL,
-  type DecisionItem, type DecisionStage, type PlanningSectionStatus, type PlanningStatusState,
+  weddingPhase, rsvpReadiness, mealBudgetCheck, contractedVenue, planningHeadcount, venueCapacityFit,
+  planningStatusReport, PLANNING_STATE_LABEL,
+  type PlanningSectionStatus, type PlanningStatusState,
 } from "../lib/derived";
 import { koBreak } from "../lib/typography";
 
@@ -26,10 +26,31 @@ type FocusItem = {
   tag: string;
 };
 
-const DECISION_STAGE_LABEL: Record<DecisionStage, string> = {
-  now: "지금 결정",
-  soon: "곧 결정",
-  later: "나중에",
+type DashboardApp = PlanningSectionStatus & {
+  icon: AppIconName;
+  group: "start" | "decide" | "invite" | "day";
+};
+
+type AppIconName =
+  | "basics"
+  | "venues"
+  | "sdm"
+  | "snap"
+  | "rings"
+  | "trip"
+  | "invitation"
+  | "guests"
+  | "budget"
+  | "checklist"
+  | "ceremony"
+  | "video"
+  | "share";
+
+type DashboardGroup = {
+  key: DashboardApp["group"];
+  title: string;
+  helper: string;
+  apps: DashboardApp[];
 };
 
 export default function Dashboard({ data, update }: Props) {
@@ -59,7 +80,8 @@ export default function Dashboard({ data, update }: Props) {
   const balanceDueSoon = upcomingBalances(data).filter((b) => b.daysLeft <= 14)[0]; // 가장 임박한 잔금
   const timeline = upcomingEvents(data); // 예식·마감·잔금·답사를 한 시간축으로
 
-  // 에이전트 '상황 읽기' — 부부 데이터에서 직접 추론한 신호들(읽기 전용, AI 비용 없음).
+  // 에이전트 '상황 읽기' — D-day 국면 + 부부 데이터에서 직접 추론한 신호들(읽기 전용, AI 비용 없음).
+  const phase = weddingPhase(dday);
   const contractVenueForFit = contractedVenue(data);
   const headcountForFit = planningHeadcount(data);
   const capFit = venueCapacityFit(contractVenueForFit, headcountForFit);
@@ -71,12 +93,14 @@ export default function Dashboard({ data, update }: Props) {
   const hasRisk = overdueCount > 0 || overBudgetCount > 0 || !!balanceDueSoon || capitalRisk || rsvpNudge || !!mealCheck;
   const agentQuestion = useMemo(() => nextAgentQuestion(data), [data]);
   const statusReport = useMemo(() => planningStatusReport(data), [data]);
-  const decisions = useMemo(() => decisionMap(data), [data]);
-  const visibleDecisions = empty ? [] : decisions.items.slice(0, 4);
-  const primaryDecision = visibleDecisions[0];
   const readiness = statusReport.sections;
   const readinessPercent = statusReport.overallPercent;
   const nextStatus = statusReport.nextSections[0];
+  const agentCaption = hasRisk
+    ? "놓치기 쉬운 신호를 먼저 보고 있어요."
+    : agentQuestion
+      ? "다음 결정을 하나만 물어볼게요."
+      : "지금은 준비판을 조용히 정리해두고 있어요.";
 
   const setWeddingDate = (date: string) => {
     update((prev: WeddingData) => {
@@ -114,7 +138,7 @@ export default function Dashboard({ data, update }: Props) {
     setAgentChoosing(false);
   };
 
-  const answerAgentQuestion = (question: AgentLoopQuestion, value: string) => {
+  const answerAgentQuestion = (question: AgentLoopQuestion, value: string | string[]) => {
     const result = applyAgentAnswer(data, question, value);
     update(() => result.next);
     setAiMessage(result.message);
@@ -149,7 +173,7 @@ export default function Dashboard({ data, update }: Props) {
       .filter((item) => item.title)
       .slice(0, 3);
     items.push(...aiToday);
-    if (nextStatus && !(empty && nextStatus.to === "/invitation")) {
+    if (nextStatus) {
       items.push({
         to: nextStatus.to,
         title: nextStatus.nextAction,
@@ -157,7 +181,7 @@ export default function Dashboard({ data, update }: Props) {
         tag: PLANNING_STATE_LABEL[nextStatus.state],
       });
     }
-    if (!data.invitation.date && !empty) {
+    if (!data.invitation.date) {
       items.push({
         to: "/invitation",
         title: "기본 정보 정리하기",
@@ -243,7 +267,6 @@ export default function Dashboard({ data, update }: Props) {
     data.hotels.length,
     data.invitation.date,
     data.invitation.venue,
-    empty,
     nextStatus,
     data.preferences.mode,
     data.rings.length,
@@ -251,47 +274,49 @@ export default function Dashboard({ data, update }: Props) {
     venueCount,
   ]);
 
-  // 전역 메뉴 — AppShell "더보기" 시트와 동일한 단일 소스(lib/menu.ts)를 공유.
-  const MENU_GROUPS = buildMenuGroups(data);
-  const explicitAgentFocus = focusItems.find((item) => item.tag === "AI");
-  const decisionPrimaryForCard = explicitAgentFocus ? undefined : primaryDecision;
-  const decisionRows = decisionPrimaryForCard ? visibleDecisions.slice(1, 4) : visibleDecisions.slice(0, 3);
-  const primaryFocus = explicitAgentFocus ?? (decisionPrimaryForCard ? {
-    to: decisionPrimaryForCard.to,
-    title: decisionPrimaryForCard.title,
-    desc: decisionPrimaryForCard.whyNow,
-    tag: DECISION_STAGE_LABEL[decisionPrimaryForCard.stage],
-  } : focusItems[0] ?? {
+  const primaryFocus = focusItems[0] ?? {
     to: "/checklist",
     title: "오늘 할 일 확인하기",
     desc: "완료한 일과 다음 일정을 가볍게 확인해보세요.",
     tag: "다음 단계",
-  });
-  const primaryAction = decisionPrimaryForCard?.nextAction ?? "이 일 시작하기";
-  const agentCaption = explicitAgentFocus
-    ? "AI가 고른 오늘의 한 가지를 앞에 두었어요."
-    : decisionPrimaryForCard
-      ? "둘이 같이 보면 좋은 결정을 앞에 모았어요."
-      : hasRisk
-        ? "먼저 확인할 위험 신호가 있어요."
-        : agentQuestion
-          ? "답 하나만 고르면 다음 순서가 줄어듭니다."
-          : "지금 바로 이어갈 일 하나를 골라두었어요.";
+  };
   const coupleDisplay = [data.invitation.groomName, data.invitation.brideName].filter(Boolean).join(" · ") || "우리";
+  const secondaryFocusItems = focusItems.slice(1, 4);
+  const dashboardGroups = useMemo(() => buildDashboardGroups(readiness), [readiness]);
+  const recentSignal = recentActivity(data, nextStatus);
+  const briefing = buildMasterBriefing({
+    phaseFocus: data.ai?.starterSummary || (dday !== null ? phase.focus : "현재 준비 상태를 보고, 다음 결정이 쉬워지는 순서로 정리했어요."),
+    primaryFocus,
+    hasRisk,
+    riskCount: [
+      overdueCount > 0,
+      overBudgetCount > 0,
+      !!balanceDueSoon,
+      capitalRisk,
+      rsvpNudge,
+      !!mealCheck,
+    ].filter(Boolean).length,
+  });
+  const alertItems = [
+    overdueCount > 0 ? { to: "/checklist", label: `지난 마감 ${overdueCount}건` } : null,
+    overBudgetCount > 0 ? { to: "/budget", label: `예산 초과 ${overBudgetCount}건 · +${formatKRW(overBudgetSum)}` } : null,
+    balanceDueSoon ? { to: balanceDueSoon.targetPath, label: `${balanceDueSoon.name} 잔금 ${balanceDueSoon.daysLeft <= 0 ? "오늘 확인" : `D-${balanceDueSoon.daysLeft}`}` } : null,
+    capitalRisk ? { to: capFit === "under" ? "/venues" : "/guests", label: "예상 인원과 예식장 조건 확인" } : null,
+    rsvpNudge ? { to: "/guests", label: `회신 ${rsvp.rate}% · 미응답 ${rsvp.pending}명` } : null,
+    mealCheck ? { to: "/budget", label: "식대 예산 다시 확인" } : null,
+  ].filter((item): item is { to: string; label: string } => !!item).slice(0, 2);
 
   return (
     <div className="pb-10">
-      <section className="page pt-4 pb-4 lg:pt-6 lg:pb-5">
-        {empty ? (
-          <div className="rounded-[8px] border border-sage/25 bg-sage/10 p-5 shadow-[0_16px_40px_rgba(27,26,23,0.05)]">
-            <div className="mb-3 text-[12px] font-semibold text-sage">처음 1분</div>
-            <h1 className="font-serif text-[1.85rem] leading-[1.18] tracking-tight text-ink">
-              {koBreak("예식 날짜가 정해졌나요?")}
-            </h1>
-            <p className="mt-3 text-[15px] text-soft leading-relaxed mb-5">
+      {empty ? (
+        <section className="page pt-6 pb-7">
+          <div className="border-y border-hair py-6">
+            <div className="eyebrow mb-3">처음 1분</div>
+            <h1 className="display-sm mb-3">{koBreak("예식 날짜가 정해졌나요?")}</h1>
+            <p className="mb-5 text-[15px] leading-relaxed text-soft">
               날짜를 넣으면 준비 일정을 맞춰드려요. 아직 미정이면 건너뛰고 바로 할 일부터 볼 수 있습니다.
             </p>
-            <label className="block mb-4">
+            <label className="mb-4 block">
               <span className="label">예식 날짜</span>
               <input
                 type="date"
@@ -301,296 +326,90 @@ export default function Dashboard({ data, update }: Props) {
               />
             </label>
             <div className="grid grid-cols-2 gap-3">
-              <Link to="/invitation" className="btn-primary min-h-11 flex items-center justify-center px-3 text-[12.5px] text-center">
+              <Link to="/invitation" className="btn-primary flex min-h-11 items-center justify-center px-3 text-center text-[12px]">
                 이름·장소 입력
               </Link>
-              <a href="#today-focus" className="btn-secondary min-h-11 flex items-center justify-center px-3 text-[12.5px] text-center">
+              <a href="#today-focus" className="btn-secondary flex min-h-11 items-center justify-center px-3 text-center text-[12px]">
                 아직 미정
               </a>
             </div>
           </div>
-        ) : (
-          <div className="overflow-hidden rounded-[8px] border border-sage/25 bg-sage/10 shadow-[0_16px_44px_rgba(27,26,23,0.05)]">
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 p-4 sm:gap-5 lg:p-6">
-              <div className="min-w-0">
-                <div className="mb-2 text-[12px] font-semibold text-sage">오늘 같이 볼 준비</div>
-                <h1 className="font-serif text-[1.55rem] leading-[1.15] tracking-tight text-ink sm:text-[2.05rem]">
-                  {koBreak(coupleDisplay)}
-                </h1>
-                <p className="mt-2 text-[14px] leading-relaxed text-soft break-keep">
-                  {formatWeddingDate(data.invitation.date) || "날짜 미정"}
-                  {data.invitation.time && ` · ${data.invitation.time}`}
-                  {data.invitation.venue && ` · ${data.invitation.venue}`}
-                </p>
-              </div>
-              {dday !== null && (
-                <div className="inline-flex w-fit items-end gap-2 rounded-[8px] border border-line bg-paper px-3 py-2 sm:block sm:min-w-[8.25rem] sm:px-4 sm:py-3 sm:text-right">
-                  <div className="text-[11.5px] font-semibold text-soft">{dday >= 0 ? "예식까지" : "예식 후"}</div>
-                  <div className={`font-serif leading-none tabular-nums ${dday === 0 ? "text-[1.3rem] text-gold sm:text-[1.55rem]" : "text-[1.55rem] text-ink sm:text-[1.95rem]"}`}>
-                    {dday > 0 ? `D-${dday}` : dday === 0 ? "D-DAY" : `+${Math.abs(dday)}`}
-                  </div>
-                </div>
-              )}
-            </div>
+        </section>
+      ) : (
+        <>
+          <section id="today-focus" className="page pt-5 pb-6 scroll-mt-20">
+            <MasterPlannerPanel
+              agentMood={agentQuestion ? "thinking" : hasRisk ? "watching" : "ready"}
+              agentCaption={agentCaption}
+              coupleDisplay={coupleDisplay}
+              dateLabel={formatWeddingDate(data.invitation.date) || "날짜 미정"}
+              venueLabel={data.invitation.venue || "장소 미정"}
+              dday={dday}
+              phaseLabel={phase.label}
+              readinessPercent={readinessPercent}
+              counts={statusReport.counts}
+              briefing={briefing}
+              recentSignal={recentSignal}
+              primaryFocus={primaryFocus}
+              alertItems={alertItems}
+              aiMessage={aiMessage}
+              starterResult={starterResult}
+              agentChoosing={agentChoosing}
+              onTalk={openAiStarter}
+              onChoosePriority={() => setAgentChoosing(true)}
+              onCancelChoosing={() => setAgentChoosing(false)}
+              onPriority={chooseAgentPriority}
+            />
+          </section>
 
-            <div className="grid grid-cols-3 border-t border-sage/20 bg-paper/65">
-              <div className="px-3 py-2.5 sm:px-4 sm:py-3">
-                <div className="text-[11.5px] font-medium text-soft">준비도</div>
-                <div className="mt-0.5 text-[17px] font-semibold text-ink tabular-nums">{readinessPercent}%</div>
-              </div>
-              <div className="border-x border-sage/20 px-3 py-2.5 sm:px-4 sm:py-3">
-                <div className="text-[11.5px] font-medium text-soft">확인 필요</div>
-                <div className="mt-0.5 text-[17px] font-semibold text-ink tabular-nums">{statusReport.counts.attention}</div>
-              </div>
-              <div className="px-3 py-2.5 sm:px-4 sm:py-3">
-                <div className="text-[11.5px] font-medium text-soft">지금 결정</div>
-                <div className="mt-0.5 text-[17px] font-semibold text-ink tabular-nums">{decisions.counts.now}</div>
-              </div>
-            </div>
-          </div>
-        )}
-      </section>
+          <div className="hairline" />
 
-      {/* ─── Agent briefing — 지금 할 일 하나와 다음 순서 ─── */}
-      <section id="today-focus" className="page pb-7 pt-2 scroll-mt-20">
-        <div className="mb-4 flex items-start justify-between gap-4">
-          <div>
-            <div className="text-[13px] font-semibold text-gold">오늘 할 일</div>
-            <p className="mt-1 max-w-[22rem] text-[14px] leading-relaxed text-soft break-keep">{agentCaption}</p>
-          </div>
-          <span className="rounded-full border border-line bg-cream/70 px-3 py-1.5 text-right text-[11.5px] font-semibold leading-tight text-soft">{coupleDisplay}<br />진행 기준</span>
-        </div>
-        {aiMessage && (
-          <p className="mb-5 border-l border-gold pl-4 text-[13px] leading-[1.75] text-soft">
-            {aiMessage}
-          </p>
-        )}
-        {starterResult && <StarterResultPanel result={starterResult} />}
-        {agentChoosing ? (
-          <div className="page-enter">
-            <div className="eyebrow mb-3">우선순위 바꾸기</div>
-            <h2 className="mb-2 max-w-[19rem] font-serif text-[1.625rem] leading-[1.4] text-ink break-keep [text-wrap:balance]">{koBreak("지금 더 마음이 가는 일은 무엇인가요?")}</h2>
-            <p className="mb-6 text-[15px] leading-relaxed text-soft">고른 일을 첫 번째로 옮기고 다음 순서도 다시 맞출게요.</p>
-            <div className="space-y-2.5">
-              {(Object.entries(AGENT_PRIORITIES) as Array<[AgentPriority, (typeof AGENT_PRIORITIES)[AgentPriority]]>).map(([id, item]) => (
-                <button key={id} onClick={() => chooseAgentPriority(id)} className="flex min-h-[62px] w-full items-center justify-between gap-3 border-b border-hair px-1 py-3 text-left transition hover:border-gold">
-                  <span>
-                    <span className="block text-[13px] font-medium text-ink">{item.label}</span>
-                    <span className="mt-1 block text-[12px] leading-relaxed text-soft">{item.reason}</span>
-                  </span>
-                  <span className="text-gold">→</span>
-                </button>
-              ))}
+          <section className="page py-6">
+            <div className="mb-5 flex items-end justify-between gap-4">
+              <div>
+                <div className="eyebrow-gold mb-1">Wedding OS 앱</div>
+                <h2 className="font-serif text-[24px] leading-snug text-ink">{koBreak("앞으로 할 일")}</h2>
+                <p className="mt-1 text-[12px] leading-relaxed text-soft">필요한 곳으로 바로 들어가고, 앱별 진행도를 확인하세요.</p>
+              </div>
+              <span className="text-right text-[11px] leading-relaxed text-soft">
+                진행 중 {statusReport.counts.active + statusReport.counts.attention}<br />
+                완료 {statusReport.counts.done}
+              </span>
             </div>
-            <button onClick={() => setAgentChoosing(false)} className="mt-4 min-h-11 text-[12px] text-soft underline underline-offset-4">지금 제안으로 돌아가기</button>
-          </div>
-        ) : (
-          <div className="page-enter grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.72fr)] lg:items-start lg:gap-6">
-            <div className="min-w-0">
-              <Link
-                to={primaryFocus.to}
-                className="block rounded-[8px] border border-hair bg-paper p-4 shadow-[0_16px_45px_rgba(27,26,23,0.06)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_55px_rgba(27,26,23,0.08)] sm:p-6 lg:p-7"
-              >
-                <div className="mb-4 flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-ink px-3 py-1 text-[11.5px] font-semibold text-paper">
-                    {decisionPrimaryForCard ? "지금 같이 볼 결정" : "오늘의 첫 단계"}
-                  </span>
-                  <span className="rounded-full bg-cream px-3 py-1 text-[11.5px] font-semibold text-soft">{primaryFocus.tag}</span>
-                </div>
-                <h2 className="max-w-[18em] font-serif text-[1.72rem] leading-[1.22] tracking-tight text-ink break-keep sm:text-[2.15rem] lg:text-[2.35rem]">
-                  {primaryFocus.title}
-                </h2>
-                <p className="mt-4 max-w-[42rem] text-[15px] leading-[1.75] text-soft sm:text-[15.5px]">
-                  {primaryFocus.desc}
-                </p>
-                <span className="mt-5 inline-flex min-h-11 items-center justify-center rounded-[6px] bg-ink px-5 text-[13.5px] font-semibold text-paper">
-                  {primaryAction} →
-                </span>
-                {decisionPrimaryForCard && <DecisionFactPreview item={decisionPrimaryForCard} />}
-              </Link>
-              {data.ai?.starterSummary && (
-                <p className="mt-4 rounded-[8px] border border-line bg-cream/35 px-4 py-3 text-[13px] leading-relaxed text-soft break-keep">
-                  {data.ai.starterSummary}
-                </p>
-              )}
-            </div>
-            <div className="space-y-4 lg:pt-0">
-              {decisionRows.length > 0 && (
-                <div className="hidden lg:block">
-                  <DecisionChoiceRows decisions={decisionRows} counts={decisions.counts} compact />
-                </div>
-              )}
-              {agentQuestion && (
-                <AgentQuestionCard question={agentQuestion} onAnswer={answerAgentQuestion} />
-              )}
-              {hasRisk && (
-                <div className="overflow-hidden rounded-[8px] border border-line bg-cream/35">
-                  <div className="border-b border-line px-4 py-3">
-                    <div className="text-[14px] font-semibold text-ink">놓치면 아쉬운 신호</div>
-                  </div>
-                {overdueCount > 0 && (
-                  <Link to="/checklist" className="row-tap flex items-center justify-between gap-3 border-b border-line px-4 py-3 last:border-b-0">
-                    <span className="text-[13px] text-ink break-keep">지난 마감 <b className="font-semibold">{overdueCount}건</b>이 남아 있어요</span>
-                    <span className="flex-shrink-0 text-gold">→</span>
-                  </Link>
-                )}
-                {overBudgetCount > 0 && (
-                  <Link to="/budget" className="row-tap flex items-center justify-between gap-3 border-b border-line px-4 py-3 last:border-b-0">
-                    <span className="text-[13px] text-ink break-keep">예산을 <b className="font-semibold">{overBudgetCount}건</b> 초과했어요 · +{formatKRW(overBudgetSum)}</span>
-                    <span className="flex-shrink-0 text-gold">→</span>
-                  </Link>
-                )}
-                {balanceDueSoon && (
-                  <Link to={balanceDueSoon.targetPath} className="row-tap flex items-center justify-between gap-3 border-b border-line px-4 py-3 last:border-b-0">
-                    <span className="text-[13px] text-ink break-keep">{balanceDueSoon.name} 잔금 {balanceDueSoon.daysLeft < 0 ? `${-balanceDueSoon.daysLeft}일 지남` : balanceDueSoon.daysLeft === 0 ? "오늘" : `D-${balanceDueSoon.daysLeft}`} · {formatKRW(balanceDueSoon.amount)}</span>
-                    <span className="flex-shrink-0 text-gold">→</span>
-                  </Link>
-                )}
-                {capFit === "over" && (
-                  <Link to="/guests" className="row-tap flex items-center justify-between gap-3 border-b border-line px-4 py-3 last:border-b-0">
-                    <span className="text-[13px] text-ink break-keep">초대 인원 <b className="font-semibold tabular-nums">{headcountForFit}명</b>이 {contractVenueForFit?.name} 수용(<span className="tabular-nums">{contractVenueForFit?.capacityMax}명</span>)을 넘을 수 있어요</span>
-                    <span className="flex-shrink-0 text-gold">→</span>
-                  </Link>
-                )}
-                {capFit === "under" && (
-                  <Link to="/venues" className="row-tap flex items-center justify-between gap-3 border-b border-line px-4 py-3 last:border-b-0">
-                    <span className="text-[13px] text-ink break-keep">초대 인원 <span className="tabular-nums">{headcountForFit}명</span>이 최소 보증인원(<span className="tabular-nums">{contractVenueForFit?.capacityMin}명</span>)보다 적어요 · 보증금 확인</span>
-                    <span className="flex-shrink-0 text-gold">→</span>
-                  </Link>
-                )}
-                {rsvpNudge && (
-                  <Link to="/guests" className="row-tap flex items-center justify-between gap-3 border-b border-line px-4 py-3 last:border-b-0">
-                    <span className="text-[13px] text-ink break-keep">청첩장 보낸 지 <span className="tabular-nums">{rsvp.daysSinceFirstInvite}일</span> · 회신 <b className="font-semibold tabular-nums">{rsvp.rate}%</b> · 미응답 <span className="tabular-nums">{rsvp.pending}명</span></span>
-                    <span className="flex-shrink-0 text-gold">→</span>
-                  </Link>
-                )}
-                {mealCheck?.kind === "missing" && (
-                  <Link to="/budget" className="row-tap flex items-center justify-between gap-3 border-b border-line px-4 py-3 last:border-b-0">
-                    <span className="text-[13px] text-ink break-keep">예상 식대 약 <b className="font-semibold">{formatKRW(mealCheck.expected)}</b> · 예산표에 식대 항목이 없어요</span>
-                    <span className="flex-shrink-0 text-gold">→</span>
-                  </Link>
-                )}
-                {mealCheck?.kind === "low" && (
-                  <Link to="/budget" className="row-tap flex items-center justify-between gap-3 border-b border-line px-4 py-3 last:border-b-0">
-                    <span className="text-[13px] text-ink break-keep">예산 식대(<span className="tabular-nums">{formatKRW(mealCheck.planned!)}</span>)가 예상(<span className="tabular-nums">{formatKRW(mealCheck.expected)}</span>)보다 적어요</span>
-                    <span className="flex-shrink-0 text-gold">→</span>
-                  </Link>
-                )}
+            <AppLauncher groups={dashboardGroups} />
+            {(agentQuestion || secondaryFocusItems.length > 0) && (
+              <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+                {agentQuestion && <MasterQuestionCard question={agentQuestion} onAnswer={answerAgentQuestion} />}
+                {secondaryFocusItems.length > 0 && <FocusQueue items={secondaryFocusItems} />}
               </div>
             )}
-            </div>
-          </div>
-        )}
-        {!agentChoosing && decisionRows.length > 0 && (
-          <div className="lg:hidden">
-            <DecisionChoiceRows decisions={decisionRows} counts={decisions.counts} />
-          </div>
-        )}
-        {!agentChoosing && decisionRows.length === 0 && focusItems.length > 1 && (
-          <div className="mt-6 rounded-[8px] border border-line bg-paper">
-            {focusItems.slice(1, 4).map((item, index) => (
-              <Link key={`${item.to}-${item.title}`} to={item.to} className="row-tap grid min-h-[66px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-line px-4 py-3 last:border-b-0">
-                <span className="min-w-0">
-                  <span className="block text-[14px] font-semibold leading-snug text-ink">{item.title}</span>
-                  <span className="mt-1 block text-[12px] text-soft">{item.tag}</span>
-                </span>
-                <span className="text-soft">→</span>
-              </Link>
-            ))}
-          </div>
-        )}
-        {!agentChoosing && (
-          <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-1">
-            <button onClick={() => setAgentChoosing(true)} className="min-h-11 text-[12.5px] text-soft underline underline-offset-4 hover:text-ink">먼저 할 일 바꾸기</button>
-            <button data-testid="dashboard-ai-starter" onClick={openAiStarter} className="min-h-11 text-[12.5px] text-soft underline underline-offset-4 hover:text-ink">계획 다시 잡기</button>
-          </div>
-        )}
-      </section>
-
-      {!empty && <>
-      <div className="hairline" />
-      <section className="page py-7">
-        <div className="mb-5 flex items-end justify-between gap-4">
-          <div>
-            <div className="eyebrow block mb-1">지금 볼 상태</div>
-            <h2 className="font-serif text-[1.375rem] leading-snug text-ink">{koBreak("다음만 남기기")}</h2>
-          </div>
-          <span className="text-right text-[12px] leading-relaxed text-soft">
-            완료 {statusReport.counts.done}<br />
-            확인 필요 {statusReport.counts.attention}
-          </span>
-        </div>
-        <StatusBoard nextSections={statusReport.nextSections} allSections={readiness} />
-      </section>
-      </>}
-
-      <div className="hairline" />
-
-      {!empty && timeline.length > 0 && (
-        <>
-          <section className="page py-9">
-            <div className="mb-5 flex items-baseline justify-between gap-4">
-              <div className="eyebrow-gold">다가오는 일정</div>
-              <Link to="/checklist" className="inline-flex min-h-11 items-center text-[12px] text-soft underline underline-offset-4 hover:text-ink">전체 일정 →</Link>
-            </div>
-            <ol>
-              {timeline.map((e, i) => (
-                <li key={`${e.kind}-${e.date}-${i}`} className="relative pl-8">
-                  <span
-                    aria-hidden="true"
-                    className={`absolute left-[6px] w-px bg-hair ${i === 0 ? "top-[1.05rem]" : "top-0"} ${i === timeline.length - 1 ? "h-[1.05rem]" : "bottom-0"}`}
-                  />
-                  <span aria-hidden="true" className="absolute left-0 top-[0.7rem] flex h-3.5 w-3.5 items-center justify-center">
-                    <span className={`w-[8px] h-[8px] rotate-45 border ${e.kind === "wedding" ? "bg-gold border-gold" : "border-mute bg-paper"}`} />
-                  </span>
-                  <Link to={e.targetPath} className="row-tap flex items-baseline gap-2 border-b border-hair py-3 last:border-b-0">
-                    <span className="w-12 flex-shrink-0 text-[12px] text-soft tabular-nums">{e.date.slice(5).replace("-", ".")}</span>
-                    <span className={`min-w-0 truncate break-keep text-[14px] ${e.kind === "wedding" ? "font-serif text-ink" : "text-ink"}`}>{e.label}</span>
-                    <span className={`ml-auto flex-shrink-0 text-[12px] tabular-nums ${e.daysLeft <= 14 ? "text-gold font-medium" : "text-soft"}`}>{e.daysLeft === 0 ? "오늘" : `D-${e.daysLeft}`}</span>
-                  </Link>
-                </li>
-              ))}
-            </ol>
           </section>
+
           <div className="hairline" />
+
+          <section className="page py-5">
+            <details>
+              <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 border-b border-hair py-3">
+                <span>
+                  <span className="eyebrow-gold block">전체 준비 흐름</span>
+                  <span className="mt-1 block text-[13px] text-soft">앱별 다음 일을 한 번에 펼쳐봅니다.</span>
+                </span>
+                <span className="text-[12px] text-soft underline underline-offset-4">보기</span>
+              </summary>
+              <div className="pt-5">
+                <StatusBoard allSections={readiness} />
+              </div>
+            </details>
+          </section>
+
+          {timeline.length > 0 && (
+            <>
+              <div className="hairline" />
+              <UpcomingTimeline items={timeline.slice(0, 4)} />
+            </>
+          )}
         </>
       )}
-
-      {/* ─── 전체 메뉴는 접어서, 첫 화면 집중도를 유지 ─── */}
-      <section className="page py-7">
-        <details>
-          <summary className="list-none cursor-pointer flex items-baseline justify-between gap-4">
-            <span>
-              <span className="eyebrow block mb-1">준비 도구</span>
-              <span className="font-serif text-lg text-ink">{koBreak("다른 메뉴 보기")}</span>
-            </span>
-            <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
-          </summary>
-          <div className="pt-7 space-y-8">
-            {MENU_GROUPS.map((group) => (
-              <div key={group.title}>
-                <h2 className="eyebrow mb-3">{group.title}</h2>
-                <ul className="border-y border-hair divide-y divide-hair">
-                  {group.items.map((item) => (
-                    <li key={item.to}>
-                      <Link
-                        to={item.to}
-                        className="flex items-baseline justify-between gap-4 py-3.5 active:opacity-60 transition"
-                      >
-                        <div className="min-w-0">
-                          <div className="font-serif text-[15px] text-ink leading-tight">{item.label}</div>
-                          <div className="text-[12px] text-soft mt-1 truncate">{item.sub}</div>
-                        </div>
-                        <span className="text-soft flex-shrink-0">→</span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </details>
-      </section>
 
       <ChatbotBridgeModal
         open={!!aiPrompt}
@@ -602,121 +421,537 @@ export default function Dashboard({ data, update }: Props) {
   );
 }
 
-function AgentQuestionCard({ question, onAnswer }: { question: AgentLoopQuestion; onAnswer: (question: AgentLoopQuestion, value: string) => void }) {
+function MasterPlannerPanel({
+  agentMood,
+  agentCaption,
+  coupleDisplay,
+  dateLabel,
+  venueLabel,
+  dday,
+  phaseLabel,
+  readinessPercent,
+  counts,
+  briefing,
+  recentSignal,
+  primaryFocus,
+  alertItems,
+  aiMessage,
+  starterResult,
+  agentChoosing,
+  onTalk,
+  onChoosePriority,
+  onCancelChoosing,
+  onPriority,
+}: {
+  agentMood: "ready" | "thinking" | "watching" | "done";
+  agentCaption: string;
+  coupleDisplay: string;
+  dateLabel: string;
+  venueLabel: string;
+  dday: number | null;
+  phaseLabel: string;
+  readinessPercent: number;
+  counts: Record<PlanningStatusState, number>;
+  briefing: string;
+  recentSignal: string;
+  primaryFocus: FocusItem;
+  alertItems: { to: string; label: string }[];
+  aiMessage: string;
+  starterResult: StarterResult | null;
+  agentChoosing: boolean;
+  onTalk: () => void;
+  onChoosePriority: () => void;
+  onCancelChoosing: () => void;
+  onPriority: (priority: AgentPriority) => void;
+}) {
+  const ddayLabel =
+    dday === null ? "D-day 미정" :
+    dday > 0 ? `D-${dday}` :
+    dday === 0 ? "오늘 예식" :
+    `예식 후 ${Math.abs(dday)}일`;
+
   return (
-    <details open className="overflow-hidden rounded-[8px] border border-sage/25 bg-sage/5 shadow-[0_12px_34px_rgba(27,26,23,0.04)]">
-      <summary className="flex min-h-[68px] cursor-pointer list-none items-start justify-between gap-4 px-4 py-4 text-left">
-        <span className="min-w-0">
-          <span className="block text-[12px] font-semibold text-sage">{question.eyebrow}</span>
-          <h3 className="mt-1 text-[17px] font-semibold leading-snug text-ink break-keep">{question.title}</h3>
-        </span>
-        <span className="mt-0.5 flex-shrink-0 rounded-full bg-paper px-3 py-1 text-[12px] font-semibold text-soft">답하기</span>
-      </summary>
-      <div className="border-t border-sage/20 px-4 pb-4 pt-3">
-      <p className="text-[14px] leading-[1.7] text-soft">{question.body}</p>
-      <div className="mt-4 grid gap-2">
-        {question.options.map((option) => (
-          <button
-            key={option.value}
-            type="button"
-            onClick={() => onAnswer(question, option.value)}
-            className="flex min-h-[58px] w-full items-center justify-between gap-3 rounded-[6px] border border-line bg-paper px-3 py-3 text-left transition hover:border-sage/50 hover:bg-white active:scale-[0.99]"
-          >
-            <span className="min-w-0">
-              <span className="block text-[14px] font-semibold text-ink break-keep">{option.label}</span>
-              {option.desc && <span className="mt-0.5 block text-[12.5px] leading-relaxed text-soft break-keep">{option.desc}</span>}
-            </span>
-            <span className="flex-shrink-0 text-sage">→</span>
-          </button>
-        ))}
+    <div className="border-y border-hair py-4 md:py-5">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(19rem,0.86fr)] lg:gap-7">
+        <div className="min-w-0">
+          <div className="mb-2 flex items-start justify-between gap-3">
+            <AgentIdentity compact mood={agentMood} />
+            <div className="min-w-0 text-right">
+              <div className="eyebrow-gold">Master planner</div>
+              <div className="mt-1 truncate text-[12px] text-soft">{coupleDisplay}</div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-[minmax(0,1fr)_3.5rem] gap-3">
+            <div className="min-w-0">
+              <div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="eyebrow-gold">{phaseLabel}</span>
+                <span className="text-[11px] text-soft tabular-nums">{ddayLabel}</span>
+              </div>
+              <h1 className="font-serif text-[22px] leading-[1.25] text-ink break-keep md:text-[28px]">
+                {koBreak(`다음은 ${primaryFocus.title}`)}
+              </h1>
+            </div>
+            <div className="text-right">
+              <div className="font-serif text-[30px] leading-none text-ink tabular-nums">
+                {readinessPercent}
+              </div>
+              <div className="mt-1 text-[11px] font-semibold text-soft">%</div>
+            </div>
+          </div>
+
+          <p className="mt-2 text-[13.5px] leading-[1.6] text-soft break-keep md:max-w-[34rem] md:text-[14px]">
+            {briefing}
+          </p>
+
+          <div className="mt-3">
+            <ReadinessMeter value={readinessPercent} />
+            <div className="mt-2 flex items-center justify-between gap-3 text-[11px] leading-relaxed text-soft">
+              <span>진행 중 <span className="text-ink">{counts.active + counts.attention}</span> · 시작 전 {counts.empty} · 완료 {counts.done}</span>
+            </div>
+          </div>
+
+          <div className="mt-3 hidden grid-cols-2 gap-2 md:grid">
+            <BriefingChip label="최근" value={recentSignal} />
+            <BriefingChip label="예식" value={`${dateLabel} · ${venueLabel}`} />
+          </div>
+          <div className="mt-2 truncate text-[11.5px] text-soft md:hidden">
+            {recentSignal} · {dateLabel} · {venueLabel}
+          </div>
+        </div>
+
+        <div className="min-w-0 border-t border-hair pt-3 lg:border-l lg:border-t-0 lg:pl-7 lg:pt-0">
+          {aiMessage && (
+            <p className="mb-2 border-l border-gold pl-3 text-[12.5px] leading-relaxed text-soft">
+              {aiMessage}
+            </p>
+          )}
+          {starterResult && <StarterResultPanel result={starterResult} />}
+
+          {agentChoosing ? (
+            <PriorityChooser onPriority={onPriority} onCancel={onCancelChoosing} />
+          ) : (
+            <>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <span className="eyebrow-gold">바로 이어갈 일</span>
+                <button type="button" onClick={onChoosePriority} className="min-h-9 text-[12px] text-soft underline underline-offset-4">
+                  바꾸기
+                </button>
+              </div>
+              <Link
+                to={primaryFocus.to}
+                className="row-tap grid min-h-[58px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border border-ink bg-ink px-4 py-3 text-paper"
+              >
+                <span className="min-w-0">
+                  <span className="block text-[11px] font-semibold text-paper/70">{primaryFocus.tag}</span>
+                  <span className="mt-0.5 block truncate text-[15px] font-semibold leading-snug">{primaryFocus.title}</span>
+                </span>
+                <span aria-hidden="true" className="text-paper">→</span>
+              </Link>
+
+              <button
+                type="button"
+                data-testid="dashboard-ai-starter"
+                onClick={onTalk}
+                className="mt-2 flex min-h-11 w-full items-center justify-between border border-hair px-4 text-left text-[13px] font-semibold text-ink hover:border-gold"
+              >
+                <span>Dearie에게 물어보기</span>
+                <span aria-hidden="true" className="text-gold">→</span>
+              </button>
+
+              {alertItems.length > 0 && (
+                <div className="mt-2 hidden divide-y divide-hair border-y border-hair bg-gold/5 md:block">
+                  {alertItems.map((item) => (
+                    <Link key={`${item.to}-${item.label}`} to={item.to} className="row-tap flex min-h-10 items-center justify-between gap-3 px-3 py-1.5">
+                      <span className="text-[12.5px] font-medium text-ink break-keep">{item.label}</span>
+                      <span aria-hidden="true" className="text-gold">→</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+
+            </>
+          )}
+        </div>
       </div>
-      </div>
-    </details>
+      <p className="sr-only">{agentCaption}</p>
+    </div>
   );
 }
 
-function DecisionFactPreview({ item }: { item: DecisionItem }) {
+function BriefingChip({ label, value }: { label: string; value: string }) {
   return (
-    <div className="mt-5 grid gap-4 border-y border-line py-4 sm:grid-cols-2">
-      <div className="min-w-0 border-l-2 border-sage pl-3">
-        <div className="mb-2 text-[12px] font-semibold text-sage">준비된 재료</div>
-        <ul className="space-y-1.5">
-          {item.preparedFacts.slice(0, 2).map((fact) => (
-            <li key={fact} className="text-[13.5px] leading-relaxed text-soft break-keep">{fact}</li>
-          ))}
-        </ul>
+    <div className="min-w-0 border border-hair bg-cream/35 px-3 py-2">
+      <div className="eyebrow mb-1">{label}</div>
+      <div className="truncate text-[12.5px] font-medium text-ink">{value}</div>
+    </div>
+  );
+}
+
+function PriorityChooser({ onPriority, onCancel }: { onPriority: (priority: AgentPriority) => void; onCancel: () => void }) {
+  return (
+    <div className="page-enter">
+      <div className="eyebrow-gold mb-2">우선순위 바꾸기</div>
+      <h2 className="font-serif text-[22px] leading-snug text-ink break-keep">{koBreak("지금 더 마음이 가는 일은 무엇인가요?")}</h2>
+      <div className="mt-3 divide-y divide-hair border-y border-hair">
+        {(Object.entries(AGENT_PRIORITIES) as Array<[AgentPriority, (typeof AGENT_PRIORITIES)[AgentPriority]]>).map(([id, item]) => (
+          <button key={id} onClick={() => onPriority(id)} className="row-tap flex min-h-[58px] w-full items-center justify-between gap-3 py-3 text-left">
+            <span className="min-w-0">
+              <span className="block text-[13px] font-semibold text-ink">{item.label}</span>
+              <span className="mt-0.5 block truncate text-[11.5px] text-soft">{item.reason}</span>
+            </span>
+            <span aria-hidden="true" className="text-gold">→</span>
+          </button>
+        ))}
       </div>
-      <div className="min-w-0 border-l-2 border-gold pl-3">
-        <div className="mb-2 text-[12px] font-semibold text-gold">남은 확인</div>
-        <ul className="space-y-1.5">
-          {item.missingInputs.slice(0, 2).map((input) => (
-            <li key={input} className="text-[13.5px] leading-relaxed text-soft break-keep">{input}</li>
-          ))}
-        </ul>
+      <button onClick={onCancel} className="mt-2 min-h-10 text-[12px] text-soft underline underline-offset-4">지금 제안으로 돌아가기</button>
+    </div>
+  );
+}
+
+function MasterQuestionCard({
+  question,
+  onAnswer,
+}: {
+  question: AgentLoopQuestion;
+  onAnswer: (question: AgentLoopQuestion, value: string | string[]) => void;
+}) {
+  const [draftValues, setDraftValues] = useState<string[]>([]);
+  const hasDraft = draftValues.length > 0;
+
+  useEffect(() => {
+    setDraftValues([]);
+  }, [question.id]);
+
+  const toggleDraft = (value: string) => {
+    setDraftValues((current) =>
+      current.includes(value)
+        ? current.filter((item) => item !== value)
+        : [...current, value],
+    );
+  };
+
+  const applyDraft = () => {
+    if (!hasDraft) return;
+    onAnswer(question, draftValues);
+    setDraftValues([]);
+  };
+
+  return (
+    <div className="mt-2 border-y border-hair py-2.5">
+      <div className="mb-1 flex items-baseline justify-between gap-3">
+        <span className="eyebrow-gold">{question.eyebrow}</span>
+        <span className="text-[11px] text-soft">{question.multiple ? "여러 개 선택 가능" : "선택하면 바로 반영"}</span>
+      </div>
+      <h3 className="text-[13.5px] font-semibold leading-snug text-ink break-keep">{question.title}</h3>
+      <p className="mt-0.5 text-[11.5px] leading-relaxed text-soft break-keep">{question.body}</p>
+      <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+        {question.options.map((option) => {
+          const selected = draftValues.includes(option.value);
+          return (
+            <button
+              key={option.value}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => question.multiple ? toggleDraft(option.value) : onAnswer(question, option.value)}
+              className={`row-tap min-h-10 border px-2.5 py-1.5 text-left transition ${
+                selected ? "border-gold bg-gold/5 text-ink" : "border-hair text-soft hover:border-gold hover:text-ink"
+              }`}
+            >
+              <span className="flex items-baseline justify-between gap-2">
+                <span className="block truncate text-[12px] font-semibold text-ink">{option.label}</span>
+                {question.multiple && <span className="text-[10.5px] text-soft">{selected ? "선택됨" : "추가"}</span>}
+              </span>
+              {option.desc && <span className="mt-0.5 block text-[10.5px] leading-relaxed text-soft break-keep">{option.desc}</span>}
+            </button>
+          );
+        })}
+      </div>
+      {question.multiple && (
+        <button
+          type="button"
+          onClick={applyDraft}
+          disabled={!hasDraft}
+          className="btn-primary mt-2 min-h-10 w-full text-[12px] disabled:opacity-40"
+        >
+          선택한 항목 {draftValues.length}개 반영 →
+        </button>
+      )}
+    </div>
+  );
+}
+
+function FocusQueue({ items }: { items: FocusItem[] }) {
+  return (
+    <div className="border-y border-hair py-2.5">
+      <div className="mb-2 flex items-baseline justify-between gap-3">
+        <span className="eyebrow-gold">Dearie 다음 순서</span>
+        <span className="text-[11px] text-soft">{items.length}개</span>
+      </div>
+      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+        {items.map((item) => (
+          <Link key={`${item.to}-${item.title}`} to={item.to} className="row-tap min-w-0 border border-hair px-2.5 py-2">
+            <span className="block truncate text-[11px] text-soft">{item.tag}</span>
+            <span className="mt-0.5 block truncate text-[12.5px] font-semibold text-ink">{item.title}</span>
+          </Link>
+        ))}
       </div>
     </div>
   );
 }
 
-function DecisionChoiceRows({
-  decisions,
-  counts,
-  compact = false,
-}: {
-  decisions: DecisionItem[];
-  counts: Record<DecisionStage, number>;
-  compact?: boolean;
-}) {
+function AppLauncher({ groups }: { groups: DashboardGroup[] }) {
   return (
-    <div className={`${compact ? "mt-0" : "mt-6"} overflow-hidden rounded-[8px] border border-hair bg-paper shadow-[0_12px_34px_rgba(27,26,23,0.04)]`}>
-      <div className="flex min-h-[56px] items-center justify-between gap-3 bg-cream/35 px-4 py-3">
-        <span className="text-[14px] font-semibold text-ink">다음 같이 정할 것</span>
-        <span className="text-[12px] leading-relaxed text-soft tabular-nums">지금 {counts.now} · 곧 {counts.soon}</span>
-      </div>
-      {decisions.map((item, index) => (
-        <Link
-          key={item.id}
-          to={item.to}
-          className="row-tap grid min-h-[76px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-t border-line px-4 py-3"
-        >
-          <span className="min-w-0">
-            <span className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span className="text-[14px] font-semibold leading-snug text-ink break-keep">{item.title}</span>
-              <span className="rounded-full bg-cream px-2 py-0.5 text-[11.5px] font-semibold text-soft">{DECISION_STAGE_LABEL[item.stage]}</span>
-            </span>
-            <span className="block text-[13px] leading-relaxed text-soft">{item.nextAction}</span>
-          </span>
-          <span className="text-gold">→</span>
-        </Link>
+    <div className="space-y-5">
+      {groups.map((group) => (
+        <section key={group.key}>
+          <div className="mb-3 flex items-end justify-between gap-3">
+            <div>
+              <h3 className="section-title">{group.title}</h3>
+              <p className="mt-1 text-[12px] leading-relaxed text-soft">{group.helper}</p>
+            </div>
+            <span className="eyebrow tabular-nums">{group.apps.length}개</span>
+          </div>
+          <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-6">
+            {group.apps.map((app) => <AppTile key={app.key} app={app} />)}
+          </div>
+        </section>
       ))}
     </div>
   );
 }
 
+function AppTile({ app }: { app: DashboardApp }) {
+  const stateTone =
+    app.state === "attention" ? "text-gold" :
+    app.state === "done" ? "text-sage" :
+    app.state === "active" ? "text-ink" :
+    "text-soft";
+
+  return (
+    <Link
+      to={app.to}
+      className="row-tap grid min-h-[118px] grid-rows-[auto_minmax(0,1fr)_auto] border border-hair bg-paper px-3 py-3"
+      aria-label={`${app.label}: ${PLANNING_STATE_LABEL[app.state]}, ${app.percent}%`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <span className="flex h-8 w-8 items-center justify-center border border-hair bg-cream/45 text-ink">
+          <AppIcon name={app.icon} />
+        </span>
+        <span className={`text-[10.5px] font-semibold ${stateTone}`}>{PLANNING_STATE_LABEL[app.state]}</span>
+      </div>
+      <div className="mt-3 min-w-0">
+        <div className="truncate text-[13px] font-semibold text-ink">{app.label}</div>
+        <div className="mt-0.5 overflow-hidden text-[11px] leading-snug text-soft [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">{app.nextAction}</div>
+      </div>
+      <div className="mt-3">
+        <ProgressLine value={app.percent} subtle />
+        <div className="mt-1 text-right text-[10.5px] text-soft tabular-nums">{app.percent}%</div>
+      </div>
+    </Link>
+  );
+}
+
+function UpcomingTimeline({ items }: { items: ReturnType<typeof upcomingEvents> }) {
+  return (
+    <section className="page py-6">
+      <div className="mb-3 flex items-baseline justify-between gap-4">
+        <div className="eyebrow-gold">다가오는 일정</div>
+        <Link to="/checklist" className="inline-flex min-h-10 items-center text-[11px] text-soft underline underline-offset-4 hover:text-ink">전체 일정 →</Link>
+      </div>
+      <ol className="divide-y divide-hair border-y border-hair">
+        {items.map((event, index) => (
+          <li key={`${event.kind}-${event.date}-${index}`}>
+            <Link to={event.targetPath} className="row-tap grid min-h-[54px] grid-cols-[3.25rem_minmax(0,1fr)_auto] items-center gap-2 py-2.5">
+              <span className="text-[12px] text-soft tabular-nums">{event.date.slice(5).replace("-", ".")}</span>
+              <span className="truncate text-[13px] font-medium text-ink">{event.label}</span>
+              <span className={`text-[12px] tabular-nums ${event.daysLeft <= 14 ? "font-semibold text-gold" : "text-soft"}`}>
+                {event.daysLeft === 0 ? "오늘" : `D-${event.daysLeft}`}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+const APP_META: Record<string, { icon: AppIconName; group: DashboardApp["group"] }> = {
+  basics: { icon: "basics", group: "start" },
+  budget: { icon: "budget", group: "start" },
+  checklist: { icon: "checklist", group: "start" },
+  venues: { icon: "venues", group: "decide" },
+  sdm: { icon: "sdm", group: "decide" },
+  snap: { icon: "snap", group: "decide" },
+  rings: { icon: "rings", group: "decide" },
+  trip: { icon: "trip", group: "decide" },
+  invitation: { icon: "invitation", group: "invite" },
+  guests: { icon: "guests", group: "invite" },
+  share: { icon: "share", group: "invite" },
+  ceremony: { icon: "ceremony", group: "day" },
+  video: { icon: "video", group: "day" },
+};
+
+const DASHBOARD_GROUP_META: Record<DashboardApp["group"], { title: string; helper: string }> = {
+  start: { title: "01 기준 잡기", helper: "날짜, 예산, 준비 리듬을 먼저 맞춥니다." },
+  decide: { title: "02 후보 결정", helper: "큰 계약과 취향 후보를 비교합니다." },
+  invite: { title: "03 초대와 공유", helper: "청첩장, 하객, 함께 편집을 관리합니다." },
+  day: { title: "04 본식 운영", helper: "당일 진행과 식전 영상을 잠급니다." },
+};
+
+function buildDashboardGroups(sections: PlanningSectionStatus[]): DashboardGroup[] {
+  const apps = sections.map((section): DashboardApp => {
+    const meta = APP_META[section.key] ?? { icon: "basics" as AppIconName, group: "start" as const };
+    return { ...section, icon: meta.icon, group: meta.group };
+  });
+  return (["start", "decide", "invite", "day"] as DashboardApp["group"][])
+    .map((key) => ({
+      key,
+      ...DASHBOARD_GROUP_META[key],
+      apps: apps.filter((app) => app.group === key),
+    }))
+    .filter((group) => group.apps.length > 0);
+}
+
+function buildMasterBriefing({
+  phaseFocus,
+  primaryFocus,
+  hasRisk,
+  riskCount,
+}: {
+  phaseFocus: string;
+  primaryFocus: FocusItem;
+  hasRisk: boolean;
+  riskCount: number;
+}) {
+  const phase = phaseFocus.replace(/\s+/g, " ").trim();
+  const signal = hasRisk
+    ? `주의 신호 ${riskCount}개를 먼저 올렸고,`
+    : "급한 위험 신호는 없고,";
+  return `${compactSentence(phase, 54)} ${signal} ${primaryFocus.title}부터 보면 됩니다.`;
+}
+
+function compactSentence(text: string, limit: number) {
+  if (text.length <= limit) return text;
+  return `${text.slice(0, limit - 1).trimEnd()}…`;
+}
+
+function recentActivity(data: WeddingData, nextStatus?: PlanningSectionStatus) {
+  if (data.ai?.updatedAt) return `Dearie 정리 ${formatRelativeDate(data.ai.updatedAt)}`;
+  if (data.publish?.publishedAt) return `청첩장 발행 ${formatRelativeDate(data.publish.publishedAt)}`;
+  if (data.preferences.lastBackupAt) return `백업 ${data.preferences.lastBackupAt.replaceAll("-", ".")}`;
+  if (nextStatus && nextStatus.percent > 0) return `${nextStatus.label} ${nextStatus.percent}% 진행 중`;
+  return "준비판 생성";
+}
+
+function formatRelativeDate(value: string) {
+  const parsed = parseISODateLocal(value.slice(0, 10));
+  if (!parsed) return "최근";
+  return `${String(parsed.getMonth() + 1).padStart(2, "0")}.${String(parsed.getDate()).padStart(2, "0")}`;
+}
+
+function AppIcon({ name }: { name: AppIconName }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round">
+      {iconPaths(name)}
+    </svg>
+  );
+}
+
+function iconPaths(name: AppIconName) {
+  switch (name) {
+    case "venues":
+      return <><path d="M4 20h16" /><path d="M6 20V9l6-4 6 4v11" /><path d="M10 20v-6h4v6" /><path d="M9 10h.01M15 10h.01" /></>;
+    case "sdm":
+      return <><path d="M6 20h12" /><path d="M8 20l1.5-10h5L16 20" /><path d="M10 10V5h4v5" /><path d="M9.5 5h5" /></>;
+    case "snap":
+      return <><rect x="4" y="7" width="16" height="12" rx="1" /><path d="M8 7l1.5-2h5L16 7" /><circle cx="12" cy="13" r="3" /></>;
+    case "rings":
+      return <><circle cx="9" cy="14" r="4" /><circle cx="15" cy="14" r="4" /><path d="M12 8l2-3 2 3" /></>;
+    case "trip":
+      return <><path d="M4 17l16-10" /><path d="M7 7l3 3" /><path d="M14 14l3 3" /><path d="M5 18l4 1 1-4" /></>;
+    case "invitation":
+      return <><rect x="4" y="6" width="16" height="12" rx="1" /><path d="M4 8l8 6 8-6" /></>;
+    case "guests":
+      return <><circle cx="9" cy="8" r="3" /><path d="M3.5 19a5.5 5.5 0 0 1 11 0" /><circle cx="17" cy="9" r="2.25" /><path d="M15.5 15.5A4.5 4.5 0 0 1 21 19" /></>;
+    case "budget":
+      return <><path d="M6 5h12v14H6z" /><path d="M9 9h6" /><path d="M9 13h3" /><path d="M15 13h.01" /><path d="M9 16h3" /><path d="M15 16h.01" /></>;
+    case "checklist":
+      return <><path d="M8 6h12" /><path d="M8 12h12" /><path d="M8 18h12" /><path d="M4 6l1 1 2-2" /><path d="M4 12l1 1 2-2" /><path d="M4 18l1 1 2-2" /></>;
+    case "ceremony":
+      return <><path d="M12 4v16" /><path d="M7 9h10" /><path d="M8 20h8" /><path d="M6 13l6-9 6 9" /></>;
+    case "video":
+      return <><rect x="4" y="6" width="12" height="12" rx="1" /><path d="M16 10l4-2v8l-4-2" /><path d="M8 10l4 2-4 2z" /></>;
+    case "share":
+      return <><circle cx="7" cy="12" r="2.5" /><circle cx="17" cy="6" r="2.5" /><circle cx="17" cy="18" r="2.5" /><path d="M9.2 10.8l5.6-3.6" /><path d="M9.2 13.2l5.6 3.6" /></>;
+    case "basics":
+    default:
+      return <><path d="M5 6h14" /><path d="M5 12h14" /><path d="M5 18h9" /><path d="M17 18h2" /></>;
+  }
+}
+
 // 헤드라인 준비도 미터 — 막대 그 자체보다 한 톤 정제. 금색 그라데이션 채움 +
 // 사분위 눈금 + 진행 머리의 다이아 마커(식순 타임라인과 같은 모티프). 슬림하게.
+function ReadinessMeter({ value }: { value: number }) {
+  const pct = Math.max(0, Math.min(100, value));
+  return (
+    <div className="relative h-[6px] bg-hair">
+      <div
+        className="absolute inset-y-0 left-0 bg-gradient-to-r from-gold/55 to-gold transition-all duration-500"
+        style={{ width: `${pct}%` }}
+      />
+      {[25, 50, 75].map((q) => (
+        <span key={q} aria-hidden="true" className="absolute inset-y-0 w-px bg-paper/70" style={{ left: `${q}%` }} />
+      ))}
+      {pct > 1 && pct < 99 && (
+        <span
+          aria-hidden="true"
+          className="absolute top-1/2 w-2.5 h-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 bg-gold border border-paper"
+          style={{ left: `${pct}%` }}
+        />
+      )}
+    </div>
+  );
+}
+
+const STATUS_FLOW_GROUPS: { title: string; helper: string; keys: string[] }[] = [
+  { title: "01 시작 기준", helper: "날짜, 예산, 전체 리듬을 먼저 잡아요.", keys: ["basics", "budget", "checklist"] },
+  { title: "02 후보 결정", helper: "큰 예약과 취향 후보를 상담 가능한 상태로 좁혀요.", keys: ["venues", "sdm", "snap", "rings", "trip"] },
+  { title: "03 초대 관리", helper: "청첩장, 하객, 공유 범위를 이어서 정리해요.", keys: ["invitation", "guests", "share"] },
+  { title: "04 본식 당일", helper: "당일 진행표와 식전 영상을 마지막으로 잠가요.", keys: ["ceremony", "video"] },
+];
+
 function StatusBoard({
-  nextSections,
   allSections,
 }: {
-  nextSections: PlanningSectionStatus[];
   allSections: PlanningSectionStatus[];
 }) {
-  const priority = nextSections.slice(0, 4);
+  const byKey = new Map(allSections.map((section) => [section.key, section]));
+  const groups = STATUS_FLOW_GROUPS
+    .map((group) => ({
+      ...group,
+      sections: group.keys
+        .map((key) => byKey.get(key))
+        .filter((section): section is PlanningSectionStatus => !!section),
+    }))
+    .filter((group) => group.sections.length > 0);
+
   return (
-    <div className="space-y-3">
-      <div className="divide-y divide-hair border-y border-hair">
-        {priority.map((section) => <StatusRow key={section.key} section={section} />)}
-      </div>
-      <details className="border-t border-hair pt-2">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 text-[12px] text-soft hover:text-ink">
-          <span className="eyebrow">전체 영역 {allSections.length}개</span>
-          <span className="underline underline-offset-4">보기</span>
-        </summary>
-        <div className="divide-y divide-hair border-t border-hair">
-          {allSections.map((section) => <StatusRow key={section.key} section={section} compact />)}
-        </div>
-      </details>
+    <div className="space-y-6">
+      {groups.map((group) => (
+        <section key={group.title}>
+          <div className="mb-3 flex items-end justify-between gap-4">
+            <div>
+              <h3 className="section-title">{group.title}</h3>
+              <p className="mt-1 text-[12px] leading-relaxed text-soft break-keep">{group.helper}</p>
+            </div>
+            <span className="eyebrow tabular-nums whitespace-nowrap">{group.sections.length}개</span>
+          </div>
+          <div className="divide-y divide-hair border-y border-hair">
+            {group.sections.map((section) => <StatusRow key={section.key} section={section} />)}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }
@@ -729,12 +964,15 @@ function StatusRow({ section, compact = false }: { section: PlanningSectionStatu
     >
       <span className="min-w-0">
         <span className="mb-1.5 flex items-center justify-between gap-3">
-          <span className={`leading-tight text-ink ${compact ? "text-[14px] font-semibold" : "font-serif text-[16px]"}`}>{section.label}</span>
+          <span className="eyebrow-gold">{section.label}</span>
           <StatePill state={section.state} />
+        </span>
+        <span className={`mb-2 block leading-snug text-ink break-keep ${compact ? "text-[14px] font-semibold" : "font-serif text-[16px]"}`}>
+          {section.nextAction}
         </span>
         <ProgressLine value={section.percent} subtle />
         <span className="mt-1.5 block truncate text-[13px] text-soft">
-          {section.nextAction}
+          {section.detail}
         </span>
       </span>
       <span className="text-right">
@@ -795,7 +1033,7 @@ function StarterResultPanel({ result }: { result: StarterResult }) {
         {result.greeting && (
           <Link to="/invitation" className="border border-hair px-3 py-3 active:opacity-70 transition">
             <div className="eyebrow mb-2">청첩장 문안</div>
-            <div className="font-serif text-[16px] text-ink">문안 초안</div>
+            <div className="font-serif text-[16px] text-ink">초안 반영</div>
           </Link>
         )}
       </div>

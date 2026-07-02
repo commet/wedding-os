@@ -12,7 +12,7 @@ type MarkProps = {
 const MOOD_LABEL = {
   ready: "대기 중",
   thinking: "정리 중",
-  watching: "살피는 중",
+  watching: "확인 중",
   done: "완료",
 };
 

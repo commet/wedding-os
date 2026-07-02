@@ -413,19 +413,6 @@ export default function Video({ data, update }: Props) {
         <h1 className="font-serif text-[2rem] leading-none">식전영상</h1>
       </div>
 
-      <SectionConsultationPanel sectionId="video" data={data} update={update} />
-
-      {/* 인트로 */}
-      <div className="py-4 border-y border-hair">
-        <p className="text-[13px] leading-relaxed text-ink mb-3">사진과 음악을 더해 결혼식 입장 전에 트는 영상을 만들어요.</p>
-        <ul className="text-[11.5px] text-soft space-y-1 leading-relaxed">
-          <li>· 권장: 사진 30~60장, 길이 3~5분, 해상도 1920×1080</li>
-          <li>· 사진은 자동으로 1080p JPEG로 압축됩니다</li>
-          <li>· 배경음악 mp3 URL은 저작권 확인 후 사용하세요</li>
-          <li>· 식장에 미리 파일 형식(MP4 1920×1080) 확인 필수</li>
-        </ul>
-      </div>
-
       <ProcessAgentPanel
         title={!currentTemplate ? "영상 구조를 먼저 고르는 중" : config.photos.length < minPhotoCount ? "사진 수를 채우는 중" : hasUnassigned ? "챕터 배정을 정리하는 중" : "상영 전 검수 단계"}
         summary={videoAgentSummary}
@@ -448,6 +435,19 @@ export default function Video({ data, update }: Props) {
           ...(!endingReady ? [{ label: "엔딩을 청첩장에서 채우기", onClick: pullEndingFromInvitation }] : []),
         ]}
       />
+
+      <SectionConsultationPanel sectionId="video" data={data} update={update} />
+
+      {/* 인트로 */}
+      <div className="py-4 border-y border-hair">
+        <p className="text-[13px] leading-relaxed text-ink mb-3">사진과 음악을 더해 결혼식 입장 전에 트는 영상을 만들어요.</p>
+        <ul className="text-[11.5px] text-soft space-y-1 leading-relaxed">
+          <li>· 권장: 사진 30~60장, 길이 3~5분, 해상도 1920×1080</li>
+          <li>· 사진은 자동으로 1080p JPEG로 압축됩니다</li>
+          <li>· 배경음악 mp3 URL은 저작권 확인 후 사용하세요</li>
+          <li>· 식장에 미리 파일 형식(MP4 1920×1080) 확인 필수</li>
+        </ul>
+      </div>
 
       {videoNotice && (
         <div className={`border-y py-4 ${videoNotice.tone === "warn" ? "border-gold/50 bg-gold/5" : "border-hair"}`}>
