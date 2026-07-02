@@ -17,6 +17,14 @@ create table if not exists weddingos.weddings (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+-- create table if not exists does not add columns to an existing table.
+-- Keep these additive migrations before indexes and RPC definitions.
+alter table weddingos.weddings add column if not exists data jsonb not null default '{}'::jsonb;
+alter table weddingos.weddings add column if not exists owner_token_hash text;
+alter table weddingos.weddings add column if not exists version int not null default 1;
+alter table weddingos.weddings add column if not exists created_by uuid;
+alter table weddingos.weddings add column if not exists created_at timestamptz not null default now();
+alter table weddingos.weddings add column if not exists updated_at timestamptz not null default now();
 create index if not exists wos_weddings_created_by_idx on weddingos.weddings(created_by);
 
 alter table weddingos.weddings enable row level security;
@@ -47,6 +55,14 @@ create policy "wos_accounts_own" on public.wos_accounts
   for all to authenticated
   using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+-- Return types have changed across hosted-mode revisions, and PostgreSQL
+-- cannot change a function return type with create or replace.
+drop function if exists public.wos_load(text, text);
+drop function if exists public.wos_save(text, text, jsonb);
+drop function if exists public.wos_save(text, text, jsonb, int);
+drop function if exists public.wos_delete(text, text);
+drop function if exists public.wos_rotate_owner_token(text, text, text);
 
 create or replace function public.wos_load(p_id text, p_token text)
 returns table(data jsonb, version int)
@@ -87,6 +103,13 @@ begin
   if p_id !~ '^w[a-z2-7]{24}$' or p_token is null or length(p_token) not between 32 and 256 then
     raise exception 'invalid credentials' using errcode = 'P0001';
   end if;
+  if jsonb_typeof(p_data) <> 'object'
+     or jsonb_typeof(p_data->'ct') <> 'string'
+     or length(p_data->>'ct') < 16
+     or (p_data->>'ct') !~ '^[A-Za-z0-9_-]+$'
+     or coalesce(p_data->>'v', '') <> '1' then
+    raise exception 'invalid encrypted envelope' using errcode = 'P0001';
+  end if;
   if pg_column_size(p_data) > 5 * 1024 * 1024 then
     raise exception 'payload too large' using errcode = 'P0001';
   end if;
@@ -112,6 +135,10 @@ begin
 
   if stored_hash <> crypt(p_token, stored_hash) then
     raise exception 'owner token mismatch' using errcode = 'P0001';
+  end if;
+  if p_expected_version is null then
+    return query select false, current_version, true;
+    return;
   end if;
   if p_expected_version is not null and current_version <> p_expected_version then
     return query select false, current_version, true;
@@ -149,11 +176,42 @@ begin
 end;
 $$;
 
+create or replace function public.wos_rotate_owner_token(p_id text, p_token text, p_new_token text)
+returns boolean
+language plpgsql
+security definer
+set search_path = public, weddingos
+as $$
+declare
+  stored_hash text;
+begin
+  if p_id !~ '^w[a-z2-7]{24}$'
+     or p_token is null or length(p_token) not between 32 and 256
+     or p_new_token is null or length(p_new_token) not between 32 and 256 then
+    raise exception 'invalid credentials' using errcode = 'P0001';
+  end if;
+  select owner_token_hash into stored_hash from weddingos.weddings where id = p_id for update;
+  if stored_hash is null then
+    raise exception 'wedding not found' using errcode = 'P0001';
+  end if;
+  if stored_hash <> crypt(p_token, stored_hash) then
+    raise exception 'owner token mismatch' using errcode = 'P0001';
+  end if;
+  update weddingos.weddings
+  set owner_token_hash = crypt(p_new_token, gen_salt('bf')),
+      updated_at = now()
+  where id = p_id;
+  return true;
+end;
+$$;
+
 revoke all on function public.wos_load(text, text) from public;
 revoke all on function public.wos_save(text, text, jsonb, int) from public;
 revoke all on function public.wos_delete(text, text) from public;
+revoke all on function public.wos_rotate_owner_token(text, text, text) from public;
 grant execute on function public.wos_load(text, text) to anon, authenticated;
 grant execute on function public.wos_save(text, text, jsonb, int) to anon, authenticated;
 grant execute on function public.wos_delete(text, text) to anon, authenticated;
+grant execute on function public.wos_rotate_owner_token(text, text, text) to anon, authenticated;
 
 commit;

@@ -4,8 +4,9 @@ import type { WeddingData } from "../lib/schema";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import { clearLocalDeviceData, exportData, importData, purgeServerData, hasCorruptLocalBackup, downloadCorruptLocalBackup } from "../lib/storage";
 import { daysSince, todayISO } from "../lib/freshness";
-import { clearOwner, getOrCreateOwnerToken, getHostedConfig, isOwner } from "../lib/security";
-import { buildRecoveryLink } from "../lib/recovery";
+import { clearOwner, createOwnerToken, getOrCreateOwnerToken, getHostedConfig, isOwner, setOwnerToken } from "../lib/security";
+import { buildProtectedRecoveryLink, suggestSharePassword, validateSharePassword } from "../lib/recovery";
+import { rotateHostedOwnerToken } from "../lib/storage.hosted";
 import { authAvailable, currentEmail, hasLinkedAccount, linkedAccountKnownOnDevice, signOut, deleteLinkedAccount } from "../lib/auth";
 import { koBreak } from "../lib/typography";
 
@@ -46,7 +47,7 @@ export default function Settings({ data, update }: Props) {
     // 카톡 단톡방·캡처로 새면 계정 탈취와 같으므로, 복사 전에 한 번 더 경고한다.
     if (!confirm(
       "⚠️ 편집 초대 링크는 '내 계정 열쇠'예요.\n\n" +
-      "이 링크를 가진 사람은 하객·축의금·예산 등 모든 데이터를 보고 고칠 수 있어요.\n" +
+      "직접 저장소 모드의 이 링크를 가진 사람은 하객·축의금·예산 등 모든 데이터를 보고 고칠 수 있어요.\n" +
       "배우자처럼 함께 편집할 사람에게 1:1로만 보내고,\n" +
       "단톡방·SNS·캡처로 공유하지 마세요.\n\n" +
       "복사할까요?",
@@ -119,25 +120,72 @@ export default function Settings({ data, update }: Props) {
     data.preferences.mode === "supabase" ? "내 저장소로 직접 운영" :
     data.preferences.mode === "devOnly" ? "코드 직접 수정" : "선택 안 됨";
 
-  const copyRecoveryLink = async () => {
+  const askSharePassword = () => {
+    const suggested = suggestSharePassword();
+    const password = prompt("배우자가 링크를 열 때 입력할 공유 비밀번호를 정해주세요. (6자 이상)", suggested);
+    if (password === null) return null;
+    const confirmation = prompt("공유 비밀번호를 한 번 더 입력해주세요.", password);
+    if (confirmation === null) return null;
+    const passwordError = validateSharePassword(password, confirmation);
+    if (passwordError) {
+      alert(passwordError);
+      return null;
+    }
+    return password;
+  };
+
+  const copyRecoveryLink = async (ownerToken = getOrCreateOwnerToken(), skipConfirm = false, sharePassword?: string) => {
     const cfg = getHostedConfig();
     if (!cfg) { alert("복구 정보를 찾을 수 없어요."); return; }
-    // 복구 링크 = 데이터 전체의 마스터 열쇠. 복사 전 한 번 더 경고.
-    if (!confirm(
-      "⚠️ 복구 링크는 '내 데이터 전체의 열쇠'예요.\n\n" +
-      "기기를 바꾸면 이 링크로 복구하고, 배우자에게 보내면 함께 편집해요.\n" +
-      "단, 이 링크를 가진 사람은 모든 내용을 보고 고칠 수 있어요.\n" +
-      "배우자에게만 1:1로 보내고, 단톡방·SNS엔 올리지 마세요.\n\n" +
+    if (!skipConfirm && !confirm(
+      "복구·편집 링크를 공유 비밀번호로 잠글게요.\n\n" +
+      "링크만으로는 열리지 않지만, 링크와 비밀번호가 함께 노출되면 모든 내용을 보고 고칠 수 있어요.\n" +
+      "배우자에게만 1:1로 보내고, 가능하면 비밀번호는 다른 메시지로 전달하세요.\n\n" +
       "복사할까요?",
     )) return;
-    const url = buildRecoveryLink({ weddingId: cfg.weddingId, ownerToken: getOrCreateOwnerToken(), weddingKey: cfg.weddingKey });
+    const password = sharePassword ?? askSharePassword();
+    if (!password) return;
+    const url = await buildProtectedRecoveryLink(
+      { weddingId: cfg.weddingId, ownerToken, weddingKey: cfg.weddingKey },
+      password,
+    );
     try {
       await navigator.clipboard.writeText(url);
       setInviteCopied(true);
       window.setTimeout(() => setInviteCopied(false), 2400);
     } catch {
-      prompt("아래 복구 링크를 안전한 곳에 저장하세요:", url);
+      prompt("아래 비밀번호 보호 복구 링크를 안전한 곳에 저장하세요:", url);
     }
+  };
+  const copyCurrentRecoveryLink = () => copyRecoveryLink();
+
+  const rotateRecoveryLink = async () => {
+    const cfg = getHostedConfig();
+    const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+    if (!cfg || !url || !anonKey) {
+      alert("온라인 저장소 설정을 찾지 못했어요. 함께 편집 설정을 다시 확인해주세요.");
+      return;
+    }
+    if (!confirm(
+      "기존 복구·편집 링크를 무효화하고 새 링크를 만들까요?\n\n" +
+      "이전 링크를 받은 사람은 더 이상 들어올 수 없고, 배우자에게 새 링크와 새 공유 비밀번호를 다시 보내야 해요.",
+    )) return;
+    const sharePassword = askSharePassword();
+    if (!sharePassword) return;
+    const currentOwnerToken = getOrCreateOwnerToken();
+    const nextOwnerToken = createOwnerToken();
+    if (!setOwnerToken(nextOwnerToken)) {
+      alert("이 기기에 새 편집 권한을 저장하지 못했어요. 브라우저 저장 공간을 확인해주세요.");
+      return;
+    }
+    const rotated = await rotateHostedOwnerToken(url, anonKey, cfg.weddingId, currentOwnerToken, nextOwnerToken);
+    if (!rotated) {
+      setOwnerToken(currentOwnerToken);
+      alert("이전 링크를 무효화하지 못했어요. 네트워크나 저장소 설정을 확인해주세요.");
+      return;
+    }
+    await copyRecoveryLink(nextOwnerToken, true, sharePassword);
   };
   const backupDays = daysSince(data.preferences.lastBackupAt);
   const backupState =
@@ -162,7 +210,7 @@ export default function Settings({ data, update }: Props) {
         metrics={[
           { label: "저장", value: data.preferences.mode ?? "미선택", hint: currentMode },
           { label: "백업", value: backupState, tone: backupDays === null || backupDays > 30 ? "warn" : "normal" },
-          { label: "공동편집", value: collaborationReady ? "가능" : "로컬", tone: collaborationReady ? "normal" : "muted" },
+          { label: "공동편집", value: data.preferences.mode === "hosted" ? "비밀번호 보호" : collaborationReady ? "가능" : "로컬", tone: collaborationReady ? "normal" : "muted" },
         ]}
         steps={[
           { label: "삭제·이동 전 최신 백업 확보", detail: "사진이 있으면 백업 생성에 잠깐 시간이 걸릴 수 있습니다.", done: backupDays !== null && backupDays <= 30 },
@@ -173,7 +221,10 @@ export default function Settings({ data, update }: Props) {
           { label: "지금 백업 만들기 →", onClick: handleExport, tone: "primary" },
           { label: "공유 센터 점검 →", onClick: () => navigate("/share") },
           ...(data.preferences.mode === "local" ? [{ label: "함께 편집 시작 →", onClick: () => navigate("/start-hosted") }] : []),
-          ...(data.preferences.mode === "hosted" ? [{ label: "복구 링크 복사 →", onClick: copyRecoveryLink }] : []),
+          ...(data.preferences.mode === "hosted" ? [
+            { label: "보호 복구 링크 복사 →", onClick: copyCurrentRecoveryLink },
+            { label: "이전 링크 무효화 →", onClick: rotateRecoveryLink },
+          ] : []),
           ...(data.preferences.mode === "supabase" ? [{ label: "편집 권한 복사 →", onClick: copyEditorInvite }] : []),
         ]}
       />
@@ -181,16 +232,24 @@ export default function Settings({ data, update }: Props) {
       {data.preferences.mode === "hosted" && (
         <>
           <Bucket>계정</Bucket>
-          <Section title={koBreak("복구 링크 · 배우자 초대")}>
+          <Section title={koBreak("비밀번호 보호 복구 링크 · 배우자 초대")}>
             <p className="text-[15px] text-soft leading-[1.85] mb-3">
               기기를 바꿔도 이 링크로 복구하고, 배우자에게 보내면 함께 편집해요.
-              내용은 암호화돼 운영자도 못 보지만, <b className="text-ink">이 링크를 가진 사람은 전부 보고 고칠 수 있어요.</b>
+              내용은 암호화돼 운영자도 못 보고, <b className="text-ink">링크를 열 때 공유 비밀번호가 필요해요.</b>
             </p>
-            <button onClick={copyRecoveryLink} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
-              {inviteCopied ? "복사됨" : "복구 링크 복사 →"}
+            <button onClick={copyCurrentRecoveryLink} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">
+              {inviteCopied ? "복사됨" : "보호 복구 링크 복사 →"}
             </button>
+            <button onClick={rotateRecoveryLink} className="ml-5 text-[12px] underline underline-offset-4 text-soft hover:text-ink">
+              이전 링크 무효화하고 새로 만들기
+            </button>
+            <div className="mt-4 grid grid-cols-3 gap-px border border-hair bg-hair text-center">
+              <StatusCell label="편집 공유" value="비밀번호 보호" />
+              <StatusCell label="링크 회수" value="가능" />
+              <StatusCell label="하객 링크" value="분리" />
+            </div>
             <p className="text-[11px] text-soft mt-3 leading-relaxed">
-              배우자에게만 1:1로. 단톡방·SNS·공개된 곳엔 올리지 마세요.
+              링크와 비밀번호가 함께 노출되면 열 수 있어요. 배우자에게만 1:1로 보내세요.
             </p>
             <LoginStatus />
           </Section>
@@ -442,6 +501,15 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       {children}
       <div className="hairline mt-8" />
     </section>
+  );
+}
+
+function StatusCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="bg-paper px-2 py-3">
+      <div className="text-[10px] uppercase tracking-[0.12em] text-soft">{label}</div>
+      <div className="mt-1 text-[12px] font-medium text-ink">{value}</div>
+    </div>
   );
 }
 

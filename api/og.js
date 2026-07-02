@@ -8,18 +8,52 @@ import { get as blobGet } from "@vercel/blob";
 export const config = { runtime: "nodejs" };
 
 const h = React.createElement;
+const buckets = new Map();
 
-async function loadKoreanFont(text) {
-  if (!text.trim()) return null;
+function privateHeaders(contentType = "text/plain; charset=utf-8") {
+  return {
+    "content-type": contentType,
+    "cache-control": "private, no-store, max-age=0",
+    "referrer-policy": "no-referrer",
+    "x-robots-tag": "noindex, noarchive, nosnippet",
+  };
+}
+
+function clientIp(req) {
+  return (req.headers?.["x-forwarded-for"] || req.headers?.["x-real-ip"] || req.headers?.get?.("x-forwarded-for") || req.headers?.get?.("x-real-ip") || "unknown")
+    .split(",")[0]
+    .trim();
+}
+
+function rateLimit(req, scope, identity, limit, windowMs) {
+  const now = Date.now();
+  if (buckets.size > 5000) {
+    for (const [key, bucket] of buckets) if (bucket.resetAt <= now) buckets.delete(key);
+  }
+  const key = `${scope}:${identity || "unknown"}`;
+  const bucket = buckets.get(key);
+  if (!bucket || bucket.resetAt <= now) {
+    buckets.set(key, { count: 1, resetAt: now + windowMs });
+    return null;
+  }
+  bucket.count++;
+  return bucket.count <= limit
+    ? null
+    : new Response("요청이 너무 많습니다.", { status: 429, headers: privateHeaders() });
+}
+
+async function loadKoreanFont() {
   try {
-    const url = `https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700&text=${encodeURIComponent(text)}`;
+    // Do not use Google Fonts' text= subsetting here: the rendered names/date
+    // are personal invitation metadata and must not be sent to a third party.
+    const url = "https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700";
     const css = await fetch(url, {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       },
     }).then((res) => res.text());
-    const match = css.match(/src:\s*url\(([^)]+)\)\s*format\(['"](?:opentype|truetype)['"]\)/);
+    const match = css.match(/src:\s*url\(([^)]+)\)\s*format\(['"](?:opentype|truetype|woff2?)['"]\)/);
     if (!match) return null;
     const fontRes = await fetch(match[1]);
     if (!fontRes.ok) return null;
@@ -29,20 +63,11 @@ async function loadKoreanFont(text) {
   }
 }
 
-function isSupabaseHost(url) {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "https:" && /^[A-Za-z0-9-]+\.supabase\.(co|in)$/.test(parsed.host);
-  } catch {
-    return false;
-  }
-}
-
 async function loadFromBlob(code) {
   const token = process.env.BLOB_READ_WRITE_TOKEN || "";
   if (!token) return null;
   try {
-    const res = await blobGet(`invite/${code}/meta.json`, { access: "private", token });
+    const res = await blobGet(`invite/${code}/meta.json`, { access: "private", useCache: false, token });
     if (!res || res.statusCode !== 200) return null;
     const stored = await new Response(res.stream).json();
     if (stored.expiresAt && new Date(stored.expiresAt).getTime() < Date.now()) return null;
@@ -54,28 +79,6 @@ async function loadFromBlob(code) {
       date: og.date,
       heroImageUrl: og.heroImageUrl,
     };
-  } catch {
-    return null;
-  }
-}
-
-async function loadInvitation() {
-  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
-  const key = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
-  if (!url || !key || !isSupabaseHost(url)) return null;
-
-  try {
-    const res = await fetch(`${url.replace(/\/+$/, "")}/rest/v1/rpc/get_public_invitation`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        apikey: key,
-        Authorization: `Bearer ${key}`,
-      },
-      body: JSON.stringify({ p_id: "default" }),
-    });
-    if (!res.ok) return null;
-    return await res.json();
   } catch {
     return null;
   }
@@ -197,12 +200,17 @@ function ogTree({ groom, bride, dateStr, time, venue, heroImage, labelText }) {
 }
 
 export default async function handler(req) {
+  if (req.method && req.method !== "GET") {
+    return new Response("GET 요청만 허용됩니다.", { status: 405, headers: privateHeaders() });
+  }
   const code = getRequestUrl(req).searchParams.get("code") || "";
+  const limited = rateLimit(req, "og-ip", clientIp(req), 60, 60_000) ||
+    (/^[a-z0-9]{6,16}$/.test(code) ? rateLimit(req, "og-code", code, 180, 60_000) : null);
+  if (limited) return limited;
   let invitation = null;
   if (/^[a-z0-9]{6,16}$/.test(code)) {
     invitation = await loadFromBlob(code);
   }
-  if (!invitation) invitation = await loadInvitation();
 
   const hasInvitation = !!(
     invitation?.groomName ||
@@ -218,10 +226,7 @@ export default async function handler(req) {
   const venue = invitation?.venue || "";
   const heroImage = invitation?.heroImageUrl;
   const labelText = hasInvitation ? "WEDDING INVITATION" : "WITHDEARIE.COM";
-  const koreanText = [groom, bride, dateStr, time, venue, labelText, "♥·()"]
-    .filter(Boolean)
-    .join("");
-  const koreanFont = await loadKoreanFont(koreanText);
+  const koreanFont = await loadKoreanFont();
 
   return new ImageResponse(
     ogTree({ groom, bride, dateStr, time, venue, heroImage, labelText }),
@@ -233,6 +238,8 @@ export default async function handler(req) {
         : undefined,
       headers: {
         "Cache-Control": "private, no-store, max-age=0",
+        "Referrer-Policy": "no-referrer",
+        "X-Robots-Tag": "noindex, noarchive, nosnippet",
       },
     }
   );

@@ -47,6 +47,30 @@ export async function deleteHostedWedding(
   }
 }
 
+/** 기존 복구·편집 링크 무효화용: 서버의 ownerToken 해시를 새 토큰으로 교체한다. */
+export async function rotateHostedOwnerToken(
+  url: string,
+  anonKey: string,
+  weddingId: string,
+  currentOwnerToken: string,
+  nextOwnerToken: string,
+): Promise<boolean> {
+  if (!url || !anonKey || !weddingId || !currentOwnerToken || !nextOwnerToken || !isSupabaseHost(url)) return false;
+  if (currentOwnerToken.length < 32 || currentOwnerToken.length > 256) return false;
+  if (nextOwnerToken.length < 32 || nextOwnerToken.length > 256) return false;
+  try {
+    const client = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    const { data, error } = await client.rpc("wos_rotate_owner_token", {
+      p_id: weddingId,
+      p_token: currentOwnerToken,
+      p_new_token: nextOwnerToken,
+    });
+    return !error && data === true;
+  } catch {
+    return false;
+  }
+}
+
 export function createHostedStorage(
   url: string,
   anonKey: string,

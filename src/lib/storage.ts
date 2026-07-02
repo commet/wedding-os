@@ -39,7 +39,7 @@ export type SaveResult = {
 
 export type StorageDriver = {
   load: () => Promise<LoadResult>;
-  /** expectedVersion 을 주면 낙관적 동시성 검사를 수행. 없으면 무조건 덮어씀 (모드 1 / 첫 save). */
+  /** expectedVersion 을 주면 낙관적 동시성 검사를 수행. 원격 저장소는 첫 save 전에도 load()로 버전을 받아야 한다. */
   save: (data: WeddingData, expectedVersion?: number) => Promise<SaveResult>;
 };
 
@@ -382,7 +382,7 @@ function storageScopeKey(data: WeddingData | null): string {
 // ──────────────────────────────────────────────────────────────
 // 낙관적 동시성 — 모듈 레벨로 현재 알고 있는 server version 유지.
 // useWeddingData 가 init/remote refresh 에서 갱신, enqueueSave 가 save 직전에 읽음.
-// (configId 가 단일 'default' 이고 hook 도 App.tsx 단일 인스턴스라 module state OK)
+// (활성 저장소 scope 별로 reset 하며 hook 도 App.tsx 단일 인스턴스라 module state OK)
 // ──────────────────────────────────────────────────────────────
 let _activeStorageScope: string | undefined = undefined;
 let _localVersion: number | undefined = undefined;
@@ -469,6 +469,10 @@ function setActiveStorageScope(scope: string): void {
 
 function remoteRefreshBlocked(): boolean {
   return _pending > 0 || _saveStatus === "error" || _conflictStatus === "detected";
+}
+
+function isBootstrapRemoteData(value: unknown): boolean {
+  return isPlainObject(value) && Object.keys(value).length === 0;
 }
 
 function isRemoteSignalPayload(value: unknown): value is { by: string; version?: number; at?: number } {
@@ -865,7 +869,21 @@ function enqueueSave(next: WeddingData) {
         return;
       }
       try {
-        const expectedVersion = driver === localStorageDriver ? _localMirrorVersion : _localVersion;
+        let expectedVersion = driver === localStorageDriver ? _localMirrorVersion : _localVersion;
+        if (driver !== localStorageDriver && typeof expectedVersion !== "number") {
+          const remote = await driver.load();
+          if (!remote?.data || typeof remote.version !== "number") {
+            _lastError = true;
+            return;
+          }
+          _localVersion = remote.version;
+          expectedVersion = remote.version;
+          if (!isBootstrapRemoteData(remote.data) && JSON.stringify(remote.data) !== JSON.stringify(next)) {
+            _emitConflict("detected");
+            _lastError = true;
+            return;
+          }
+        }
         const r = await driver.save(next, expectedVersion);
         if (r.ok) {
           if (typeof r.version === "number") {

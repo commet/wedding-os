@@ -23,6 +23,7 @@ const Setup = lazy(() => import("./routes/Setup"));
 const Settings = lazy(() => import("./routes/Settings"));
 const Contact = lazy(() => import("./routes/Contact"));
 const Privacy = lazy(() => import("./routes/Privacy"));
+const Terms = lazy(() => import("./routes/Terms"));
 const Trust = lazy(() => import("./routes/Trust"));
 const HostedStart = lazy(() => import("./routes/HostedStart"));
 const Recover = lazy(() => import("./routes/Recover"));
@@ -34,6 +35,23 @@ const HostedInvitation = lazy(() => import("./routes/HostedInvitation"));
 
 export default function App() {
   const location = useLocation();
+
+  // 옛 /i 공개 경로는 전체 WeddingData를 hydrate하지 않는다.
+  // 실제 하객용 링크는 /i/<code>#k=... 이며 HostedInvitation 단독 화면에서만 열린다.
+  if (location.pathname === "/i") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-paper px-6 text-center">
+        <div className="max-w-[360px]">
+          <div className="eyebrow-gold mb-3">Dearie</div>
+          <h1 className="font-serif text-[1.8rem] leading-tight text-ink">청첩장 링크를 확인해주세요</h1>
+          <p className="mt-4 text-[13px] leading-relaxed text-soft">
+            하객용 링크는 <span className="text-ink">/i/초대코드</span> 형태로 열립니다.
+            링크 전체를 다시 받아 열어주세요.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // 호스팅 발행 청첩장(/i/<code>) — 게스트 전용. 앱 셸·데이터 없이 단독 렌더.
   if (location.pathname.startsWith("/i/")) {
@@ -80,9 +98,11 @@ function WeddingAppRoutes({ location }: { location: ReturnType<typeof useLocatio
   const isDemo = data?.preferences.isDemo ?? false;
   const isWelcome = location.pathname === "/";
   const isSetup = location.pathname === "/setup";
-  const isGuestInvitation = location.pathname === "/i";
   // 투명성 페이지는 모드를 고르기 *전에* 봐야 하므로 빈 상태에서도 진입 허용.
   const isTrust = location.pathname === "/trust";
+  // 법적 고지는 모드를 고르기 전에도 접근 가능해야 한다.
+  const isPrivacy = location.pathname === "/privacy";
+  const isTerms = location.pathname === "/terms";
   // 간편 모드 시작 화면도 모드 확정 전이라 빈 상태에서 진입 허용.
   const isHostedStart = location.pathname === "/start-hosted";
   // 사용자가 입력한 내용이 하나라도 있는지 — Settings.switchMode 직후처럼 mode/isDemo 둘 다 없어도
@@ -101,8 +121,7 @@ function WeddingAppRoutes({ location }: { location: ReturnType<typeof useLocatio
     return <Navigate to="/dashboard" replace />;
   }
   // 모드·데모·데이터 셋 다 없으면 (= 내 결혼식 시작 직후 진짜 빈 상태) 랜딩으로.
-  // 단, /i (게스트 청첩장) 는 받는 사람이 비어 있어도 들어올 수 있으므로 예외.
-  if (!mode && !isDemo && !hasContent && !isWelcome && !isSetup && !isGuestInvitation && !isTrust && !isHostedStart) {
+  if (!mode && !isDemo && !hasContent && !isWelcome && !isSetup && !isTrust && !isPrivacy && !isTerms && !isHostedStart) {
     return <Navigate to="/" replace />;
   }
 
@@ -125,7 +144,6 @@ function WeddingAppRoutes({ location }: { location: ReturnType<typeof useLocatio
           <Route path="/checklist" element={<Checklist data={data!} update={update} />} />
           <Route path="/ceremony" element={<Ceremony data={data!} update={update} />} />
           <Route path="/invitation" element={<Invitation data={data!} update={update} />} />
-          <Route path="/i" element={<Invitation data={data!} update={update} />} />
           <Route path="/venues" element={<Venues data={data!} update={update} />} />
           <Route path="/budget" element={<Budget data={data!} update={update} />} />
           <Route path="/guests" element={<Guests data={data!} update={update} />} />
@@ -135,6 +153,7 @@ function WeddingAppRoutes({ location }: { location: ReturnType<typeof useLocatio
           <Route path="/settings" element={<Settings data={data!} update={update} />} />
           <Route path="/contact" element={<Contact data={data!} />} />
           <Route path="/privacy" element={<Privacy />} />
+          <Route path="/terms" element={<Terms />} />
           <Route path="/trust" element={<Trust />} />
           <Route path="/start-hosted" element={<HostedStart data={data!} update={update} />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

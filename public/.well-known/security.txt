@@ -1,0 +1,5 @@
+Contact: mailto:yclee913@gmail.com
+Policy: https://withdearie.com/terms
+Preferred-Languages: ko, en
+Expires: 2027-06-30T00:00:00+09:00
+Canonical: https://withdearie.com/.well-known/security.txt

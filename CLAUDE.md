@@ -17,6 +17,7 @@
 3. **네 가지 모드 (local / hosted / supabase / devOnly)** 가 같은 데이터 모델을 공유. 페이지는 `useWeddingData()` 훅으로만 접근. (아래 "3단 스펙트럼" 참고)
 4. **모바일 우선.** 모든 UI는 max-width 480px 기준.
 5. **데이터 신선도.** 시세성 정보(반지/호텔/항공)는 `lastVerified` 필드 + FreshnessBadge 노출.
+6. **둘이 같이 결정하게 돕는다.** Dearie는 단순 체크리스트가 아니라 함께 정해야 할 시점, 판단 재료, 미루면 손해 보는 일정·혜택·추가금 신호를 다루는 운영 에이전트여야 한다. 책임 추적은 전면에 두지 말고, "지금 같이 보면 좋은 결정"을 먼저 보여준다. 이 관점은 [PRODUCT_INSIGHTS.md](./PRODUCT_INSIGHTS.md) 와 [DECISION_MAP_PLAN.md](./DECISION_MAP_PLAN.md) 를 먼저 확인할 것.
 
 ---
 

@@ -127,23 +127,21 @@ export default function Budget({ data, update }: Props) {
   // 빈 상태
   if (items.length === 0) {
     return (
-      <div className="page pt-20 pb-10 text-center space-y-8">
-        <div>
-          <div className="eyebrow-gold mb-4">비용 관리</div>
-          <h1 className="display-sm mb-4">{koBreak("무엇에 얼마가 드는지")}<br /><span className="italic font-light text-gold">{koBreak("먼저 펼쳐볼까요?")}</span></h1>
-          <p className="text-[13px] text-soft leading-relaxed">
-            기본 항목을 불러온 뒤 필요한 것만 남기고<br />두 분의 금액을 채워보세요.
-          </p>
+      <div className="page pt-5 pb-10 space-y-5">
+        <div className="flex items-baseline justify-between gap-4">
+          <div>
+            <div className="eyebrow-gold mb-1">비용 관리</div>
+            <h1 className="font-serif text-[22px] leading-tight text-ink">예산표 시작</h1>
+          </div>
+          <span className="eyebrow tabular-nums">0원</span>
         </div>
-        <div className="text-left">
-          <SectionConsultationPanel sectionId="budget" data={data} update={update} />
-        </div>
+        <SectionConsultationPanel sectionId="budget" data={data} update={update} />
         <p className="text-[12.5px] text-soft leading-relaxed border-y border-hair py-4">
           {BUDGET_TOTAL_NOTE}
         </p>
         <ProcessAgentPanel
-          title="예산표를 계약과 하객에 연결할 준비"
-          summary="처음에는 정확한 금액보다 빠진 항목을 줄이는 게 중요해요. 기본 항목을 깔고, 이후 식대·잔금·축의금 추정치를 자동으로 맞춰갑니다."
+          title="기본 비용 항목을 불러오세요"
+          summary="처음에는 정확한 금액보다 빠진 항목을 줄이는 게 중요해요. 계약 금액을 받으면 참고값을 바로 교체하면 됩니다."
           metrics={[
             { label: "항목", value: "0개", tone: "warn" },
             { label: "하객 기준", value: headcount ? `${headcount}명` : "미정", tone: headcount ? "normal" : "muted" },
@@ -157,15 +155,12 @@ export default function Budget({ data, update }: Props) {
             { label: "기본 비용 항목 불러오기 →", onClick: loadDefault, tone: "primary" },
           ]}
         />
-        <button onClick={loadDefault} className="btn-primary px-8 py-3.5 text-[12.5px]">
-          기본 비용 항목 불러오기 →
-        </button>
       </div>
     );
   }
 
   return (
-    <div className="page pt-8 pb-10 space-y-8">
+    <div className="page pt-6 pb-10 space-y-6">
       <div>
         <div className="eyebrow-gold mb-2">예산과 지출</div>
         <h1 className="h-page">{koBreak("비용 관리")}</h1>
@@ -393,7 +388,7 @@ export default function Budget({ data, update }: Props) {
         </button>
       </div>
 
-      <p className="text-[10.5px] text-soft text-center leading-relaxed">
+      <p className="text-[12px] text-soft text-center leading-relaxed">
         기본 금액은 실제 견적 전 감을 잡기 위한 참고치입니다. 지역·시즌·요일·보증인원·계약 조건에 따라 크게 달라집니다.
       </p>
       <DearieConfirmModal

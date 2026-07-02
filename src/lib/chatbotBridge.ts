@@ -134,7 +134,7 @@ export function weddingSectionTalkPrompt(data: WeddingData, section: PlanningSec
   };
 
   return {
-    title: `${section.label} Dearie 상담`,
+    title: `${section.label} 다음 행동 정리`,
     prompt: `당신은 한국 결혼 준비를 돕는 중립적인 웨딩 플래너입니다.
 사용자는 지금 Dearie 앱의 "${section.label}" 화면에서 도움을 요청했습니다.
 전체 계획을 다시 만들지 말고, 이 화면에서 바로 이어갈 수 있는 다음 행동만 작게 정리해주세요.
@@ -156,7 +156,7 @@ ${JSON.stringify(sectionData, null, 2)}
 반드시 아래 JSON 형식으로만 답해주세요:
 \`\`\`json
 {
-  "summary": "Dearie가 지금 이 화면에서 도와줄 방향 한 문장",
+  "summary": "지금 화면에서 바로 이어갈 방향 한 문장",
   "today": [
     { "title": "바로 할 일", "reason": "왜 지금 필요한지", "targetPath": "${section.to}" }
   ],

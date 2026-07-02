@@ -59,9 +59,15 @@ export function downloadTextFile(text: string, filename: string, type = "text/pl
 
 function csvEscape(v: Cell): string {
   if (v === null || v === undefined) return "";
-  const s = String(v);
+  const s = spreadsheetSafeCell(v);
   if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
+}
+
+function spreadsheetSafeCell(v: Cell): string {
+  if (v === null || v === undefined) return "";
+  const s = String(v);
+  return /^[=+\-@\t\r]/.test(s.trimStart()) ? `'${s}` : s;
 }
 
 function rowsToCsv(rows: Row[]): string {
@@ -240,7 +246,7 @@ function sectionToHtml(section: { title: string; rows: Row[] }) {
 <table>
   <thead><tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join("")}</tr></thead>
   <tbody>
-    ${section.rows.map((row) => `<tr>${headers.map((h) => `<td>${escapeHtml(row[h] ?? "")}</td>`).join("")}</tr>`).join("\n")}
+    ${section.rows.map((row) => `<tr>${headers.map((h) => `<td>${escapeHtml(spreadsheetSafeCell(row[h]))}</td>`).join("")}</tr>`).join("\n")}
   </tbody>
 </table>`;
 }

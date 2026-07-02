@@ -5,16 +5,16 @@ export default {
   theme: {
     extend: {
       colors: {
-        paper: "#FBFAF7",
-        cream: "#FAF8F5",
+        paper: "#FCFBF8",
+        cream: "#F5F0E8",
         ink: "#1B1A17",
-        soft: "#635A4C",
-        mute: "#AFA69A",
-        line: "#EDE7DE",
-        hair: "#E3DCD1",
-        gold: "#8E6C43",
-        sage: "#6F826C",
-        taupe: "#C5B9AD",
+        soft: "#5F5548",
+        mute: "#A69A8B",
+        line: "#E8DFD2",
+        hair: "#D9CEC0",
+        gold: "#8B6339",
+        sage: "#60775E",
+        taupe: "#B9AA99",
       },
       fontFamily: {
         sans: ['"Pretendard"', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],

@@ -401,9 +401,9 @@ export function planningStatusReport(data: WeddingData, today: string = todayISO
       percent: Math.min(100, ringConsultationScore + (data.rings.length > 0 ? 20 + Math.min(20, data.rings.length * 3) + Math.min(20, (ringsLikedByGroom + ringsLikedByBride) * 4) + (pricedRings > 0 ? 15 : 0) : 0)),
       detail: data.rings.length > 0 ? `기준 ${ringConsultation.answered}/${ringConsultation.total} · 신랑 ${ringsLikedByGroom} · 신부 ${ringsLikedByBride}` : `기준 ${ringConsultation.answered}/${ringConsultation.total} · 후보 없음`,
       nextAction: data.rings.length === 0
-        ? ringConsultation.answered === 0 ? "반지 기준 잡기" : ringConsultation.answered < ringConsultation.total ? "반지 취향 질문 이어가기" : "취향에 맞는 후보 담기"
+        ? ringConsultation.answered === 0 ? "반지 질문 고르기" : ringConsultation.answered < ringConsultation.total ? "반지 취향 이어 고르기" : "취향 후보 담기"
         : ringConsultation.answered < ringConsultation.total
-          ? "반지 취향 질문 이어가기"
+          ? "반지 취향 이어 고르기"
           : ringsLikedByGroom === 0 || ringsLikedByBride === 0
             ? "각자 마음 표시하기"
             : "가격과 매장 확인",
@@ -530,6 +530,394 @@ export function planningStatusReport(data: WeddingData, today: string = todayISO
     .sort((a, b) => stateRank[a.state] - stateRank[b.state] || b.weight - a.weight || a.percent - b.percent);
 
   return { overallPercent, sections, counts, nextSections };
+}
+
+export type DecisionSection =
+  | "venues"
+  | "budget"
+  | "guests"
+  | "invitation"
+  | "sdm"
+  | "rings"
+  | "trip"
+  | "checklist"
+  | "ceremony"
+  | "share";
+export type DecisionStage = "now" | "soon" | "later";
+export type DecisionRiskLevel = "low" | "medium" | "high";
+export type DecisionItem = {
+  id: string;
+  section: DecisionSection;
+  stage: DecisionStage;
+  title: string;
+  whyNow: string;
+  preparedFacts: string[];
+  missingInputs: string[];
+  nextAction: string;
+  to: string;
+  risk?: { level: DecisionRiskLevel; label: string };
+  score: number;
+};
+export type DecisionMap = {
+  items: DecisionItem[];
+  now: DecisionItem[];
+  soon: DecisionItem[];
+  later: DecisionItem[];
+  counts: Record<DecisionStage, number>;
+  primary?: DecisionItem;
+};
+
+const DECISION_STAGE_RANK: Record<DecisionStage, number> = { now: 0, soon: 1, later: 2 };
+const DECISION_RISK_RANK: Record<DecisionRiskLevel, number> = { high: 0, medium: 1, low: 2 };
+
+function compactFacts(values: Array<string | undefined | false | null>): string[] {
+  return Array.from(new Set(values.filter((value): value is string => typeof value === "string" && value.trim().length > 0)));
+}
+
+function decisionRiskRank(item: DecisionItem): number {
+  return item.risk ? DECISION_RISK_RANK[item.risk.level] : 3;
+}
+
+function sortDecisionItems(items: DecisionItem[]): DecisionItem[] {
+  return [...items].sort(
+    (a, b) =>
+      DECISION_STAGE_RANK[a.stage] - DECISION_STAGE_RANK[b.stage] ||
+      decisionRiskRank(a) - decisionRiskRank(b) ||
+      b.score - a.score ||
+      a.title.localeCompare(b.title),
+  );
+}
+
+function missingContractFields(venue: WeddingVenue | undefined): string[] {
+  if (!venue) return [];
+  const contract = venue.contract ?? {};
+  const fields: Array<[keyof NonNullable<WeddingVenue["contract"]>, string]> = [
+    ["quote", "견적 기준"],
+    ["payment", "결제 일정"],
+    ["cancellation", "취소·변경"],
+    ["included", "포함 항목"],
+    ["extras", "별도 비용"],
+    ["evidence", "증빙 보관"],
+  ];
+  return fields.filter(([key]) => !contract[key]?.trim()).map(([, label]) => label);
+}
+
+/**
+ * 함께 결정 지도 — 저장 스키마를 바꾸지 않고 현재 데이터에서 "지금 같이 보면 좋은 결정"을 파생한다.
+ * 책임자를 추적하지 않는다. 결정 시점, 판단 재료, 남은 확인만 보여준다.
+ */
+export function decisionMap(data: WeddingData, today: string = todayISO()): DecisionMap {
+  const items: DecisionItem[] = [];
+  const dday = daysLeftFrom(data.invitation.date, today);
+  const venues = data.venues ?? [];
+  const venueContract = contractedVenue(data);
+  const headcount = planningHeadcount(data);
+  const headcountValue = headcountSummary(data);
+  const capacityFit = venueCapacityFit(venueContract, headcount);
+  const budget = budgetTotals(data);
+  const mealCheck = mealBudgetCheck(data);
+  const invitation = invitationReadiness(data);
+  const overdue = overdueChecklistCount(data, today);
+  const balances = upcomingBalances(data, today);
+  const venueConsultation = consultationProgress(data, "venues");
+  const sdmConsultation = consultationProgress(data, "sdm");
+  const tripConsultation = consultationProgress(data, "trip");
+  const ringProgress = ringConsultationProgress(data);
+  const ringsLikedByGroom = data.rings.filter((ring) => ring.likedBy?.includes("groom") || ring.starredBy?.includes("groom")).length;
+  const ringsLikedByBride = data.rings.filter((ring) => ring.likedBy?.includes("bride") || ring.starredBy?.includes("bride")).length;
+  const sdmCore = data.sdm.filter((vendor) => vendor.category !== "snap");
+  const sdmContracted = sdmCore.filter((vendor) => vendor.status === "계약").length;
+  const tripRegionCount = data.honeymoon.regions.length;
+
+  const add = (item: DecisionItem) => {
+    if (items.some((existing) => existing.id === item.id)) return;
+    items.push({
+      ...item,
+      preparedFacts: item.preparedFacts.length ? item.preparedFacts : ["아직 정리된 재료가 적어요"],
+      missingInputs: item.missingInputs.length ? item.missingInputs : ["같이 볼 결정을 하나만 고르면 됩니다"],
+    });
+  };
+
+  if (!data.invitation.date && (data.invitation.groomName || data.invitation.brideName || data.preferences.mode)) {
+    add({
+      id: "basics-date",
+      section: "invitation",
+      stage: "now",
+      title: "예식 날짜 기준 정하기",
+      whyNow: "날짜가 정해지면 체크리스트 마감과 계약 확인 시점이 한 번에 맞춰져요.",
+      preparedFacts: compactFacts([
+        data.invitation.groomName || data.invitation.brideName ? "두 사람 이름은 시작됐어요" : undefined,
+      ]),
+      missingInputs: ["예식 날짜", "아직 미정이면 후보 월"],
+      nextAction: "날짜 기준 넣기",
+      to: "/invitation",
+      risk: { level: "medium", label: "일정 기준 없음" },
+      score: 96,
+    });
+  }
+
+  if (!venueContract && (venues.length >= 2 || (dday !== null && dday <= 240))) {
+    const stage: DecisionStage = dday !== null && dday <= 180 ? "now" : "soon";
+    add({
+      id: "venues-tour-order",
+      section: "venues",
+      stage,
+      title: "예식장 답사 순서 정하기",
+      whyNow: dday !== null && dday <= 180
+        ? "큰 계약은 시간대와 조건이 먼저 빠지는 편이라, 답사 순서만 정해도 다음 상담을 바로 잡을 수 있어요."
+        : "후보가 모였을 때 1순위만 같이 고르면 상담이 훨씬 빨라져요.",
+      preparedFacts: compactFacts([
+        venues.length > 0 ? `후보 ${venues.length}곳` : undefined,
+        venueConsultation.answered > 0 ? `예식장 기준 ${venueConsultation.answered}/${venueConsultation.total}` : undefined,
+        data.invitation.venue ? `입력된 장소: ${data.invitation.venue}` : undefined,
+      ]),
+      missingInputs: ["답사 1순위", "상담 가능한 날짜", "식대·보증인원 상한"],
+      nextAction: "후보 비교 보기",
+      to: venues.length > 0 ? "/venues" : "/venues?starter=1",
+      risk: stage === "now" ? { level: "high", label: "큰 계약 시점" } : { level: "medium", label: "후보 좁히기" },
+      score: stage === "now" ? 94 : 82,
+    });
+  }
+
+  const contractMissing = missingContractFields(venueContract);
+  if (venueContract && contractMissing.length >= 2) {
+    add({
+      id: "venues-contract-terms",
+      section: "venues",
+      stage: "now",
+      title: "계약 전 확인 조건 채우기",
+      whyNow: "계약한 뒤에는 말로 들은 조건을 되짚기 어려워요. 견적, 결제, 취소 조건만 먼저 남기면 안전합니다.",
+      preparedFacts: compactFacts([
+        `계약 식장: ${venueContract.name}`,
+        venueContract.mealPriceMin ? `식대 ${formatKRW(venueContract.mealPriceMin)}부터` : undefined,
+        headcount > 0 ? `예상 하객 ${headcount}명` : undefined,
+      ]),
+      missingInputs: contractMissing.slice(0, 4),
+      nextAction: "계약 조건 채우기",
+      to: "/venues",
+      risk: { level: "high", label: "계약 조건 누락" },
+      score: 98,
+    });
+  }
+
+  if ((data.budget ?? []).length === 0 || budget.planned === 0) {
+    const stage: DecisionStage = venueContract || venues.length > 0 || (dday !== null && dday <= 240) ? "now" : "soon";
+    add({
+      id: "budget-total-cap",
+      section: "budget",
+      stage,
+      title: "전체 예산 상한 정하기",
+      whyNow: "예산 상한이 있어야 식대, 스드메, 반지, 여행 후보를 같은 기준으로 비교할 수 있어요.",
+      preparedFacts: compactFacts([
+        venues.length > 0 ? `예식장 후보 ${venues.length}곳` : undefined,
+        headcount > 0 ? `예상 하객 ${headcount}명` : undefined,
+      ]),
+      missingInputs: ["총 예산 상한", "꼭 지킬 항목", "줄여도 되는 항목"],
+      nextAction: "예산 기준 잡기",
+      to: "/budget",
+      risk: stage === "now" ? { level: "medium", label: "비교 기준 없음" } : undefined,
+      score: stage === "now" ? 88 : 70,
+    });
+  }
+
+  if (mealCheck) {
+    add({
+      id: "budget-meal-range",
+      section: "budget",
+      stage: "now",
+      title: "식대 예산 범위 확인하기",
+      whyNow: "식대는 하객 수와 바로 연결돼서, 낮게 잡히면 전체 예산이 한 번에 흔들릴 수 있어요.",
+      preparedFacts: compactFacts([
+        `예상 식대 약 ${formatKRW(mealCheck.expected)}`,
+        mealCheck.planned ? `예산표 식대 ${formatKRW(mealCheck.planned)}` : undefined,
+        headcount > 0 ? `예상 하객 ${headcount}명` : undefined,
+      ]),
+      missingInputs: [mealCheck.kind === "missing" ? "예산표 식대 항목" : "식대 상한 재확인", "음주류·봉사료 포함 여부"],
+      nextAction: "식대 예산 보기",
+      to: "/budget",
+      risk: { level: "high", label: "예산 흔들림" },
+      score: 95,
+    });
+  }
+
+  if (headcount === 0) {
+    const stage: DecisionStage = venueContract || venues.length > 0 || (dday !== null && dday <= 180) ? "now" : "soon";
+    add({
+      id: "guests-headcount-band",
+      section: "guests",
+      stage,
+      title: "예상 하객 범위 정하기",
+      whyNow: "하객 범위가 있어야 보증인원, 식대 예산, 청첩장 발송 시점을 같이 볼 수 있어요.",
+      preparedFacts: compactFacts([
+        venueContract ? `계약 식장: ${venueContract.name}` : undefined,
+        venues.length > 0 ? `비교 중인 식장 ${venues.length}곳` : undefined,
+      ]),
+      missingInputs: ["신랑측 예상", "신부측 예상", "부모님 확인 필요 인원"],
+      nextAction: "하객 범위 잡기",
+      to: "/guests",
+      risk: stage === "now" ? { level: "medium", label: "보증인원 기준 없음" } : undefined,
+      score: stage === "now" ? 86 : 68,
+    });
+  }
+
+  if (venueContract && (capacityFit === "over" || capacityFit === "under")) {
+    add({
+      id: "guests-capacity-fit",
+      section: "guests",
+      stage: "now",
+      title: "보증인원과 초대 범위 맞추기",
+      whyNow: capacityFit === "over"
+        ? "예상 인원이 수용 범위를 넘으면 테이블, 식수, 홀 변경을 빨리 확인해야 해요."
+        : "예상 인원이 최소 보증보다 적으면 식대와 보증금 손해가 생길 수 있어요.",
+      preparedFacts: compactFacts([
+        `예상 하객 ${headcount}명`,
+        venueContract.capacityMin ? `최소 보증 ${venueContract.capacityMin}명` : undefined,
+        venueContract.capacityMax ? `최대 수용 ${venueContract.capacityMax}명` : undefined,
+      ]),
+      missingInputs: ["최종 초대 범위", "보증인원 조정 가능 여부", "테이블 배치 여유"],
+      nextAction: "하객 기준 보기",
+      to: capacityFit === "over" ? "/guests" : "/venues",
+      risk: { level: "high", label: capacityFit === "over" ? "수용 초과" : "보증 미달" },
+      score: 99,
+    });
+  }
+
+  if ((invitation.missing.length > 0 || !data.publish) && dday !== null && dday <= 100) {
+    add({
+      id: "invitation-public-info",
+      section: "invitation",
+      stage: dday <= 70 ? "now" : "soon",
+      title: "하객에게 공개할 정보 정하기",
+      whyNow: "청첩장은 발송 직전보다 조금 일찍 같이 보면, 주소·시간·계좌처럼 민감한 정보를 차분히 확인할 수 있어요.",
+      preparedFacts: compactFacts([
+        invitation.filled > 0 ? `기본 정보 ${invitation.filled}/${invitation.total}` : undefined,
+        data.invitation.venue ? `장소: ${data.invitation.venue}` : undefined,
+        data.publish ? "하객용 링크 발행됨" : undefined,
+      ]),
+      missingInputs: invitation.missing.length > 0 ? invitation.missing.slice(0, 4) : ["발행 전 하객 시점 확인"],
+      nextAction: "청첩장 확인",
+      to: "/invitation",
+      risk: dday <= 70 ? { level: "medium", label: "발송 준비" } : undefined,
+      score: dday <= 70 ? 86 : 72,
+    });
+  }
+
+  if (data.rings.length >= 3 && (ringsLikedByGroom === 0 || ringsLikedByBride === 0)) {
+    const stage: DecisionStage = dday !== null && dday <= 160 ? "now" : "later";
+    add({
+      id: "rings-shared-shortlist",
+      section: "rings",
+      stage,
+      title: "같이 볼 반지 후보 좁히기",
+      whyNow: "반지는 취향 차이가 빨리 드러나는 항목이라, 각자 마음에 드는 후보만 표시해도 매장 상담이 쉬워져요.",
+      preparedFacts: compactFacts([
+        `후보 ${data.rings.length}개`,
+        ringProgress.answered > 0 ? `취향 기준 ${ringProgress.answered}/${ringProgress.total}` : undefined,
+        ringsLikedByGroom > 0 ? `신랑 표시 ${ringsLikedByGroom}개` : undefined,
+        ringsLikedByBride > 0 ? `신부 표시 ${ringsLikedByBride}개` : undefined,
+      ]),
+      missingInputs: ["각자 마음에 드는 후보 표시", "예산 상한", "매장 상담 우선순위"],
+      nextAction: "반지 후보 보기",
+      to: "/rings",
+      score: stage === "now" ? 74 : 45,
+    });
+  }
+
+  if (sdmContracted < 3 && (sdmCore.length > 0 || (dday !== null && dday <= 170))) {
+    const stage: DecisionStage = dday !== null && dday <= 130 ? "now" : "soon";
+    add({
+      id: "sdm-core-choice",
+      section: "sdm",
+      stage,
+      title: "스드메 상담 후보 고르기",
+      whyNow: "촬영과 가봉 일정은 뒤로 갈수록 선택지가 줄어들 수 있어요. 먼저 상담할 조합만 정해도 다음 단계가 열립니다.",
+      preparedFacts: compactFacts([
+        sdmCore.length > 0 ? `후보 ${sdmCore.length}곳` : undefined,
+        sdmConsultation.answered > 0 ? `기준 ${sdmConsultation.answered}/${sdmConsultation.total}` : undefined,
+        sdmContracted > 0 ? `계약 ${sdmContracted}/3` : undefined,
+      ]),
+      missingInputs: ["상담 1순위", "촬영 희망 시기", "드레스/메이크업 우선순위"],
+      nextAction: "스드메 후보 보기",
+      to: "/sdm",
+      risk: stage === "now" ? { level: "medium", label: "일정 선택지 감소" } : undefined,
+      score: stage === "now" ? 80 : 62,
+    });
+  }
+
+  if ((tripRegionCount === 0 || data.flights.length === 0 || data.hotels.length === 0) && dday !== null && dday <= 180) {
+    const stage: DecisionStage = dday <= 120 ? "now" : "soon";
+    add({
+      id: "trip-direction",
+      section: "trip",
+      stage,
+      title: "신혼여행 방향 정하기",
+      whyNow: "여행지는 항공권과 숙소 가격이 같이 움직여요. 지역 2~3곳만 정해도 실제 예산 비교가 시작됩니다.",
+      preparedFacts: compactFacts([
+        tripConsultation.answered > 0 ? `여행 기준 ${tripConsultation.answered}/${tripConsultation.total}` : undefined,
+        tripRegionCount > 0 ? `여행지 후보 ${tripRegionCount}곳` : undefined,
+        data.flights.length > 0 ? `항공 후보 ${data.flights.length}개` : undefined,
+        data.hotels.length > 0 ? `숙소 후보 ${data.hotels.length}곳` : undefined,
+      ]),
+      missingInputs: compactFacts([
+        tripRegionCount === 0 ? "여행지 후보" : undefined,
+        data.flights.length === 0 ? "항공 후보" : undefined,
+        data.hotels.length === 0 ? "숙소 후보" : undefined,
+      ]),
+      nextAction: "여행 기준 보기",
+      to: tripRegionCount === 0 ? "/trip?starter=1" : "/trip",
+      risk: stage === "now" ? { level: "medium", label: "가격 변동" } : undefined,
+      score: stage === "now" ? 78 : 60,
+    });
+  }
+
+  if (overdue > 0) {
+    add({
+      id: "checklist-overdue",
+      section: "checklist",
+      stage: "now",
+      title: "지난 마감 정리하기",
+      whyNow: "지난 마감은 계속 남겨두면 오늘 볼 결정까지 흐려져요. 필요한 것만 다시 날짜를 잡고, 끝난 일은 지우면 됩니다.",
+      preparedFacts: [`지난 마감 ${overdue}건`],
+      missingInputs: ["다시 잡을 일정", "이미 끝난 항목"],
+      nextAction: "마감 정리하기",
+      to: "/checklist",
+      risk: { level: "medium", label: "마감 지남" },
+      score: 84,
+    });
+  }
+
+  const nextBalance = balances.find((balance) => balance.daysLeft <= 14);
+  if (nextBalance) {
+    add({
+      id: "payment-upcoming",
+      section: "budget",
+      stage: "now",
+      title: "다가오는 잔금 확인하기",
+      whyNow: "잔금은 일정과 금액을 같이 확인해야 해서, 늦게 보면 계좌·카드·현금영수증 조건을 놓치기 쉬워요.",
+      preparedFacts: compactFacts([
+        `${nextBalance.name} · ${formatKRW(nextBalance.amount)}`,
+        nextBalance.daysLeft < 0 ? `${Math.abs(nextBalance.daysLeft)}일 지남` : nextBalance.daysLeft === 0 ? "오늘" : `D-${nextBalance.daysLeft}`,
+      ]),
+      missingInputs: ["결제 방식", "증빙 보관 위치", "잔금 전 확인 조건"],
+      nextAction: "잔금 조건 보기",
+      to: nextBalance.targetPath,
+      risk: { level: nextBalance.daysLeft <= 3 ? "high" : "medium", label: "결제 임박" },
+      score: nextBalance.daysLeft <= 3 ? 100 : 90,
+    });
+  }
+
+  const sorted = sortDecisionItems(items);
+  const now = sorted.filter((item) => item.stage === "now");
+  const soon = sorted.filter((item) => item.stage === "soon");
+  const later = sorted.filter((item) => item.stage === "later");
+  return {
+    items: sorted,
+    now,
+    soon,
+    later,
+    counts: { now: now.length, soon: soon.length, later: later.length },
+    primary: sorted[0],
+  };
 }
 
 export type WeddingPhase = { key: string; label: string; focus: string };

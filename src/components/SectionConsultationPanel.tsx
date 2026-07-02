@@ -10,8 +10,6 @@ import {
   type ConsultationQuestion,
   type ConsultationSectionId,
 } from "../lib/sectionConsultation";
-import { AgentIdentity } from "./AgentIdentity";
-
 type Props = {
   sectionId: ConsultationSectionId;
   data: WeddingData;
@@ -44,14 +42,16 @@ export default function SectionConsultationPanel({ sectionId, data, update, defa
     return (
       <section className="border-y border-hair py-4">
         <div className="flex items-baseline justify-between gap-3">
-          <div className="eyebrow-gold">Dearie</div>
+          <div className="eyebrow-gold">기준 질문</div>
           <div className="text-[12px] font-medium text-soft">
-            기준 <span className={progress.complete ? "text-ink" : "text-gold"}>{progress.answered}/{progress.total}</span>
+            <span className={progress.complete ? "text-ink" : "text-gold"}>{progress.answered}/{progress.total}</span>
           </div>
         </div>
-        <h2 className="mt-2 font-serif text-[20px] leading-snug text-ink break-keep">{meta.closedTitle}</h2>
+        <h2 className="mt-2 font-serif text-[19px] leading-snug text-ink break-keep">
+          {activeQuestion ? activeQuestion.title : meta.closedTitle}
+        </h2>
         <p className="mt-2 text-[13.5px] leading-relaxed text-soft break-keep">
-          {activeQuestion ? `${activeQuestion.title} 답하면 다음 선택지가 더 선명해집니다.` : meta.summary}
+          {activeQuestion ? "하나만 고르면 아래 후보와 다음 할 일이 바로 좁혀집니다." : meta.summary}
         </p>
         <button
           type="button"
@@ -68,49 +68,51 @@ export default function SectionConsultationPanel({ sectionId, data, update, defa
   }
 
   return (
-    <section className="border-y border-hair py-5 space-y-5">
+    <section className="border-y border-hair py-3 space-y-3">
       <div className="flex items-baseline justify-between gap-4">
         <div>
-          <div className="eyebrow-gold mb-2">Dearie 상담 · {progress.answered}/{progress.total}</div>
-          <h2 className="font-serif text-[20px] leading-snug text-ink break-keep">{meta.title}</h2>
+          <div className="eyebrow-gold mb-1">기준 질문 · {progress.answered}/{progress.total}</div>
+          <h2 className="font-serif text-[19px] leading-snug text-ink break-keep">
+            {activeQuestion ? activeQuestion.title : "기준은 다 골랐어요"}
+          </h2>
+          {!activeQuestion && (
+            <p className="mt-1.5 text-[13px] leading-relaxed text-soft break-keep">
+              {meta.summary}
+            </p>
+          )}
         </div>
-        <button type="button" onClick={() => setOpen(false)} className="text-[12px] text-soft underline underline-offset-4 hover:text-ink">
+        <button type="button" onClick={() => setOpen(false)} className="whitespace-nowrap text-[12px] text-soft underline underline-offset-4 hover:text-ink">
           닫기
         </button>
-      </div>
-
-      <div className="flex gap-3 border-l border-gold/40 pl-4">
-        <AgentIdentity compact mood={activeQuestion ? "thinking" : "ready"} />
-        <p className="min-w-0 flex-1 text-[14.5px] leading-relaxed text-soft break-keep">
-          {activeQuestion
-            ? "제가 한 질문씩 묻고, 답에 맞춰 다음에 볼 일을 좁힐게요."
-            : "기준은 잡혔어요. 이제 아래 답을 바꾸거나 실제 후보/항목을 정리하면 됩니다."}
-        </p>
       </div>
 
       {activeQuestion ? (
         <QuestionCard question={activeQuestion} value={answers[activeQuestion.id]} onAnswer={answer} />
       ) : (
-        <div className="border-l border-gold pl-4">
-          <div className="eyebrow-gold mb-1">기준 완료</div>
-          <p className="text-[13.5px] leading-relaxed text-soft break-keep">{meta.summary}</p>
+        <div className="border border-hair bg-cream/40 px-4 py-3">
+          <div className="section-title">답한 기준으로 아래 내용을 정리합니다</div>
+          <p className="mt-1 text-[12.5px] leading-relaxed text-soft break-keep">
+            바꾸고 싶은 기준은 접힌 영역에서 다시 고르면 됩니다.
+          </p>
         </div>
       )}
 
-      <details className="border-y border-hair py-3">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4">
-          <span>
-            <span className="section-title">답한 기준</span>
-            <span className="mt-1 block text-[12px] text-soft">바꾸고 싶은 기준은 여기서 다시 고르면 됩니다.</span>
-          </span>
-          <span className="text-[12px] text-soft underline underline-offset-4">보기</span>
-        </summary>
-        <div className="mt-4 space-y-4">
-          {questions.map((question) => (
-            <AnsweredQuestion key={question.id} question={question} value={answers[question.id]} onAnswer={answer} />
-          ))}
-        </div>
-      </details>
+      {progress.answered > 0 && (
+        <details className="border-t border-hair pt-2">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4">
+            <span>
+              <span className="section-title">답한 기준</span>
+              <span className="mt-1 block text-[12px] text-soft">필요하면 여기서 다시 고르면 됩니다.</span>
+            </span>
+            <span className="text-[12px] text-soft underline underline-offset-4">보기</span>
+          </summary>
+          <div className="mt-4 space-y-4">
+            {questions.map((question) => (
+              <AnsweredQuestion key={question.id} question={question} value={answers[question.id]} onAnswer={answer} />
+            ))}
+          </div>
+        </details>
+      )}
     </section>
   );
 }
@@ -125,27 +127,27 @@ function QuestionCard({
   onAnswer: (questionId: string, value: string) => void;
 }) {
   return (
-    <div className="border-l border-gold pl-4 space-y-4">
-      <div>
-        <div className="eyebrow-gold mb-2">{question.eyebrow}</div>
-        <h3 className="font-serif text-[20px] leading-snug text-ink break-keep">{question.title}</h3>
-        <p className="mt-2 text-[13px] leading-relaxed text-soft break-keep">{question.body}</p>
-      </div>
-      <div className="space-y-2">
+    <div className="space-y-2.5">
+      <p className="text-[12.5px] leading-relaxed text-soft break-keep">{question.body}</p>
+      <div className="grid gap-1.5 sm:grid-cols-2">
         {question.options.map((option) => (
           <button
             key={option.value}
             type="button"
             onClick={() => onAnswer(question.id, option.value)}
-            className={`w-full border-t border-hair py-3 text-left transition ${
-              value === option.value ? "text-ink" : "text-soft hover:text-ink"
+            className={`w-full border px-4 py-2.5 text-left transition ${
+              value === option.value
+                ? "border-gold bg-gold/5 text-ink"
+                : "border-hair bg-paper text-ink hover:border-ink"
             }`}
           >
             <span className="flex items-baseline justify-between gap-3">
               <span className="text-[14px] font-semibold leading-snug break-keep">{option.label}</span>
-              <span className="text-[12px]">{value === option.value ? "선택됨" : "선택"}</span>
+              <span className={`text-[12px] ${value === option.value ? "text-gold" : "text-soft"}`}>
+                {value === option.value ? "선택됨" : "고르기"}
+              </span>
             </span>
-            <span className="mt-1 block text-[12.5px] leading-relaxed break-keep">{option.detail}</span>
+            <span className="mt-1.5 block text-[12.5px] leading-relaxed text-soft break-keep">{option.detail}</span>
           </button>
         ))}
       </div>

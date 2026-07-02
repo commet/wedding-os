@@ -9,6 +9,7 @@
 // SPA 가 자체 에러 상태를 보여주므로 페이지 자체는 절대 깨지지 않는다 — 단지 일반 카드로 보일 뿐.
 
 import { get } from "@vercel/blob";
+import { privateNoStoreHeaders, rateLimit, rateLimitByKey } from "./_security";
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -34,7 +35,7 @@ async function loadOgMeta(code: string): Promise<OgMeta | null> {
   const token = process.env.BLOB_READ_WRITE_TOKEN;
   if (!token) return null;
   try {
-    const res = await get(`invite/${code}/meta.json`, { access: "private", token });
+    const res = await get(`invite/${code}/meta.json`, { access: "private", useCache: false, token });
     if (!res || res.statusCode !== 200) return null;
     const stored = (await new Response(res.stream).json()) as {
       ogMeta?: OgMeta;
@@ -100,8 +101,17 @@ function injectOg(html: string, code: string, og: OgMeta, requestUrl: string): s
 
 async function handler(req: Request): Promise<Response> {
   try {
+    if (req.method !== "GET") {
+      return new Response("GET 요청만 허용됩니다.", {
+        status: 405,
+        headers: privateNoStoreHeaders("text/plain; charset=utf-8"),
+      });
+    }
     const url = new URL(req.url);
     const code = url.searchParams.get("code") ?? "";
+    const limited = rateLimit(req, "serve-invite", 120, 60_000) ??
+      (/^[a-z0-9]{6,16}$/.test(code) ? rateLimitByKey(req, "serve-invite-code", code, 300, 60_000) : null);
+    if (limited) return limited;
 
     // 원본 index.html 가져오기 — 같은 출처 정적 파일.
     let html: string;
@@ -116,10 +126,7 @@ async function handler(req: Request): Promise<Response> {
         "청첩장 페이지를 준비하는 데 실패했어요. 잠시 후 다시 열어주세요.",
         {
           status: 500,
-          headers: {
-            "content-type": "text/plain; charset=utf-8",
-            "cache-control": "private, no-store, max-age=0",
-          },
+          headers: privateNoStoreHeaders("text/plain; charset=utf-8"),
         },
       );
     }
@@ -133,11 +140,7 @@ async function handler(req: Request): Promise<Response> {
 
     return new Response(injected, {
       status: 200,
-      headers: {
-        "content-type": "text/html; charset=utf-8",
-        // 취소·수정 후 이름과 날짜가 오래 남지 않도록 짧게 캐시한다.
-        "cache-control": "private, no-store, max-age=0",
-      },
+      headers: privateNoStoreHeaders("text/html; charset=utf-8"),
     });
   } catch {
     // 마지막 안전망 — 어떤 예외든 페이지가 통째로 죽지 않도록.
@@ -145,10 +148,7 @@ async function handler(req: Request): Promise<Response> {
       "청첩장 페이지를 준비하는 데 실패했어요. 잠시 후 다시 열어주세요.",
       {
         status: 500,
-        headers: {
-          "content-type": "text/plain; charset=utf-8",
-          "cache-control": "private, no-store, max-age=0",
-        },
+        headers: privateNoStoreHeaders("text/plain; charset=utf-8"),
       },
     );
   }

@@ -30,10 +30,13 @@ create table if not exists public.wedding_data (
   updated_at timestamptz not null default now()
 );
 
--- 옛 스키마 호환 — version 컬럼이 없으면 추가.
+-- 옛 스키마 호환 — create table if not exists 는 기존 테이블에 컬럼을 추가하지 않는다.
+alter table public.wedding_data add column if not exists data jsonb not null default '{}'::jsonb;
 alter table public.wedding_data add column if not exists version int not null default 1;
 alter table public.wedding_data add column if not exists owner_token_hash text;
 alter table public.wedding_data add column if not exists rsvp_token_hash text;
+alter table public.wedding_data add column if not exists created_at timestamptz not null default now();
+alter table public.wedding_data add column if not exists updated_at timestamptz not null default now();
 
 -- 2. RSVP 테이블 (하객 응답)
 create table if not exists public.rsvp (
@@ -86,6 +89,15 @@ drop policy if exists "collab_all"         on public.collab_comments;
 drop policy if exists "collab_insert_only" on public.collab_comments;
 
 -- 5-1. 공개/오너 RPC
+-- RPC return shapes have changed across releases. Drop first so re-running this
+-- setup SQL on an older project does not fail with "cannot change return type".
+drop function if exists public.load_wedding_data(text, text);
+drop function if exists public.save_wedding_data(text, text, jsonb, int);
+drop function if exists public.list_rsvp(text, text);
+drop function if exists public.submit_rsvp(text, text, text, boolean, text, int, text, text);
+drop function if exists public.get_public_invitation(text);
+drop function if exists public.ensure_wedding_owner(text, text);
+
 create or replace function public.ensure_wedding_owner(p_id text, p_token text)
 returns void
 language plpgsql
@@ -147,6 +159,15 @@ begin
      or (p_side is not null and p_side not in ('groom', 'bride')) then
     raise exception 'invalid rsvp input' using errcode = 'P0001';
   end if;
+  if (select count(*) from public.rsvp where config_id = p_id) >= 500 then
+    raise exception 'rsvp quota exceeded' using errcode = 'P0001';
+  end if;
+  if (select count(*) from public.rsvp where config_id = p_id and created_at > now() - interval '1 minute') >= 5 then
+    raise exception 'too many rsvp submissions' using errcode = 'P0001';
+  end if;
+  if (select count(*) from public.rsvp where config_id = p_id and created_at > now() - interval '1 day') >= 80 then
+    raise exception 'daily rsvp quota exceeded' using errcode = 'P0001';
+  end if;
   insert into public.rsvp(config_id, name, attending, side, guests, meal, message)
   values (p_id, trim(p_name), p_attending, p_side, p_guests, p_meal, p_message)
   returning id into new_id;
@@ -194,6 +215,10 @@ begin
 
   if p_expected_version is not null and current_version is not null and current_version <> p_expected_version then
     return query select false, current_version, true, 'version conflict';
+    return;
+  end if;
+  if p_expected_version is null then
+    return query select false, current_version, true, 'missing expected version';
     return;
   end if;
 
@@ -296,17 +321,15 @@ create trigger wedding_data_size_check
 before insert or update on public.wedding_data
 for each row execute function public.wedding_data_size_guard();
 
--- 8. 기본 row 하나 (있으면 그대로 둠)
+-- 8. 이 결혼식 row 하나. 이미 있으면 owner/rsvp token 을 덮어쓰지 않는다.
 insert into public.wedding_data (id, data, owner_token_hash, rsvp_token_hash)
 values (
-  'default',
+  '__WEDDING_OS_CONFIG_ID__',
   '{}'::jsonb,
   crypt('__WEDDING_OS_OWNER_TOKEN__', gen_salt('bf')),
   crypt('__WEDDING_OS_RSVP_TOKEN__', gen_salt('bf'))
 )
-on conflict (id) do update
-set owner_token_hash = excluded.owner_token_hash,
-    rsvp_token_hash = excluded.rsvp_token_hash;
+on conflict (id) do nothing;
 
 -- 완료. 이 SQL이 정상적으로 실행되면 "Success. No rows returned" 가 보입니다.
 

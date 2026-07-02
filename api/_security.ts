@@ -18,6 +18,15 @@ export function jsonWithHeaders(body: unknown, status = 200, extraHeaders: Recor
   });
 }
 
+export function privateNoStoreHeaders(contentType?: string): Record<string, string> {
+  return {
+    ...(contentType ? { "content-type": contentType } : {}),
+    "cache-control": "private, no-store, max-age=0",
+    "referrer-policy": "no-referrer",
+    "x-robots-tag": "noindex, noarchive, nosnippet",
+  };
+}
+
 function clientIp(req: Request): string {
   return (req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? "unknown")
     .split(",")[0]

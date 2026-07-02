@@ -7,11 +7,12 @@
 
 import { put, get } from "@vercel/blob";
 import { listAllBlobs } from "./_blob";
-import { json, rateLimit, sha256Hex } from "./_security";
+import { json, privateNoStoreHeaders, rateLimit, rateLimitByKey, sha256Hex } from "./_security";
 
 declare const process: { env: Record<string, string | undefined> };
 
-const MAX_RSVP_BYTES = 64 * 1024;
+const MAX_RSVP_BYTES = 8 * 1024;
+const MAX_RSVP_ITEMS = 500;
 
 function bytesToBase64(bytes: Uint8Array): string {
   let bin = "";
@@ -24,7 +25,7 @@ async function readMeta(
   token: string,
 ): Promise<{ ownerTokenHash: string; rsvpTokenHash?: string; expiresAt?: string } | null> {
   try {
-    const res = await get(`invite/${code}/meta.json`, { access: "private", token });
+    const res = await get(`invite/${code}/meta.json`, { access: "private", useCache: false, token });
     if (!res || res.statusCode !== 200) return null;
     return (await new Response(res.stream).json()) as {
       ownerTokenHash: string;
@@ -54,17 +55,31 @@ export default async function handler(req: Request): Promise<Response> {
       return json({ error: "만료된 청첩장이에요." }, 410);
     }
     const rsvpToken = req.headers.get("x-rsvp-token") ?? "";
-    if (!meta.rsvpTokenHash || rsvpToken.length < 32 || rsvpToken.length > 256 || (await sha256Hex(rsvpToken)) !== meta.rsvpTokenHash) {
+    const rsvpTokenHash = await sha256Hex(rsvpToken);
+    if (!meta.rsvpTokenHash || rsvpToken.length < 32 || rsvpToken.length > 256 || rsvpTokenHash !== meta.rsvpTokenHash) {
       return json({ error: "유효한 청첩장 링크에서만 응답할 수 있어요." }, 403);
     }
+    const tokenLimited =
+      rateLimitByKey(req, "invite-rsvp-token-minute", `${code}:${rsvpTokenHash}`, 5, 60_000) ??
+      rateLimitByKey(req, "invite-rsvp-token-day", `${code}:${rsvpTokenHash}`, 80, 24 * 60 * 60_000);
+    if (tokenLimited) return tokenLimited;
     const body = await req.arrayBuffer();
     if (body.byteLength === 0) return json({ error: "응답 내용이 비어 있어요." }, 400);
     if (body.byteLength > MAX_RSVP_BYTES) return json({ error: "응답이 너무 큽니다." }, 413);
+    let existingCount = 0;
+    try {
+      const existing = await listAllBlobs(`invite/${code}/rsvp/`, token, MAX_RSVP_ITEMS);
+      existingCount = existing.length;
+    } catch {
+      return json({ error: "이 청첩장의 RSVP 보관 한도에 도달했습니다." }, 429);
+    }
+    if (existingCount >= MAX_RSVP_ITEMS) return json({ error: "이 청첩장의 RSVP 보관 한도에 도달했습니다." }, 429);
     try {
       await put(`invite/${code}/rsvp/${crypto.randomUUID()}.enc`, body, {
         access: "private",
         addRandomSuffix: false,
         contentType: "application/octet-stream",
+        cacheControlMaxAge: 60,
         token,
       });
     } catch {
@@ -86,14 +101,14 @@ export default async function handler(req: Request): Promise<Response> {
     }
     let blobs;
     try {
-      blobs = await listAllBlobs(`invite/${code}/rsvp/`, token, 5000);
+      blobs = await listAllBlobs(`invite/${code}/rsvp/`, token, MAX_RSVP_ITEMS);
     } catch {
       return json({ error: "RSVP가 너무 많아 한 번에 불러올 수 없습니다." }, 413);
     }
     const items = await Promise.all(
       blobs.map(async (b) => {
         try {
-          const r = await get(b.pathname, { access: "private", token });
+          const r = await get(b.pathname, { access: "private", useCache: false, token });
           if (!r || r.statusCode !== 200) return null;
           const bytes = new Uint8Array(await new Response(r.stream).arrayBuffer());
           return bytesToBase64(bytes);
@@ -102,7 +117,10 @@ export default async function handler(req: Request): Promise<Response> {
         }
       }),
     );
-    return json({ rsvps: items.filter((x): x is string => x !== null) });
+    return new Response(JSON.stringify({ rsvps: items.filter((x): x is string => x !== null) }), {
+      status: 200,
+      headers: privateNoStoreHeaders("application/json; charset=utf-8"),
+    });
   }
 
   return json({ error: "허용되지 않은 메서드입니다." }, 405);

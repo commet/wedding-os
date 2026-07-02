@@ -86,7 +86,7 @@ export const RING_CONSULTATION_QUESTIONS: RingConsultationQuestion[] = [
     id: "rings-priority",
     eyebrow: "06 · 우선순위",
     title: "마지막으로 무엇을 제일 우선할까요?",
-    body: "후보가 비슷할 때 Dearie가 무엇을 먼저 남길지 정하는 기준이에요.",
+    body: "후보가 비슷할 때 무엇을 먼저 남길지 정하는 기준이에요.",
     options: [
       { value: "comfort", label: "착용감", detail: "매일 낄 때 불편하지 않은 후보 우선" },
       { value: "brand", label: "브랜드 로망", detail: "상징성과 시그니처 라인 우선" },

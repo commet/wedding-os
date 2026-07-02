@@ -198,11 +198,11 @@ export async function listRsvps(
 }
 
 /** 사용자 Supabase에 ping — 셋업 위저드 검증용 */
-export async function pingSupabase(url: string, anonKey: string): Promise<{ ok: boolean; reason?: string; }> {
+export async function pingSupabase(url: string, anonKey: string, configId: string = DEFAULT_CONFIG_ID): Promise<{ ok: boolean; reason?: string; }> {
   try {
     if (!isSupabaseHost(url)) return { ok: false, reason: "안전하지 않은 저장소 주소입니다." };
     const client = createClient(url, anonKey);
-    const { error } = await client.rpc("get_public_invitation", { p_id: DEFAULT_CONFIG_ID });
+    const { error } = await client.rpc("get_public_invitation", { p_id: configId });
     if (error) {
       if (error.message.includes("does not exist")) {
         return { ok: false, reason: "테이블이 아직 없어요. 다음 단계에서 SQL을 실행해주세요." };

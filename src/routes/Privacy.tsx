@@ -9,7 +9,7 @@ export default function Privacy() {
         <h1 className="font-serif text-[2rem] leading-none">개인정보 · 보안 안내</h1>
       </div>
       <p className="eyebrow mt-3 mb-8">
-        최종 갱신 · 2026-06-29
+        최종 갱신 · 2026-06-30
       </p>
 
       <Section num="01" title="한눈에">
@@ -41,7 +41,7 @@ export default function Privacy() {
       <Section num="03" title="저장 위치">
         <ul className="list-disc list-outside pl-5 space-y-1.5 marker:text-soft">
           <li><b>이 기기만 (로컬)</b> · 입력값은 본인 브라우저의 localStorage/IndexedDB 에만 저장됩니다. 외부 전송 없음.</li>
-          <li><b>간편 (운영자 호스팅·E2E)</b> · 결혼 준비 본문은 이 기기에서 암호화된 암호문으로 올라갑니다. 복호화 키는 공유·복구 링크의 <code className="bg-cream px-1">#</code> 에만 있고 서버로 전송되지 않아 운영자는 본문을 읽을 수 없습니다. 다만 로그인 계정 정보와 08 항목의 OG 메타는 별도 평문으로 처리됩니다.</li>
+          <li><b>간편 (운영자 호스팅·E2E)</b> · 결혼 준비 본문은 이 기기에서 암호화된 암호문으로 올라갑니다. 새 공유·복구 링크는 편집 권한과 복호화 키를 공유 비밀번호로 감싼 암호문으로 담고, 링크 조각(<code className="bg-cream px-1">#</code>)은 서버로 전송되지 않아 운영자는 본문을 읽을 수 없습니다. 다만 로그인 계정 정보와 08 항목의 OG 메타는 별도 평문으로 처리됩니다.</li>
           <li><b>직접 운영 (내 외부 저장소)</b> · 본인이 가입한 외부 저장소(Supabase)에 직접 저장됩니다. 운영자를 거치지 않습니다.</li>
           <li><b>개발자 모드</b> · 코드를 받아 본인 인프라에서 직접 운영합니다.</li>
           <li><b>간편 발행 (선택)</b> · 청첩장을 운영자 서버에 <b>암호화</b>해 올려 공유 링크를 만듭니다. 08 항목 참고.</li>
@@ -66,7 +66,7 @@ export default function Privacy() {
       <Section num="05" title="공개 링크 · 복구 링크 · 로그인">
         <ul className="list-disc list-outside pl-5 space-y-1.5 marker:text-soft">
           <li><b>공개 청첩장 링크</b> · 하객에게 보내는 링크입니다. 이름, 일시, 장소, 연락처, 계좌, 사진 등 청첩장에 표시한 정보만 노출됩니다.</li>
-          <li><b>복구·편집 링크 (간편 모드)</b> · 기기 교체 복구와 부부 공동 편집에 쓰는 링크입니다. <b>데이터 전체의 복호화 키가 포함된 마스터 열쇠</b>이므로 배우자에게만 1:1로 보내고 하객·단톡방·SNS에 공유하지 마세요. 키는 링크의 <code className="bg-cream px-1">#</code> 에만 있어 서버로 전송되지 않습니다.</li>
+          <li><b>복구·편집 링크 (간편 모드)</b> · 기기 교체 복구와 부부 공동 편집에 쓰는 링크입니다. 새 링크는 공유 비밀번호 없이는 열 수 없지만, <b>링크와 비밀번호를 함께 가진 사람은 전체 데이터를 보고 고칠 수 있습니다.</b> 잘못 보냈거나 비밀번호가 노출되면 설정에서 공유 권한을 새로 만들어 이전 보호 링크를 무효화할 수 있습니다. 배우자에게만 1:1로 보내고 하객·단톡방·SNS에 공유하지 마세요.</li>
           <li><b>간편 모드 로그인 (선택)</b> · 이메일·카카오·구글로 로그인하면 기기를 바꿔도 복구할 수 있습니다. 이때 운영자는 <b>로그인 신원(이메일 등)은 알 수 있으나</b>, 복호화 키는 본인이 정한 <b>암호문구로 감싸여 저장</b>되므로 <b>내용은 여전히 읽을 수 없습니다</b>. 암호문구를 잊으면 운영자도 복구를 도와드릴 수 없습니다.</li>
           <li>브라우저, 외부 저장소, 배포 서비스 계정 접근 권한은 사용자 본인이 관리합니다. 계정 비밀번호와 배포 환경변수는 다른 사람에게 공유하지 마세요.</li>
         </ul>
@@ -82,15 +82,24 @@ export default function Privacy() {
         </ul>
       </Section>
 
-      <Section num="07" title="업체 카탈로그 안내 (스드메 · 청첩장 등)">
+      <Section num="07" title="권리 행사 · 침해 대응">
+        <ul className="list-disc list-outside pl-5 space-y-1.5 marker:text-soft">
+          <li>개인정보 열람·정정·삭제·처리정지 요청은 <a className="underline underline-offset-2 text-ink" href="mailto:yclee913@gmail.com" rel="noopener noreferrer">yclee913@gmail.com</a> 또는 <a className="underline underline-offset-2 text-ink" href="/contact">문의</a>로 보내주세요.</li>
+          <li>본인 확인이 필요한 요청은 최소한의 확인 절차 뒤 처리합니다. 복구 링크, 편집 링크, 계좌번호, 하객 명단 원문은 메일에 적지 마세요.</li>
+          <li>실제 개인정보 유출 또는 침해가 의심되는 경우 법령상 요구되는 범위에서 지체 없이 통지·신고하고, 영향을 줄이는 조치를 진행합니다.</li>
+          <li>보안 취약점은 공개 GitHub Issue 대신 비공개 메일로 신고해주세요. 실제 사용자 데이터 접근·변조·삭제 없이 재현 가능한 설명만 보내주세요.</li>
+        </ul>
+      </Section>
+
+      <Section num="08" title="업체 카탈로그 안내 (스드메 · 청첩장 등)">
         <p>
-          본 도구가 표시하는 업체 목록은 결혼 카페 · 후기 등에서 자주 언급되는 곳을 단순 정리한 출발점이며,
-          순위 · 평가 · 제휴 관계가 아닙니다. 정보가 부정확하거나 표시 삭제를 원하시는 업체는 아래로 알려주시면
-          <b> 24시간 이내 처리</b>해드립니다.
+          본 도구가 표시하는 업체 목록은 공개적으로 확인 가능한 사실, 공식 페이지, 사용자가 직접 입력한 출처 메모를 바탕으로 한 출발점이며,
+          순위 · 평가 · 광고 · 제휴 관계가 아닙니다. 후기 원문, 회원 전용 게시물, 유료 DB의 편집 배열을 복제하지 않는 것을 원칙으로 합니다.
+          정보가 부정확하거나 표시 삭제를 원하시는 업체는 아래로 알려주시면 신속히 확인하겠습니다.
         </p>
       </Section>
 
-      <Section num="08" title="간편 발행 청첩장 (운영자 호스팅)">
+      <Section num="09" title="간편 발행 청첩장 (운영자 호스팅)">
         <p className="mb-3 text-soft">
           '간편 발행'은 청첩장을 운영자 서버에 올려 진짜 공유 링크를 만드는 <b className="text-ink">선택 기능</b>입니다.
         </p>
@@ -119,7 +128,7 @@ export default function Privacy() {
         </p>
       </Section>
 
-      <Section num="09" title="저작권 · 상표 · 콘텐츠">
+      <Section num="10" title="저작권 · 상표 · 콘텐츠">
         <ul className="list-disc list-outside pl-5 space-y-1.5 marker:text-soft">
           <li><b>사진</b> · 직접 촬영하지 않은 사진, 스튜디오·스냅 원본, 업체 제공 이미지는 계약서나 이용허락 범위 안에서만 올리세요. 청첩장·식전영상·SNS 공유 허용 범위가 다를 수 있습니다.</li>
           <li><b>음악</b> · 상용 음원을 식전영상, 청첩장 BGM, 온라인 공유 영상에 넣는 경우 별도 사용 허락이 필요할 수 있습니다. 공유저작물도 출처 표시, 변경 가능 여부, 상업적 이용 제한 등 조건을 확인하세요.</li>
@@ -128,7 +137,7 @@ export default function Privacy() {
         </ul>
       </Section>
 
-      <Section num="10" title="운영자 확인 필요 항목">
+      <Section num="11" title="운영자 확인 필요 항목">
         <p className="mb-3">
           본 저장소를 공개 서비스로 운영하려면 코드만으로 해결되지 않는 운영 정보가 필요합니다.
           실제 운영자는 배포 전에 다음 항목을 본인 상황에 맞게 채워야 합니다.
@@ -141,13 +150,14 @@ export default function Privacy() {
         </ul>
       </Section>
 
-      <Section num="11" title="문의" last>
+      <Section num="12" title="문의 · 이용 조건" last>
         <p>
           개인정보 보호 책임 및 보안 · 삭제 요청 창구는 Dearie 운영자입니다. 개인정보가 포함된 요청은{" "}
           <a className="underline underline-offset-2 text-ink" href="mailto:yclee913@gmail.com" rel="noopener noreferrer">yclee913@gmail.com</a>
           {" "}으로 보내주세요. 공개될 수 있는 GitHub Issue에는 이름·연락처·계좌·복구 링크 등 개인정보를 적지 마세요.
           일반 기능 오류만{" "}
           <a className="underline underline-offset-2 text-ink" href="https://github.com/commet/wedding-os/issues" target="_blank" rel="noopener noreferrer">GitHub Issues</a>로 알려주세요.
+          이용조건은 <a className="underline underline-offset-2 text-ink" href="/terms">Dearie 이용 안내</a>에서 확인할 수 있습니다.
         </p>
       </Section>
 

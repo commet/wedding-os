@@ -29,7 +29,7 @@ export function AgentIdentity({ compact = false, mood = "ready", caption }: Mark
       <AgentMark compact={compact} mood={mood} />
       <div className="py-0.5">
         <div
-          className={`${compact ? "text-[9px] tracking-[0.2em]" : "text-[10px] tracking-[0.22em]"} font-medium leading-none text-gold`}
+          className={`${compact ? "text-[11px] tracking-[0.14em]" : "text-[11.5px] tracking-[0.18em]"} font-medium leading-none text-gold`}
         >
           Dearie · {MOOD_LABEL[mood]}
         </div>
@@ -39,7 +39,7 @@ export function AgentIdentity({ compact = false, mood = "ready", caption }: Mark
           Dearie
         </div>
         {caption && !compact && (
-          <div className="mt-1 text-[11px] leading-snug text-soft">{caption}</div>
+          <div className="mt-1 text-[12px] leading-snug text-soft">{caption}</div>
         )}
       </div>
     </div>

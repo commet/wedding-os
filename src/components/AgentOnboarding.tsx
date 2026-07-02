@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import type { WeddingData } from "../lib/schema";
 import { koBreak } from "../lib/typography";
-import { AgentIdentity } from "./AgentIdentity";
 import {
   AGENT_PRIORITIES,
   type AgentAnswers,
@@ -49,7 +48,7 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
   const progress = step === 0 ? 0 : step >= FINAL_STEP ? 100 : Math.round((step / QUESTION_STEPS) * 100);
   const showQuestionProgress = step > 0 && step < FINAL_STEP;
   const progressText = step >= FINAL_STEP
-    ? "첫 브리핑 준비 완료"
+    ? "시작 준비 완료"
     : step === QUESTION_STEPS
       ? "마지막 질문"
       : `${QUESTION_STEPS - step}개 질문 남음`;
@@ -88,7 +87,10 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
   return (
     <div className="agent-canvas min-h-screen max-w-app mx-auto overflow-hidden">
       <div className="px-6 pt-7 pb-5 flex items-center justify-between gap-4">
-        <AgentIdentity compact />
+        <div>
+          <div className="font-serif text-[17px] leading-none text-ink">Dearie</div>
+          <div className="mt-1 text-[11px] font-medium text-soft">질문 5개로 시작</div>
+        </div>
         {showQuestionProgress && (
           <button onClick={back} className="min-h-11 px-2 text-[13px] text-soft underline underline-offset-2">이전</button>
         )}
@@ -110,19 +112,19 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
         </div>
       )}
 
-      <main className="px-6 pt-9 pb-12">
+      <main className="px-6 pt-7 pb-12">
         {step === 0 && (
           <AgentStep
-            eyebrow="처음 만났어요"
-            title="막막한 준비를 두 분의 순서로 바꿔드릴게요."
-            message="기본 정보 몇 가지만 알려주시면, 두 분 상황에 맞춰 먼저 볼 일과 그다음 순서를 정리해 드릴게요. 모르는 건 비워두셔도 괜찮아요."
+            eyebrow="처음 시작"
+            title="질문 5개로 오늘 할 일부터 정할게요."
+            message="이름, 날짜, 지역처럼 이미 아는 것만 고르면 됩니다. 모르는 건 비워두고 바로 시작할 수 있어요."
           >
-            <div className="mt-9 grid grid-cols-3 divide-x divide-hair border-y border-hair py-5 text-center text-[13px] leading-[1.7] text-soft">
+            <div className="mt-7 grid grid-cols-3 divide-x divide-hair border-y border-hair py-4 text-center text-[13px] leading-[1.6] text-soft">
               <span className="px-2">약 2분</span>
               <span className="px-2">나중에 수정</span>
               <span className="px-2">자동 저장</span>
             </div>
-            <AgentPrimary onClick={next}>Dearie와 시작하기</AgentPrimary>
+            <AgentPrimary onClick={next}>질문 5개 시작하기</AgentPrimary>
             <div className="mt-5 flex justify-center gap-6">
               <button onClick={onDemo} className="min-h-11 text-[13px] text-soft underline underline-offset-2">완성 예시 보기</button>
               <button onClick={onAdvanced} className="min-h-11 text-[13px] text-soft underline underline-offset-2">고급 저장 설정</button>
@@ -131,7 +133,7 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
         )}
 
         {step === 1 && (
-          <AgentStep eyebrow="01 · 두 사람" title={koBreak("두 분의 성함을 알려주세요.")} message="신랑·신부를 구분해 청첩장 기본 정보에도 그대로 반영할게요.">
+          <AgentStep eyebrow="01 · 두 사람" title={koBreak("두 분의 성함을 알려주세요.")} message="신랑·신부를 구분해 청첩장 기본 정보에도 같이 써요.">
             <div className="mt-9 space-y-5">
               <AgentInput label="신랑 성함" value={answers.groomName} onChange={(value) => set("groomName", value)} placeholder="예: 김민준" autoComplete="name" />
               <AgentInput label="신부 성함" value={answers.brideName} onChange={(value) => set("brideName", value)} placeholder="예: 이서연" autoComplete="name" />
@@ -212,7 +214,7 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
 
         {step === 6 && (
           <AgentStep
-            eyebrow="첫 브리핑"
+            eyebrow="시작 순서"
             title={koBreak(coupleLabel === "두 분" ? "두 분을 위한 시작 순서예요." : `${coupleLabel} 두 분을 위한 시작 순서예요.`)}
             message={<>한꺼번에 다 하지 않아도 돼요. <span className="whitespace-nowrap">첫 번째 일부터 함께 이어가요.</span></>}
           >
@@ -233,7 +235,7 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
               </div>
             </div>
             <div className="mt-7 border-y border-hair py-4">
-              <div className="eyebrow mb-3">준비판에 바로 생기는 것</div>
+              <div className="eyebrow mb-3">처음 열 화면</div>
               <div className="divide-y divide-hair">
                 {generatedPreview.map((item) => (
                   <div key={item.label} className="grid grid-cols-[5.5rem_1fr] gap-3 py-3 text-[12.5px] leading-relaxed">
@@ -244,7 +246,7 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
               </div>
             </div>
             <AgentPrimary onClick={() => onComplete(answers)}>
-              {answers.storage === "hosted" ? "준비판 열고 함께 연결하기" : "이 순서로 준비 시작하기"}
+              {answers.storage === "hosted" ? "준비 화면 열고 함께 쓰기" : "준비 화면 열기"}
             </AgentPrimary>
             <button onClick={back} className="block mx-auto mt-4 min-h-11 text-[13px] text-soft underline underline-offset-2">답변 다시 보기</button>
           </AgentStep>
@@ -257,9 +259,9 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
 function AgentStep({ eyebrow, title, message, children }: { eyebrow: string; title: React.ReactNode; message?: React.ReactNode; children: React.ReactNode }) {
   return (
     <section className="page-enter">
-      <div className="eyebrow-gold mb-4">{eyebrow}</div>
-      <h1 className="font-serif text-[26px] leading-[1.5] tracking-[-0.005em] text-ink break-keep [text-wrap:balance] max-w-[19rem]">{title}</h1>
-      {message && <p className="mt-4 max-w-[20rem] text-[15px] leading-[1.85] text-soft">{message}</p>}
+      <div className="eyebrow-gold mb-3">{eyebrow}</div>
+      <h1 className="font-serif text-[26px] leading-[1.38] tracking-[-0.005em] text-ink break-keep [text-wrap:balance] max-w-[19rem]">{title}</h1>
+      {message && <p className="mt-3 max-w-[20rem] text-[15px] leading-[1.75] text-soft">{message}</p>}
       {children}
     </section>
   );
@@ -267,7 +269,7 @@ function AgentStep({ eyebrow, title, message, children }: { eyebrow: string; tit
 
 function AgentPrimary({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
   return (
-    <button onClick={onClick} className="mt-9 min-h-[52px] w-full rounded-none bg-ink px-6 text-[13px] font-medium tracking-[0.04em] text-paper transition hover:opacity-90 active:opacity-85">
+    <button onClick={onClick} className="mt-7 min-h-[52px] w-full rounded-none bg-ink px-6 text-[13px] font-medium tracking-[0.04em] text-paper transition hover:opacity-90 active:opacity-85">
       {children} →
     </button>
   );
@@ -287,7 +289,7 @@ function StorageChoice({ active, onClick, title, desc, badge, disabled = false }
     <button disabled={disabled} aria-pressed={active} aria-disabled={disabled} onClick={onClick} className="w-full px-1 py-5 text-left transition disabled:opacity-45">
       <span className="flex items-baseline justify-between gap-3">
         <span className="text-[15px] font-medium text-ink">{title}</span>
-        <span className={`border-b pb-0.5 text-[10px] uppercase tracking-[0.16em] ${active ? "border-gold text-gold" : "border-hair text-soft"}`}>{badge}</span>
+        <span className={`border-b pb-0.5 text-[11.5px] uppercase tracking-[0.12em] ${active ? "border-gold text-gold" : "border-hair text-soft"}`}>{badge}</span>
       </span>
       <span className="mt-2 block text-[13px] leading-[1.7] text-soft">{desc}</span>
     </button>

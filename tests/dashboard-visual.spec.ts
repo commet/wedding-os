@@ -17,7 +17,8 @@ test.describe("dashboard visual smoke", () => {
     await page.goto("/dashboard");
     await page.waitForLoadState("networkidle");
 
-    await expect(page.locator("#today-focus").getByText("Dearie", { exact: true })).toBeVisible();
+    await expect(page.locator("#today-focus").getByText("오늘 할 일", { exact: true })).toBeVisible();
+    await expect(page.locator("#today-focus").getByText("Dearie", { exact: true })).toHaveCount(0);
     await expect(page.getByText("오늘의 첫 단계")).toBeVisible();
     await expect(page.getByText("private briefing")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "다음 할 일 정리하기 →" })).toHaveCount(0);
@@ -65,7 +66,7 @@ test.describe("dashboard visual smoke", () => {
     await expect(page.getByText("혼인 서약")).toBeVisible();
     await expect(page.getByText("성혼 선언문 낭독")).toBeVisible();
     // 진행표를 사회자에게 넘길 수 있는 내보내기 동선이 있다.
-    await expect(page.getByRole("button", { name: /사회자에게 보내기/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: "사회자에게 보내기", exact: true })).toBeVisible();
   });
 
   test("shows the couple exactly what guests see via a dedicated tab", async ({ page }) => {
@@ -95,7 +96,10 @@ test.describe("dashboard visual smoke", () => {
     }, data);
     await page.goto("/dashboard");
     // 계약 식장 수용 초과 + 예산표 식대 항목 누락을 에이전트가 스스로 짚는다.
-    await expect(page.getByText(/수용/)).toBeVisible();
+    await expect(page.getByText("보증인원과 초대 범위 맞추기")).toBeVisible();
+    await expect(page.getByText("준비된 재료")).toBeVisible();
+    await expect(page.getByText("남은 확인")).toBeVisible();
+    await expect(page.getByText(/초대 인원 180명이 그랜드하우스 수용/)).toBeVisible();
     await expect(page.getByText(/식대 항목이 없어요/)).toBeVisible();
     await assertLayoutHealth(page);
   });
@@ -150,8 +154,8 @@ test.describe("dashboard visual smoke", () => {
     await page.addInitScript(() => { localStorage.clear(); sessionStorage.clear(); });
     await page.goto("/");
 
-    await expect(page.getByRole("heading", { name: "막막한 준비를 두 분의 순서로 바꿔드릴게요." })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Dearie와 시작하기 →" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "질문 5개로 오늘 할 일부터 정할게요." })).toBeVisible();
+    await expect(page.getByRole("button", { name: "질문 5개 시작하기 →" })).toBeVisible();
     await expect(page.getByText("약 2분")).toBeVisible();
     await expect(page.getByText("나중에 수정")).toBeVisible();
     await expect(page.getByText("자동 저장")).toBeVisible();
@@ -163,6 +167,13 @@ test.describe("dashboard visual smoke", () => {
     await seedVisualData(page, true);
     await page.goto("/dashboard");
 
+    await expect(page.getByText("둘이 같이 보면 좋은 결정을 앞에 모았어요.")).toBeVisible();
+    await expect.poll(async () =>
+      page.getByText("다음 같이 정할 것").evaluateAll((nodes) =>
+        nodes.some((node) => node.getClientRects().length > 0),
+      ),
+    ).toBe(true);
+    await expect(page.getByText("예식장 답사 순서 정하기")).toBeVisible();
     await expect(page.getByRole("heading", { name: "다음만 남기기" })).toBeVisible();
     await expect(page.getByText("Timeline")).toHaveCount(0);
     await expect(page.getByText("영역별 준비도")).toHaveCount(0);
@@ -193,9 +204,9 @@ test.describe("dashboard visual smoke", () => {
 
     await page.goto("/dashboard");
     await page.getByTestId("dashboard-ai-starter").click();
-    await expect(page.getByText("지금 앱에 있는 내용만 보고 초안을 만들고")).toBeVisible();
+    await expect(page.getByText("지금 화면에서 바로 쓸 다음 행동만 뽑습니다.")).toBeVisible();
     await expect(page.getByText("로그인 없이도 짧게 써볼 수 있어요")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Dearie에게 초안 부탁하기", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "초안 만들기", exact: true })).toBeVisible();
     await page.screenshot({
       path: join(screenshotDir, `dashboard-ai-modal-${projectName}.png`),
       fullPage: false,

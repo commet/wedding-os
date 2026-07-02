@@ -228,7 +228,7 @@ function rememberAnswer(data: WeddingData, question: AgentLoopQuestion, value: s
           answer: option?.label ?? value,
           answeredAt,
         },
-      ].slice(-12),
+      ].slice(-80),
       updatedAt: answeredAt,
     },
   };

@@ -67,6 +67,7 @@ export function buildMenuGroups(data: WeddingData): MenuGroup[] {
         { to: "/setup", label: "직접 저장소", sub: "Supabase 직접 운영" },
         { to: "/trust", label: "투명성", sub: "운영자도 못 보는 구조" },
         { to: "/privacy", label: "개인정보 · 보안", sub: "처리방침 · 안내" },
+        { to: "/terms", label: "이용 조건", sub: "정정 · 권리 · 보안 신고" },
         { to: "/contact", label: "문의", sub: "오류 신고 · 도움 요청" },
       ],
     },

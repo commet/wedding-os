@@ -160,7 +160,7 @@ export const CONSULTATION_QUESTIONS: Record<ConsultationSectionId, ConsultationQ
       o("250to400", "250~400만", "대표 패키지 비교 구간"),
       o("400plus", "400만 이상", "작가 지정과 드레스 선택 폭까지 보기"),
     ]),
-    q("sdm-risk", "04 · 민감한 조건", "계약 전에 제일 걱정되는 건요?", "Dearie가 견적 메모와 상담 질문에서 이 항목을 먼저 보게 됩니다.", [
+    q("sdm-risk", "04 · 민감한 조건", "계약 전에 제일 걱정되는 건요?", "견적 메모와 상담 질문에서 이 항목을 먼저 보게 됩니다.", [
       o("extras", "추가금", "헬퍼비, 원본비, 출장비, 드레스 업차지"),
       o("schedule", "일정", "촬영일, 셀렉일, 본식 전 납품 여유"),
       o("quality", "결과물", "작가 지정, 보정 스타일, 샘플 일관성"),
@@ -252,7 +252,7 @@ export const CONSULTATION_QUESTIONS: Record<ConsultationSectionId, ConsultationQ
     ]),
   ],
   budget: [
-    q("budget-ceiling", "01 · 상한", "전체 예산 상한은 어떻게 잡을까요?", "상한이 있어야 초과 항목을 Dearie가 먼저 잡아낼 수 있어요.", [
+    q("budget-ceiling", "01 · 상한", "전체 예산 상한은 어떻게 잡을까요?", "상한이 있어야 초과 항목을 먼저 잡아낼 수 있어요.", [
       o("lean", "꼭 필요한 것만", "예식장·식대·필수 업체 중심"),
       o("balanced", "균형형", "중요 파트에는 쓰고 덜 중요한 곳은 줄이기"),
       o("generous", "만족도 우선", "사진·영상·여행 같은 기억 파트도 열어두기"),
@@ -262,7 +262,7 @@ export const CONSULTATION_QUESTIONS: Record<ConsultationSectionId, ConsultationQ
       o("actual", "쓴 돈 중심", "결제한 금액부터 정확히"),
       o("cashflow", "잔금 일정 중심", "언제 얼마 나갈지 우선"),
     ]),
-    q("budget-risk", "03 · 걱정", "제일 무서운 초과 항목은요?", "Dearie가 이 항목을 대시보드에서 먼저 보게 됩니다.", [
+    q("budget-risk", "03 · 걱정", "제일 무서운 초과 항목은요?", "이 항목을 대시보드에서 먼저 보게 됩니다.", [
       o("meal", "식대", "하객 수와 계약 식대 연결"),
       o("vendors", "업체 추가금", "원본비, 헬퍼비, 출장비, 옵션"),
       o("trip", "신혼여행", "항공·숙소 변동성"),
@@ -284,7 +284,7 @@ export const CONSULTATION_QUESTIONS: Record<ConsultationSectionId, ConsultationQ
       o("split", "파트별 담당", "각자 맡은 분야를 나누기"),
       o("one-lead", "한 명이 정리", "한 사람이 보드 관리, 결정은 함께"),
     ]),
-    q("checklist-pace", "03 · 속도", "준비 속도는 어느 쪽이 맞아요?", "Dearie가 마감 경고의 강도를 정하는 기준이 됩니다.", [
+    q("checklist-pace", "03 · 속도", "준비 속도는 어느 쪽이 맞아요?", "마감 경고의 강도를 정하는 기준이 됩니다.", [
       o("early", "일찍 끝내기", "마감을 넉넉히 앞당겨 보기"),
       o("steady", "꾸준히", "매주 조금씩 처리"),
       o("last", "필요할 때 몰아서", "임박한 일만 강하게 보기"),
@@ -336,7 +336,7 @@ export const CONSULTATION_QUESTIONS: Record<ConsultationSectionId, ConsultationQ
       o("couple", "두 사람이 함께", "편집 초대와 충돌 방지 중심"),
       o("family", "가족도 일부 확인", "보기 전용과 공개 범위 분리"),
     ]),
-    q("share-export", "02 · 내보내기", "가장 자주 내보낼 자료는요?", "Dearie가 공유 센터에서 어떤 버튼을 먼저 볼지 정합니다.", [
+    q("share-export", "02 · 내보내기", "가장 자주 내보낼 자료는요?", "공유 센터에서 어떤 버튼을 먼저 볼지 정합니다.", [
       o("invitation", "청첩장", "링크, 이미지, 문안 공유"),
       o("guests", "하객 명단", "CSV와 식수 확인"),
       o("budget", "예산표", "지출·잔금 공유"),

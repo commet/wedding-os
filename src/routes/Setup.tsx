@@ -23,7 +23,7 @@ const STEPS = [
 // localStorage 에 미러링해서 탭을 닫았다 다시 열어도 이어서 진행할 수 있도록.
 // (완료 시 clearDraft 로 정리되므로 키가 영구히 남지는 않는다.)
 const DRAFT_KEY = "wedding-os/setup-draft/v1";
-type Draft = { step: number; url: string; anonKey: string };
+type Draft = { step: number; url: string; anonKey: string; configId: string };
 function loadDraft(): Partial<Draft> {
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
@@ -35,6 +35,14 @@ function saveDraft(d: Draft) {
 }
 function clearDraft() {
   try { localStorage.removeItem(DRAFT_KEY); } catch { /* noop */ }
+}
+
+function createDirectConfigId(): string {
+  const c = typeof globalThis !== "undefined" ? globalThis.crypto : undefined;
+  if (!c?.getRandomValues) throw new Error("Secure random generator unavailable");
+  const bytes = new Uint8Array(18);
+  c.getRandomValues(bytes);
+  return `wos-${Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")}`;
 }
 
 // 의미 있는 결혼식 데이터가 들어있는지 — 덮어쓰기 가드 판단용.
@@ -54,6 +62,7 @@ export default function Setup({ data, update }: Props) {
   const [step, setStep] = useState<number>(draft.step ?? 1);
   const [url, setUrl] = useState(draft.url ?? data.preferences.supabase?.url ?? "");
   const [anonKey, setAnonKey] = useState(draft.anonKey ?? data.preferences.supabase?.anonKey ?? "");
+  const [configId] = useState(() => draft.configId ?? data.preferences.supabase?.configId ?? createDirectConfigId());
   const [pingStatus, setPingStatus] = useState<"idle" | "checking" | "ok" | "fail">("idle");
   const [pingMsg, setPingMsg] = useState("");
   const [sqlCopied, setSqlCopied] = useState(false);
@@ -68,17 +77,18 @@ export default function Setup({ data, update }: Props) {
     pingStatus === "checking" ? "검사 중" : "대기";
   const continueSetup = () => setStep((current) => Math.min(5, current + 1));
   const setupAgentSummary = step < 4
-    ? "직접 저장소는 고급 흐름이에요. Dearie는 먼저 이 셋업이 정말 필요한지 확인하고, 필요하다면 SQL과 키 입력 순서로 안내합니다."
+    ? "직접 저장소는 고급 흐름이에요. 정말 필요한 경우에만 SQL과 키 입력 순서로 이어갑니다."
     : pingStatus === "ok"
       ? "저장소 연결이 확인됐어요. 이제 백업과 사진 변환 뒤 실제 데이터를 저장하면 됩니다."
       : "아직 저장소 연결이 확인되지 않았어요. URL과 anon key를 검사한 뒤 마지막 배포 단계로 넘어가세요.";
 
   // 입력 바뀔 때마다 draft 갱신 — 새로고침/뒤로가기 후에도 복원
-  useEffect(() => { saveDraft({ step, url, anonKey }); }, [step, url, anonKey]);
+  useEffect(() => { saveDraft({ step, url, anonKey, configId }); }, [step, url, anonKey, configId]);
 
   const copySQL = async () => {
     try {
       const sql = SchemaText
+        .replaceAll("__WEDDING_OS_CONFIG_ID__", configId)
         .replaceAll("__WEDDING_OS_OWNER_TOKEN__", getOrCreateOwnerToken())
         .replaceAll("__WEDDING_OS_RSVP_TOKEN__", getOrCreateDirectRsvpToken());
       await navigator.clipboard.writeText(sql);
@@ -100,7 +110,7 @@ export default function Setup({ data, update }: Props) {
       setPingMsg("주소가 Supabase 형식과 달라요. ① Project URL 칸에 https://xxxx.supabase.co (또는 .supabase.in) 주소가 그대로 들어갔는지 확인해주세요.");
       return;
     }
-    const r = await pingSupabase(cleanUrl, anonKey.trim());
+    const r = await pingSupabase(cleanUrl, anonKey.trim(), configId);
     if (r.ok) {
       setPingStatus("ok");
     } else {
@@ -119,21 +129,24 @@ export default function Setup({ data, update }: Props) {
     const supabaseConf = {
       url: cleanUrl,
       anonKey: cleanKey,
-      configId: "default",
+      configId,
       rsvpToken: getOrCreateDirectRsvpToken(),
     };
     setFinishStatus("working");
     setFinishMsg("같이 쓰는 저장소를 확인하는 중...");
 
     try {
-      const driver = createSupabaseStorage(cleanUrl, cleanKey, "default");
+      const driver = createSupabaseStorage(cleanUrl, cleanKey, configId);
 
       // ── 블라인드 덮어쓰기 가드 ──
       // 같은 owner token 을 공유한 배우자가 먼저 원격을 채워뒀을 수 있다. 확인 없이 전환하면
       // 첫 save 가 원격을 이 기기의 데이터로 통째로 덮어쓴다.
+      let remoteVersion: number | undefined;
       let remote: WeddingData | null = null;
       try {
-        remote = (await driver.load())?.data ?? null;
+        const remoteSnapshot = await driver.load();
+        remoteVersion = remoteSnapshot?.version;
+        remote = remoteSnapshot?.data ?? null;
       } catch { remote = null; }
 
       const localHasContent = hasContent(data);
@@ -186,7 +199,7 @@ export default function Setup({ data, update }: Props) {
       setFinishMsg("같이 쓰는 저장소에 저장하는 중...");
       // 이 기기를 "오너" 로 표시 — 저장 RPC도 같은 owner token 으로 검증된다.
       markOwner();
-      const saved = await driver.save(nextData);
+      const saved = await driver.save(nextData, remoteVersion);
       if (!saved.ok) {
         throw new Error(saved.conflict
           ? "저장소에 이미 다른 편집 내용이 들어와 있어요. 화면을 새로고침해 최신 상태를 받은 뒤 다시 시도해주세요. 이 기기의 데이터는 그대로 있어요."
@@ -372,11 +385,11 @@ function TransferSummary({ data }: { data: WeddingData }) {
         {rows.map(([label, count]) => (
           <div key={label}>
             <div className="font-serif text-xl text-ink tabular-nums">{count}</div>
-            <div className="text-[10.5px] text-soft leading-tight">{label}</div>
+            <div className="text-[12px] text-soft leading-tight">{label}</div>
           </div>
         ))}
       </div>
-      <p className="text-[11px] text-soft leading-relaxed mt-4">
+      <p className="text-[12px] text-soft leading-relaxed mt-4">
           완료 전까지 기존 로컬 데이터는 지우지 않습니다. 사진은 둘이 같이 볼 수 있도록 변환하고,
         변환할 수 없는 사진이 있으면 백업 단계에서 알려줍니다.
       </p>

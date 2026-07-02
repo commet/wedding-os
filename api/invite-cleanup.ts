@@ -51,7 +51,7 @@ export default async function handler(req: Request): Promise<Response> {
       checked++;
       let expired = false;
       try {
-        const res = await get(`invite/${code}/meta.json`, { access: "private", token });
+        const res = await get(`invite/${code}/meta.json`, { access: "private", useCache: false, token });
         // 메타를 확실히 읽어 만료가 확인된 경우에만 삭제한다.
         // (메타 없음/읽기 실패는 발행 진행 중일 수도 있으므로 보수적으로 보존.)
         if (res && res.statusCode === 200) {

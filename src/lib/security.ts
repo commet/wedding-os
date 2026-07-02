@@ -146,9 +146,13 @@ export function clearSecrets(): void {
 export function getOrCreateOwnerToken(): string {
   const current = getSecrets().ownerToken;
   if (current && current.length >= 32 && current.length <= 256) return current;
-  const token = createToken();
+  const token = createOwnerToken();
   setSecrets({ ownerToken: token });
   return token;
+}
+
+export function createOwnerToken(): string {
+  return createToken();
 }
 
 export function getOwnerToken(): string | undefined {
@@ -174,7 +178,7 @@ function createToken(): string {
     c.getRandomValues(bytes);
     return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
   }
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+  throw new Error("Secure random generator unavailable");
 }
 
 // ── 간편(hosted) 모드 자격증명 ──────────────────────

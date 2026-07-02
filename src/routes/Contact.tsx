@@ -7,6 +7,10 @@ type Props = { data: WeddingData; };
 
 const CATEGORIES = [
   "화면이 깨졌거나 저장이 안 돼요",
+  "개인정보 삭제·열람 요청",
+  "업체 정보 정정·삭제 요청",
+  "저작권·상표권 문제",
+  "보안 취약점 비공개 신고",
   "이런 기능이 있으면 좋겠어요",
   "어디서부터 시작할지 모르겠어요",
   "기타",
@@ -58,7 +62,7 @@ export default function Contact({ data }: Props) {
 
       <p className="text-[13px] text-soft leading-relaxed border-b border-hair pb-6">
         어디서 어떤 일이 있었는지 편하게 적어주세요. 화면 이름이나 캡처를 함께 주시면 더 빨리 도와드릴 수 있어요.<br />
-        복구 링크, 편집 링크, 계좌번호, 하객 명단, 신분증·계약서 원본은 보내지 마세요.
+        복구 링크, 편집 링크, 계좌번호, 하객 명단, 신분증·계약서 원본은 보내지 마세요. 보안 취약점은 공개 이슈가 아니라 이 창구로만 보내주세요.
       </p>
 
       <div className="space-y-5">
@@ -79,7 +83,7 @@ export default function Contact({ data }: Props) {
             className="input-boxed min-h-[160px] text-[13px]"
             value={body}
             onChange={(e) => setBody(e.target.value)}
-            placeholder="어떤 화면에서 무슨 일이 있었는지 짧게라도 적어주세요. 캡처 사진은 메일에 첨부 가능해요."
+            placeholder="요청 대상, 확인 가능한 링크, 원하는 조치, 재현 순서를 적어주세요. 개인정보·복구 링크·취약점 악용 결과는 보내지 마세요."
           />
         </div>
 

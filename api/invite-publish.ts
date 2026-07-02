@@ -61,7 +61,7 @@ function computeExpiry(weddingDate: string): string {
 
 async function readStoredMeta(code: string, token: string): Promise<StoredMeta | null> {
   try {
-    const res = await get(`invite/${code}/meta.json`, { access: "private", token });
+    const res = await get(`invite/${code}/meta.json`, { access: "private", useCache: false, token });
     if (!res || res.statusCode !== 200) return null;
     return (await new Response(res.stream).json()) as StoredMeta;
   } catch {
@@ -176,6 +176,7 @@ async function handler(req: Request): Promise<Response> {
       addRandomSuffix: false,
       allowOverwrite: true,
       contentType: "application/octet-stream",
+      cacheControlMaxAge: 60,
       token,
     });
     let heroImageUrl: string | undefined;
@@ -185,6 +186,7 @@ async function handler(req: Request): Promise<Response> {
         addRandomSuffix: false,
         allowOverwrite: false,
         contentType: "image/jpeg",
+        cacheControlMaxAge: 60,
         token,
       });
       uploadedOgImage = true;
@@ -203,6 +205,7 @@ async function handler(req: Request): Promise<Response> {
       addRandomSuffix: false,
       allowOverwrite: true,
       contentType: "application/json",
+      cacheControlMaxAge: 60,
       token,
     });
     if (existing?.payloadPath && existing.payloadPath !== payloadPath) {

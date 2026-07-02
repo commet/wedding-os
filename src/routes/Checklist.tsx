@@ -133,25 +133,23 @@ export default function Checklist({ data, update }: Props) {
 
   if (sections.length === 0) {
     return (
-      <div className="page pt-20 pb-10 text-center space-y-8">
-        <div>
-          <div className="eyebrow-gold mb-4">준비 일정</div>
-          <h1 className="display-sm mb-4 [text-wrap:balance] max-w-[18rem] mx-auto">{koBreak("할 일을 날짜에 맞춰")} <span className="font-light">{koBreak("정리해드릴게요.")}</span></h1>
-          <p className="text-[15px] text-soft leading-[1.85]">
-            기본 목록을 불러오면 예식 날짜에 맞춰<br />할 일과 마감일이 정리됩니다.
-          </p>
+      <div className="page pt-5 pb-10 space-y-5">
+        <div className="flex items-baseline justify-between gap-4">
+          <div>
+            <div className="eyebrow-gold mb-1">준비 일정</div>
+            <h1 className="font-serif text-[22px] leading-tight text-ink">체크리스트 시작</h1>
+          </div>
+          <span className="eyebrow tabular-nums">0개</span>
         </div>
         {!weddingDate && (
           <p className="text-[12px] text-soft leading-relaxed">
             먼저 <Link to="/invitation" className="underline underline-offset-2">청첩장</Link>에서 결혼식 날짜를 입력하면 더 정확해요.
           </p>
         )}
-        <div className="text-left">
-          <SectionConsultationPanel sectionId="checklist" data={data} update={update} />
-        </div>
+        <SectionConsultationPanel sectionId="checklist" data={data} update={update} />
         <ProcessAgentPanel
-          title="날짜가 생기면 준비 순서를 바로 짭니다"
-          summary="체크리스트는 할 일을 많이 보여주는 화면이 아니라, 지금 시점에 늦은 것과 이번 주 할 일을 먼저 꺼내는 운영판입니다."
+          title="기본 타임라인을 불러오세요"
+          summary="예식 날짜가 있으면 마감일을 맞추고, 없으면 기본 순서대로 시작합니다. 불러온 뒤 필요 없는 일은 지우면 됩니다."
           metrics={[
             { label: "할 일", value: "0개", tone: "warn" },
             { label: "예식일", value: weddingDate ? "있음" : "미정", tone: weddingDate ? "normal" : "muted" },
@@ -165,9 +163,6 @@ export default function Checklist({ data, update }: Props) {
             { label: "준비 타임라인 불러오기 →", onClick: loadDefault, tone: "primary" },
           ]}
         />
-        <button onClick={loadDefault} className="btn-primary px-8 py-3.5 text-[13px]">
-          준비 타임라인 불러오기
-        </button>
       </div>
     );
   }
@@ -235,11 +230,11 @@ export default function Checklist({ data, update }: Props) {
           카테고리
         </button>
         <div className="ml-auto flex items-center gap-4">
-          <button onClick={exportChecklist} className="text-[11px] text-soft underline underline-offset-4 hover:text-ink">
+          <button onClick={exportChecklist} className="text-[12px] text-soft underline underline-offset-4 hover:text-ink">
             내보내기
           </button>
           {weddingDate && (
-            <button onClick={recalc} className="text-[11px] text-soft underline underline-offset-4 hover:text-ink">
+            <button onClick={recalc} className="text-[12px] text-soft underline underline-offset-4 hover:text-ink">
               날짜 기준 재계산
             </button>
           )}
@@ -265,7 +260,7 @@ export default function Checklist({ data, update }: Props) {
 
       {triageTimeline && (
         <div className="border-y border-hair py-3 text-[12px] leading-relaxed text-soft">
-          <span className="font-medium text-ink">Dearie가 급한 것부터 접어뒀어요.</span>{" "}
+          <span className="font-medium text-ink">급한 것부터 먼저 보이게 접어뒀어요.</span>{" "}
           각 묶음은 처음 {TRIAGE_LIMIT}개만 보이고, 검색하면 전체가 펼쳐집니다.
         </div>
       )}
@@ -545,10 +540,10 @@ function TimelineRow({
           {item.priority === "red" && <span className="text-gold">● </span>}
           {item.text}
           {item.source === "ai" && (
-            <span className="ml-2 align-middle text-[10px] tracking-wide text-gold">AI</span>
+            <span className="ml-2 align-middle text-[11px] tracking-wide text-gold">AI</span>
           )}
         </div>
-        <div className="flex items-center gap-3 mt-1.5 text-[11px]">
+        <div className="flex items-center gap-3 mt-1.5 text-[12px]">
           <span className="text-soft">{item.section}</span>
           {editDate ? (
             <input
@@ -556,7 +551,7 @@ function TimelineRow({
               autoFocus
               defaultValue={item.dueDate ?? ""}
               onBlur={(e) => { onSetDue(sid, item.id, e.target.value); setEditDate(false); }}
-              className="border-b border-line bg-transparent px-1 py-0.5 text-[11px]"
+              className="border-b border-line bg-transparent px-1 py-0.5 text-[12px]"
             />
           ) : (
             <button onClick={() => setEditDate(true)} className="text-soft underline underline-offset-4 hover:text-ink tabular-nums">
@@ -659,7 +654,7 @@ function SectionCard({
                     <span className={item.done ? "line-through text-soft" : "text-ink"}>
                       {item.priority === "red" && <span className="text-gold">● </span>}{item.text}
                       {item.source === "ai" && (
-                        <span className="ml-2 align-middle text-[10px] tracking-wide text-gold">AI</span>
+                        <span className="ml-2 align-middle text-[11px] tracking-wide text-gold">AI</span>
                       )}
                     </span>
                     {item.dueDate && (

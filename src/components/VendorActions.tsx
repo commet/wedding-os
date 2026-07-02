@@ -9,10 +9,21 @@ type Props = {
   region?: string;       // 카카오맵 검색에 도움
   officialUrl?: string;  // 공식 사이트 (있으면) — 사용자 입력일 수 있어 sanitize
   sourceUrl?: string;    // 가격·수용 정보 출처 (있으면) — 사용자 입력일 수 있어 sanitize
+  officialLabel?: string;
+  sourceLabel?: string;
   size?: "sm" | "xs";
 };
 
-export default function VendorActions({ name, query, region, officialUrl, sourceUrl, size = "xs" }: Props) {
+export default function VendorActions({
+  name,
+  query,
+  region,
+  officialUrl,
+  sourceUrl,
+  officialLabel = "공식 ↗",
+  sourceLabel = "출처 ↗",
+  size = "xs",
+}: Props) {
   const fullQuery = query ? `${name} ${query}` : name;
   const mapQuery = region ? `${name} ${region}` : name;
   // 인스타는 explore/tags 패턴이 비로그인 상태에서도 200. 핸들 추측보다 안전.
@@ -32,13 +43,13 @@ export default function VendorActions({ name, query, region, officialUrl, source
       {officialSafe && (
         <a href={officialSafe} target="_blank" rel="noopener noreferrer"
            className={`${linkClass} text-gold`}>
-          공식 ↗
+          {officialLabel}
         </a>
       )}
       {sourceSafe && sourceSafe !== officialSafe && (
         <a href={sourceSafe} target="_blank" rel="noopener noreferrer"
            className={`${linkClass} text-gold`}>
-          출처 ↗
+          {sourceLabel}
         </a>
       )}
       <a href={google} target="_blank" rel="noopener noreferrer"

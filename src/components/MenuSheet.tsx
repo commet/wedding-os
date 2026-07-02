@@ -99,7 +99,7 @@ export default function MenuSheet({ open, onClose, data }: Props) {
             >
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
-                  <div className="eyebrow-gold mb-1">Dearie가 보는 다음 일</div>
+                  <div className="eyebrow-gold mb-1">다음 할 일</div>
                   <div className="font-serif text-[18px] leading-snug text-ink break-keep">{nextStatus.nextAction}</div>
                 </div>
                 <span className="font-serif text-[22px] leading-none text-gold tabular-nums">

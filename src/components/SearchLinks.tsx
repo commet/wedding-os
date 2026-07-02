@@ -16,7 +16,7 @@ export default function SearchLinks({ links, label }: { links: SearchLink[]; lab
             >
               {l.name} ↗
             </a>
-            {l.note && <span className="text-[10.5px] leading-snug text-soft">{l.note}</span>}
+            {l.note && <span className="text-[12px] leading-snug text-soft">{l.note}</span>}
           </span>
         ))}
       </div>

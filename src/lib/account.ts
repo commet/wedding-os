@@ -10,6 +10,38 @@ import { bytesToBase64Url, base64UrlToBytes, type Bytes } from "./inviteCrypto";
 const LEGACY_PBKDF2_ITERS = 210_000;
 const PBKDF2_ITERS = 600_000;
 
+const COMMON_RECOVERY_PHRASES = [
+  "password",
+  "qwerty",
+  "dearie",
+  "wedding",
+  "1234",
+  "0000",
+  "사랑해",
+  "결혼준비",
+];
+
+export function validateRecoveryPassphrase(passphrase: string): string | null {
+  if (passphrase !== passphrase.trim()) return "복구 비밀번호 앞뒤 공백은 빼주세요.";
+  if (passphrase.length < 16) return "복구 비밀번호는 16자 이상으로 정해주세요.";
+  if (passphrase.length > 512) return "복구 비밀번호가 너무 깁니다.";
+  if (/^(.)\1+$/.test(passphrase)) return "같은 글자만 반복한 복구 비밀번호는 사용할 수 없어요.";
+  const lower = passphrase.toLowerCase();
+  if (COMMON_RECOVERY_PHRASES.some((word) => lower.includes(word))) {
+    return "너무 흔한 단어가 들어간 복구 비밀번호는 피해주세요.";
+  }
+  const classes = [
+    /[A-Za-z가-힣]/.test(passphrase),
+    /\d/.test(passphrase),
+    /[^A-Za-z0-9가-힣\s]/.test(passphrase),
+    /\s/.test(passphrase),
+  ].filter(Boolean).length;
+  if (passphrase.length < 24 && classes < 3) {
+    return "20자 안팎이면 글자, 숫자, 기호나 띄어쓰기를 섞어주세요.";
+  }
+  return null;
+}
+
 async function deriveKey(passphrase: string, salt: Bytes, iterations: number): Promise<CryptoKey> {
   const base = await crypto.subtle.importKey(
     "raw", new TextEncoder().encode(passphrase), "PBKDF2", false, ["deriveKey"],
@@ -29,7 +61,7 @@ export async function wrapBundle(
   passphrase: string,
 ): Promise<{ blob: string; salt: string }> {
   if (!isRecoveryBundle(bundle)) throw new Error("invalid recovery bundle");
-  if (passphrase.length < 12 || passphrase.length > 512) throw new Error("invalid passphrase length");
+  if (validateRecoveryPassphrase(passphrase)) throw new Error("invalid passphrase strength");
   const salt: Bytes = crypto.getRandomValues(new Uint8Array(16));
   const key = await deriveKey(passphrase, salt, PBKDF2_ITERS);
   const iv = crypto.getRandomValues(new Uint8Array(12));

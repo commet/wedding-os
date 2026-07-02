@@ -14,8 +14,9 @@ import {
   downloadInvitationText,
   downloadPrintableHtml,
 } from "../lib/exporters";
-import { getHostedConfig, getOrCreateOwnerToken } from "../lib/security";
-import { buildRecoveryLink } from "../lib/recovery";
+import { createOwnerToken, getHostedConfig, getOrCreateOwnerToken, setOwnerToken } from "../lib/security";
+import { buildProtectedRecoveryLink, suggestSharePassword, validateSharePassword } from "../lib/recovery";
+import { rotateHostedOwnerToken } from "../lib/storage.hosted";
 import { daysSince } from "../lib/freshness";
 import { koBreak } from "../lib/typography";
 
@@ -59,7 +60,15 @@ export default function Share({ data, update }: Props) {
     const token = getOrCreateOwnerToken();
     return `${window.location.origin}/dashboard#ownerToken=${encodeURIComponent(token)}`;
   };
+  const confirmEditorInvite = () => confirm(
+    "⚠️ 편집 링크는 하객용 링크가 아니라 준비판 권한이에요.\n\n" +
+    "배우자처럼 함께 편집할 사람에게만 1:1로 보내고,\n" +
+    "단톡방·SNS·캡처로 공유하지 마세요.\n" +
+    "간편 모드 링크는 공유 비밀번호로 한 번 더 잠급니다.\n\n" +
+    "계속할까요?",
+  );
   const copyEditorInvite = async () => {
+    if (!confirmEditorInvite()) return;
     const url = editorInviteUrl();
     try {
       await navigator.clipboard.writeText(url);
@@ -67,17 +76,29 @@ export default function Share({ data, update }: Props) {
       window.prompt("아래 편집 초대 링크를 복사해주세요:", url);
     }
   };
-  const hostedInviteUrl = () => {
+  const askSharePassword = () => {
+    const suggested = suggestSharePassword();
+    const password = window.prompt("배우자가 링크를 열 때 입력할 공유 비밀번호를 정해주세요. (6자 이상)", suggested);
+    if (password === null) return null;
+    const confirmation = window.prompt("공유 비밀번호를 한 번 더 입력해주세요.", password);
+    if (confirmation === null) return null;
+    const passwordError = validateSharePassword(password, confirmation);
+    if (passwordError) throw new Error(passwordError);
+    return password;
+  };
+  const hostedInviteUrl = async (ownerToken = getOrCreateOwnerToken(), sharePassword?: string) => {
     const cfg = getHostedConfig();
     if (!cfg) return "";
-    return buildRecoveryLink({
-      weddingId: cfg.weddingId,
-      ownerToken: getOrCreateOwnerToken(),
-      weddingKey: cfg.weddingKey,
-    });
+    const password = sharePassword ?? askSharePassword();
+    if (!password) throw new Error("공유 비밀번호 입력을 취소했어요.");
+    return buildProtectedRecoveryLink(
+      { weddingId: cfg.weddingId, ownerToken, weddingKey: cfg.weddingKey },
+      password,
+    );
   };
-  const copyHostedInvite = async () => {
-    const url = hostedInviteUrl();
+  const copyHostedInvite = async (ownerToken?: string, skipConfirm = false, sharePassword?: string) => {
+    if (!skipConfirm && !confirmEditorInvite()) return;
+    const url = await hostedInviteUrl(ownerToken, sharePassword);
     if (!url) {
       window.location.href = "/start-hosted";
       return;
@@ -85,10 +106,35 @@ export default function Share({ data, update }: Props) {
     try {
       await navigator.clipboard.writeText(url);
     } catch {
-      window.prompt("아래 편집·복구 링크를 복사해주세요:", url);
+      window.prompt("아래 비밀번호 보호 편집·복구 링크를 복사해주세요:", url);
     }
   };
+  const rotateHostedInvite = async () => {
+    const cfg = getHostedConfig();
+    const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+    if (!cfg || !url || !anonKey) {
+      window.location.href = "/start-hosted";
+      return;
+    }
+    if (!confirm(
+      "기존 편집·복구 링크를 무효화하고 새 링크를 만들까요?\n\n" +
+      "이전 링크를 받은 사람은 더 이상 들어올 수 없고, 배우자에게 새 링크와 새 공유 비밀번호를 다시 보내야 해요.",
+    )) return;
+    const sharePassword = askSharePassword();
+    if (!sharePassword) throw new Error("공유 비밀번호 입력을 취소했어요.");
+    const currentOwnerToken = getOrCreateOwnerToken();
+    const nextOwnerToken = createOwnerToken();
+    if (!setOwnerToken(nextOwnerToken)) throw new Error("이 기기에 새 편집 권한을 저장하지 못했어요.");
+    const rotated = await rotateHostedOwnerToken(url, anonKey, cfg.weddingId, currentOwnerToken, nextOwnerToken);
+    if (!rotated) {
+      setOwnerToken(currentOwnerToken);
+      throw new Error("이전 링크를 무효화하지 못했어요. 네트워크나 저장소 설정을 확인해주세요.");
+    }
+    await copyHostedInvite(nextOwnerToken, true, sharePassword);
+  };
   const nativeShareEditorInvite = async () => {
+    if (!confirmEditorInvite()) return;
     const url = editorInviteUrl();
     if (navigator.share) {
       await navigator.share({
@@ -115,6 +161,9 @@ export default function Share({ data, update }: Props) {
   const hasHostedInvite = data.preferences.mode === "hosted" && !!getHostedConfig();
   const canShareEditor = data.preferences.mode === "supabase" || hasHostedInvite;
   const collaborateReady = data.preferences.mode === "hosted" || data.preferences.mode === "supabase";
+  const editorShareState = hasHostedInvite
+    ? "비밀번호 보호"
+    : data.preferences.mode === "supabase" ? "직접 링크" : "로컬";
   const backupState =
     backupDays === null ? "없음" : backupDays === 0 ? "오늘" : `${backupDays}일 전`;
   const shareAgentSummary = hasPublished
@@ -136,12 +185,12 @@ export default function Share({ data, update }: Props) {
         mood={hasPublished ? "ready" : "thinking"}
         metrics={[
           { label: "하객 링크", value: hasPublished ? "발행" : "전", tone: hasPublished ? "normal" : "warn" },
-          { label: "편집 공유", value: collaborateReady ? "가능" : "로컬", tone: collaborateReady ? "normal" : "muted" },
+          { label: "편집 공유", value: editorShareState, tone: collaborateReady ? "normal" : "muted" },
           { label: "백업", value: backupState, tone: backupDays === null || backupDays > 30 ? "warn" : "normal" },
         ]}
         steps={[
           { label: "하객에게 보낼 청첩장 링크 준비", detail: "하객용 링크는 준비 데이터 전체가 열리지 않는 별도 화면입니다.", done: hasPublished },
-          { label: "함께 편집할 사람에게만 편집 권한 전달", detail: "편집 링크는 오너 권한이라 하객 채팅방에 보내면 안 됩니다.", done: collaborateReady },
+          { label: "함께 편집할 사람에게만 편집 권한 전달", detail: "간편 모드 링크는 공유 비밀번호로 잠그고, 하객 채팅방에 보내지 않습니다.", done: collaborateReady },
           { label: "내보내기 전에 최신 백업 확보", detail: "기기 이동이나 실수 삭제에 대비해 JSON 백업을 남깁니다.", done: backupDays !== null && backupDays <= 30 },
         ]}
         actions={[
@@ -159,6 +208,7 @@ export default function Share({ data, update }: Props) {
               else window.location.href = "/start-hosted";
             },
           },
+          ...(hasHostedInvite ? [{ label: "이전 편집 링크 무효화 →", onClick: () => run("편집 링크 재발급", rotateHostedInvite) }] : []),
           { label: "지금 백업 만들기 →", onClick: () => run("전체 데이터 백업", backup) },
         ]}
       />
@@ -175,7 +225,7 @@ export default function Share({ data, update }: Props) {
           </li>
           <li className="flex gap-2.5">
             <span className="text-gold">·</span>
-            <span><span className="text-ink">함께 편집 링크</span> — 배우자와 같은 준비판을 같이 봅니다. 하객에게는 보내지 마세요.</span>
+            <span><span className="text-ink">함께 편집 링크</span> — 배우자와 같은 준비판을 같이 봅니다. 간편 모드는 공유 비밀번호로 한 번 더 잠급니다.</span>
           </li>
           <li className="flex gap-2.5">
             <span className="text-gold">·</span>
@@ -222,7 +272,9 @@ export default function Share({ data, update }: Props) {
         desc={
           data.preferences.mode === "supabase"
             ? "준비 데이터를 같이 수정할 수 있는 편집 링크입니다. 하객용 청첩장 링크와 다릅니다."
-            : "배우자와 같이 편집하려면 링크를 만들면 됩니다. 혼자 시작한 데이터는 그대로 이어집니다."
+            : hasHostedInvite
+              ? "배우자와 같이 편집하는 보호 링크입니다. 링크를 잘못 보냈다면 이전 링크를 무효화하고 새로 만들 수 있어요."
+              : "배우자와 같이 편집하려면 링크를 만들면 됩니다. 혼자 시작한 데이터는 그대로 이어집니다."
         }
       >
         {data.preferences.mode === "supabase" ? (
@@ -242,12 +294,19 @@ export default function Share({ data, update }: Props) {
             )}
           </>
         ) : hasHostedInvite ? (
-          <Action
-            title="편집·복구 링크 복사"
-            desc="배우자와 같이 편집하고, 기기를 바꿔도 이어서 쓸 수 있는 오너 권한 링크입니다."
-            onClick={() => run("편집·복구 링크", copyHostedInvite)}
-            primary
-          />
+          <>
+            <Action
+              title="비밀번호 보호 편집·복구 링크 복사"
+              desc="배우자와 같이 편집하고, 기기를 바꿔도 이어서 쓸 수 있는 링크입니다. 열 때 공유 비밀번호가 필요합니다."
+              onClick={() => run("편집·복구 링크", copyHostedInvite)}
+              primary
+            />
+            <Action
+              title="이전 편집 링크 무효화하고 새로 만들기"
+              desc="링크를 잘못 보냈거나 비밀번호가 노출됐을 때 씁니다. 새 링크와 새 비밀번호를 다시 전달합니다."
+              onClick={() => run("편집 링크 재발급", rotateHostedInvite)}
+            />
+          </>
         ) : (
           <Action
             title="함께 편집할 링크 만들기"

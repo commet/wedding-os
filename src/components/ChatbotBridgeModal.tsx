@@ -5,7 +5,6 @@ import { BridgePrompt, CHAT_LINKS, extractJSON } from "../lib/chatbotBridge";
 import { hasDirectAi, runAiPrompt } from "../lib/aiClient";
 import { getAiConfig } from "../lib/security";
 import { currentAccessToken } from "../lib/auth";
-import { AgentIdentity } from "./AgentIdentity";
 
 type Props = {
   open: boolean;
@@ -44,7 +43,7 @@ export default function ChatbotBridgeModal({ open, onClose, prompt, onApply }: P
   const aiConfig = getAiConfig();
   const directAiReady = hasDirectAi(aiConfig);
   const pendingPreview = previewPending(pending, prompt.expectedShape);
-  const actionLabel = prompt.expectedShape === "text" ? "Dearie에게 다듬어달라고 하기" : "Dearie에게 초안 부탁하기";
+  const actionLabel = prompt.expectedShape === "text" ? "문장 다듬기" : "초안 만들기";
 
   const copy = async () => {
     try {
@@ -118,16 +117,14 @@ export default function ChatbotBridgeModal({ open, onClose, prompt, onApply }: P
     <Modal open={open} onClose={onClose} title={prompt.title}>
       <div className="space-y-5">
         <div className="border-y border-hair py-4">
-          <div className="mb-4 flex gap-3">
-            <AgentIdentity compact mood={aiStatus === "running" ? "thinking" : "ready"} />
-            <div className="min-w-0 flex-1 border-l border-gold/40 pl-4">
-              <p className="text-[14px] font-medium leading-relaxed text-ink">
-                제가 먼저 정리해볼게요.
-              </p>
-              <p className="mt-1 text-[13px] leading-relaxed text-soft">
-                지금 앱에 있는 내용만 보고 초안을 만들고, 반영 전에는 꼭 한 번 보여드려요.
-              </p>
-            </div>
+          <div className="mb-4">
+            <div className="eyebrow-gold mb-1.5">초안 만들기</div>
+            <p className="text-[14px] font-medium leading-relaxed text-ink break-keep">
+              지금 화면에서 바로 쓸 다음 행동만 뽑습니다.
+            </p>
+            <p className="mt-1 text-[13px] leading-relaxed text-soft break-keep">
+              적용 전에는 한 번 더 확인할 수 있어요.
+            </p>
           </div>
           {directAiReady ? (
             <>
@@ -136,7 +133,7 @@ export default function ChatbotBridgeModal({ open, onClose, prompt, onApply }: P
                 onClick={runDirect}
                 disabled={aiStatus === "running"}
               >
-                {aiStatus === "running" ? "Dearie가 정리하는 중…" : actionLabel}
+                {aiStatus === "running" ? "초안 만드는 중…" : actionLabel}
               </button>
               <p className="text-[12px] text-soft text-center mt-3 leading-relaxed">
                 {aiConfig.provider === "managed" && !managedSignedIn

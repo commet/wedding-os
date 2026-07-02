@@ -201,7 +201,7 @@ export default function Video({ data, update }: Props) {
     setConfirmDialog({
       title: "사진을 챕터에 나눠둘까요?",
       body: "아직 챕터가 없는 사진만 템플릿 권장 수에 맞춰 순서대로 넣습니다. 이미 배정한 사진은 건드리지 않아요.",
-      confirmLabel: "Dearie가 나누기",
+      confirmLabel: "자동으로 나누기",
       onConfirm: () => {
         const validActIds = new Set(config.acts.map((a) => a.id));
         const newPhotos = config.photos.map((p) => ({ ...p }));
@@ -273,7 +273,7 @@ export default function Video({ data, update }: Props) {
       title: "자동 녹화를 시작할까요?",
       body:
         "곧 화면 공유 창이 열립니다.\n\n" +
-        "현재 탭을 고르고, 소리가 필요하면 탭 오디오 공유를 켜주세요. Dearie가 처음부터 재생하고 끝나면 WebM 파일을 내려받습니다.\n\n" +
+        "현재 탭을 고르고, 소리가 필요하면 탭 오디오 공유를 켜주세요. 처음부터 재생하고 끝나면 WebM 파일을 내려받습니다.\n\n" +
         `예상 길이는 약 ${durationSec}초예요.`,
       confirmLabel: "녹화 시작",
       onConfirm: startAutoRecord,
@@ -758,14 +758,14 @@ export default function Video({ data, update }: Props) {
       <details className="py-4 border-b border-hair">
         <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4">
           <span>
-            <span className="eyebrow-gold block mb-1">Dearie에게 영상 고치기</span>
+            <span className="eyebrow-gold block mb-1">영상 설정 고치기</span>
             <span className="text-[12px] text-soft">사진 길이·필터·순서를 말로 부탁하기</span>
           </span>
           <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
         </summary>
         <div className="mt-4 space-y-4">
           <p className="text-[13px] text-soft leading-relaxed">
-            원하는 변화만 한 문장으로 적어주세요. Dearie가 영상 설정을 고친 뒤,
+            원하는 변화만 한 문장으로 적어주세요. 영상 설정을 바꾼 뒤,
             사진이 크게 줄거나 챕터가 사라질 때는 반영 전에 다시 물어봅니다.
           </p>
           <textarea
@@ -775,7 +775,7 @@ export default function Video({ data, update }: Props) {
             onChange={(e) => setAiRequest(e.target.value)}
           />
           <button onClick={askAI} className="btn-primary w-full text-[13px]" disabled={!aiRequest.trim()}>
-            Dearie에게 고쳐달라고 하기
+            설정 고치기
           </button>
         </div>
       </details>

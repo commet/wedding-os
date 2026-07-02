@@ -15,7 +15,7 @@ declare const process: { env: Record<string, string | undefined> };
 
 async function readOwnerHash(code: string, token: string): Promise<string | null> {
   try {
-    const res = await get(`invite/${code}/meta.json`, { access: "private", token });
+    const res = await get(`invite/${code}/meta.json`, { access: "private", useCache: false, token });
     if (!res || res.statusCode !== 200) return null;
     const meta = (await new Response(res.stream).json()) as { ownerTokenHash?: string };
     return meta.ownerTokenHash ?? null;

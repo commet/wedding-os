@@ -106,17 +106,17 @@
     @apply w-full border border-hair bg-cream/50 px-4 py-3.5 text-ink outline-none focus:border-ink focus:bg-paper transition rounded-none;
   }
   .label {
-    @apply block text-[11.5px] tracking-eyebrow uppercase text-soft mb-2 font-medium;
+    @apply block text-[12px] tracking-eyebrow uppercase text-soft mb-2 font-medium;
   }
 
   /* ───── 타이포그래피 ─────
      한글 제목은 break-keep 으로 어절 단위 줄바꿈(단어 중간 안 끊김).
-     위계: display(42) / display-sm(28) / h-section(24) / section-title(14) / body(15) / meta(12) / eyebrow(11.5) */
+     위계: display(42) / display-sm(28) / h-section(24) / section-title(14.5) / body(15) / meta(12) / eyebrow(12) */
   .eyebrow {
-    @apply text-[11.5px] tracking-eyebrow uppercase text-soft font-semibold break-keep;
+    @apply text-[12px] tracking-eyebrow uppercase text-soft font-semibold break-keep;
   }
   .eyebrow-gold {
-    @apply text-[11.5px] tracking-eyebrow uppercase text-gold font-semibold break-keep;
+    @apply text-[12px] tracking-eyebrow uppercase text-gold font-semibold break-keep;
   }
   .display {
     @apply font-serif text-[2.625rem] leading-[1.1] tracking-tight text-ink break-keep;
@@ -135,7 +135,7 @@
     text-wrap: balance;
   }
   .h-meta {
-    @apply text-[11.5px] tracking-eyebrow uppercase text-soft font-medium;
+    @apply text-[12px] tracking-eyebrow uppercase text-soft font-medium;
   }
 
   /* ───── 구조 ───── */
@@ -150,7 +150,7 @@
      섹션/그룹 제목 — 본문보다 크고 진하게. eyebrow(11px)를 제목으로 쓰면
      위계가 역전돼 '체계 없는' 느낌이 나므로, 화면 섹션 제목은 이걸 쓴다. */
   .section-title {
-    @apply text-[14px] font-semibold text-ink leading-tight break-keep;
+    @apply text-[14.5px] font-semibold text-ink leading-tight break-keep;
   }
   /* 탭/필터 — 비활성은 명확히 흐리게(soft), 활성은 ink+밑줄. 어포던스 일관화. */
   .seg {
@@ -212,11 +212,11 @@
 
   /* 칩 — 필요한 경우만 */
   .chip {
-    @apply inline-flex items-center px-2.5 py-1 text-[11px] tracking-wide border border-hair text-soft;
+    @apply inline-flex items-center px-2.5 py-1 text-[11.5px] tracking-wide border border-hair text-soft;
     border-radius: 0;
   }
   .chip-active {
-    @apply inline-flex items-center px-2.5 py-1 text-[11px] tracking-wide bg-ink text-paper;
+    @apply inline-flex items-center px-2.5 py-1 text-[11.5px] tracking-wide bg-ink text-paper;
     border-radius: 0;
   }
 }
@@ -301,7 +301,7 @@
   gap: 1rem;
   border-top: 1px solid theme('colors.ink');
   border-bottom: 1px solid theme('colors.hair');
-  padding: 1.4rem 0 1.55rem;
+  padding: 1.05rem 0 1.15rem;
 }
 .agent-briefing-number {
   padding-top: 0.1rem;
