@@ -32,7 +32,7 @@ test.describe("critical product flows", () => {
     await page.getByRole("button", { name: "준비 화면 열기 →" }).click();
 
     await expect(page).toHaveURL(/\/dashboard$/);
-    await expect(page.locator("#today-focus").getByText("오늘 같이 볼 결정")).toBeVisible();
+    await expect(page.locator("#today-focus").getByText("오늘 먼저")).toBeVisible();
     await expect(page.getByRole("heading", { name: "예식 날짜 기준 정하기" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "예상 하객은 어느 정도로 잡을까요?" })).toBeVisible();
     await page.getByRole("button", { name: /200명 안팎/ }).click();
@@ -132,7 +132,7 @@ test.describe("critical product flows", () => {
     );
 
     await page.goto("/venues?starter=1");
-    await expect(page.getByText("Dearie 후보 추리기")).toBeVisible();
+    await expect(page.getByText("후보 좁히기")).toBeVisible();
     await expect(page.getByRole("heading", { name: "가장 먼저 볼 지역은 어디에 가까울까요?" })).toBeVisible();
     await page.getByRole("button", { name: /강남·청담권/ }).click();
     await page.getByRole("button", { name: "선택한 조건으로 다음 질문 →" }).click();
@@ -141,7 +141,7 @@ test.describe("critical product flows", () => {
     await page.getByRole("button", { name: "선택한 조건으로 다음 질문 →" }).click();
     await page.getByRole("button", { name: /식대·총액/ }).click();
     await page.getByRole("button", { name: "선택한 조건으로 다음 질문 →" }).click();
-    await expect(page.getByText("Dearie 판단 완료")).toBeVisible();
+    await expect(page.getByText("후보 정리 완료")).toBeVisible();
     await page.getByRole("button", { name: /후보 \d+곳으로 내 후보 정리 →/ }).click();
     await expect.poll(() => readStoredData(page).then((stored) => stored.venues?.length ?? 0)).toBeGreaterThan(
       seeded.venues?.length ?? 0,
@@ -178,7 +178,7 @@ test.describe("critical product flows", () => {
     expect(stored.ai?.dialogue?.some((item) => item.id === "rings-wear" && item.answer === "매일 편하게")).toBe(true);
 
     await page.goto("/dashboard");
-    await expect(page.getByRole("heading", { name: "어디부터 볼까요?" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "필요한 화면으로 바로 가기" })).toBeVisible();
     await expect(page.getByText("스냅 기준 답하기").first()).toBeVisible();
     await expect(page.getByText("반지 취향 이어 고르기").first()).toBeVisible();
   });
@@ -521,7 +521,7 @@ test.describe("critical product flows", () => {
     const secondTab = await page.context().newPage();
     await secondTab.goto("/dashboard");
     await expect(secondTab.getByText(
-      `${seeded.invitation.groomName} · ${seeded.invitation.brideName}`,
+      `${seeded.invitation.groomName} · ${seeded.invitation.brideName}의 준비판`,
       { exact: true },
     )).toBeVisible();
 

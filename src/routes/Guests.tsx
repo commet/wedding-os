@@ -323,7 +323,7 @@ export default function Guests({ data, update }: Props) {
   }
 
   return (
-    <div className="page pt-8 pb-10 space-y-8">
+    <div className="page pt-6 pb-10 space-y-6">
       <div>
         <div className="eyebrow-gold mb-2">초대와 참석</div>
         <h1 className="h-page">하객 명단</h1>

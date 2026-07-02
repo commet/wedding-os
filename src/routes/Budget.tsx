@@ -169,7 +169,7 @@ export default function Budget({ data, update }: Props) {
   }
 
   return (
-    <div className="page pt-8 pb-10 space-y-8">
+    <div className="page pt-6 pb-10 space-y-6">
       <div>
         <div className="eyebrow-gold mb-2">예산과 지출</div>
         <h1 className="h-page">{koBreak("비용 관리")}</h1>

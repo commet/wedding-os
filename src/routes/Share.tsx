@@ -124,7 +124,7 @@ export default function Share({ data, update }: Props) {
     : "아직 하객용 링크가 없어요. 먼저 청첩장 발행 화면을 열고, 그 다음 편집 링크와 백업을 챙기는 순서가 좋아요.";
 
   return (
-    <div className="page pt-8 pb-10 space-y-9">
+    <div className="page pt-6 pb-10 space-y-6">
       <div>
         <div className="eyebrow-gold mb-2">링크와 파일</div>
         <h1 className="h-page">{koBreak("공유 센터")}</h1>

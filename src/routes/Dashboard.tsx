@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { recalcDueDates } from "../data/checklistTemplate";
 import { daysUntilISODate } from "../lib/date";
 import ChatbotBridgeModal from "../components/ChatbotBridgeModal";
-import { DecisionLoopActions } from "../components/DecisionLoopPanel";
 import { type BridgePrompt, weddingPlanStarterPrompt } from "../lib/chatbotBridge";
 import { AGENT_PRIORITIES, type AgentPriority } from "../lib/agentProfile";
 import { applyAgentAnswer, nextAgentQuestion, type AgentLoopQuestion } from "../lib/agentLoop";
@@ -336,14 +335,13 @@ export default function Dashboard({ data, update }: Props) {
         </section>
       ) : (
         <>
-          <section id="today-focus" className="page pt-5 pb-3 scroll-mt-20">
+          <section id="today-focus" className="page pt-5 pb-4 scroll-mt-20">
             <MasterPlannerPanel
               coupleDisplay={coupleDisplay}
               dday={dday}
               phaseLabel={phase.label}
               briefing={briefing}
               primaryFocus={primaryFocus}
-              primaryDecision={decisions.primary}
               data={data}
               alertItems={alertItems}
               aiMessage={aiMessage}
@@ -356,34 +354,33 @@ export default function Dashboard({ data, update }: Props) {
             />
           </section>
 
-          <section className="page py-4">
-            <div className="mb-4 flex items-end justify-between gap-4">
+          <section className="page py-3">
+            <div className="mb-3 flex items-end justify-between gap-4">
               <div>
-                <div className="eyebrow-gold mb-1">바로가기</div>
-                <h2 className="text-[17px] font-semibold leading-tight text-ink break-keep">{koBreak("어디부터 볼까요?")}</h2>
+                <div className="home-kicker">준비 도구</div>
+                <h2 className="section-title">{koBreak("필요한 화면으로 바로 가기")}</h2>
               </div>
-              <span className="text-right text-[11px] leading-relaxed text-soft">
-                진행 중 {statusReport.counts.active + statusReport.counts.attention}<br />
-                완료 {statusReport.counts.done}
+              <span className="text-right text-[11.5px] leading-relaxed text-soft">
+                진행 {statusReport.counts.active + statusReport.counts.attention} · 완료 {statusReport.counts.done}
               </span>
             </div>
             <AppLauncher groups={dashboardGroups} />
             {(agentQuestion || secondaryFocusItems.length > 0) && (
-              <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+              <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
                 {agentQuestion && <MasterQuestionCard question={agentQuestion} onAnswer={answerAgentQuestion} />}
                 {secondaryFocusItems.length > 0 && <FocusQueue items={secondaryFocusItems} />}
               </div>
             )}
           </section>
 
-          <section className="page py-5">
+          <section className="page py-4">
             <details>
-              <summary className="panel-muted flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 px-4 py-3">
+              <summary className="quiet-disclosure">
                 <span>
-                  <span className="eyebrow-gold block">전체 준비 흐름</span>
-                  <span className="mt-1 block text-[13px] text-soft">각 준비에서 남은 일을 한 번에 봅니다.</span>
+                  <span className="section-title block">전체 준비 흐름</span>
+                  <span className="mt-1 block text-[12.5px] text-soft">진행률과 남은 일은 필요할 때 펼쳐 봅니다.</span>
                 </span>
-                <span className="text-[12px] text-soft underline underline-offset-4">보기</span>
+                <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
               </summary>
               <div className="pt-4">
                 <StatusBoard allSections={readiness} />
@@ -416,7 +413,6 @@ function MasterPlannerPanel({
   phaseLabel,
   briefing,
   primaryFocus,
-  primaryDecision,
   data,
   alertItems,
   aiMessage,
@@ -432,7 +428,6 @@ function MasterPlannerPanel({
   phaseLabel: string;
   briefing: string;
   primaryFocus: FocusItem;
-  primaryDecision?: DecisionItem;
   data: WeddingData;
   alertItems: { to: string; label: string }[];
   aiMessage: string;
@@ -451,32 +446,34 @@ function MasterPlannerPanel({
   const friendlyPhaseLabel = phaseLabel === "디테일" ? "세부 준비" : phaseLabel;
 
   return (
-    <div className="decision-panel px-5 py-4 md:px-6 md:py-6">
-      <div className="grid gap-3.5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.72fr)] lg:gap-6">
+    <div className="home-hero">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.54fr)] lg:items-start">
         <div className="min-w-0">
-          <div className="mb-2 flex items-baseline justify-between gap-3">
-            <div className="eyebrow-gold">오늘 같이 볼 결정</div>
-            <div className="truncate text-right text-[12px] text-soft">{coupleDisplay}</div>
+          <div className="mb-4 flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <div className="home-kicker">오늘 먼저</div>
+              <div className="mt-1 truncate text-[13px] font-medium text-soft">{coupleDisplay}의 준비판</div>
+            </div>
+            <div className="text-right">
+              <div className="home-dday">{ddayLabel}</div>
+              <div className="mt-1 text-[11.5px] font-medium text-soft">{friendlyPhaseLabel}</div>
+            </div>
           </div>
 
-          <div className="mb-2 flex flex-wrap items-center gap-1.5">
-            <span className="chip border-gold/30 bg-gold/5 text-gold">{friendlyPhaseLabel}</span>
-            <span className="chip bg-vellum tabular-nums">{ddayLabel}</span>
-          </div>
-          <h1 className="font-serif text-[21px] leading-[1.24] text-ink break-keep md:text-[30px]">
+          <h1 className="home-title">
             {koBreak(primaryFocus.title)}
           </h1>
 
-          <p className="mt-2 text-[13px] leading-[1.58] text-soft break-keep md:max-w-[34rem] md:text-[14px]">
+          <p className="mt-3 max-w-[40rem] text-[14px] leading-[1.65] text-soft break-keep md:text-[15px]">
             {briefing}
           </p>
 
           <DecisionFacts item={primaryFocus} />
         </div>
 
-        <div className="decision-sidecar lg:self-start">
+        <div className="home-actions lg:self-start">
           {aiMessage && (
-            <p className="mb-2 border-l border-gold pl-3 text-[12.5px] leading-relaxed text-soft">
+            <p className="mb-3 border-l border-gold pl-3 text-[12.5px] leading-relaxed text-soft">
               {aiMessage}
             </p>
           )}
@@ -487,7 +484,7 @@ function MasterPlannerPanel({
           ) : (
             <>
               <div className="mb-2 flex items-baseline justify-between gap-3">
-                <span className="text-[12px] font-semibold text-gold">다음 행동</span>
+                <span className="text-[12px] font-semibold text-ink">바로 이어가기</span>
                 <button type="button" onClick={onChoosePriority} className="min-h-9 text-[12px] text-soft underline underline-offset-4 hover:text-ink">
                   다른 일 보기
                 </button>
@@ -497,10 +494,10 @@ function MasterPlannerPanel({
                 className="focus-primary-action"
               >
                 <span className="min-w-0">
-                  <span className="block text-[11px] font-semibold text-paper/70">{primaryFocus.tag}</span>
-                  <span className="mt-0.5 block truncate text-[16px] font-semibold leading-snug">{primaryFocus.actionLabel ?? "이 결정부터 보기"}</span>
+                  <span className="block text-[11.5px] font-semibold text-ink/55">{primaryFocus.tag}</span>
+                  <span className="mt-0.5 block text-[15px] font-semibold leading-snug">{primaryFocus.actionLabel ?? "이 결정부터 보기"}</span>
                 </span>
-                <span aria-hidden="true" className="text-paper/70">→</span>
+                <span aria-hidden="true" className="text-gold">→</span>
               </Link>
 
               <button
@@ -509,18 +506,12 @@ function MasterPlannerPanel({
                 onClick={onTalk}
                 className="focus-secondary-action mt-2 text-[13px]"
               >
-                <span>Dearie에게 초안 부탁하기</span>
+                <span>상황 정리 부탁하기</span>
                 <span aria-hidden="true" className="text-gold">→</span>
               </button>
 
-              {primaryDecision && (
-                <div className="dashboard-loop-actions mt-2 hidden sm:block">
-                  <DecisionLoopActions data={data} item={primaryDecision} compact includeOpenLink={false} />
-                </div>
-              )}
-
               {alertItems.length > 0 && (
-                <div className="mt-2 divide-y divide-line overflow-hidden rounded-[8px] border border-line bg-vellum/80">
+                <div className="mt-3 divide-y divide-line overflow-hidden rounded-[8px] border border-line bg-vellum/80">
                   {alertItems.map((item) => (
                     <Link key={`${item.to}-${item.label}`} to={item.to} className="row-tap flex min-h-10 items-center justify-between gap-3 px-3 py-1.5">
                       <span className="text-[12.5px] font-medium text-ink break-keep">{item.label}</span>
@@ -559,14 +550,15 @@ function decisionToFocusItem(item: DecisionItem): FocusItem {
 }
 
 function DecisionFacts({ item }: { item: FocusItem }) {
-  const prepared = (item.preparedFacts ?? []).slice(0, 3);
+  const useful = (value: string) => !/(아직|없어요|적어요|미정)$/.test(value.trim());
+  const prepared = (item.preparedFacts ?? []).filter(useful).slice(0, 3);
   const missing = (item.missingInputs ?? []).slice(0, 3);
   if (prepared.length === 0 && missing.length === 0) return null;
 
   return (
-    <div className="mt-4 space-y-2 border-t border-line pt-3">
-      <DecisionFactLine label="준비됨" values={prepared} />
-      <DecisionFactLine label="확인할 것" values={missing} accent />
+    <div className="mt-4 hidden gap-2 border-t border-line pt-3 sm:grid sm:grid-cols-2">
+      <DecisionFactLine label="이미 있는 정보" values={prepared} />
+      <DecisionFactLine label="확인하면 좋은 것" values={missing} accent />
     </div>
   );
 }
@@ -574,9 +566,9 @@ function DecisionFacts({ item }: { item: FocusItem }) {
 function DecisionFactLine({ label, values, accent = false }: { label: string; values: string[]; accent?: boolean }) {
   if (values.length === 0) return null;
   return (
-    <div className="grid grid-cols-[4.25rem_minmax(0,1fr)] items-start gap-2">
-      <div className={`pt-0.5 text-[11px] font-semibold ${accent ? "text-gold" : "text-soft"}`}>{label}</div>
-      <p className="min-w-0 text-[12px] leading-relaxed text-ink/82 break-keep">
+    <div className="min-w-0 rounded-[8px] border border-line bg-vellum/70 px-3 py-2.5">
+      <div className={`text-[11px] font-semibold ${accent ? "text-gold" : "text-soft"}`}>{label}</div>
+      <p className="mt-1 min-w-0 text-[12px] leading-relaxed text-ink/82 break-keep">
         {values.join(" · ")}
       </p>
     </div>
@@ -681,12 +673,12 @@ function FocusQueue({ items }: { items: FocusItem[] }) {
     <div className="panel-muted">
       <div className="px-3 py-3">
       <div className="mb-2 flex items-baseline justify-between gap-3">
-        <span className="eyebrow-gold">다음에 같이 볼 결정</span>
+        <span className="section-title">다음에 볼 일</span>
         <span className="text-[11px] text-soft">{items.length}개</span>
       </div>
-      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+      <div className="grid gap-1.5 sm:grid-cols-3">
         {items.map((item) => (
-          <Link key={`${item.to}-${item.title}`} to={item.to} className="app-tile row-tap min-w-0 px-2.5 py-2">
+          <Link key={`${item.to}-${item.title}`} to={item.to} className="home-mini-link row-tap min-w-0">
             <span className="block truncate text-[11px] text-soft">{item.tag}</span>
             <span className="mt-0.5 block truncate text-[12.5px] font-semibold text-ink">{item.title}</span>
           </Link>
@@ -699,17 +691,17 @@ function FocusQueue({ items }: { items: FocusItem[] }) {
 
 function AppLauncher({ groups }: { groups: DashboardGroup[] }) {
   return (
-    <div className="space-y-4">
+    <div className="home-workspaces">
       {groups.map((group) => (
-        <section key={group.key} className="dashboard-group">
-          <div className="mb-2 flex items-end justify-between gap-3">
-            <div>
-              <h3 className="section-title">{group.title}</h3>
-              <p className="mt-0.5 text-[12px] leading-relaxed text-soft">{group.helper}</p>
+        <section key={group.key} className="home-workspace">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="text-[13.5px] font-semibold leading-tight text-ink">{group.title}</h3>
+              <p className="mt-1 text-[12px] leading-relaxed text-soft">{group.helper}</p>
             </div>
-            <span className="eyebrow tabular-nums">{group.apps.length}개</span>
+            <span className="shrink-0 text-[11px] text-soft tabular-nums">{group.apps.length}개</span>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+          <div className="mt-3 grid gap-1.5 sm:grid-cols-2">
             {group.apps.map((app) => <AppTile key={app.key} app={app} />)}
           </div>
         </section>
@@ -728,7 +720,7 @@ function AppTile({ app }: { app: DashboardApp }) {
   return (
     <Link
       to={app.to}
-      className="app-tile row-tap grid min-h-[74px] grid-cols-[1.75rem_minmax(0,1fr)] gap-2.5 px-3 py-3"
+      className="home-app-link row-tap"
       aria-label={`${app.label}: ${PLANNING_STATE_LABEL[app.state]}, ${app.percent}%`}
     >
       <span className="flex h-7 w-7 items-center justify-center rounded-[7px] border border-line bg-shell text-ink">

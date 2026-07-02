@@ -237,6 +237,69 @@
     box-shadow: 0 18px 40px rgba(51, 43, 49, 0.075);
   }
 
+  .home-hero {
+    @apply border border-line bg-vellum px-5 py-5 md:px-6 md:py-6;
+    border-radius: 8px;
+    background:
+      linear-gradient(180deg, rgba(255, 253, 247, 0.98), rgba(249, 245, 237, 0.92));
+    box-shadow: 0 14px 36px rgba(51, 43, 49, 0.055);
+  }
+
+  .home-kicker {
+    @apply text-[12px] font-semibold leading-tight text-gold;
+  }
+
+  .home-title {
+    @apply font-serif text-[22px] leading-[1.3] text-ink break-keep md:text-[31px];
+    letter-spacing: 0;
+    text-wrap: balance;
+  }
+
+  .home-dday {
+    @apply font-serif text-[22px] leading-none text-ink tabular-nums md:text-[30px];
+  }
+
+  .home-actions {
+    @apply min-w-0 border-t border-line pt-4;
+  }
+
+  @media (min-width: 1024px) {
+    .home-actions {
+      @apply border-t-0 border-l border-line pl-5 pt-0;
+    }
+  }
+
+  .home-workspaces {
+    @apply grid gap-3 lg:grid-cols-2;
+  }
+
+  .home-workspace {
+    @apply border border-line bg-vellum px-4 py-4;
+    border-radius: 8px;
+    background:
+      linear-gradient(180deg, rgba(255, 253, 247, 0.94), rgba(246, 240, 229, 0.72));
+    box-shadow: inset 0 1px 0 rgba(255, 253, 248, 0.78);
+  }
+
+  .home-app-link {
+    @apply grid min-h-[58px] grid-cols-[1.75rem_minmax(0,1fr)] items-center gap-2.5 border border-line bg-vellum/70 px-3 py-2.5 transition-[border-color,background,transform] duration-150;
+    border-radius: 8px;
+  }
+
+  .home-app-link:hover {
+    border-color: color-mix(in srgb, theme('colors.gold') 42%, theme('colors.line'));
+    background: theme('colors.vellum');
+  }
+
+  .home-mini-link {
+    @apply block min-h-[52px] border border-line bg-vellum/70 px-3 py-2.5;
+    border-radius: 8px;
+  }
+
+  .quiet-disclosure {
+    @apply flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 border-y border-line py-3;
+  }
+
   .decision-panel::before {
     content: "";
     position: absolute;
@@ -286,8 +349,10 @@
     box-shadow: 0 12px 30px rgba(51, 43, 49, 0.055);
   }
   .decision-loop-compact {
-    @apply px-3.5 py-3.5;
-    box-shadow: inset 0 1px 0 rgba(255, 253, 248, 0.75);
+    @apply px-3.5 py-3;
+    background:
+      linear-gradient(180deg, rgba(255, 253, 247, 0.9), rgba(248, 244, 236, 0.62));
+    box-shadow: inset 0 1px 0 rgba(255, 253, 248, 0.78);
   }
   .decision-risk {
     @apply shrink-0 border px-2 py-1 text-[11px] font-semibold leading-none;
@@ -402,17 +467,29 @@
     @apply border border-line bg-vellum px-4 py-4 text-left;
     border-radius: 8px;
     background:
-      linear-gradient(180deg, rgba(255, 253, 247, 0.94), rgba(248, 244, 236, 0.82));
-    box-shadow: 0 12px 30px rgba(51, 43, 49, 0.055);
+      linear-gradient(180deg, rgba(255, 253, 247, 0.96), rgba(248, 244, 236, 0.74));
+    box-shadow: inset 0 1px 0 rgba(255, 253, 248, 0.76), 0 10px 24px rgba(51, 43, 49, 0.038);
+  }
+
+  .process-panel {
+    background:
+      linear-gradient(180deg, rgba(255, 253, 247, 0.98), rgba(249, 245, 237, 0.86));
   }
 
   .focus-primary-action {
-    @apply grid min-h-[58px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 text-paper transition-[opacity,transform] duration-150 active:scale-[0.99];
+    @apply grid min-h-[58px] grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition-[border-color,background,transform] duration-150 active:scale-[0.99];
     border-radius: 8px;
     background:
-      linear-gradient(135deg, theme('colors.ink') 0%, theme('colors.plum') 100%);
-    color: theme('colors.paper');
-    box-shadow: 0 12px 26px rgba(51, 43, 49, 0.14);
+      linear-gradient(180deg, rgba(255, 253, 247, 0.94), rgba(244, 238, 228, 0.78));
+    color: theme('colors.ink');
+    border: 1px solid color-mix(in srgb, theme('colors.gold') 56%, theme('colors.line'));
+    border-left-width: 4px;
+    box-shadow: inset 0 1px 0 rgba(255, 253, 248, 0.78), 0 8px 20px rgba(111, 86, 50, 0.08);
+  }
+
+  .focus-primary-action:hover {
+    background: theme('colors.vellum');
+    border-color: theme('colors.gold');
   }
 
   .focus-secondary-action {

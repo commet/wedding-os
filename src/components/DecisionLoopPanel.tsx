@@ -26,6 +26,30 @@ export default function DecisionLoopPanel({ data, item, sectionId, heading, comp
 
   const packet = buildDecisionPacket(decision, data, browserBaseUrl());
 
+  if (compact) {
+    return (
+      <section className={`decision-loop decision-loop-compact ${className}`}>
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="home-kicker mb-1">{heading ?? "같이 볼 결정"}</div>
+            <h2 className="text-[14.5px] font-semibold leading-snug text-ink break-keep">
+              {koBreak(decision.title)}
+            </h2>
+            <p className="mt-1 text-[12px] leading-relaxed text-soft break-keep">
+              {decision.whyNow}
+            </p>
+          </div>
+          {decision.risk && (
+            <span className={`decision-risk decision-risk-${decision.risk.level}`}>
+              {decision.risk.label}
+            </span>
+          )}
+        </div>
+        <DecisionLoopActions data={data} item={decision} compact includeOpenLink={includeOpenLink} />
+      </section>
+    );
+  }
+
   return (
     <section className={`decision-loop ${compact ? "decision-loop-compact" : ""} ${className}`}>
       <div className="flex items-start justify-between gap-4">

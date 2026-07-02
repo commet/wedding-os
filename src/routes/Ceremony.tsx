@@ -167,7 +167,7 @@ export default function Ceremony({ data, update }: Props) {
   }
 
   return (
-    <div className="page pt-8 pb-10">
+    <div className="page pt-6 pb-10">
       <div className="flex items-end justify-between gap-4">
         <div>
           <div className="eyebrow-gold mb-2">예식 진행</div>

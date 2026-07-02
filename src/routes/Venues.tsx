@@ -13,7 +13,6 @@ import MapEmbed from "../components/MapEmbed";
 import Modal from "../components/Modal";
 import DearieConfirmModal from "../components/DearieConfirmModal";
 import FreshnessBadge from "../components/FreshnessBadge";
-import { AgentIdentity } from "../components/AgentIdentity";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import { SectionDecisionLoop } from "../components/DecisionLoopPanel";
 import ResearchInputPanel, { type ResearchSection } from "../components/ResearchInputPanel";
@@ -280,7 +279,7 @@ export default function Venues({ data, update }: Props) {
   };
 
   return (
-    <div className="page pt-8 pb-10 space-y-8">
+    <div className="page pt-6 pb-10 space-y-5 md:space-y-6">
       <div>
         <div className="eyebrow-gold mb-2">장소 찾기</div>
         <h1 className="h-page">예식장</h1>
@@ -716,26 +715,23 @@ function VenueStarter({
   };
 
   return (
-    <section className="border-y border-hair py-5 space-y-5" data-testid="venue-agent-starter">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div className="flex min-w-0 gap-3">
-          <AgentIdentity compact mood={complete ? "ready" : "thinking"} />
-          <div className="min-w-0">
-            <div className="eyebrow-gold mb-2">Dearie 후보 추리기</div>
-            <h2 className="font-serif text-[21px] leading-snug text-ink break-keep">
-              {complete ? "제가 고른 후보로 준비판을 정리할게요" : "조건을 여러 개 받아서 제가 먼저 추릴게요"}
-            </h2>
-            <p className="mt-2 max-w-2xl text-[13px] leading-relaxed text-soft break-keep">
-              여러 개를 골라도 괜찮아요. 답을 고르면 후보 초안이 바로 좁혀지고, 마지막에 마음에 드는 후보만 내 목록에 남길 수 있습니다.
-            </p>
-          </div>
+    <section className="panel space-y-4 px-4 py-4 md:px-5 md:py-5" data-testid="venue-agent-starter">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div className="min-w-0">
+          <div className="home-kicker mb-1">후보 좁히기</div>
+          <h2 className="text-[18px] font-semibold leading-snug text-ink break-keep md:text-[19px]">
+            {complete ? "이 후보들로 상담 순서를 시작할 수 있어요" : "먼저 볼 조건을 골라주세요"}
+          </h2>
+          <p className="mt-1.5 max-w-2xl text-[12.5px] leading-relaxed text-soft break-keep">
+            답을 고르면 후보 초안이 바로 줄어듭니다. 여러 개를 골라도 괜찮아요.
+          </p>
         </div>
         <button onClick={onClose} className="min-h-10 flex-shrink-0 self-end text-[12px] text-soft underline underline-offset-4 hover:text-ink md:self-start">
           닫기
         </button>
       </div>
 
-      <div className="grid grid-cols-2 border-y border-hair md:grid-cols-4">
+      <div className="grid grid-cols-4 gap-1.5">
         {VENUE_AGENT_QUESTIONS.map((question, index) => {
           const answered = isVenueAgentQuestionAnswered(question, answers);
           const current = questionIndex === index;
@@ -746,16 +742,16 @@ function VenueStarter({
               type="button"
               onClick={() => goToQuestion(index)}
               disabled={!reachable}
-              className={`min-h-[74px] border-r border-b border-hair px-3 py-3 text-left last:border-r-0 md:border-b-0 ${
-                answered ? "text-ink hover:bg-cream/45" : current ? "text-gold" : "text-soft"
+              className={`min-h-[52px] rounded-[8px] border px-2.5 py-2 text-left transition ${
+                answered ? "border-gold/45 bg-gold/5 text-ink hover:bg-cream/45" : current ? "border-gold text-gold" : "border-line text-soft"
               }`}
               aria-label={answered ? `${VENUE_AGENT_STEP_LABELS[question.id]} 답변 수정` : VENUE_AGENT_STEP_LABELS[question.id]}
             >
-              <span className="block text-[10.5px] font-semibold tracking-eyebrow text-soft">
+              <span className="block text-[10px] font-semibold text-soft">
                 {String(index + 1).padStart(2, "0")}
               </span>
-              <span className="mt-1 block text-[13px] font-semibold">{VENUE_AGENT_STEP_LABELS[question.id]}</span>
-              <span className="mt-1 block truncate text-[11px] text-soft">
+              <span className="mt-0.5 block text-[12px] font-semibold">{VENUE_AGENT_STEP_LABELS[question.id]}</span>
+              <span className="mt-0.5 hidden truncate text-[10.5px] text-soft sm:block">
                 {answered ? selectedVenueAgentSummary(question, answers) : current ? "답 기다리는 중" : "대기"}
               </span>
             </button>
@@ -764,16 +760,6 @@ function VenueStarter({
       </div>
 
       <div className="space-y-4">
-        {answeredCount > 0 && (
-          <div ref={feedbackRef} className="scroll-mt-20">
-            <VenueAgentImpactPanel
-              answeredCount={answeredCount}
-              currentQuestion={currentQuestion}
-              items={impact}
-              currentQuestionAnswered={currentQuestion ? isVenueAgentQuestionAnswered(currentQuestion, answers) : false}
-            />
-          </div>
-        )}
         {currentQuestion?.multiple && isVenueAgentQuestionAnswered(currentQuestion, answers) && (
           <div className="flex md:justify-end">
             <button
@@ -787,11 +773,11 @@ function VenueStarter({
         )}
 
         {currentQuestion ? (
-          <div className="border-y border-hair py-4">
-            <div className="eyebrow-gold mb-2">{currentQuestion.eyebrow}</div>
-            <h3 className="font-serif text-[20px] leading-snug text-ink break-keep">{currentQuestion.title}</h3>
-            <p className="mt-2 text-[13px] leading-relaxed text-soft break-keep">{currentQuestion.helper}</p>
-            <div className="mt-4 grid gap-2 md:grid-cols-2">
+          <div className="panel-muted px-4 py-4">
+            <div className="home-kicker mb-1">{currentQuestion.eyebrow}</div>
+            <h3 className="text-[17px] font-semibold leading-snug text-ink break-keep md:text-[18px]">{currentQuestion.title}</h3>
+            <p className="mt-1.5 text-[12.5px] leading-relaxed text-soft break-keep">{currentQuestion.helper}</p>
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
               {currentQuestion.options.map((option) => {
                 const selected = isVenueAgentOptionSelected(currentQuestion, answers, option.id);
                 return (
@@ -800,7 +786,7 @@ function VenueStarter({
                     type="button"
                     aria-pressed={selected}
                     onClick={() => answerQuestion(currentQuestion, option.id)}
-                    className={`group min-h-[70px] border px-4 py-3 text-left transition active:scale-[0.99] ${
+                    className={`group min-h-[62px] rounded-[8px] border px-3.5 py-3 text-left transition active:scale-[0.99] ${
                       selected ? "border-gold bg-gold/5 text-ink" : "border-hair hover:border-gold hover:bg-cream/45"
                     }`}
                   >
@@ -814,20 +800,31 @@ function VenueStarter({
               })}
             </div>
             {currentQuestion.multiple && (
-              <p className="mt-4 text-[12px] leading-relaxed text-soft">
-                여러 개를 골라도 괜찮아요. 고를 때마다 아래 후보 초안이 다시 정리됩니다.
+              <p className="mt-3 text-[12px] leading-relaxed text-soft">
+                고를 때마다 아래 후보 초안이 다시 정리됩니다.
               </p>
             )}
           </div>
         ) : (
-          <div className="border-y border-hair py-4">
-            <div className="eyebrow-gold mb-2">Dearie 판단 완료</div>
-            <h3 className="font-serif text-[20px] leading-snug text-ink break-keep">
+          <div className="panel-muted px-4 py-4">
+            <div className="home-kicker mb-1">후보 정리 완료</div>
+            <h3 className="text-[17px] font-semibold leading-snug text-ink break-keep md:text-[18px]">
               이 후보들로 상담 순서를 시작할 수 있어요
             </h3>
-            <p className="mt-2 text-[13px] leading-relaxed text-soft break-keep">
+            <p className="mt-1.5 text-[12.5px] leading-relaxed text-soft break-keep">
               정리하면 아래 후보만 내 목록에 남아요. 견적 기준·취소 조건·포함 항목은 공식 상담에서 다시 확인하세요.
             </p>
+          </div>
+        )}
+
+        {answeredCount > 0 && (
+          <div ref={feedbackRef} className="scroll-mt-20">
+            <VenueAgentImpactPanel
+              answeredCount={answeredCount}
+              currentQuestion={currentQuestion}
+              items={impact}
+              currentQuestionAnswered={currentQuestion ? isVenueAgentQuestionAnswered(currentQuestion, answers) : false}
+            />
           </div>
         )}
 
@@ -921,30 +918,30 @@ function VenueAgentImpactPanel({
       : `${VENUE_AGENT_STEP_LABELS[currentQuestion.id]} 기준을 보는 중`
     : "후보 정리만 남았어요";
   return (
-    <div className="border-y border-hair py-4">
+    <div className="panel-muted px-4 py-4">
       <div className="flex flex-col gap-3 md:flex-row md:items-baseline md:justify-between">
         <div>
-          <div className="eyebrow-gold mb-2">지금 정리된 조건</div>
-          <h3 className="font-serif text-[18px] leading-snug text-ink break-keep md:text-[19px]">
+          <div className="home-kicker mb-1">좁혀진 기준</div>
+          <h3 className="text-[15px] font-semibold leading-snug text-ink break-keep md:text-[16px]">
             {answeredCount === 0 ? "답을 고르면 후보가 바로 좁혀져요" : activeLabel}
           </h3>
         </div>
-        <span className="eyebrow tabular-nums">{answeredCount}/4</span>
+        <span className="text-[11.5px] text-soft tabular-nums">{answeredCount}/4</span>
       </div>
       <div className="mt-3 h-[3px] bg-cream">
         <div className="h-full bg-gold transition-all duration-500" style={{ width: `${progress}%` }} />
       </div>
-      <div className="mt-4 grid gap-2 md:grid-cols-2">
+      <div className="mt-3 grid gap-2 md:grid-cols-2">
         {latestItems.map((item, index) => (
           <div
             key={item.key}
-            className={`border px-3 py-3 ${
+            className={`rounded-[8px] border px-3 py-2.5 ${
               index === latestItems.length - 1 ? "border-gold bg-gold/10" : "border-hair bg-cream/45"
             }`}
           >
             <div className="flex items-baseline justify-between gap-3">
-              <div className={index === latestItems.length - 1 ? "eyebrow-gold" : "eyebrow"}>{item.label}</div>
-              <div className="font-serif text-[16px] leading-snug text-ink tabular-nums">{item.value}</div>
+              <div className={index === latestItems.length - 1 ? "home-kicker" : "text-[11px] font-semibold text-soft"}>{item.label}</div>
+              <div className="text-[13px] font-semibold leading-snug text-ink tabular-nums">{item.value}</div>
             </div>
             <p className={`mt-1 text-[12px] leading-relaxed break-keep ${index === latestItems.length - 1 ? "text-ink/75" : "text-soft"}`}>
               {item.detail}
@@ -965,10 +962,10 @@ function VenueCandidatePreview({
 }) {
   if (result.picks.length === 0) return null;
   return (
-    <div className="border-y border-hair py-4">
+    <div className="panel-muted px-4 py-4">
       <div className="mb-3 flex items-baseline justify-between gap-3">
         <div>
-          <div className="eyebrow mb-1">후보 초안</div>
+          <div className="home-kicker mb-1">후보 초안</div>
           <p className="text-[12px] leading-relaxed text-soft break-keep">
             {result.relaxed ? "일부 조건을 넓혀" : "답한 기준 그대로"} 먼저 볼 {result.picks.length}곳을 세웠어요.
           </p>
@@ -977,7 +974,7 @@ function VenueCandidatePreview({
       </div>
       <div className="grid gap-2 md:grid-cols-2">
         {result.picks.slice(0, 4).map((venue, index) => (
-          <div key={venue.id} className="border border-hair px-3 py-3">
+          <div key={venue.id} className="rounded-[8px] border border-hair bg-vellum/70 px-3 py-3">
             <div className="flex items-start gap-3">
               <span className="mt-0.5 w-6 flex-shrink-0 font-serif text-[15px] tabular-nums text-gold">
                 {String(index + 1).padStart(2, "0")}

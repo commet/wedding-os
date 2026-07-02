@@ -128,7 +128,7 @@ export default function AiSettings(_: Props) {
   const executionReady = provider === "bridge" || directReady;
 
   return (
-    <div className="page pt-8 pb-10 space-y-7">
+    <div className="page pt-6 pb-10 space-y-6">
       <div>
         <div className="eyebrow-gold mb-2">도움 기능</div>
         <h1 className="h-page">{koBreak("AI 연결")}</h1>

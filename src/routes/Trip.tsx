@@ -114,7 +114,7 @@ export default function Trip({ data, update }: Props) {
   };
 
   return (
-    <div className="page pt-8 pb-10 space-y-6">
+    <div className="page pt-6 pb-10 space-y-6">
       <div>
         <div className="eyebrow-gold mb-2">여행 계획</div>
         <h1 className="h-page">{koBreak("신혼여행")}</h1>

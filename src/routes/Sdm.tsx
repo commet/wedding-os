@@ -233,7 +233,7 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
   const guide = SDM_GUIDE[cat];
 
   return (
-    <div className="page pt-7 pb-10 space-y-6">
+    <div className="page pt-6 pb-10 space-y-6">
       <div className="space-y-5">
         <div>
           <div className="eyebrow-gold mb-2">{snapOnly ? "본식 촬영" : "스튜디오 · 드레스 · 메이크업"}</div>

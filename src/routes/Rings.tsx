@@ -285,7 +285,7 @@ export default function Rings({ data, update }: Props) {
   };
 
   return (
-    <div className="page pt-8 pb-10 space-y-8">
+    <div className="page pt-6 pb-10 space-y-6">
       <div>
         <div className="eyebrow-gold mb-3">반지 후보</div>
         <div className="flex items-baseline justify-between">

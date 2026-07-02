@@ -171,7 +171,7 @@ export default function Checklist({ data, update }: Props) {
   }
 
   return (
-    <div className="page pt-8 pb-6 space-y-6">
+    <div className="page pt-6 pb-6 space-y-6">
       <div>
         <div className="eyebrow-gold mb-2">준비 일정</div>
         <div className="flex items-baseline justify-between">

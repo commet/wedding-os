@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { AgentIdentity } from "./AgentIdentity";
 
 export type ProcessAgentMetric = {
   label: string;
@@ -55,17 +54,14 @@ export default function ProcessAgentPanel({
   const stageLabel = stageCopy(mood, openStepCount);
 
   return (
-    <section className="agent-panel md:px-5 md:py-5">
-      <div className="flex items-start gap-3">
-        <AgentIdentity compact mood={mood} />
-        <div className="min-w-0 flex-1">
-          <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span className="eyebrow-gold">Dearie 브리핑</span>
-            <span className="text-[11px] font-medium text-soft">{stageLabel}</span>
-          </div>
-          <h2 className="font-serif text-[20px] leading-snug text-ink break-keep md:text-[22px]">{title}</h2>
-          <TypingBrief text={brief} />
+    <section className="agent-panel process-panel md:px-5 md:py-4">
+      <div className="min-w-0">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <span className="home-kicker">이 화면에서</span>
+          <span className="text-[11.5px] font-medium text-soft">{stageLabel}</span>
         </div>
+        <h2 className="text-[17px] font-semibold leading-snug text-ink break-keep md:text-[18px]">{title}</h2>
+        <TypingBrief text={brief} />
       </div>
 
       {previewMetrics.length > 0 && (
@@ -90,9 +86,9 @@ export default function ProcessAgentPanel({
 
       {actions.length > 0 && (
         <div className="mt-4 border-t border-line pt-3">
-          <div className="mb-3 flex items-baseline justify-between gap-3">
-            <div className="eyebrow-gold">바로 할 일</div>
-            {nextAction && <span className="text-[11px] text-soft">누르면 바로 적용돼요</span>}
+          <div className="mb-2 flex items-baseline justify-between gap-3">
+            <div className="text-[12px] font-semibold text-ink">먼저 할 일</div>
+            {nextAction && <span className="text-[11.5px] text-soft">필요하면 아래에서 바꿀 수 있어요</span>}
           </div>
           {nextAction && (
             <button
@@ -100,16 +96,14 @@ export default function ProcessAgentPanel({
               aria-label={labelFor(nextAction.label)}
               onClick={nextAction.onClick}
               disabled={nextAction.disabled}
-              className={`group flex min-h-12 w-full items-center justify-between gap-4 px-4 py-3 text-left text-[14px] font-semibold transition active:scale-[0.99] disabled:opacity-40 ${
-                nextAction.tone === "warn"
-                  ? "decision-cta text-gold hover:bg-cream/50"
-                  : "btn-primary"
+              className={`group focus-primary-action w-full text-left text-[14px] font-semibold disabled:opacity-40 ${
+                nextAction.tone === "warn" ? "border-gold text-gold" : ""
               }`}
             >
               <span className="min-w-0">
                 <span className="block text-[14px] font-semibold leading-snug break-keep">{labelFor(nextAction.label)}</span>
               </span>
-              <span className={`flex-shrink-0 transition ${nextAction.tone === "warn" ? "text-gold" : "text-paper/80"}`}>→</span>
+              <span className="flex-shrink-0 text-gold transition">→</span>
             </button>
           )}
           {visibleOtherActions.length > 0 && (
@@ -120,7 +114,7 @@ export default function ProcessAgentPanel({
                   type="button"
                   onClick={action.onClick}
                   disabled={action.disabled}
-                  className="app-tile min-h-11 px-3 py-2 text-left text-[12.5px] font-medium text-ink transition hover:text-gold disabled:opacity-40"
+                  className="focus-secondary-action min-h-11 px-3 py-2 text-[12.5px] disabled:opacity-40"
                 >
                   <span className="flex items-center justify-between gap-3">
                     <span className="break-keep">{labelFor(action.label)}</span>
@@ -133,8 +127,7 @@ export default function ProcessAgentPanel({
           {tuckedOtherActions.length > 0 && (
             <details className="mt-2">
               <summary className="inline-flex min-h-9 cursor-pointer list-none items-center gap-2 text-[11.5px] font-medium text-soft underline underline-offset-4 hover:text-ink">
-                <span className="eyebrow">보조 작업 {tuckedOtherActions.length}개</span>
-                <span>보기</span>
+                <span>다른 작업 {tuckedOtherActions.length}개 보기</span>
               </summary>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 {tuckedOtherActions.map((action) => (
@@ -143,7 +136,7 @@ export default function ProcessAgentPanel({
                     type="button"
                     onClick={action.onClick}
                     disabled={action.disabled}
-                    className="app-tile min-h-11 px-3 py-2 text-left text-[12.5px] font-medium text-ink transition hover:text-gold disabled:opacity-40"
+                    className="home-mini-link min-h-11 text-left text-[12.5px] font-medium text-ink transition hover:text-gold disabled:opacity-40"
                   >
                     {labelFor(action.label)}
                   </button>
@@ -157,8 +150,8 @@ export default function ProcessAgentPanel({
       {steps.length > 0 && (
         <details className="mt-3 border-t border-line pt-2">
           <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-4">
-            <span className="eyebrow">{openStepCount > 0 ? `기준과 다음 순서 · ${openStepCount}개 남음` : "기준과 정리된 순서"}</span>
-            <span className="text-[12px] text-soft underline underline-offset-4">보기</span>
+            <span className="text-[12px] font-semibold text-soft">{openStepCount > 0 ? `남은 확인 ${openStepCount}개` : "확인한 기준"}</span>
+            <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
           </summary>
           <ol className="mt-2 group-card">
             {visibleSteps.map((step, index) => (

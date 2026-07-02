@@ -205,7 +205,7 @@ export default function Settings({ data, update }: Props) {
       : "백업 상태는 괜찮아요. 이제 공유 센터와 저장 방식, 복구 링크만 목적에 맞게 점검하면 됩니다.";
 
   return (
-    <div className="page pt-8 pb-10 space-y-10">
+    <div className="page pt-6 pb-10 space-y-7">
       <div>
         <div className="eyebrow-gold mb-2">Dearie</div>
         <h1 className="h-page">설정</h1>

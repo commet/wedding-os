@@ -408,7 +408,7 @@ export default function Video({ data, update }: Props) {
           : "영상 본문은 잡혔고 엔딩 카드의 날짜·장소를 청첩장에서 가져오면 마무리가 쉬워집니다.";
 
   return (
-    <div className="page pt-8 pb-10 space-y-8">
+    <div className="page pt-6 pb-10 space-y-6">
       <div>
         <div className="eyebrow-gold mb-2">영상 만들기</div>
         <h1 className="font-serif text-[2rem] leading-none">식전영상</h1>
