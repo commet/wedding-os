@@ -2,7 +2,10 @@ import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import type { WeddingData, WeddingUpdate, CheckItem, ChecklistSection } from "../lib/schema";
 import { defaultChecklist, recalcDueDates } from "../data/checklistTemplate";
-import { daysSince } from "../lib/freshness";
+import { daysSince, todayISO } from "../lib/freshness";
+import { collectLossDeadlines, lossDdayLabel, type LossDeadline } from "../lib/lossDeadlines";
+import { consultationChoice } from "../lib/sectionConsultation";
+import { formatKRW } from "../lib/derived";
 import { GIFT_TIER_LABEL, GIFT_IDEAS, GIFT_TIP } from "../data/giftCatalog";
 import { koBreak } from "../lib/typography";
 import { buildChecklistSheet, shareOrDownloadText } from "../lib/textExport";
@@ -11,10 +14,25 @@ import SectionConsultationPanel from "../components/SectionConsultationPanel";
 import { SectionDecisionLoop } from "../components/DecisionLoopPanel";
 
 type Props = { data: WeddingData; update: (patch: WeddingUpdate) => void; };
-type View = "category" | "timeline";
+type View = "category" | "timeline" | "week";
+
+/** 상담 답변(checklist-mode) → 기본 보기. timeline=일정순, category=분야별, weekly=이번 주만 */
+function viewFromChoice(choice: string | undefined): View {
+  if (choice === "category") return "category";
+  if (choice === "weekly") return "week";
+  return "timeline";
+}
 
 export default function Checklist({ data, update }: Props) {
-  const [view, setView] = useState<View>("timeline");
+  const modeChoice = consultationChoice(data, "checklist", "checklist-mode")[0];
+  const [view, setView] = useState<View>(() => viewFromChoice(modeChoice));
+  const [appliedChoice, setAppliedChoice] = useState(modeChoice);
+  // 상담에서 보기 방식을 (다시) 답하면 그 답을 실제 뷰에 한 번 반영 — 이후 수동 전환은 존중.
+  useEffect(() => {
+    if (modeChoice === appliedChoice) return;
+    setAppliedChoice(modeChoice);
+    setView(viewFromChoice(modeChoice));
+  }, [modeChoice, appliedChoice]);
   const [query, setQuery] = useState("");
   const [incompleteOnly, setIncompleteOnly] = useState(true);
   const [deleted, setDeleted] = useState<{ sid: string; item: CheckItem; index: number } | null>(null);
@@ -43,6 +61,8 @@ export default function Checklist({ data, update }: Props) {
   );
   const doneCount = allItems.filter((i) => i.done).length;
   const incompleteCount = allItems.length - doneCount;
+  // 돈이 걸린 마감(무료취소·가계약·보증인원·잔금·결제) — 일반 할 일과 섞이지 않게 별도 스트립으로.
+  const losses = useMemo(() => collectLossDeadlines(data, todayISO()), [data]);
 
   const loadDefault = () => {
     update((prev: WeddingData) => ({ ...prev, checklist: defaultChecklist(prev.invitation.date) }));
@@ -185,40 +205,11 @@ export default function Checklist({ data, update }: Props) {
         <div className="absolute top-0 left-0 h-px bg-ink transition-all" style={{ width: `${allItems.length ? (doneCount / allItems.length) * 100 : 0}%` }} />
       </div>
 
-      <SectionDecisionLoop data={data} sectionId="checklist" />
+      {/* 돈이 걸린 마감 — 일반 할 일보다 먼저, 목록과 분리해 최상단에 */}
+      <LossStrip losses={losses} />
 
-      <ProcessAgentPanel
-        title={overdueCount > 0 ? "지난 마감부터 끌어올리는 중" : weekCount > 0 ? "이번 주 할 일을 추리는 중" : "다음 마감까지 조용히 정렬 중"}
-        summary={
-          overdueCount > 0
-            ? `${overdueCount}개 항목이 마감일을 지났어요. 완료했으면 체크하고, 아니면 날짜를 다시 잡는 게 먼저입니다.`
-            : weekCount > 0
-              ? `이번 주 안에 볼 일이 ${weekCount}개 있습니다. 미완료 일정순으로 좁혀서 하나씩 처리하면 됩니다.`
-              : "마감이 급한 항목은 적어요. 날짜 없는 항목을 정리하면 이후 대시보드가 더 정확해집니다."
-        }
-        mood={overdueCount > 0 ? "watching" : weekCount > 0 ? "thinking" : "ready"}
-        metrics={[
-          { label: "완료", value: `${doneCount}/${allItems.length}` },
-          { label: "마감 지남", value: `${overdueCount}개`, tone: overdueCount > 0 ? "warn" : "muted" },
-          { label: "날짜 없음", value: `${nodateCount}개`, tone: nodateCount > 0 ? "warn" : "muted" },
-        ]}
-        steps={[
-          { label: "지난 마감 처리", detail: "끝낸 건 체크하고, 미룬 건 새 마감일을 잡아요.", done: overdueCount === 0 },
-          { label: "이번 주 항목만 좁히기", detail: "일정순 + 미완료만 보기로 오늘 할 일을 줄입니다.", done: weekCount === 0 },
-          { label: "날짜 없는 항목 정리", detail: "예식 날짜 기준 재계산 또는 수동 마감일을 넣어 흐름에 올립니다.", done: nodateCount === 0 },
-        ]}
-        actions={[
-          ...(incompleteCount > 0 ? [{
-            label: overdueCount > 0 || weekCount > 0 ? "미완료 일정순 보기 →" : "남은 할 일 일정순 보기 →",
-            onClick: () => { setView("timeline"); setIncompleteOnly(true); },
-            tone: "primary" as const,
-          }] : []),
-          ...(weddingDate ? [{ label: "날짜 기준 재계산", onClick: recalc }] : []),
-          { label: "검색 초기화", onClick: () => { setQuery(""); setIncompleteOnly(true); } },
-        ]}
-      />
-
-      <SectionConsultationPanel sectionId="checklist" data={data} update={update} />
+      {/* 보기 방식을 아직 안 정했으면 상담을 위에 — 답이 바로 아래 목록의 기본 뷰가 됩니다 */}
+      {!modeChoice && <SectionConsultationPanel sectionId="checklist" data={data} update={update} />}
 
       {/* 뷰 토글 — underline 탭 */}
       <div className="flex items-center gap-6 border-b border-hair pb-3">
@@ -227,6 +218,12 @@ export default function Checklist({ data, update }: Props) {
           className={`tracking-wide ${view === "timeline" ? "seg-active" : "seg"}`}
         >
           일정순
+        </button>
+        <button
+          onClick={() => setView("week")}
+          className={`tracking-wide ${view === "week" ? "seg-active" : "seg"}`}
+        >
+          이번 주
         </button>
         <button
           onClick={() => setView("category")}
@@ -270,16 +267,7 @@ export default function Checklist({ data, update }: Props) {
         </div>
       )}
 
-      {view === "timeline" ? (
-        <TimelineView
-          items={visibleItems}
-          onToggle={toggleItem}
-          onSetDue={setDue}
-          onDelete={deleteItem}
-          expandAll={isSearching}
-          triage={triageTimeline}
-        />
-      ) : (
+      {view === "category" ? (
         <CategoryView
           sections={sections.map((section) => ({
             ...section,
@@ -287,11 +275,58 @@ export default function Checklist({ data, update }: Props) {
           }))}
           onToggle={toggleItem} onSetDue={setDue} onAdd={addItem} onDelete={deleteItem}
         />
+      ) : (
+        <TimelineView
+          items={visibleItems}
+          onToggle={toggleItem}
+          onSetDue={setDue}
+          onDelete={deleteItem}
+          expandAll={isSearching}
+          triage={triageTimeline}
+          weekOnly={view === "week" && !isSearching}
+          onShowAll={() => setView("timeline")}
+          losses={losses}
+        />
       )}
 
-      {visibleItems.length === 0 && (
+      {/* week 뷰는 TimelineView 안에 자체 빈 안내가 있어 중복 표시하지 않는다 */}
+      {visibleItems.length === 0 && view !== "week" && (
         <p className="py-10 text-center text-[15px] text-soft leading-[1.85]">조건에 맞는 할 일이 없어요.</p>
       )}
+
+      {/* 상태 요약·상담·결정 루프는 목록 아래로 — 목록이 먼저, 패널은 보조 */}
+      <div className="pt-4 space-y-6 border-t border-hair">
+        <ProcessAgentPanel
+          title={overdueCount > 0 ? "지난 마감 정리" : weekCount > 0 ? "이번 주 할 일" : "다음 마감 준비"}
+          summary={
+            overdueCount > 0
+              ? `${overdueCount}개 항목이 마감일을 지났어요. 끝낸 건 체크하고, 아니면 날짜를 다시 잡는 게 먼저입니다.`
+              : weekCount > 0
+                ? `이번 주 안에 볼 일이 ${weekCount}개 있습니다. 하나씩 처리하면 됩니다.`
+                : "마감이 급한 항목은 적어요. 날짜 없는 항목을 정리하면 일정이 더 정확해집니다."
+          }
+          mood={overdueCount > 0 ? "watching" : weekCount > 0 ? "thinking" : "ready"}
+          metrics={[
+            { label: "완료", value: `${doneCount}/${allItems.length}` },
+            { label: "마감 지남", value: `${overdueCount}개`, tone: overdueCount > 0 ? "warn" : "muted" },
+            { label: "날짜 없음", value: `${nodateCount}개`, tone: nodateCount > 0 ? "warn" : "muted" },
+          ]}
+          actions={[
+            ...(incompleteCount > 0 ? [{
+              label: overdueCount > 0 || weekCount > 0 ? "급한 것만 보기 →" : "남은 할 일 일정순 보기 →",
+              onClick: () => {
+                setView(overdueCount > 0 || weekCount > 0 ? "week" : "timeline");
+                setIncompleteOnly(true);
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              },
+              tone: "primary" as const,
+            }] : []),
+            ...(weddingDate ? [{ label: "날짜 기준 재계산", onClick: recalc }] : []),
+          ]}
+        />
+        <SectionDecisionLoop data={data} sectionId="checklist" />
+        {modeChoice && <SectionConsultationPanel sectionId="checklist" data={data} update={update} />}
+      </div>
 
       {deleted && (
         <div role="status" className="anim-sheet fixed left-1/2 bottom-24 z-40 -translate-x-1/2 w-[min(90vw,420px)] bg-ink text-paper px-4 py-3 flex items-center justify-between gap-4 border border-hair">
@@ -382,9 +417,49 @@ function GiftPanel() {
   );
 }
 
+/* ─── 미루면 손해 스트립 — 돈이 걸린 마감만 (전 화면 공통 신호) ─── */
+
+function LossStrip({ losses }: { losses: LossDeadline[] }) {
+  if (losses.length === 0) return null;
+  const shown = losses.slice(0, 4);
+  return (
+    <section className="group-card px-4" aria-label="미루면 손해 보는 마감">
+      <div className="flex items-baseline justify-between py-3">
+        <span className="eyebrow-gold">미루면 손해</span>
+        <span className="eyebrow tabular-nums">{losses.length}</span>
+      </div>
+      {shown.map((loss) => (
+        <Link key={loss.id} to={loss.targetPath} className="row-tap flex items-center gap-3 py-3 min-h-11">
+          <div className="flex-1 min-w-0">
+            <div className="text-[13px] truncate">
+              <span className={loss.severity === "high" ? "text-gold font-medium" : "text-ink"}>{loss.label}</span>
+              <span className="text-ink"> · {loss.name}</span>
+            </div>
+            <div className="text-[11px] text-soft mt-0.5 truncate">
+              {loss.lossHint}{loss.amountKRW ? ` · ${formatKRW(loss.amountKRW)}` : ""}
+            </div>
+          </div>
+          <span className={`text-[12px] tabular-nums whitespace-nowrap ${loss.daysLeft <= 3 ? "text-gold font-semibold" : "text-soft"}`}>
+            {lossDdayLabel(loss.daysLeft)}
+          </span>
+        </Link>
+      ))}
+      {losses.length > shown.length && (
+        <div className="py-2 text-[11px] text-soft">외 {losses.length - shown.length}개 — 각 화면에서 이어집니다.</div>
+      )}
+    </section>
+  );
+}
+
 /* ─── 일정순 뷰 ─── */
 
 type FlatItem = CheckItem & { sid: string; section: string; icon: string; };
+
+/** 이 할 일이 돈이 걸린 마감과 같은 건인지 — 이름이 겹칠 때만 (억지 매칭 금지) */
+function lossFor(item: FlatItem, losses: LossDeadline[]): LossDeadline | undefined {
+  if (item.done || losses.length === 0) return undefined;
+  return losses.find((loss) => loss.name.length >= 2 && item.text.includes(loss.name));
+}
 
 function bucketOf(item: FlatItem): "overdue" | "week" | "month" | "later" | "nodate" | "done" {
   if (item.done) return "done";
@@ -410,8 +485,10 @@ const BUCKET_ORDER = ["overdue", "week", "month", "later", "nodate", "done"] as 
 const TRIAGE_LIMIT = 5;
 const TRIAGE_THRESHOLD = 28;
 
+const WEEK_BUCKETS = ["overdue", "week"] as const;
+
 function TimelineView({
-  items, onToggle, onSetDue, onDelete, expandAll, triage,
+  items, onToggle, onSetDue, onDelete, expandAll, triage, weekOnly, onShowAll, losses,
 }: {
   items: FlatItem[];
   onToggle: (sid: string, iid: string) => void;
@@ -419,6 +496,9 @@ function TimelineView({
   onDelete: (sid: string, iid: string) => void;
   expandAll: boolean;
   triage: boolean;
+  weekOnly?: boolean;
+  onShowAll?: () => void;
+  losses?: LossDeadline[];
 }) {
   const grouped = useMemo(() => {
     const g: Record<string, FlatItem[]> = {};
@@ -427,14 +507,29 @@ function TimelineView({
       (g[b] ??= []).push(it);
     }
     for (const k in g) {
-      g[k].sort((a, b) => (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999"));
+      // 마감일 오름차순 → 같은 날짜면 '중요' 표시(priority) 우선
+      g[k].sort((a, b) =>
+        (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999") ||
+        (a.priority === "red" ? -1 : 0) - (b.priority === "red" ? -1 : 0)
+      );
     }
     return g;
   }, [items]);
 
+  const buckets = weekOnly ? WEEK_BUCKETS : BUCKET_ORDER;
+  const urgentEmpty = weekOnly && WEEK_BUCKETS.every((b) => !grouped[b]?.length);
+  const restCount = weekOnly
+    ? items.length - WEEK_BUCKETS.reduce((n, b) => n + (grouped[b]?.length ?? 0), 0)
+    : 0;
+
   return (
     <div className="space-y-10">
-      {BUCKET_ORDER.map((bucket) => {
+      {urgentEmpty && (
+        <p className="py-6 text-center text-[14px] text-soft leading-[1.85]">
+          이번 주 마감은 없어요. 다가오는 일정은 일정순에서 볼 수 있습니다.
+        </p>
+      )}
+      {buckets.map((bucket) => {
         const list = grouped[bucket];
         if (!list || list.length === 0) return null;
         return (
@@ -447,14 +542,24 @@ function TimelineView({
             onToggle={onToggle}
             onSetDue={onSetDue}
             onDelete={onDelete}
+            losses={losses}
           />
         );
       })}
+      {weekOnly && restCount > 0 && onShowAll && (
+        <button
+          type="button"
+          onClick={onShowAll}
+          className="min-h-11 text-[12px] font-medium text-ink underline underline-offset-4"
+        >
+          다가오는 일정까지 모두 보기 ({restCount}개) →
+        </button>
+      )}
     </div>
   );
 }
 
-function TimelineGroup({ bucket, list, expandAll, limit, onToggle, onSetDue, onDelete }: {
+function TimelineGroup({ bucket, list, expandAll, limit, onToggle, onSetDue, onDelete, losses }: {
   bucket: typeof BUCKET_ORDER[number];
   list: FlatItem[];
   expandAll: boolean;
@@ -462,6 +567,7 @@ function TimelineGroup({ bucket, list, expandAll, limit, onToggle, onSetDue, onD
   onToggle: (sid: string, iid: string) => void;
   onSetDue: (sid: string, iid: string, d: string) => void;
   onDelete: (sid: string, iid: string) => void;
+  losses?: LossDeadline[];
 }) {
   const collapsible = bucket === "later" || bucket === "done" || (bucket === "nodate" && list.length > 8);
   const [open, setOpen] = useState(!collapsible);
@@ -477,10 +583,26 @@ function TimelineGroup({ bucket, list, expandAll, limit, onToggle, onSetDue, onD
   const meta = BUCKET_META[bucket];
   const capped = !showAll && !!limit && list.length > limit;
   const visibleRows = capped ? list.slice(0, limit) : list;
+  const overdueBucket = bucket === "overdue";
   const rows = (
     <>
+      {overdueBucket && (
+        <p className="mb-1 text-[11px] text-soft leading-relaxed">
+          끝낸 건 끝냄으로, 미룬 건 날짜를 다시 잡으면 목록이 정리됩니다.
+        </p>
+      )}
       <div className="divide-y divide-hair">
-        {visibleRows.map((item) => <TimelineRow key={item.id} item={item} onToggle={onToggle} onSetDue={onSetDue} onDelete={onDelete} />)}
+        {visibleRows.map((item) => (
+          <TimelineRow
+            key={item.id}
+            item={item}
+            onToggle={onToggle}
+            onSetDue={onSetDue}
+            onDelete={onDelete}
+            overdue={overdueBucket}
+            loss={overdueBucket && losses ? lossFor(item, losses) : undefined}
+          />
+        ))}
       </div>
       {capped && (
         <button
@@ -518,12 +640,14 @@ function TimelineGroup({ bucket, list, expandAll, limit, onToggle, onSetDue, onD
 }
 
 function TimelineRow({
-  item, onToggle, onSetDue, onDelete,
+  item, onToggle, onSetDue, onDelete, overdue, loss,
 }: {
   item: FlatItem;
   onToggle: (sid: string, iid: string) => void;
   onSetDue: (sid: string, iid: string, d: string) => void;
   onDelete: (sid: string, iid: string) => void;
+  overdue?: boolean;
+  loss?: LossDeadline;
 }) {
   const [editDate, setEditDate] = useState(false);
   const sid = item.sid;
@@ -564,6 +688,32 @@ function TimelineRow({
             </button>
           )}
         </div>
+        {loss && !item.done && (
+          <Link
+            to={loss.targetPath}
+            className="mt-1.5 inline-flex items-center gap-1 text-[11px] text-gold underline underline-offset-4"
+          >
+            {loss.label} · {loss.lossHint} →
+          </Link>
+        )}
+        {overdue && !item.done && !loss && (
+          <div className="flex items-center gap-4 mt-1.5">
+            <button
+              type="button"
+              onClick={() => setEditDate(true)}
+              className="text-[11px] text-ink underline underline-offset-4"
+            >
+              날짜 다시 잡기
+            </button>
+            <button
+              type="button"
+              onClick={() => onToggle(sid, item.id)}
+              className="text-[11px] text-soft underline underline-offset-4 hover:text-ink"
+            >
+              끝냄 처리
+            </button>
+          </div>
+        )}
       </div>
       <button onClick={() => onDelete(sid, item.id)} aria-label={`${item.text} 삭제`} className="text-soft hover:text-ink text-base min-w-11 min-h-11">×</button>
     </div>
@@ -643,42 +793,16 @@ function SectionCard({
 
       <>
           <ul className="divide-y divide-hair">
-            {section.items.map((item) => {
-              const d = item.dueDate ? daysSince(item.dueDate) : null;
-              const overdue = !item.done && d !== null && d > 0;
-              return (
-                <li key={item.id} className="flex items-center gap-3 py-3.5 text-[14px]">
-                  <button
-                    onClick={() => onToggle(section.id, item.id)}
-                    className={`w-11 h-11 -m-3 mr-0 flex items-center justify-center flex-shrink-0 transition after:w-4 after:h-4 after:border ${item.done ? "after:bg-ink after:border-ink" : "after:border-mute hover:after:border-ink"}`}
-                    aria-label="완료 토글"
-                  >
-                    {item.done && <span className="block text-paper text-[10px] leading-4 text-center">✓</span>}
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <span className={item.done ? "line-through text-soft" : "text-ink"}>
-                      {item.priority === "red" && <span className="text-gold">● </span>}{item.text}
-                      {item.source === "ai" && (
-                        <span className="ml-2 align-middle text-[10px] tracking-wide text-gold">AI</span>
-                      )}
-                    </span>
-                    {item.dueDate && (
-                      <span className={`ml-2 text-[11px] tabular-nums ${overdue ? "text-gold" : "text-soft"}`}>
-                        {item.dueDate}
-                      </span>
-                    )}
-                  </div>
-                  <input
-                    type="date"
-                    value={item.dueDate ?? ""}
-                    onChange={(e) => onSetDue(section.id, item.id, e.target.value)}
-                    className="text-[11px] text-soft w-7 bg-transparent"
-                    title="마감일"
-                  />
-                  <button onClick={() => onDelete(section.id, item.id)} aria-label={`${item.text} 삭제`} className="text-soft hover:text-ink text-base min-w-11 min-h-11">×</button>
-                </li>
-              );
-            })}
+            {section.items.map((item) => (
+              <CategoryRow
+                key={item.id}
+                sid={section.id}
+                item={item}
+                onToggle={onToggle}
+                onSetDue={onSetDue}
+                onDelete={onDelete}
+              />
+            ))}
           </ul>
 
           <form
@@ -695,5 +819,58 @@ function SectionCard({
           </form>
         </>
     </section>
+  );
+}
+
+function CategoryRow({
+  sid, item, onToggle, onSetDue, onDelete,
+}: {
+  sid: string;
+  item: CheckItem;
+  onToggle: (sid: string, iid: string) => void;
+  onSetDue: (sid: string, iid: string, d: string) => void;
+  onDelete: (sid: string, iid: string) => void;
+}) {
+  const [editDate, setEditDate] = useState(false);
+  const d = item.dueDate ? daysSince(item.dueDate) : null;
+  const overdue = !item.done && d !== null && d > 0;
+
+  return (
+    <li className="flex items-start gap-3 py-3.5 text-[14px]">
+      <button
+        onClick={() => onToggle(sid, item.id)}
+        className={`w-11 h-11 -m-3 mr-0 flex items-center justify-center flex-shrink-0 transition after:w-4 after:h-4 after:border ${item.done ? "after:bg-ink after:border-ink" : "after:border-mute hover:after:border-ink"}`}
+        aria-label="완료 토글"
+      >
+        {item.done && <span className="block text-paper text-[10px] leading-4 text-center">✓</span>}
+      </button>
+      <div className="flex-1 min-w-0">
+        <span className={item.done ? "line-through text-soft" : "text-ink"}>
+          {item.priority === "red" && <span className="text-gold">● </span>}{item.text}
+          {item.source === "ai" && (
+            <span className="ml-2 align-middle text-[10px] tracking-wide text-gold">AI</span>
+          )}
+        </span>
+        <div className="mt-1 text-[11px]">
+          {editDate ? (
+            <input
+              type="date"
+              autoFocus
+              defaultValue={item.dueDate ?? ""}
+              onBlur={(e) => { onSetDue(sid, item.id, e.target.value); setEditDate(false); }}
+              className="border-b border-line bg-transparent px-1 py-0.5 text-[11px]"
+            />
+          ) : (
+            <button
+              onClick={() => setEditDate(true)}
+              className={`underline underline-offset-4 tabular-nums ${overdue ? "text-gold" : "text-soft hover:text-ink"}`}
+            >
+              {item.dueDate ?? "+ 마감일"}
+            </button>
+          )}
+        </div>
+      </div>
+      <button onClick={() => onDelete(sid, item.id)} aria-label={`${item.text} 삭제`} className="text-soft hover:text-ink text-base min-w-11 min-h-11">×</button>
+    </li>
   );
 }

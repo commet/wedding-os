@@ -6,7 +6,7 @@ import { koBreak } from "../lib/typography";
 import { parseISODateLocal } from "../lib/date";
 import { buildCeremonySheet, shareOrDownloadText } from "../lib/textExport";
 import { attendingCount, mealTicketCount } from "../lib/derived";
-import ProcessAgentPanel from "../components/ProcessAgentPanel";
+import { consultationChoice } from "../lib/sectionConsultation";
 import SectionConsultationPanel from "../components/SectionConsultationPanel";
 import { SectionDecisionLoop } from "../components/DecisionLoopPanel";
 import DearieConfirmModal from "../components/DearieConfirmModal";
@@ -37,6 +37,31 @@ function makeStep(): CeremonyStep {
   };
 }
 
+// 상담 답변(분위기·사회·가족 참여)에 맞춰 기본 식순을 조립한다.
+// 새 행을 발명하지 않고 — 답변에 맞지 않는 템플릿 행을 처음부터 빼고,
+// 사회자 담당 문구만 답변대로 바꾼다. 답이 없으면 표준 그대로.
+function buildDefaultSteps(data: WeddingData): CeremonyStep[] {
+  const style = consultationChoice(data, "ceremony", "ceremony-style")[0];
+  const family = consultationChoice(data, "ceremony", "ceremony-family")[0];
+  const host = consultationChoice(data, "ceremony", "ceremony-host")[0];
+
+  const drop = new Set<string>();
+  // 짧고 담백한 식 · 핵심 의식 위주 → 주례사/덕담 행은 애초에 넣지 않는다
+  if (style === "short" || family === "minimal") drop.add("주례사 / 덕담");
+  // 둘 다면 화촉 점화도 뺀 가장 담백한 구성
+  if (style === "short" && family === "minimal") drop.add("양가 어머니 화촉 점화");
+
+  const hostLabel =
+    host === "professional" ? "전문 사회자" :
+    host === "friend" ? "지인 사회자" :
+    host === "venue" ? "식장 사회자" : null;
+
+  let rows = defaultCeremony();
+  if (drop.size > 0) rows = rows.filter((r) => !drop.has(r.title));
+  if (hostLabel) rows = rows.map((r) => (r.role === "사회자" ? { ...r, role: hostLabel } : r));
+  return rows;
+}
+
 export default function Ceremony({ data, update }: Props) {
   const steps = data.ceremony ?? [];
   const [openId, setOpenId] = useState<string | null>(null);
@@ -58,13 +83,23 @@ export default function Ceremony({ data, update }: Props) {
   };
 
   const loadDefault = () => {
-    update((prev: WeddingData) => ({ ...prev, ceremony: defaultCeremony() }));
+    update((prev: WeddingData) => ({ ...prev, ceremony: buildDefaultSteps(prev) }));
+  };
+
+  // "담당 없음 N개" 지표를 누르면 첫 빈 단계를 펼치고 그 자리로 스크롤
+  const jumpToMissing = (kind: "role" | "music") => {
+    const target = steps.find((s) => (kind === "role" ? !s.role?.trim() : !s.music?.trim()));
+    if (!target) return;
+    setOpenId(target.id);
+    window.setTimeout(() => {
+      document.getElementById(`ceremony-step-${target.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
   };
 
   const confirmLoadDefault = () => {
     setConfirmDialog({
       title: "기본 식순으로 다시 채울까요?",
-      body: "지금 적어둔 단계와 메모가 기본 식순으로 바뀝니다. 식장 안내에 맞춰 처음부터 다시 정리하려는 경우에만 진행하세요.",
+      body: "지금 적어둔 단계와 메모가 기본 식순으로 바뀝니다. 아래 상담에서 답한 분위기·사회·가족 참여가 반영된 구성으로 다시 깔려요.",
       confirmLabel: "기본 식순으로",
       tone: "warn",
       onConfirm: loadDefault,
@@ -129,6 +164,9 @@ export default function Ceremony({ data, update }: Props) {
 
   // 빈 상태
   if (steps.length === 0) {
+    const preview = buildDefaultSteps(data);
+    const fullLength = defaultCeremony().length;
+    const trimmed = preview.length < fullLength;
     return (
       <div className="page pt-12 pb-10 text-center space-y-6 md:pt-20 md:space-y-8">
         <div>
@@ -142,23 +180,25 @@ export default function Ceremony({ data, update }: Props) {
             입장부터 행진까지 순서를 적어두면, 당일 사회자와 두 분이 그대로 따라갈 큐시트가 됩니다.
           </p>
         </div>
-        <ProcessAgentPanel
-          title="사회자에게 보낼 큐시트를 준비합니다"
-          summary="처음엔 기본 식순을 불러온 뒤, 주례 여부·축가·혼인서약처럼 실제 예식에 맞지 않는 단계만 지우면 됩니다."
-          metrics={[
-            { label: "단계", value: "0개", tone: "warn" },
-            { label: "예식 정보", value: contextParts.length ? "있음" : "미정", tone: contextParts.length ? "normal" : "muted" },
-            { label: "식권", value: `${mealTicketCount(data)}장`, tone: mealTicketCount(data) ? "normal" : "muted" },
-          ]}
-          steps={[
-            { label: "기본 식순 불러오기", detail: "입장부터 행진까지 표준 흐름을 먼저 깔아요." },
-            { label: "사회자·축가·음악 담당 정하기", detail: "담당이 비어 있으면 당일에 질문이 다시 돌아옵니다." },
-          ]}
-          actions={[
-            { label: "기본 식순 불러오기 →", onClick: loadDefault, tone: "primary" },
-            { label: "빈 순서로 시작", onClick: addStep },
-          ]}
-        />
+
+        <div className="text-left border border-hair px-5 py-5 space-y-4">
+          <p className="text-[13.5px] text-ink leading-[1.8] break-keep">
+            지금 답변 기준으로 <b className="tabular-nums">{preview.length}단계</b>를 준비해뒀어요.
+            {trimmed
+              ? " 답변에 맞지 않는 단계(주례사 등)는 처음부터 뺐어요."
+              : " 주례 없는 식이면 불러온 뒤 해당 단계만 지우면 돼요."}
+          </p>
+          <button onClick={loadDefault} className="btn-primary w-full text-[14px]">
+            기본 식순 불러오기 →
+          </button>
+          <button
+            onClick={addStep}
+            className="w-full min-h-11 border border-hair text-[13px] text-ink hover:border-gold transition-colors"
+          >
+            빈 순서로 시작
+          </button>
+        </div>
+
         <div className="text-left">
           <SectionConsultationPanel sectionId="ceremony" data={data} update={update} />
         </div>
@@ -194,32 +234,45 @@ export default function Ceremony({ data, update }: Props) {
       <div className="mt-6 space-y-6">
         <SectionDecisionLoop data={data} sectionId="ceremony" />
 
-        <ProcessAgentPanel
-          title={roleMissing > 0 || musicMissing > 0 ? "빈 담당과 음악을 찾는 중" : "사회자 공유 준비가 거의 끝났어요"}
-          summary={
-            roleMissing > 0 || musicMissing > 0
-              ? `담당이 비어 있는 단계 ${roleMissing}개, 음악이 비어 있는 단계 ${musicMissing}개가 있어요. 식장·사회자에게 보내기 전 이 두 칸을 먼저 채우면 됩니다.`
-              : "모든 단계에 담당과 음악이 잡혀 있어요. 리허설 때 한 번씩 체크하면서 실제 진행표로 쓰면 됩니다."
-          }
-          mood={roleMissing > 0 || musicMissing > 0 ? "watching" : "ready"}
-          metrics={[
-            { label: "확인", value: `${doneCount}/${steps.length}` },
-            { label: "담당 없음", value: `${roleMissing}개`, tone: roleMissing > 0 ? "warn" : "muted" },
-            { label: "음악 없음", value: `${musicMissing}개`, tone: musicMissing > 0 ? "warn" : "muted" },
-          ]}
-          steps={[
-            { label: "단계 순서 확정", detail: "주례 없는 식, 폐백 여부, 축가 순서를 식장과 맞춥니다.", done: steps.length > 0 },
-            { label: "담당자 채우기", detail: "사회·주례·축가·음향 담당을 각 단계에 남깁니다.", done: roleMissing === 0 },
-            { label: "사회자에게 보낼 시트 저장", detail: "식권·축의금 담당은 하객 데이터와 함께 당일 운영에서 봅니다.", done: doneCount === steps.length },
-          ]}
-          actions={[
-            { label: "진행표 내보내기 →", onClick: shareSheet, tone: "primary" },
-            { label: "단계 추가", onClick: addStep },
-            { label: "기본 식순으로 다시 채우기", onClick: confirmLoadDefault },
-          ]}
-        />
-
-        <SectionConsultationPanel sectionId="ceremony" data={data} update={update} />
+        {/* 진행 요약 한 줄 — 빈 칸 개수를 누르면 그 단계가 바로 열린다 */}
+        <div className="border border-hair px-4 py-3 text-[13px] leading-[1.8] break-keep">
+          {roleMissing > 0 || musicMissing > 0 ? (
+            <>
+              {roleMissing > 0 ? (
+                <button
+                  onClick={() => jumpToMissing("role")}
+                  className="underline underline-offset-4 text-ink hover:text-gold"
+                >
+                  담당 없는 단계 <b className="tabular-nums">{roleMissing}개</b>
+                </button>
+              ) : (
+                <span className="text-soft">담당은 다 채웠어요</span>
+              )}
+              <span className="text-soft"> · </span>
+              {musicMissing > 0 ? (
+                <button
+                  onClick={() => jumpToMissing("music")}
+                  className="underline underline-offset-4 text-ink hover:text-gold"
+                >
+                  음악 없는 단계 <b className="tabular-nums">{musicMissing}개</b>
+                </button>
+              ) : (
+                <span className="text-soft">음악은 다 채웠어요</span>
+              )}
+              <span className="text-soft"> — 누르면 그 단계가 열려요. 다 채우면 사회자에게 보낼 준비 끝.</span>
+            </>
+          ) : (
+            <>
+              <span className="text-ink">담당과 음악이 모두 채워졌어요.</span>{" "}
+              <button
+                onClick={shareSheet}
+                className="underline underline-offset-4 text-ink hover:text-gold"
+              >
+                사회자에게 진행표 보내기 →
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       <p className="mt-4 text-[13px] text-soft leading-[1.8] break-keep">
@@ -259,6 +312,10 @@ export default function Ceremony({ data, update }: Props) {
       >
         + 단계 추가
       </button>
+
+      <div className="mt-8">
+        <SectionConsultationPanel sectionId="ceremony" data={data} update={update} />
+      </div>
 
       {/* 당일 운영 — 한국 예식에서 자주 빠뜨리는 것들 + 하객 데이터 자동 집계 */}
       <details className="mt-8 border-t border-hair pt-5">
@@ -312,7 +369,7 @@ export default function Ceremony({ data, update }: Props) {
       </div>
 
       <p className="mt-6 text-[11px] text-soft text-center leading-relaxed break-keep">
-        주례 없는 식이면 해당 단계를 지우고, 식장·사회자와 맞춰 시간을 조정하세요.
+        실제 예식에 없는 단계는 지우고, 시간은 식장·사회자와 맞춰 조정하세요.
       </p>
 
       {toast && (
@@ -363,7 +420,7 @@ function CeremonyRow({
   ].filter(Boolean);
 
   return (
-    <li className="relative pl-9">
+    <li id={`ceremony-step-${step.id}`} className="relative pl-9">
       {/* 타임라인 세로선 — 단계들을 흐름으로 잇는다 */}
       <span
         aria-hidden="true"
@@ -415,6 +472,15 @@ function CeremonyRow({
 
       {open && (
         <div className="py-4 border-b border-hair space-y-3">
+          <div>
+            <label className="label">제목</label>
+            <input
+              className="input text-[14px]"
+              value={step.title}
+              onChange={(e) => onChange({ title: e.target.value })}
+              placeholder="신랑 입장"
+            />
+          </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">시간</label>
@@ -434,15 +500,6 @@ function CeremonyRow({
                 placeholder="사회 · 주례 · 축가"
               />
             </div>
-          </div>
-          <div>
-            <label className="label">제목</label>
-            <input
-              className="input text-[14px]"
-              value={step.title}
-              onChange={(e) => onChange({ title: e.target.value })}
-              placeholder="신랑 입장"
-            />
           </div>
           <div>
             <label className="label">음악</label>

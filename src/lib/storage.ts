@@ -300,6 +300,17 @@ function migrate(raw: unknown): WeddingData {
     })) : []) as WeddingData["checklist"],
     venues:      (Array.isArray(data.venues)   ? data.venues.filter(isPlainObject)   : []) as WeddingData["venues"],
     budget:      (Array.isArray(data.budget)   ? data.budget.filter(isPlainObject)   : []) as WeddingData["budget"],
+    // budgetMeta 는 명시적 재조립 대상 — 여기 없으면 로드/새로고침마다 상한·스코프가 소실된다.
+    budgetMeta: (() => {
+      if (!isPlainObject(data.budgetMeta)) return undefined;
+      const m = data.budgetMeta;
+      return {
+        capKRW: typeof m.capKRW === "number" && m.capKRW > 0 ? Math.min(m.capKRW, 100_000_000_000) : undefined,
+        includeHome: typeof m.includeHome === "boolean" ? m.includeHome : undefined,
+        includeYedan: typeof m.includeYedan === "boolean" ? m.includeYedan : undefined,
+        decidedAt: typeof m.decidedAt === "string" ? m.decidedAt.slice(0, 100) : undefined,
+      };
+    })(),
     guests:      (Array.isArray(data.guests)   ? data.guests.filter(isPlainObject)   : []) as WeddingData["guests"],
     headcount:   sanitizeHeadcount(data.headcount),
     ceremony:    (Array.isArray(data.ceremony) ? data.ceremony.filter(isPlainObject) : undefined) as WeddingData["ceremony"],

@@ -5,8 +5,11 @@ import { listRsvps, type RsvpRow } from "../lib/storage.supabase";
 import { koBreak } from "../lib/typography";
 import {
   contractedVenue, expectedHeadcount, venueCapacityFit, planningHeadcount,
-  headcountSummary, mealCostRange, formatKRW, GUEST_CATEGORIES, GUEST_CATEGORY_LABEL,
+  headcountSummary, mealCostRange, mealTicketCount, expectedGiftIncome, todayISO,
+  formatKRW, GUEST_CATEGORIES, GUEST_CATEGORY_LABEL,
 } from "../lib/derived";
+import { lossDeadlinesFor, lossDdayLabel } from "../lib/lossDeadlines";
+import { consultationFacts } from "../lib/sectionConsultation";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import SectionConsultationPanel from "../components/SectionConsultationPanel";
 import { SectionDecisionLoop } from "../components/DecisionLoopPanel";
@@ -65,13 +68,15 @@ export default function Guests({ data, update }: Props) {
     const pending = total - attending.length - declined.length;
     const partySum = attending.reduce((s, g) => s + (g.partyCount ?? 1), 0);
     const giftSum = guests.reduce((s, g) => s + (g.giftKRW ?? 0), 0);
-    const mealCount = attending.filter((g) => g.meal !== false).reduce((s, g) => s + (g.partyCount ?? 1), 0);
     const groom = guests.filter((g) => g.side === "groom").length;
     const bride = guests.filter((g) => g.side === "bride").length;
-    return { total, attending: attending.length, declined: declined.length, pending, partySum, giftSum, mealCount, groom, bride };
+    // 식권 수는 mealTicketCount(derived)로 단일화 — 당일 식수 정산과 같은 숫자를 쓴다.
+    return { total, attending: attending.length, declined: declined.length, pending, partySum, giftSum, groom, bride };
   }, [guests]);
   const seatingGroups = useMemo(() => summarizeSeatingGroups(guests), [guests]);
   const headSummary = useMemo(() => headcountSummary(data), [data]);
+  const mealTickets = useMemo(() => mealTicketCount(data), [data]);
+  const giftIncome = useMemo(() => expectedGiftIncome(data), [data]);
   const notInvited = guests.filter((g) => g.status === "초대 예정").length;
   const responded = stats.attending + stats.declined;
   const unclassified = guests.filter((g) => !g.category).length;
@@ -293,8 +298,9 @@ export default function Guests({ data, update }: Props) {
               ...(headSummary.estTotal === 0 ? [{ label: "200명 기준으로 시작 →", onClick: seedHeadcount, tone: "primary" as const }] : []),
             ]}
           />
-          <SectionConsultationPanel sectionId="guests" data={data} update={update} />
           <HeadcountEstimator data={data} update={update} />
+          <SectionConsultationPanel sectionId="guests" data={data} update={update} />
+          <ConsultationFactsLine data={data} />
         </div>
         <GuestAddBlock
           side={addSide}
@@ -354,6 +360,7 @@ export default function Guests({ data, update }: Props) {
       />
 
       <SectionConsultationPanel sectionId="guests" data={data} update={update} />
+      <ConsultationFactsLine data={data} />
 
       <HeadcountEstimator data={data} update={update} />
 
@@ -363,10 +370,26 @@ export default function Guests({ data, update }: Props) {
         <Stat label="참석 확정" value={stats.attending} hint={`+${stats.partySum - stats.attending}명 동반`} />
         <Stat label="신랑 측" value={stats.groom} />
         <Stat label="신부 측" value={stats.bride} />
-        <Stat label="식수 (식권)" value={stats.mealCount} hint="참석자 동반 포함" />
+        <Stat label="식권 예상" value={mealTickets} unit="장" hint="참석 확정 · 동반 포함" />
         <Stat label="축의금 합계" value={stats.giftSum} unit="원" />
         <Stat label="응답 대기" value={stats.pending} muted />
         <Stat label="불참" value={stats.declined} muted />
+      </div>
+
+      {/* 식수·축의금 — 회신·명단 입력이 숫자로 이어지는 곳 */}
+      <div className="-mt-4 border-b border-hair">
+        <p className="px-1 py-2.5 text-[12px] text-soft leading-relaxed break-keep">
+          식권 예상 <span className="text-ink font-semibold tabular-nums">{mealTickets}장</span> — 참석 회신이 확정될 때마다 이 숫자가 같이 바뀌어요.
+        </p>
+        {giftIncome && (
+          <Link to="/budget" className="row-tap flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-t border-hair px-1 py-2.5">
+            <span className="text-[12px] text-ink break-keep">
+              예상 축의금 약 {formatKRW(giftIncome.total)}
+              <span className="text-soft"> · {giftIncome.basis === "estimate" ? "예상 인원 기준" : "명단 분류 기준"}</span>
+            </span>
+            <span className="text-[12px] text-soft break-keep">예산 화면에서 식대와 비교돼요 →</span>
+          </Link>
+        )}
       </div>
 
       {seatingGroups.total > 0 && (
@@ -400,17 +423,44 @@ export default function Guests({ data, update }: Props) {
 
       {(() => {
         const venue = contractedVenue(data);
+        if (!venue) return null;
         const head = planningHeadcount(data);
         const fit = venueCapacityFit(venue, head);
-        if (!venue || fit === "unknown") return null;
-        const tone = fit === "over" || fit === "under" ? "text-gold font-semibold" : "text-soft";
-        const label = fit === "over" ? "수용 인원 초과" : fit === "under" ? "최소 보증인원 미달" : fit === "tight" ? "수용 인원에 근접" : "수용 범위 안";
-        const range = `${venue.capacityMin ?? "?"}~${venue.capacityMax ?? "?"}명`;
+        const deadline = lossDeadlinesFor(data, todayISO(), "/venues", 730)
+          .find((d) => d.kind === "guarantee-due" && d.name === venue.name);
+        if (fit === "unknown" && !deadline) {
+          // 수용범위도 마감일도 아직 없음 — 마감일 입력처만 짚어준다.
+          return (
+            <Link to="/venues" className="row-tap -mt-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-hair px-1 py-3">
+              <span className="eyebrow break-keep">{venue.name} · 보증인원</span>
+              <span className="text-[12px] text-soft break-keep">확정 마감일을 예식장 화면에 적어두면 D-day로 보여드려요 →</span>
+            </Link>
+          );
+        }
+        const warn = fit === "over" || fit === "under" || (deadline != null && deadline.severity !== "low");
+        const fitLabel = fit === "over" ? "수용 인원 초과" : fit === "under" ? "최소 보증인원 미달" : fit === "tight" ? "수용 인원에 근접" : fit === "ok" ? "수용 범위 안" : null;
+        const summary = [
+          venue.capacityMin != null ? `보증 ${venue.capacityMin}명` : null,
+          `현재 추정 ${head}명`,
+          deadline ? `확정 마감 ${lossDdayLabel(deadline.daysLeft)}` : null,
+        ].filter(Boolean).join(" · ");
         return (
-          <Link to="/venues" className="row-tap -mt-2 flex items-baseline justify-between gap-3 border-b border-hair px-1 py-3">
-            <span className="eyebrow break-keep">{venue.name} · 예식장 여유도</span>
-            <span className={`text-[12px] break-keep ${tone}`}>초대 {head}명 / 수용 {range} · {label}</span>
-          </Link>
+          <div className="-mt-2 border-b border-hair pb-3">
+            <Link to="/venues" className="row-tap flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-1 py-3">
+              <span className="eyebrow break-keep">{venue.name} · 보증인원</span>
+              <span className={`text-[12px] break-keep ${warn ? "text-gold font-semibold" : "text-soft"}`}>{summary}</span>
+            </Link>
+            {fitLabel && (
+              <p className="px-1 text-[11.5px] text-soft leading-relaxed break-keep">
+                수용 {venue.capacityMin ?? "?"}~{venue.capacityMax ?? "?"}명 · {fitLabel}
+              </p>
+            )}
+            <p className="px-1 text-[11.5px] text-soft leading-relaxed break-keep">
+              {deadline
+                ? `${deadline.lossHint} — 마감 전에 보증 인원을 둘이 같이 정해두는 게 안전해요.`
+                : "확정 마감일은 예식장 화면에서 입력하면 여기서 D-day로 같이 보여요."}
+            </p>
+          </div>
         );
       })()}
 
@@ -566,10 +616,20 @@ function HeadcountEstimator({ data, update }: { data: WeddingData; update: (patc
   } else if (venue && fit === "under" && venue.capacityMin) {
     reads.push(`최소 보증인원 ${venue.capacityMin}명보다 ${venue.capacityMin - planning}명 적어요 — 보증금 손해 가능성을 확인하세요.`);
   }
+  const guarantee = venue
+    ? lossDeadlinesFor(data, todayISO(), "/venues", 730).find((d) => d.kind === "guarantee-due" && d.name === venue.name)
+    : undefined;
+  if (guarantee) {
+    reads.push(`보증인원 확정 마감 ${lossDdayLabel(guarantee.daysLeft)} (${guarantee.date}) — ${guarantee.lossHint}.`);
+  }
   if (meal) {
     const m = meal.max ?? meal.min;
     const per = venue?.mealPriceMax ?? venue?.mealPriceMin;
     if (m && per) reads.push(`예상 식대 약 ${formatKRW(m)} (1인 ${Math.round(per / 10000)}만 기준).`);
+  }
+  if (sum.listed === 0) {
+    const gift = expectedGiftIncome(data);
+    if (gift) reads.push(`이 규모 기준 예상 축의금 약 ${formatKRW(gift.total)} — 예산 화면에서 식대와 비교돼요.`);
   }
   if (groom > 0 && bride > 0) {
     const diff = Math.abs(groom - bride);
@@ -655,6 +715,21 @@ function HeadcountEstimator({ data, update }: { data: WeddingData; update: (patc
         </div>
       )}
     </section>
+  );
+}
+
+// 상담 답변을 판단 재료로 승격 — "정한 기준: 규모 200명 안팎" 식으로 화면에 남긴다.
+// 특히 규모 답변은 계산기·명단이 비어 있는 동안 예상 인원(planningHeadcount)으로 실제로 쓰인다.
+function ConsultationFactsLine({ data }: { data: WeddingData }) {
+  const facts = consultationFacts(data, "guests");
+  if (facts.length === 0) return null;
+  const sum = headcountSummary(data);
+  const fallbackActive = sum.estTotal === 0 && sum.listed === 0 && planningHeadcount(data) > 0;
+  return (
+    <p className="mt-3 border-l-2 border-gold/60 pl-3 text-[11.5px] text-soft leading-relaxed break-keep">
+      정한 기준 · {facts.join(" · ")}
+      {fallbackActive && " — 규모 답변이 지금 예상 인원으로 쓰이고 있어요. 계산기에 숫자를 적으면 그 값으로 바뀝니다."}
+    </p>
   );
 }
 

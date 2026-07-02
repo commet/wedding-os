@@ -9,12 +9,15 @@ import { AGENT_PRIORITIES, type AgentPriority } from "../lib/agentProfile";
 import { applyAgentAnswer, nextAgentQuestion, type AgentLoopQuestion } from "../lib/agentLoop";
 import { applyStarterPlan, normalizeTargetPath, type StarterResult } from "../lib/agentStarter";
 import {
-  budgetTotals, formatKRW, upcomingBalances, upcomingEvents,
+  budgetTotals, formatKRW, upcomingBalances, upcomingEvents, todayISO,
   weddingPhase, rsvpReadiness, mealBudgetCheck, contractedVenue, planningHeadcount, venueCapacityFit,
   planningStatusReport, PLANNING_STATE_LABEL,
   decisionMap, type DecisionItem, type DecisionStage,
   type PlanningSectionStatus, type PlanningStatusState,
 } from "../lib/derived";
+import { collectLossDeadlines, lossDdayLabel, type LossDeadline } from "../lib/lossDeadlines";
+import { buildDecisionPacket } from "../lib/decisionPackets";
+import { DecisionLoopActions } from "../components/DecisionLoopPanel";
 import { koBreak } from "../lib/typography";
 
 type Props = { data: WeddingData; update: (patch: WeddingUpdate) => void; };
@@ -97,6 +100,8 @@ export default function Dashboard({ data, update }: Props) {
   const agentQuestion = useMemo(() => nextAgentQuestion(data), [data]);
   const statusReport = useMemo(() => planningStatusReport(data), [data]);
   const decisions = useMemo(() => decisionMap(data), [data]);
+  // 미루면 손해 — 무료취소·가계약·보증인원·잔금·결제 마감을 임박순으로 (상위 3건만 홈에).
+  const lossDeadlines = useMemo(() => collectLossDeadlines(data, todayISO()).slice(0, 3), [data]);
   const readiness = statusReport.sections;
   const nextStatus = statusReport.nextSections[0];
 
@@ -256,20 +261,8 @@ export default function Dashboard({ data, update }: Props) {
       .filter((item) => item.title)
       .slice(0, 2);
     items.push(...aiToday);
-    const deduped = dedupeFocusItems(items);
-    // 반지는 중요한 시작 '킥'이지만 첫 번째(01)로는 띄우지 않는다 — 반지 관련 항목은
-    // 항상 마지막 네 번째 자리(04)로 내려 고정한다(노출은 유지).
-    const nonRings = deduped.filter((i) => i.to !== "/rings");
-    let ringItem = deduped.find((i) => i.to === "/rings");
-    if (!ringItem && data.rings.length === 0) {
-      ringItem = {
-        to: "/rings",
-        title: "반지 후보 풀 만들기",
-        desc: "브랜드·예산·소재 기준으로 볼 만한 후보를 빠르게 좁힙니다.",
-        tag: "후보 정리",
-      };
-    }
-    return ringItem ? [...nonRings.slice(0, 3), ringItem] : nonRings.slice(0, 4);
+    // 순서는 decisionMap의 stage·risk·score 정렬을 그대로 신뢰한다 — UI 편의 재배치 금지.
+    return dedupeFocusItems(items).slice(0, 4);
   }, [
     decisions.items,
     data.ai?.today,
@@ -293,6 +286,11 @@ export default function Dashboard({ data, update }: Props) {
     tag: "다음 단계",
   };
   const coupleDisplay = [data.invitation.groomName, data.invitation.brideName].filter(Boolean).join(" · ") || "우리";
+  // 최상단 카드가 decisionMap 출신이면 DecisionItem 원본을 유지 — 서브페이지와 같은
+  // payoff(같이 볼 요약·카톡 복사·캘린더 담기)가 홈에서 바로 실행되게.
+  const primaryDecision = decisions.items.find(
+    (item) => item.to === primaryFocus.to && item.title === primaryFocus.title,
+  );
   const secondaryFocusItems = focusItems.slice(1, 4);
   const dashboardGroups = useMemo(() => buildDashboardGroups(readiness), [readiness]);
   const briefing = primaryFocus.desc || data.ai?.starterSummary || phase.focus;
@@ -342,6 +340,7 @@ export default function Dashboard({ data, update }: Props) {
               phaseLabel={phase.label}
               briefing={briefing}
               primaryFocus={primaryFocus}
+              primaryDecision={primaryDecision}
               data={data}
               alertItems={alertItems}
               aiMessage={aiMessage}
@@ -353,6 +352,8 @@ export default function Dashboard({ data, update }: Props) {
               onPriority={chooseAgentPriority}
             />
           </section>
+
+          {lossDeadlines.length > 0 && <LossDeadlineStrip items={lossDeadlines} />}
 
           <section className="page py-3">
             <div className="mb-3 flex items-end justify-between gap-4">
@@ -413,6 +414,7 @@ function MasterPlannerPanel({
   phaseLabel,
   briefing,
   primaryFocus,
+  primaryDecision,
   data,
   alertItems,
   aiMessage,
@@ -428,6 +430,7 @@ function MasterPlannerPanel({
   phaseLabel: string;
   briefing: string;
   primaryFocus: FocusItem;
+  primaryDecision?: DecisionItem;
   data: WeddingData;
   alertItems: { to: string; label: string }[];
   aiMessage: string;
@@ -438,6 +441,11 @@ function MasterPlannerPanel({
   onCancelChoosing: () => void;
   onPriority: (priority: AgentPriority) => void;
 }) {
+  // 이 결정을 끝내면 생기는 것 — 서브페이지 결정 카드와 같은 요약을 홈에서도.
+  const primaryOutcome = useMemo(
+    () => (primaryDecision ? buildDecisionPacket(primaryDecision, data).outcome : null),
+    [primaryDecision, data],
+  );
   const ddayLabel =
     dday === null ? "D-day 미정" :
     dday > 0 ? `D-${dday}` :
@@ -500,6 +508,15 @@ function MasterPlannerPanel({
                 <span aria-hidden="true" className="text-gold">→</span>
               </Link>
 
+              {primaryOutcome && (
+                <p className="mt-2 border-l border-gold/50 pl-3 text-[12px] leading-relaxed text-ink/80 break-keep">
+                  {primaryOutcome}
+                </p>
+              )}
+              {primaryDecision && (
+                <DecisionLoopActions data={data} item={primaryDecision} compact includeOpenLink={false} />
+              )}
+
               <button
                 type="button"
                 data-testid="dashboard-ai-starter"
@@ -526,6 +543,39 @@ function MasterPlannerPanel({
         </div>
       </div>
     </div>
+  );
+}
+
+// 미루면 손해 스트립 — 기한이 지나면 되돌릴 수 없는 날짜를 홈에서 여러 건 그대로.
+function LossDeadlineStrip({ items }: { items: LossDeadline[] }) {
+  return (
+    <section className="page py-3">
+      <div className="mb-2 flex items-baseline justify-between gap-3">
+        <div className="eyebrow-gold">미루면 손해</div>
+        <span className="text-[11px] text-soft">기한이 지나면 되돌리기 어려운 날짜예요</span>
+      </div>
+      <div className="divide-y divide-line overflow-hidden rounded-[8px] border border-line bg-vellum/80">
+        {items.map((item) => (
+          <Link key={item.id} to={item.targetPath} className="row-tap flex min-h-12 items-center justify-between gap-3 px-3 py-2">
+            <span className="min-w-0">
+              <span className="flex items-baseline gap-2">
+                <span className={`shrink-0 text-[12px] font-semibold tabular-nums ${item.severity === "high" ? "text-gold" : "text-ink"}`}>
+                  {lossDdayLabel(item.daysLeft)}
+                </span>
+                <span className="truncate text-[12.5px] font-medium text-ink">
+                  {item.name} · {item.label}
+                </span>
+              </span>
+              <span className="mt-0.5 block truncate text-[11px] text-soft">
+                {item.lossHint}
+                {item.amountKRW ? ` · ${formatKRW(item.amountKRW)}` : ""}
+              </span>
+            </span>
+            <span aria-hidden="true" className="shrink-0 text-gold">→</span>
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -556,7 +606,8 @@ function DecisionFacts({ item }: { item: FocusItem }) {
   if (prepared.length === 0 && missing.length === 0) return null;
 
   return (
-    <div className="mt-4 hidden gap-2 border-t border-line pt-3 sm:grid sm:grid-cols-2">
+    // 모바일에서도 판단 재료가 보여야 한다 — 480px에서는 세로 스택, 넓어지면 2열.
+    <div className="mt-4 grid gap-2 border-t border-line pt-3 sm:grid-cols-2">
       <DecisionFactLine label="이미 있는 정보" values={prepared} />
       <DecisionFactLine label="확인하면 좋은 것" values={missing} accent />
     </div>

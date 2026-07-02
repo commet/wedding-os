@@ -1228,13 +1228,22 @@ export function budgetSyncSuggestions(data: WeddingData): BudgetSyncSuggestion[]
     );
   }
 
-  const sdmContracts = data.sdm.filter((s) => s.category !== "snap" && s.status === "계약");
-  const sdmTotal = sdmContracts.reduce((sum, s) => sum + (s.depositKRW ?? 0) + (s.balanceKRW ?? 0), 0);
-  if (sdmTotal > 0) {
-    propose(
-      "sdm-contract", /스튜디오|스드메/, "스튜디오 (촬영)", sdmTotal,
-      `계약 ${sdmContracts.length}곳 계약금+잔금 합계`, "스드메", "/sdm",
-    );
+  // 스드메는 카테고리별 항목이 따로 있으므로 합산이 아니라 각 계약 금액을 해당 항목에 제안 —
+  // 합계를 한 항목에 쓰면 나머지 항목과 이중 계상된다.
+  const sdmCategoryMatch: Array<{ category: SdmCategory; key: string; pattern: RegExp; label: string }> = [
+    { category: "studio", key: "sdm-studio", pattern: /스튜디오/, label: "스튜디오 (촬영)" },
+    { category: "dress", key: "sdm-dress", pattern: /드레스/, label: "드레스 (본식·촬영·2부)" },
+    { category: "makeup", key: "sdm-makeup", pattern: /메이크업/, label: "메이크업 (리허설+본식)" },
+  ];
+  for (const entry of sdmCategoryMatch) {
+    const contracts = data.sdm.filter((s) => s.category === entry.category && s.status === "계약");
+    const total = contracts.reduce((sum, s) => sum + (s.depositKRW ?? 0) + (s.balanceKRW ?? 0), 0);
+    if (total > 0) {
+      propose(
+        entry.key, entry.pattern, entry.label, total,
+        `${contracts.map((s) => s.name).join(", ")} 계약금+잔금`, "스드메", "/sdm",
+      );
+    }
   }
   const snapContracts = data.sdm.filter((s) => s.category === "snap" && s.status === "계약");
   const snapTotal = snapContracts.reduce((sum, s) => sum + (s.depositKRW ?? 0) + (s.balanceKRW ?? 0), 0);
@@ -1252,9 +1261,13 @@ export function budgetSyncSuggestions(data: WeddingData): BudgetSyncSuggestion[]
     );
   }
 
+  // 항공·숙소는 템플릿에 별도 항목이 있으므로 각각 제안 — 합계를 항공권 항목에 쓰면 숙소가 이중 계상된다.
   const trip = tripCostEstimate(data);
-  if (trip) {
-    propose("trip", /항공권|신혼여행|허니문/, "항공권 (2인)", trip.total, trip.basis, "신혼여행", "/trip");
+  if (trip?.flightKRW) {
+    propose("trip-flight", /항공권/, "항공권 (2인)", trip.flightKRW, `항공 후보 최저 ${formatKRW(trip.flightKRW)}`, "신혼여행", "/trip");
+  }
+  if (trip?.hotelKRW) {
+    propose("trip-hotel", /숙소|숙박|호텔/, "숙소 (5~7박)", trip.hotelKRW, `숙소 최저가 × ${trip.nights ?? 5}박`, "신혼여행", "/trip");
   }
 
   return out;

@@ -41,6 +41,15 @@ export default function HostedStart({ data, update }: Props) {
   const [copied, setCopied] = useState(false);
   const [passwordCopied, setPasswordCopied] = useState(false);
   const [error, setError] = useState("");
+  // 온라인용으로 변환하지 못한 사진 수 — "이 사진들은 제외하고 계속" 선택지를 띄운다.
+  const [photoSkipCount, setPhotoSkipCount] = useState<number | null>(null);
+  const ddayLabel = (() => {
+    const date = data.invitation.date;
+    if (!date) return null;
+    const diff = Math.ceil((new Date(`${date}T00:00:00`).getTime() - Date.now()) / 86_400_000);
+    if (!Number.isFinite(diff) || diff < 0) return null;
+    return diff === 0 ? "D-day" : `D-${diff}`;
+  })();
   const portableItems =
     (data.venues?.length ?? 0) +
     (data.budget?.length ?? 0) +
@@ -53,7 +62,7 @@ export default function HostedStart({ data, update }: Props) {
     data.hotels.length +
     (data.invitation.groomName || data.invitation.brideName || data.invitation.date || data.invitation.venue ? 1 : 0);
 
-  const start = async () => {
+  const start = async (skipPhotos = false) => {
     if (!authAvailable()) return; // 온라인 동기화 미설정 — 가장하지 않음
     const passwordError = validateSharePassword(sharePassword, sharePasswordConfirm);
     if (passwordError) {
@@ -62,6 +71,7 @@ export default function HostedStart({ data, update }: Props) {
     }
     setBusy(true);
     setError("");
+    if (!skipPhotos) setPhotoSkipCount(null);
     let stagedConfig = false;
     try {
       const accessToken = await currentAccessToken();
@@ -89,10 +99,13 @@ export default function HostedStart({ data, update }: Props) {
         : { ...data, checklist: data.checklist.length ? data.checklist : defaultChecklist(data.invitation.date) };
       const portable = await migrateImagesIdbToDataUrl(base);
       const unresolved = stripUnresolvedIdb(portable);
-      if (unresolved.removed > 0) {
-        throw new Error(`사진 ${unresolved.removed}장을 온라인용으로 변환하지 못했습니다. 원본 사진을 확인한 뒤 다시 시도해주세요.`);
+      if (unresolved.removed > 0 && !skipPhotos) {
+        setPhotoSkipCount(unresolved.removed);
+        throw new Error(
+          `사진 ${unresolved.removed}장은 온라인용으로 옮기지 못했어요. 아래에서 이 사진들만 빼고 계속하거나, 사진을 다시 등록한 뒤 시도할 수 있어요.`,
+        );
       }
-      const next = { ...portable, preferences: { ...portable.preferences, mode: "hosted" as const, isDemo: false } };
+      const next = { ...unresolved.data, preferences: { ...unresolved.data.preferences, mode: "hosted" as const, isDemo: false } };
       const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
       const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
       if (!url || !anonKey) throw new Error("온라인 저장소 설정이 없습니다.");
@@ -108,6 +121,7 @@ export default function HostedStart({ data, update }: Props) {
         { weddingId: nextConfig.weddingId, ownerToken, weddingKey: nextConfig.weddingKey },
         sharePassword,
       ));
+      setPhotoSkipCount(null);
       setPhase("done");
     } catch (e: any) {
       if (stagedConfig) clearHostedConfig();
@@ -246,22 +260,21 @@ export default function HostedStart({ data, update }: Props) {
           {koBreak("배우자와 함께,")}<br />{koBreak("다른 기기에서도.")}
         </h1>
         <ProcessAgentPanel
-          title="편집 링크를 만들 준비를 하고 있어요"
-          summary="현재 데이터를 온라인용으로 옮길 수 있는지 확인한 뒤, 둘이 같이 쓰는 복구·편집 링크를 만듭니다."
+          title="두 단계면 같이 볼 수 있어요"
+          summary="배우자가 열 비밀번호를 정하고, 만들어진 링크를 보내면 끝이에요. 처음이라면 로그인 화면을 먼저 안내할게요."
           mood="thinking"
           metrics={[
             { label: "로그인", value: "필요", tone: "warn" },
-            { label: "옮길 데이터", value: `${portableItems}개`, tone: portableItems > 0 ? "normal" : "muted" },
-            { label: "보안", value: "암호화" },
+            ddayLabel
+              ? { label: "예식일", value: ddayLabel }
+              : { label: "옮길 준비", value: `${portableItems}개`, tone: portableItems > 0 ? "normal" : "muted" },
           ]}
           steps={[
-            { label: "로그인으로 소유자 확인", detail: "다른 기기 복구를 위해 먼저 계정을 확인합니다." },
-            { label: "사진과 준비 데이터를 온라인용으로 변환", detail: "변환할 수 없는 사진이 있으면 중간에 멈추고 알려줍니다." },
-            { label: "공유 비밀번호로 링크 잠금", detail: "링크만으로는 열리지 않게 편집 권한을 한 번 더 감쌉니다." },
-            { label: "배우자에게 보낼 편집 링크 생성", detail: "하객용 청첩장 링크와 다른, 오너 권한 링크입니다." },
+            { label: "① 배우자가 열 비밀번호 정하기", detail: "링크만으로는 열리지 않게 준비판을 한 번 잠급니다." },
+            { label: "② 링크 보내기", detail: "배우자에게 1:1로 보내면 같은 준비판을 함께 편집해요." },
           ]}
           actions={[
-            { label: "링크 생성 시작 →", onClick: start, disabled: busy, tone: "primary" },
+            { label: "비밀번호 정하고 링크 만들기 →", onClick: () => { void start(); }, disabled: busy, tone: "primary" },
             { label: "암호화 확인 →", onClick: () => navigate("/trust") },
             { label: "나중에 대시보드로 →", onClick: () => navigate("/dashboard") },
           ]}
@@ -279,10 +292,19 @@ export default function HostedStart({ data, update }: Props) {
           onConfirmPassword={changeSharePasswordConfirm}
           onSuggest={applySuggestedPassword}
         />
-        <button onClick={start} disabled={busy} className="btn-primary w-full py-4 text-[13px] disabled:opacity-50">
+        <button onClick={() => { void start(); }} disabled={busy} className="btn-primary w-full py-4 text-[13px] disabled:opacity-50">
           {busy ? "준비 중…" : "비밀번호 잠그고 함께 시작 →"}
         </button>
         {error && <p className="mt-3 text-[12px] text-gold leading-relaxed">{error}</p>}
+        {photoSkipCount !== null && (
+          <button
+            onClick={() => { void start(true); }}
+            disabled={busy}
+            className="mt-3 w-full border border-hair py-3.5 text-[13px] text-ink transition hover:border-gold disabled:opacity-50"
+          >
+            이 사진 {photoSkipCount}장은 제외하고 계속 →
+          </button>
+        )}
         <button onClick={() => navigate("/dashboard")} className="block w-full mt-4 text-center text-[12px] text-soft underline underline-offset-4 hover:text-ink">
           나중에
         </button>
@@ -319,7 +341,7 @@ export default function HostedStart({ data, update }: Props) {
           { label: copied ? "초대 링크 복사됨" : link ? "초대 링크 다시 복사 →" : "보호 링크 만들기 →", onClick: copy, disabled: busy, tone: "primary" },
           { label: passwordCopied ? "비밀번호 복사됨" : "비밀번호 따로 복사 →", onClick: copyPassword },
           { label: "하객 링크 발행 →", onClick: () => navigate("/invitation?edit=publish#publish-invitation") },
-          { label: "홈으로 돌아가기 →", onClick: () => navigate("/dashboard") },
+          { label: "둘이 볼 첫 결정 보기 →", onClick: () => navigate("/dashboard") },
         ]}
       />
       <p className="text-[13px] text-soft leading-relaxed mb-5">
@@ -366,8 +388,8 @@ export default function HostedStart({ data, update }: Props) {
       <button onClick={() => navigate("/login")} className="block w-full mt-6 text-center text-[12.5px] text-ink underline underline-offset-4 hover:text-gold">
         ＋ 카카오·이메일 로그인 — 링크 안 챙겨도 다른 기기서 복구
       </button>
-      <button onClick={() => navigate("/dashboard")} className="block w-full mt-4 text-center text-[13px] text-soft underline underline-offset-4 hover:text-ink">
-        완료 — 대시보드로 →
+      <button onClick={() => navigate("/dashboard")} className="block w-full mt-4 text-center text-[13px] text-ink underline underline-offset-4 hover:text-gold">
+        둘이 볼 첫 결정 보기 →
       </button>
     </div>
   );

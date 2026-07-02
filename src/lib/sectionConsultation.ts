@@ -433,12 +433,15 @@ export function consultationChoice(data: WeddingData, sectionId: ConsultationSec
 export function consultationHeadcountBand(data: WeddingData): number | null {
   const fromGuests = consultationChoice(data, "guests", "guests-scale")[0];
   const fromVenues = consultationChoice(data, "venues", "venues-scale")[0];
-  const value = fromGuests ?? fromVenues;
+  // "아직 몰라요"는 답이 없는 것과 같으므로 다른 섹션 답으로 폴백한다.
+  const value = (fromGuests && fromGuests !== "unknown" ? fromGuests : undefined)
+    ?? (fromVenues && fromVenues !== "unknown" ? fromVenues : undefined);
   if (!value) return null;
-  if (value === "small") return fromGuests ? 130 : 100;
+  const fromGuestsUsed = value === fromGuests;
+  if (value === "small") return fromGuestsUsed ? 130 : 100;
   if (value === "medium") return 200;
   if (value === "large") return 300;
-  return null; // unknown
+  return null;
 }
 
 export function answerConsultation(

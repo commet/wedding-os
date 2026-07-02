@@ -1,11 +1,14 @@
 import { Fragment, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import type { WeddingData, WeddingUpdate, BudgetItem, GuestCategory } from "../lib/schema";
-import { defaultBudget, BUDGET_TEMPLATE, BUDGET_TOTAL_NOTE } from "../data/budgetTemplate";
+import { defaultBudget, BUDGET_TOTAL_NOTE, templateGroupTotalKRW } from "../data/budgetTemplate";
 import {
   planningHeadcount, formatKRW, contractedVenue, mealCostRange, upcomingBalances, contractedTotals,
-  breakEven, expectedGiftIncome, type BreakEven, type GiftIncome,
+  breakEven, expectedGiftIncome, budgetSyncSuggestions,
+  type BreakEven, type GiftIncome, type BudgetSyncSuggestion,
 } from "../lib/derived";
+import { lossDeadlinesFor, lossDdayLabel } from "../lib/lossDeadlines";
+import { todayISO } from "../lib/freshness";
 import { koBreak } from "../lib/typography";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import SectionConsultationPanel from "../components/SectionConsultationPanel";
@@ -25,6 +28,22 @@ export default function Budget({ data, update }: Props) {
   const [customName, setCustomName] = useState("");
   const [confirmWipe, setConfirmWipe] = useState(false);
 
+  // ── 스코프 게이트 — 템플릿을 붓기 전에 "어디까지 이 예산인가"를 먼저 정한다 ──
+  const meta = data.budgetMeta;
+  const [capMan, setCapMan] = useState(meta?.capKRW ? String(Math.round(meta.capKRW / 10000)) : "");
+  const [includeHome, setIncludeHome] = useState(meta?.includeHome ?? false);
+  const [includeYedan, setIncludeYedan] = useState(meta?.includeYedan ?? false);
+  const [capEditOpen, setCapEditOpen] = useState(false);
+
+  const capKRW = meta?.capKRW ?? 0;
+  const homeTotal = templateGroupTotalKRW("newhome");
+  const yedanTotal = templateGroupTotalKRW("tradition");
+
+  // 손해 마감 — 이 화면 항목의 dueDate에서 (미결제만)
+  const lossDL = lossDeadlinesFor(data, todayISO(), "/budget");
+  // 다른 화면 확정 숫자 → 예산 항목 제안 (같은 숫자를 두 번 치지 않게)
+  const syncs = budgetSyncSuggestions(data);
+
   const totals = useMemo(() => {
     const planned = items.reduce((s, b) => s + (b.planned ?? 0), 0);
     const actual = items.reduce((s, b) => s + (b.actual ?? 0), 0);
@@ -37,11 +56,62 @@ export default function Budget({ data, update }: Props) {
     return { planned, actual, avg, paid, unpaidCount, overCount };
   }, [items]);
 
-  const loadDefault = () => {
+  // 게이트 답을 기록하고, 답에 맞는 그룹만 불러온다
+  const loadWithScope = () => {
+    const cap = capMan.trim() ? Math.max(0, Math.round(Number(capMan) || 0)) * 10000 : 0;
     update((prev: WeddingData) => ({
       ...prev,
-      budget: [...(prev.budget ?? []), ...defaultBudget()],
+      budget: [...(prev.budget ?? []), ...defaultBudget({ includeHome, includeYedan })],
+      budgetMeta: {
+        ...prev.budgetMeta,
+        // 빈 입력 = "아직 미정" — 이전 상한을 조용히 유지하지 않는다 (saveCap과 같은 의미론)
+        capKRW: cap > 0 ? cap : undefined,
+        includeHome,
+        includeYedan,
+        decidedAt: new Date().toISOString(),
+      },
     }));
+  };
+
+  // 상한만 나중에 정하거나 고칠 때 (기존 사용자 포함)
+  const saveCap = (manRaw: string) => {
+    const krw = Math.max(0, Math.round(Number(manRaw) || 0)) * 10000;
+    update((prev: WeddingData) => ({
+      ...prev,
+      budgetMeta: {
+        ...prev.budgetMeta,
+        capKRW: krw > 0 ? krw : undefined,
+        decidedAt: prev.budgetMeta?.decidedAt ?? new Date().toISOString(),
+      },
+    }));
+    setCapEditOpen(false);
+  };
+
+  // 제안 가져오기 — 매칭 항목이 있으면 planned 갱신, 없으면 새 항목 생성
+  const applySync = (s: BudgetSyncSuggestion) => {
+    update((prev: WeddingData) => {
+      const budget = prev.budget ?? [];
+      if (s.itemId && budget.some((b) => b.id === s.itemId)) {
+        return {
+          ...prev,
+          budget: budget.map((b) =>
+            b.id === s.itemId ? { ...b, planned: s.suggestedKRW, notes: b.notes || s.basis } : b,
+          ),
+        };
+      }
+      return {
+        ...prev,
+        budget: [
+          ...budget,
+          {
+            id: `budget-sync-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            category: s.categoryLabel,
+            planned: s.suggestedKRW,
+            notes: s.basis,
+          },
+        ],
+      };
+    });
   };
 
   const wipeAll = () => {
@@ -145,6 +215,47 @@ export default function Budget({ data, update }: Props) {
         <p className="hidden text-[12.5px] text-soft leading-relaxed border-y border-hair py-4 md:block">
           {BUDGET_TOTAL_NOTE}
         </p>
+
+        {/* 스코프 게이트 — 항목을 붓기 전에 총액 프레임부터. 이 세 답이 합계를 2~3배 흔든다 */}
+        <div className="text-left border-y border-hair py-5 space-y-5">
+          <div>
+            <div className="eyebrow-gold mb-1.5">시작 전에 세 가지만</div>
+            <p className="text-[12.5px] text-soft leading-relaxed break-keep">
+              어디까지 이 예산으로 볼지 먼저 정하면, 합계가 처음부터 두 분 기준으로 잡혀요.
+            </p>
+          </div>
+          <div>
+            <label className="label" htmlFor="budget-cap">총 예산 상한 (만원) — 아직 미정이면 비워두세요</label>
+            <input
+              id="budget-cap"
+              type="number"
+              min={0}
+              inputMode="numeric"
+              className="input text-[14px] tabular-nums"
+              value={capMan}
+              onChange={(e) => setCapMan(e.target.value)}
+              placeholder="예: 5000"
+            />
+          </div>
+          <div className="space-y-4">
+            <ScopeToggle
+              question="신혼집(가전·가구)도 이 예산에서 볼까요?"
+              hint={`포함하면 참고 기준으로 약 ${formatKRW(homeTotal)}이 더해져요.`}
+              value={includeHome}
+              onChange={setIncludeHome}
+            />
+            <ScopeToggle
+              question="예단·함·이바지도 포함할까요?"
+              hint={`생략하는 커플도 많아요. 포함하면 참고 기준 약 ${formatKRW(yedanTotal)}.`}
+              value={includeYedan}
+              onChange={setIncludeYedan}
+            />
+          </div>
+          <p className="text-[11px] text-soft leading-relaxed break-keep">
+            나중에 마음이 바뀌면 항목을 추가하거나 지우면 됩니다.
+          </p>
+        </div>
+
         <ProcessAgentPanel
           title="예산표를 계약과 하객에 연결할 준비"
           summary="처음에는 정확한 금액보다 빠진 항목을 줄이는 게 중요해요. 기본 항목을 준비하고, 이후 식대·잔금·축의금 추정치를 자동으로 맞춰갑니다."
@@ -158,7 +269,7 @@ export default function Budget({ data, update }: Props) {
             { label: "견적 받는 즉시 실제 지출로 교체하기", detail: "참고값은 감 잡기용이고, 계약 금액이 들어오면 그 값이 기준입니다." },
           ]}
           actions={[
-            { label: "기본 비용 항목 불러오기 →", onClick: loadDefault, tone: "primary" },
+            { label: "이 기준으로 항목 불러오기 →", onClick: loadWithScope, tone: "primary" },
           ]}
         />
         <div className="text-left">
@@ -209,6 +320,83 @@ export default function Budget({ data, update }: Props) {
 
       {/* 합계 요약 */}
       <div className="space-y-4 border-y border-hair py-6">
+        {/* 총 상한 대비 — 상한이 있어야 초과/여유 판단이 성립한다 */}
+        {capEditOpen ? (
+          <form
+            onSubmit={(e) => { e.preventDefault(); saveCap(capMan); }}
+            className="flex items-end gap-3 border-b border-hair pb-4"
+          >
+            <div className="flex-1">
+              <label className="label" htmlFor="budget-cap-edit">총 예산 상한 (만원)</label>
+              <input
+                id="budget-cap-edit"
+                type="number" min={0} inputMode="numeric"
+                className="input text-[14px] tabular-nums"
+                value={capMan}
+                onChange={(e) => setCapMan(e.target.value)}
+                placeholder="예: 5000"
+                autoFocus
+              />
+            </div>
+            <button type="submit" className="text-[12px] text-ink underline underline-offset-4 pb-3 hover:text-gold whitespace-nowrap">
+              저장
+            </button>
+          </form>
+        ) : capKRW > 0 ? (
+          <div className="border-b border-hair pb-4">
+            <div className="flex items-baseline justify-between mb-2">
+              <span className="eyebrow-gold">총 상한 대비</span>
+              <button
+                onClick={() => { setCapMan(String(Math.round(capKRW / 10000))); setCapEditOpen(true); }}
+                className="text-[11px] text-soft underline underline-offset-2 hover:text-gold"
+              >
+                고치기
+              </button>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <span className="eyebrow">상한</span>
+                <span className="block text-[13px] text-ink tabular-nums mt-0.5 break-keep">{formatKRW(capKRW)}</span>
+              </div>
+              <div>
+                <span className="eyebrow">계획</span>
+                <span className="block text-[13px] text-ink tabular-nums mt-0.5 break-keep">{formatKRW(totals.planned)}</span>
+              </div>
+              <div>
+                <span className="eyebrow">{totals.planned > capKRW ? "초과" : "남음"}</span>
+                <span className={`block text-[13px] tabular-nums mt-0.5 break-keep ${totals.planned > capKRW ? "text-gold font-semibold" : "text-ink"}`}>
+                  {formatKRW(Math.abs(capKRW - totals.planned))}
+                </span>
+              </div>
+            </div>
+            <div className="w-full h-1 bg-mute/30 relative mt-2.5">
+              <div
+                className={`absolute top-0 left-0 h-1 ${totals.planned > capKRW ? "bg-gold" : "bg-ink"}`}
+                style={{ width: `${Math.min(100, (totals.planned / capKRW) * 100)}%` }}
+              />
+            </div>
+            {totals.planned > capKRW && (
+              <p className="mt-2 text-[11px] text-gold break-keep">
+                계획이 상한을 넘었어요. 큰 항목부터 같이 다시 보면 좋아요.
+              </p>
+            )}
+            {meta?.decidedAt && (
+              <p className="mt-2 text-[11px] text-soft break-keep">
+                신혼집 {meta.includeHome ? "포함" : "별도"} · 예단·함 {meta.includeYedan ? "포함" : "별도"} 기준
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="border-b border-hair pb-4">
+            <button
+              onClick={() => setCapEditOpen(true)}
+              className="text-[12px] text-ink underline underline-offset-4 hover:text-gold"
+            >
+              총 예산 상한 정하기 →
+            </button>
+            <p className="mt-1.5 text-[11px] text-soft break-keep">상한이 있어야 초과·여유를 바로 알 수 있어요.</p>
+          </div>
+        )}
         <SummaryRow label="우리 예산 합계" value={totals.planned} accent />
         <SummaryRow label="실제 지출" value={totals.actual} muted />
         <SummaryRow label="참고 기준값" value={totals.avg} muted />
@@ -276,33 +464,98 @@ export default function Budget({ data, update }: Props) {
         return <GiftBreakEven data={data} update={update} income={income} be={be} />;
       })()}
 
-      {/* 다가오는 결제 — 예식장·스드메 계약 잔금 (잔금일 순) */}
-      {balances.length > 0 && (
+      {/* 다가오는 마감·납부 — 계약 잔금 + 항목별 결제 마감(dueDate)을 임박한 순으로 (미루면 손해가 최상단) */}
+      {(() => {
+        const rows = [
+          ...lossDL.map((d) => ({
+            key: d.id,
+            name: d.name.replace(/^\[[^\]]+\]\s*/, ""),
+            tag: d.label,
+            amount: d.amountKRW,
+            daysLeft: d.daysLeft,
+            to: undefined as string | undefined,
+          })),
+          ...balances.map((b) => ({
+            key: b.name + b.dueAt,
+            name: b.name,
+            tag: "잔금",
+            amount: b.amount as number | undefined,
+            daysLeft: b.daysLeft,
+            to: b.targetPath as string | undefined,
+          })),
+        ].sort((a, b) => a.daysLeft - b.daysLeft).slice(0, 6);
+        if (rows.length === 0) return null;
+        return (
+          <div className="border-y border-hair py-5">
+            <div className="eyebrow-gold mb-1.5">다가오는 마감·납부</div>
+            <p className="text-[11px] text-soft break-keep mb-2.5">늦어지면 추가금이 생길 수 있는 항목이에요.</p>
+            <div>
+              {rows.map((r) => {
+                const inner = (
+                  <>
+                    <span className="text-[13px] text-ink break-keep">{r.name} <span className="text-soft">{r.tag}</span></span>
+                    <span className="flex items-baseline gap-2.5 tabular-nums break-keep">
+                      {r.amount ? <b className="text-[13px] font-semibold text-ink">{formatKRW(r.amount)}</b> : null}
+                      <span className={`text-[12px] ${r.daysLeft <= 14 ? "text-gold font-medium" : "text-soft"}`}>
+                        {lossDdayLabel(r.daysLeft)}
+                      </span>
+                    </span>
+                  </>
+                );
+                return r.to ? (
+                  <Link key={r.key} to={r.to} className="row-tap flex items-baseline justify-between gap-3 border-b border-hair py-2.5 last:border-b-0">
+                    {inner}
+                  </Link>
+                ) : (
+                  <div key={r.key} className="flex items-baseline justify-between gap-3 border-b border-hair py-2.5 last:border-b-0">
+                    {inner}
+                  </div>
+                );
+              })}
+            </div>
+            {ct.balanceTotal > 0 && (
+              <div className="mt-1 flex items-baseline justify-between gap-3 border-t border-hair pt-3">
+                <span className="eyebrow break-keep">남은 잔금 합계</span>
+                <span className="text-[13px] font-semibold text-ink tabular-nums break-keep">{formatKRW(ct.balanceTotal)}</span>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* 다른 화면 숫자 가져오기 — 예식장·스드메·반지·여행의 확정 숫자를 예산에 한 번에 */}
+      {syncs.length > 0 && (
         <div className="border-y border-hair py-5">
-          <div className="eyebrow-gold mb-3">다음 납부</div>
+          <div className="eyebrow-gold mb-1.5">다른 화면에서 온 숫자</div>
+          <p className="text-[11px] text-soft break-keep mb-2.5">
+            계약·후보에서 나온 금액이에요. 같은 숫자를 두 번 치지 않아도 됩니다.
+          </p>
           <div>
-            {balances.map((b) => (
-              <Link
-                key={b.name + b.dueAt}
-                to={b.targetPath}
-                className="row-tap flex items-baseline justify-between gap-3 border-b border-hair py-2.5 last:border-b-0"
-              >
-                <span className="text-[13px] text-ink break-keep">{b.name} <span className="text-soft">잔금</span></span>
-                <span className="flex items-baseline gap-2.5 tabular-nums break-keep">
-                  <b className="text-[13px] font-semibold text-ink">{formatKRW(b.amount)}</b>
-                  <span className={`text-[12px] ${b.daysLeft <= 14 ? "text-gold font-medium" : "text-soft"}`}>
-                    {b.daysLeft < 0 ? `${-b.daysLeft}일 지남` : b.daysLeft === 0 ? "오늘" : `D-${b.daysLeft}`}
+            {syncs.map((s) => (
+              <div key={s.key} className="border-b border-hair py-3 last:border-b-0">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-[13px] text-ink break-keep">{s.categoryLabel}</span>
+                  <span className="tabular-nums break-keep">
+                    {s.currentKRW ? (
+                      <span className="text-[12px] text-soft line-through mr-1.5">{formatKRW(s.currentKRW)}</span>
+                    ) : null}
+                    <b className="text-[13px] font-semibold text-ink">{formatKRW(s.suggestedKRW)}</b>
                   </span>
-                </span>
-              </Link>
+                </div>
+                <div className="mt-1 flex items-baseline justify-between gap-3">
+                  <Link to={s.to} className="text-[11px] text-soft underline underline-offset-2 hover:text-gold break-keep min-w-0">
+                    {s.basis}
+                  </Link>
+                  <button
+                    onClick={() => applySync(s)}
+                    className="text-[12px] text-ink underline underline-offset-4 hover:text-gold whitespace-nowrap"
+                  >
+                    가져오기 →
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
-          {ct.balanceTotal > 0 && (
-            <div className="mt-1 flex items-baseline justify-between gap-3 border-t border-hair pt-3">
-              <span className="eyebrow break-keep">남은 잔금 합계</span>
-              <span className="text-[13px] font-semibold text-ink tabular-nums break-keep">{formatKRW(ct.balanceTotal)}</span>
-            </div>
-          )}
         </div>
       )}
 
@@ -366,6 +619,12 @@ export default function Budget({ data, update }: Props) {
             return true;
           });
           if (visible.length === 0) return null;
+          // 마감이 걸린 미결제 항목을 그룹 안에서도 맨 위로 (같으면 템플릿 순서 유지)
+          const sorted = [...visible].sort((a, b) => {
+            const ak = a.dueDate && !a.paid ? a.dueDate.slice(0, 10) : "9999-12-31";
+            const bk = b.dueDate && !b.paid ? b.dueDate.slice(0, 10) : "9999-12-31";
+            return ak.localeCompare(bk);
+          });
           const groupPlanned = list.reduce((s, b) => s + (b.planned ?? 0), 0);
           const groupActual = list.reduce((s, b) => s + (b.actual ?? 0), 0);
           // 미결제 정의는 합계(totals.unpaidCount)와 동일하게 — 두 수치가 어긋나지 않게.
@@ -384,7 +643,7 @@ export default function Budget({ data, update }: Props) {
                 </span>
               </div>
               <ul className="group-card">
-                {visible.map((b) => (
+                {sorted.map((b) => (
                   <BudgetRow key={b.id} b={b} onChange={(patch) => updateItem(b.id, patch)} onRemove={() => removeItem(b.id)} />
                 ))}
               </ul>
@@ -457,6 +716,16 @@ function GiftBreakEven({ data, update, income, be }: {
         </>
       )}
 
+      {/* 축의금 vs 식대 — "식대는 축의금으로 메워지나"에 한 줄로 답한다 */}
+      {be.vsMeal !== null && (
+        <p className="mt-2 text-[11.5px] text-soft tabular-nums break-keep">
+          예상 축의금 <b className="text-ink font-medium">{formatKRW(be.gift)}</b> — 식대 대비{" "}
+          <span className={be.vsMeal < 0 ? "text-gold font-medium" : "text-ink"}>
+            {be.vsMeal >= 0 ? `+${formatKRW(be.vsMeal)} 여유` : `${formatKRW(Math.abs(be.vsMeal))} 부족`}
+          </span>
+        </p>
+      )}
+
       <button onClick={() => setOpen((o) => !o)} className="mt-4 text-[12px] underline underline-offset-4 text-ink hover:text-gold">
         {open ? "분류별 가정 접기" : "분류별 평균 조정 →"}
       </button>
@@ -495,6 +764,29 @@ function GiftBreakEven({ data, update, income, be }: {
   );
 }
 
+// 스코프 게이트 한 줄 — 질문 + 포함/별도 선택. 답은 budgetMeta와 상단 요약("신혼집 별도 기준")에 남는다.
+function ScopeToggle({ question, hint, value, onChange }: {
+  question: string;
+  hint: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div>
+      <div className="text-[13px] text-ink break-keep mb-1.5">{question}</div>
+      <div className="flex items-center gap-5">
+        <button type="button" onClick={() => onChange(true)} className={`tracking-wide ${value ? "seg-active" : "seg"}`}>
+          포함할게요
+        </button>
+        <button type="button" onClick={() => onChange(false)} className={`tracking-wide ${!value ? "seg-active" : "seg"}`}>
+          따로 볼게요
+        </button>
+      </div>
+      <p className="mt-1 text-[11px] text-soft break-keep">{hint}</p>
+    </div>
+  );
+}
+
 function SummaryRow({ label, value, accent, muted, small }: { label: string; value: number; accent?: boolean; muted?: boolean; small?: boolean }) {
   return (
     <div className="flex items-baseline justify-between">
@@ -512,6 +804,11 @@ function BudgetRow({ b, onChange, onRemove }: { b: BudgetItem; onChange: (p: Par
   const planned = b.planned ?? 0;
   const actual = b.actual ?? 0;
   const overBudget = planned > 0 && actual > planned;
+  // 마감일이 걸린 미결제 항목은 접힌 상태에서도 D-day가 보여야 한다
+  const dueDays = b.dueDate
+    ? Math.round((Date.parse(b.dueDate.slice(0, 10)) - Date.parse(todayISO())) / 86_400_000)
+    : null;
+  const showDue = !b.paid && dueDays !== null && Number.isFinite(dueDays);
 
   return (
     <li className="row-tap px-4 py-3.5">
@@ -527,6 +824,11 @@ function BudgetRow({ b, onChange, onRemove }: { b: BudgetItem; onChange: (p: Par
             {fmtMan(actual || planned)}<span className="text-[11px] text-soft ml-0.5">만</span>
           </span>
           {b.paid && <span className="eyebrow mt-0.5">완료</span>}
+          {showDue && (
+            <span className={`mt-0.5 text-[10.5px] tabular-nums ${dueDays! <= 14 ? "text-gold font-medium" : "text-soft"}`}>
+              {lossDdayLabel(dueDays!)} 마감
+            </span>
+          )}
         </div>
       </button>
 
@@ -555,6 +857,16 @@ function BudgetRow({ b, onChange, onRemove }: { b: BudgetItem; onChange: (p: Par
                 placeholder="0"
               />
             </div>
+          </div>
+          <div>
+            <label className="label">결제·확정 마감일</label>
+            <input
+              type="date"
+              className="input text-[13px]"
+              value={b.dueDate ? b.dueDate.slice(0, 10) : ""}
+              onChange={(e) => onChange({ dueDate: e.target.value || undefined })}
+            />
+            <p className="mt-1 text-[10.5px] text-soft break-keep">잔금·무료취소처럼 날짜가 걸린 항목만 적으면, 임박 순으로 위에 올라와요.</p>
           </div>
           <label className="flex items-center gap-2 text-[12.5px] text-soft">
             <input

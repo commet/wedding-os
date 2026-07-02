@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import type { WeddingData, WeddingUpdate, HoneymoonRegion, Flight, Hotel } from "../lib/schema";
 import { HONEYMOON_CATALOG, type HoneymoonPick } from "../data/honeymoonCatalog";
 import { OTA_LIST } from "../data/hotelOtaTemplate";
@@ -20,6 +20,9 @@ import {
   type BridgePrompt,
 } from "../lib/chatbotBridge";
 import { todayISO } from "../lib/freshness";
+import { lossDeadlinesFor, lossDdayLabel } from "../lib/lossDeadlines";
+import { budgetSyncSuggestions, formatKRW, tripCostEstimate, type TripCostEstimate } from "../lib/derived";
+import { answerConsultation, consultationFacts } from "../lib/sectionConsultation";
 import { koBreak } from "../lib/typography";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import SectionConsultationPanel from "../components/SectionConsultationPanel";
@@ -40,6 +43,41 @@ type Props = { data: WeddingData; update: (patch: WeddingUpdate) => void };
 type Tab = "destinations" | "flights" | "stays";
 type TripMood = "rest" | "balanced" | "active" | "short";
 type TripBudget = "value" | "mid" | "luxury";
+type TripDays = "short" | "week" | "long";
+type TripStarterAnswers = { mood: TripMood; budget: TripBudget; days: TripDays };
+
+/** 출발일·복귀일이 잡혀 있으면 박수를 계산 — 숙소 합산·검색 기본값의 앵커. */
+function plannedNights(data: WeddingData): number | null {
+  const { startDate, endDate } = data.honeymoon;
+  if (!startDate || !endDate) return null;
+  const n = Math.round((Date.parse(endDate.slice(0, 10)) - Date.parse(startDate.slice(0, 10))) / 86_400_000);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/**
+ * 화면용 총액 조합 — tripCostEstimate가 기준. 이 화면은 숙소 가격을 OTA 최저가로 모으므로
+ * rooms 단가가 비어 있을 때는 OTA 최저가 × 박수로 숙소 몫만 보강해 보여준다(표시용).
+ */
+function tripComboEstimate(data: WeddingData): TripCostEstimate | null {
+  const est = tripCostEstimate(data);
+  if (est?.hotelKRW) return est;
+  const otaMins = (data.hotels ?? [])
+    .map((h) => Math.min(...(h.otaPrices ?? []).map((o) => o.price ?? Infinity)))
+    .filter((p) => Number.isFinite(p) && p > 0);
+  const cheapestNight = otaMins.length ? Math.min(...otaMins) : undefined;
+  if (!cheapestNight) return est;
+  const nights = est?.nights ?? plannedNights(data) ?? 5;
+  const hotelKRW = cheapestNight * nights;
+  const flightKRW = est?.flightKRW;
+  const total = (flightKRW ?? 0) + hotelKRW;
+  const basis = [
+    flightKRW ? `항공 최저 ${formatKRW(flightKRW)}` : undefined,
+    `숙소 ${nights}박 약 ${formatKRW(hotelKRW)} (OTA 최저가)`,
+  ]
+    .filter(Boolean)
+    .join(" + ");
+  return { flightKRW, hotelKRW, nights, total, basis };
+}
 
 const FLIGHT_RESEARCH_SECTIONS: ResearchSection<FlightResearchDraft>[] = [
   {
@@ -91,27 +129,41 @@ export default function Trip({ data, update }: Props) {
         ? "항공 후보까지 들어왔어요. 숙소 위치와 1박 단가를 확인하면 총예산 비교가 가능합니다."
         : "지역·항공·숙소가 모두 들어왔어요. 이제 가격 신선도와 일정 메모를 갱신하면서 최종안을 좁히면 됩니다.";
 
-  const applyTripStarter = (picks: HoneymoonPick[]) => {
+  const applyTripStarter = (picks: HoneymoonPick[], answers: TripStarterAnswers) => {
+    // 기간 세그먼트 → ① 항공 피로도 기준(직항/경유 허용), ② 후보 카드의 비교용 기간 기본값으로 승격.
+    const flightValue = answers.days === "short" ? "direct" : answers.days === "week" ? "one-stop" : "flexible";
+    const durationDays = answers.days === "short" ? 4 : answers.days === "week" ? 6 : 9;
     update((prev: WeddingData) => {
-      const names = new Set(prev.honeymoon.regions.map((r) => r.name));
+      // 스타터 답을 상담 답변으로 영속화 — 이후 "정한 기준"과 결정 카드에 그대로 흐른다.
+      let next = answerConsultation(prev, "trip", "trip-pace", answers.mood);
+      next = answerConsultation(next, "trip", "trip-budget", answers.budget);
+      next = answerConsultation(next, "trip", "trip-flight", flightValue);
+      const names = new Set(next.honeymoon.regions.map((r) => r.name));
       const additions = picks
         .filter((pick) => !names.has(pick.region))
         .map((pick) => ({
           id: `region-${Date.now()}-${pick.id}`,
           name: pick.region,
+          durationDays,
           notes: starterTripNotes(pick),
         }));
       return {
-        ...prev,
+        ...next,
         honeymoon: {
-          ...prev.honeymoon,
-          regions: [...prev.honeymoon.regions, ...additions],
+          ...next.honeymoon,
+          regions: [...next.honeymoon.regions, ...additions],
         },
       };
     });
     setTab("destinations");
     setShowStarter(false);
   };
+
+  const lossItems = lossDeadlinesFor(data, todayISO(), "/trip");
+  const combo = tripComboEstimate(data);
+  // 항공·숙소 제안이 나뉘어 있으므로 하나라도 있으면 예산 연동 안내를 띄운다.
+  const tripSync = budgetSyncSuggestions(data).find((s) => s.key === "trip-flight" || s.key === "trip-hotel");
+  const facts = consultationFacts(data, "trip");
 
   return (
     <div className="page pt-6 pb-10 space-y-6">
@@ -121,6 +173,48 @@ export default function Trip({ data, update }: Props) {
       </div>
 
       <SectionDecisionLoop data={data} sectionId="trip" />
+
+      {lossItems.length > 0 && (
+        <section className="decision-loop decision-loop-compact space-y-2.5">
+          <div className="eyebrow">늦어지면 손해가 생기는 날짜</div>
+          {lossItems.slice(0, 3).map((d) => (
+            <div key={d.id} className="flex items-start gap-2.5">
+              <span
+                className={`decision-risk ${
+                  d.severity === "high" ? "decision-risk-high" : d.severity === "medium" ? "decision-risk-medium" : "decision-risk-low"
+                }`}
+              >
+                {lossDdayLabel(d.daysLeft)}
+              </span>
+              <div className="min-w-0 flex-1 text-[12px] leading-relaxed">
+                <span className="font-semibold text-ink">{d.name}</span>
+                <span className="text-soft"> · {d.label} {d.date.slice(5).replace("-", "/")}</span>
+                <span className="block text-soft">{d.lossHint}</span>
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {combo && (
+        <section className="decision-loop decision-loop-compact">
+          <div className="eyebrow mb-1">지금 조합 최저</div>
+          <div className="font-serif text-xl text-ink tabular-nums">약 {formatKRW(combo.total)}</div>
+          <p className="mt-1 text-[12px] leading-relaxed text-soft">{combo.basis}</p>
+          {tripSync && (
+            <Link to="/budget" className="mt-2 inline-block text-[12px] text-gold underline underline-offset-4 hover:text-ink">
+              이 금액, 예산표에 가져갈 수 있어요 →
+            </Link>
+          )}
+        </section>
+      )}
+
+      {facts.length > 0 && (
+        <p className="text-[12px] leading-relaxed text-soft">
+          <span className="mr-1.5 font-semibold text-gold">정한 기준</span>
+          {facts.join(" · ")}
+        </p>
+      )}
 
       {showStarter ? (
         <TripStarter onApply={applyTripStarter} onClose={() => setShowStarter(false)} />
@@ -192,12 +286,12 @@ function TripStarter({
   onApply,
   onClose,
 }: {
-  onApply: (picks: HoneymoonPick[]) => void;
+  onApply: (picks: HoneymoonPick[], answers: TripStarterAnswers) => void;
   onClose: () => void;
 }) {
   const [mood, setMood] = useState<TripMood>("balanced");
   const [budget, setBudget] = useState<TripBudget>("mid");
-  const [days, setDays] = useState<"short" | "week" | "long">("week");
+  const [days, setDays] = useState<TripDays>("week");
 
   const picks = useMemo(
     () => pickStarterTrips({ mood, budget, days }),
@@ -257,7 +351,11 @@ function TripStarter({
         ))}
       </div>
 
-      <button onClick={() => onApply(picks)} className="btn-primary w-full py-3 text-[13px]">
+      <p className="text-[12px] text-soft leading-relaxed">
+        고른 톤·예산감·기간은 그대로 저장돼서, 이후 후보 비교와 항공 기준에 다시 쓰여요.
+      </p>
+
+      <button onClick={() => onApply(picks, { mood, budget, days })} className="btn-primary w-full py-3 text-[13px]">
         후보 3곳 담기 →
       </button>
     </section>
@@ -281,15 +379,7 @@ function Segment({ active, onClick, children }: { active: boolean; onClick: () =
   );
 }
 
-function pickStarterTrips({
-  mood,
-  budget,
-  days,
-}: {
-  mood: TripMood;
-  budget: TripBudget;
-  days: "short" | "week" | "long";
-}): HoneymoonPick[] {
+function pickStarterTrips({ mood, budget, days }: TripStarterAnswers): HoneymoonPick[] {
   return HONEYMOON_CATALOG.map((pick) => {
     let score = 0;
     if (budget === "value" && pick.budgetLevel <= 2) score += 4;
@@ -370,8 +460,49 @@ function Destinations({ data, update }: Props) {
     }));
   };
 
+  const setPlanDates = (patch: { startDate?: string; endDate?: string }) => {
+    update((prev: WeddingData) => ({
+      ...prev,
+      honeymoon: { ...prev.honeymoon, ...patch },
+    }));
+  };
+  const nights = plannedNights(data);
+
   return (
     <div className="space-y-10">
+      {/* 여행 날짜 — 지역보다 먼저 확정되는 진짜 제약 */}
+      <section className="space-y-3">
+        <h2 className="section-title">{koBreak("여행 날짜")}</h2>
+        <p className="text-[12px] text-soft leading-relaxed">
+          휴가로 낼 수 있는 출발일·복귀일을 먼저 잡으면, 항공·숙소 검색과 총액 비교에 이 날짜가 그대로 쓰여요.
+        </p>
+        <div className="grid grid-cols-2 gap-x-4">
+          <div>
+            <label className="label">출발일</label>
+            <input
+              type="date"
+              className="input text-[13px]"
+              value={data.honeymoon.startDate?.slice(0, 10) ?? ""}
+              onChange={(e) => setPlanDates({ startDate: e.target.value || undefined })}
+            />
+          </div>
+          <div>
+            <label className="label">복귀일</label>
+            <input
+              type="date"
+              className="input text-[13px]"
+              value={data.honeymoon.endDate?.slice(0, 10) ?? ""}
+              onChange={(e) => setPlanDates({ endDate: e.target.value || undefined })}
+            />
+          </div>
+        </div>
+        {nights && (
+          <p className="text-[12px] text-ink">
+            <span className="tabular-nums">{nights}박 {nights + 1}일</span> 기준으로 숙소 총액을 계산해요.
+          </p>
+        )}
+      </section>
+
       {/* 내 후보 */}
       {regions.length > 0 && (
         <section>
@@ -555,7 +686,8 @@ function RegionCard({
 /* ──────────── 항공 탭 ──────────── */
 
 function Flights({ data, update }: Props) {
-  const [search, setSearch] = useState({ from: "ICN", to: "", date: "", adults: 2 });
+  // 여행지 탭에서 잡은 출발일이 있으면 검색 기본값으로 이어받는다.
+  const [search, setSearch] = useState({ from: "ICN", to: "", date: data.honeymoon.startDate?.slice(0, 10) ?? "", adults: 2 });
   const [bridge, setBridge] = useState<BridgePrompt | null>(null);
   const [showAdd, setShowAdd] = useState(false);
 
@@ -747,7 +879,14 @@ function FlightAddForm({ onAdd }: { onAdd: (f: Flight) => void }) {
 /* ──────────── 숙소 탭 ──────────── */
 
 function Stays({ data, update }: Props) {
-  const [search, setSearch] = useState({ dest: "", checkIn: "", checkOut: "", adults: 2 });
+  // 여행지 탭에서 잡은 출발일·복귀일이 있으면 체크인·체크아웃 기본값으로 이어받는다.
+  const [search, setSearch] = useState({
+    dest: "",
+    checkIn: data.honeymoon.startDate?.slice(0, 10) ?? "",
+    checkOut: data.honeymoon.endDate?.slice(0, 10) ?? "",
+    adults: 2,
+  });
+  const nights = plannedNights(data) ?? 5;
   const [bridge, setBridge] = useState<{ prompt: BridgePrompt; hotelId: string } | null>(null);
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<Hotel | null>(null);
@@ -877,6 +1016,8 @@ function Stays({ data, update }: Props) {
                       ))}
                   </div>
                 )}
+                <HotelNightsSum hotel={hotel} nights={nights} />
+                <HotelFreeCancelField hotel={hotel} onUpdate={(patch) => updateHotel(hotel.id, patch)} />
               </div>
             ))}
           </div>
@@ -936,6 +1077,53 @@ function Stays({ data, update }: Props) {
         prompt={bridge?.prompt ?? null}
         onApply={applyBridge}
       />
+    </div>
+  );
+}
+
+/** OTA 최저가 × 박수 합산 — '비교용 가격'이 카드 안에서 실제 총액으로 승격되는 지점. */
+function HotelNightsSum({ hotel, nights }: { hotel: Hotel; nights: number }) {
+  const prices = (hotel.otaPrices ?? []).map((o) => o.price ?? Infinity).filter((p) => Number.isFinite(p) && p > 0);
+  const min = prices.length ? Math.min(...prices) : null;
+  if (!min) return null;
+  return (
+    <p className="mt-2 text-[12px] text-soft">
+      1박 최저 <span className="tabular-nums text-ink">{min.toLocaleString()}원</span>
+      <span className="mx-1">·</span>
+      {nights}박이면 약 <span className="tabular-nums font-semibold text-ink">{formatKRW(min * nights)}</span>
+    </p>
+  );
+}
+
+/** 무료취소 마감일 — 자유 메모가 아니라 날짜 필드로 받아 D-day 손해 신호로 승격한다. */
+function HotelFreeCancelField({ hotel, onUpdate }: { hotel: Hotel; onUpdate: (patch: Partial<Hotel>) => void }) {
+  const value = hotel.freeCancelUntil?.slice(0, 10) ?? "";
+  const daysLeft = value
+    ? Math.round((Date.parse(value) - Date.parse(todayISO())) / 86_400_000)
+    : null;
+  return (
+    <div className="mt-3 grid grid-cols-2 items-end gap-x-4">
+      <div>
+        <label className="label">무료취소 기한</label>
+        <input
+          type="date"
+          className="input text-[13px]"
+          value={value}
+          onChange={(e) => onUpdate({ freeCancelUntil: e.target.value || undefined })}
+        />
+      </div>
+      {daysLeft !== null && !Number.isNaN(daysLeft) && (
+        <p className="pb-1 text-[11.5px] leading-relaxed text-soft">
+          <span
+            className={`decision-risk mr-1.5 ${
+              daysLeft <= 3 ? "decision-risk-high" : daysLeft <= 14 ? "decision-risk-medium" : "decision-risk-low"
+            }`}
+          >
+            {lossDdayLabel(daysLeft)}
+          </span>
+          지나면 취소 수수료가 생겨요
+        </p>
+      )}
     </div>
   );
 }

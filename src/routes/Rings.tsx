@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import type { WeddingData, WeddingUpdate, Ring } from "../lib/schema";
 import { RING_CATALOG } from "../data/ringsTemplate";
 import FreshnessBadge from "../components/FreshnessBadge";
@@ -18,11 +18,16 @@ import {
   RING_CONSULTATION_QUESTIONS,
   answerRingConsultation,
   nextRingConsultationQuestion,
+  ringBudgetAnswerLabel,
+  ringBudgetCapKRW,
   ringConsultationAnswers,
+  ringConsultationFacts,
+  ringMatchMode,
   type RingConsultationAnswers,
   type RingConsultationQuestion,
   type RingConsultationQuestionId,
 } from "../lib/ringConsultation";
+import { budgetSyncSuggestions, formatKRW } from "../lib/derived";
 import {
   emptyRingResearchDraft,
   parseRingResearchText,
@@ -205,6 +210,19 @@ export default function Rings({ data, update }: Props) {
     [consultationAnswers],
   );
   const consultationComplete = consultationAnswered === consultationTotal;
+  const consultationFactList = useMemo(() => ringConsultationFacts(consultationAnswers), [consultationAnswers]);
+  // "각자 취향대로" 답이면 완료 판정이 mutual이 아니라 신부·신랑 각자 확정(★) 기준으로 바뀐다.
+  const eachOwn = ringMatchMode(consultationAnswers) === "each-own";
+  const brideStarred = rings.filter((r) => (r.starredBy ?? []).includes("bride")).length;
+  const groomStarred = rings.filter((r) => (r.starredBy ?? []).includes("groom")).length;
+  const eachOwnDone = brideStarred >= 1 && groomStarred >= 1;
+  const narrowed = eachOwn ? eachOwnDone : mutual.length > 0;
+  const budgetCapKRW = ringBudgetCapKRW(consultationAnswers);
+  const budgetCapLabel = ringBudgetAnswerLabel(consultationAnswers);
+  const ringsBudgetSync = useMemo(
+    () => budgetSyncSuggestions(data).find((suggestion) => suggestion.key === "rings"),
+    [data],
+  );
 
   const toggle = (id: string, kind: "starred" | "liked") => {
     update((prev: WeddingData) => ({
@@ -352,22 +370,30 @@ export default function Rings({ data, update }: Props) {
         title={
           !consultationComplete
             ? "반지 기준을 먼저 묻는 중"
-            : mutual.length > 0
-              ? "겹치는 취향을 후보로 좁히는 중"
-              : whoMarked < 3
-                ? "이 기준으로 마음 표시를 모으는 중"
-                : "상대 선택을 기다리는 중"
+            : eachOwn
+              ? eachOwnDone
+                ? "각자 확정 후보가 잡혔어요"
+                : "각자 취향대로 후보를 좁히는 중"
+              : mutual.length > 0
+                ? "겹치는 취향을 후보로 좁히는 중"
+                : whoMarked < 3
+                  ? "이 기준으로 마음 표시를 모으는 중"
+                  : "상대 선택을 기다리는 중"
         }
         summary={
           !consultationComplete
             ? `${consultationQuestion?.title ?? "기준이 거의 잡혔어요"} 답하면 추천 후보와 매장 질문이 더 선명해집니다.`
-            : mutual.length > 0
-              ? `두 사람이 함께 표시한 후보가 ${mutual.length}개 있어요. 이제 가격 확인과 매장 동선을 잡으면 됩니다.`
-              : whoMarked < 3
-                ? `${who === "bride" ? "신부" : "신랑"} 쪽 표시가 아직 적어요. Dearie가 고른 후보 중 3개 정도만 마음 표시해보세요.`
-                : "한쪽 취향은 충분히 보였어요. 이제 상대가 같은 방식으로 눌러야 겹치는 후보를 찾을 수 있습니다."
+            : eachOwn
+              ? eachOwnDone
+                ? "신부·신랑 각자 확정 후보(★)가 있어요. 이제 가격 확인과 매장 동선을 잡으면 됩니다."
+                : "각자 취향대로 고르기로 했어요. 겹칠 필요 없이 신부·신랑이 즐겨찾기 ★로 확정 후보를 하나씩만 남기면 됩니다."
+              : mutual.length > 0
+                ? `두 사람이 함께 표시한 후보가 ${mutual.length}개 있어요. 이제 가격 확인과 매장 동선을 잡으면 됩니다.`
+                : whoMarked < 3
+                  ? `${who === "bride" ? "신부" : "신랑"} 쪽 표시가 아직 적어요. Dearie가 고른 후보 중 3개 정도만 마음 표시해보세요.`
+                  : "한쪽 취향은 충분히 보였어요. 이제 상대가 같은 방식으로 눌러야 겹치는 후보를 찾을 수 있습니다."
         }
-        mood={mutual.length > 0 ? "ready" : "thinking"}
+        mood={narrowed ? "ready" : "thinking"}
         metrics={[
           { label: "기준", value: `${consultationAnswered}/${consultationTotal}`, tone: consultationComplete ? "normal" : "warn" },
           { label: "신부 표시", value: `${brideMarked}개`, tone: brideMarked < 3 ? "warn" : "normal" },
@@ -376,7 +402,9 @@ export default function Rings({ data, update }: Props) {
         steps={[
           { label: "생활 방식·예산·디자인 기준 답하기", detail: "질문은 한 번에 하나씩만 묻고, 답하면 후보가 바로 다시 정렬됩니다.", done: consultationComplete },
           { label: "각자 마음에 드는 후보 3개 표시", detail: "좋아요는 넓게, 즐겨찾기는 진짜 후보에만 눌러요.", done: brideMarked >= 3 && groomMarked >= 3 },
-          { label: "둘 다 표시한 후보 확인", detail: "겹치는 후보가 매장 상담 우선순위가 됩니다.", done: mutual.length > 0 },
+          eachOwn
+            ? { label: "신부·신랑 각자 확정 후보 1개씩 ★", detail: "각자 만족을 우선하기로 해서, 겹치는 후보 대신 각자의 확정 후보가 매장 상담 기준이 됩니다.", done: eachOwnDone }
+            : { label: "둘 다 표시한 후보 확인", detail: "겹치는 후보가 매장 상담 우선순위가 됩니다.", done: mutual.length > 0 },
           { label: "Top 후보 가격 재확인", detail: "카탈로그 가격은 참고용이라 공식 판매처 또는 매장에서 다시 확인해야 합니다.", done: top5.length > 0 && !priceMissing },
         ]}
         actions={[
@@ -402,6 +430,16 @@ export default function Rings({ data, update }: Props) {
       )}
 
       {!showStarter && <RingResearchHub />}
+
+      {/* 상담에서 답한 기준 — 후보 목록 위에 판단 재료로 상시 노출 */}
+      {!showStarter && consultationFactList.length > 0 && (
+        <div className="border-y border-hair py-3">
+          <span className="eyebrow block mb-1">정한 기준</span>
+          <p className="text-[12.5px] text-soft leading-relaxed break-keep">
+            {consultationFactList.join(" · ")}
+          </p>
+        </div>
+      )}
 
       {/* Top — 번호 매겨진 hairline 리스트 */}
       {!showStarter && top5.length > 0 && (
@@ -431,6 +469,28 @@ export default function Rings({ data, update }: Props) {
               </li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {/* 예산 연동 — 마음 표시 후보 최저 조합 vs 예산표 반지 항목 */}
+      {!showStarter && ringsBudgetSync && (
+        <section className="border-y border-hair py-4 space-y-2">
+          <div className="eyebrow-gold">예산 연동</div>
+          <p className="text-[12.5px] text-soft leading-relaxed break-keep">
+            {ringsBudgetSync.basis}으로 한 쌍 약{" "}
+            <b className="text-ink tabular-nums">{formatKRW(ringsBudgetSync.suggestedKRW)}</b>이 나와요.{" "}
+            {ringsBudgetSync.currentKRW
+              ? `예산표의 ${ringsBudgetSync.categoryLabel} 항목은 ${formatKRW(ringsBudgetSync.currentKRW)}으로 잡혀 있어 차이가 있어요.`
+              : "아직 예산표에 반지 항목이 잡혀 있지 않아요."}
+          </p>
+          {budgetCapKRW != null && ringsBudgetSync.suggestedKRW > budgetCapKRW && (
+            <p className="text-[11.5px] text-gold leading-relaxed break-keep">
+              상담에서 정한 예산대({budgetCapLabel})보다 조합이 커요 — 후보를 바꾸거나 예산을 조정하면 됩니다.
+            </p>
+          )}
+          <Link to="/budget" className="inline-block text-[12px] text-ink underline underline-offset-4 hover:text-gold">
+            예산에 반영하러 가기 →
+          </Link>
         </section>
       )}
 
@@ -488,6 +548,8 @@ export default function Rings({ data, update }: Props) {
                   key={ring.id}
                   ring={ring}
                   who={who}
+                  budgetCapKRW={budgetCapKRW}
+                  budgetCapLabel={budgetCapLabel}
                   onToggle={toggle}
                   onCheck={() => openPriceCheck(ring)}
                   onRemove={() => removeRing(ring.id)}
@@ -578,10 +640,12 @@ function RingResearchInput({
 }
 
 function RingCard({
-  ring, who, onToggle, onCheck, onRemove, onUpdate,
+  ring, who, budgetCapKRW, budgetCapLabel, onToggle, onCheck, onRemove, onUpdate,
 }: {
   ring: Ring;
   who: Who;
+  budgetCapKRW?: number | null;
+  budgetCapLabel?: string | null;
   onToggle: (id: string, kind: "starred" | "liked") => void;
   onCheck: () => void;
   onRemove: () => void;
@@ -617,6 +681,14 @@ function RingCard({
           </div>
         </div>
       </div>
+
+      {/* 재확인된 가격이 상담 예산대를 넘으면 — 체크만 하고 지나가지 않게 한 줄 신호 */}
+      {budgetCapKRW != null && ring.lastVerified && (ring.priceKRW ?? 0) > budgetCapKRW && (
+        <p className="mt-3 text-[11.5px] text-gold leading-relaxed break-keep">
+          확인된 가격이 상담에서 정한 예산대({budgetCapLabel ?? "설정한 상한"})를 넘어요 —
+          세트 구성이나 할인 여지를 매장에서 같이 물어보면 좋아요.
+        </p>
+      )}
       <RingThumbnails ring={ring} />
 
       <div className="mt-4 flex gap-6 text-[12px] tracking-wide">
@@ -854,6 +926,8 @@ function RingStarter({
     ? RING_CONSULTATION_QUESTIONS.find((question) => question.id === activeQuestionId) ?? nextQuestion
     : nextQuestion;
   const answeredCount = RING_CONSULTATION_QUESTIONS.filter((question) => (answers[question.id]?.length ?? 0) > 0).length;
+  const facts = ringConsultationFacts(answers);
+  const eachOwn = ringMatchMode(answers) === "each-own";
 
   const answerQuestion = (questionId: RingConsultationQuestionId, value: string) => {
     const question = RING_CONSULTATION_QUESTIONS.find((item) => item.id === questionId);
@@ -911,7 +985,9 @@ function RingStarter({
         <div className="border-l border-gold pl-4">
           <div className="eyebrow-gold mb-1">기준 완료</div>
           <p className="text-[13.5px] leading-relaxed text-soft break-keep">
-            이제 아래 후보를 먼저 표시하고, 두 분이 겹치는 후보만 매장 상담 후보로 남기면 됩니다.
+            {eachOwn
+              ? "각자 취향대로 고르기로 했으니, 아래 후보에서 신부·신랑이 각자 마음에 드는 것을 표시하고 즐겨찾기 ★로 하나씩 확정하면 됩니다."
+              : "이제 아래 후보를 먼저 표시하고, 두 분이 겹치는 후보만 매장 상담 후보로 남기면 됩니다."}
           </p>
         </div>
       )}
@@ -932,6 +1008,12 @@ function RingStarter({
           ))}
         </div>
       </details>
+
+      {facts.length > 0 && (
+        <p className="text-[12px] text-soft leading-relaxed break-keep">
+          <span className="text-ink">정한 기준</span> · {facts.join(" · ")}
+        </p>
+      )}
 
       <div className="border-y border-hair divide-y divide-hair">
         {picks.map(({ ring, reason }, idx) => (

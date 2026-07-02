@@ -16,43 +16,45 @@ type Props = {
   update: (patch: WeddingUpdate) => void;
 };
 
-// 프라이버시 ↔ 편의 스펙트럼. 간편(hosted)이 기본 추천.
-const MODES = [
+// 첫 관문은 "혼자 vs 같이"라는 사용자 언어의 결정 2개.
+// 직접 운영(supabase/devOnly)은 개발자용 접이식으로 강등.
+type ModeId = "hosted" | "local" | "supabase" | "devOnly";
+
+const PRIMARY_MODES: ReadonlyArray<{ id: ModeId; title: string; oneLiner: string; difficulty: string }> = [
   {
     id: "hosted",
-    title: "링크로 같이 시작",
-    oneLiner: "별도 셋업 없이 복구 링크와 편집 링크를 만들고, 청첩장 RSVP까지 받을 수 있어요.",
-    difficulty: "가장 쉬움 · 추천",
-    highlight: true,
+    title: "둘이 같이 볼게요",
+    oneLiner: "링크 하나로 배우자와 같은 준비판을 함께 편집하고, 청첩장 RSVP까지 받아요.",
+    difficulty: "링크 공유 · 추천",
   },
   {
     id: "local",
-    title: "혼자 이 기기에 저장",
-    oneLiner: "가입 없이 바로 시작합니다. 나중에 필요하면 기록을 그대로 옮겨 같이 쓸 수 있어요.",
-    difficulty: "30초 · 내 기기",
-    highlight: false,
+    title: "혼자 먼저 정리할게요",
+    oneLiner: "가입 없이 이 기기에서 바로 시작해요. 나중에 링크로 같이 보기로 바꿀 수 있어요.",
+    difficulty: "30초 · 이 기기",
   },
+];
+
+const ADVANCED_MODES: ReadonlyArray<{ id: ModeId; title: string; oneLiner: string; difficulty: string }> = [
   {
     id: "supabase",
     title: "내 저장소로 직접 운영",
     oneLiner: "직접 만든 저장 공간에 연결해 운영합니다. 기술 설정에 익숙한 분께 맞습니다.",
     difficulty: "고급 · 직접 설정",
-    highlight: false,
   },
   {
     id: "devOnly",
     title: "코드로 직접 운영",
     oneLiner: "코드를 받아 내 서버·디자인·기능까지 직접 바꾸는 개발자용 선택지입니다.",
     difficulty: "GitHub",
-    highlight: false,
   },
-] as const;
+];
 
 export default function Welcome({ data, update }: Props) {
   const navigate = useNavigate();
   const location = useLocation();
   const [step, setStep] = useState<"landing" | "modeSelect">("landing");
-  const [showCompare, setShowCompare] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const hostedReady = authAvailable();
 
   // 데모 배너 '내 결혼식 시작' 등에서 들어오면 저장 방식을 고르는 화면으로 보낸다.
@@ -90,7 +92,7 @@ export default function Welcome({ data, update }: Props) {
     navigate("/", { replace: true, state: null });
   };
 
-  const selectMode = (id: typeof MODES[number]["id"]) => {
+  const selectMode = (id: ModeId) => {
     if (id === "devOnly") {
       window.open("https://github.com/commet/wedding-os", "_blank", "noopener,noreferrer");
       return;
@@ -146,14 +148,14 @@ export default function Welcome({ data, update }: Props) {
         </button>
 
         <div className="mb-9">
-          <div className="eyebrow-gold mb-4">01 · 저장 방식</div>
+          <div className="eyebrow-gold mb-4">어떻게 쓸까</div>
           <h1 className="display-sm mb-3">
-            {koBreak("어떻게 이어서 쓸지")}<br />
-            {koBreak("먼저 정해둘게요.")}
+            {koBreak("혼자 정리할까요,")}<br />
+            {koBreak("둘이 같이 볼까요?")}
           </h1>
           <p className="text-soft text-[13px] leading-relaxed">
-            대부분은 첫 번째를 고르면 됩니다. 혼자 먼저 정리해도 나중에 링크로 같이 쓸 수 있고,
-            직접 운영은 기술 설정에 익숙한 분만 선택해도 충분합니다.
+            이 선택이 준비 내용이 어디에 남을지도 정해줘요.
+            혼자 먼저 시작해도 나중에 링크로 같이 볼 수 있어요.
           </p>
           <Link to="/trust" className="inline-block mt-4 text-[12px] text-ink underline underline-offset-4 hover:text-gold transition">
             저장 방식과 암호화 확인 →
@@ -161,7 +163,7 @@ export default function Welcome({ data, update }: Props) {
         </div>
 
         <ul className="stack border-t border-hair border-b">
-          {MODES.map((m, idx) => {
+          {PRIMARY_MODES.map((m, idx) => {
             const recommended = hostedReady ? m.id === "hosted" : m.id === "local";
             const unavailable = m.id === "hosted" && !hostedReady;
             return (
@@ -190,13 +192,30 @@ export default function Welcome({ data, update }: Props) {
 
         <div className="mt-10">
           <button
-            onClick={() => setShowCompare((v) => !v)}
+            onClick={() => setShowAdvanced((v) => !v)}
             className="eyebrow flex items-center gap-2"
           >
-            저장 방식을 자세히 비교 {showCompare ? "−" : "+"}
+            직접 운영할래요 (개발자) {showAdvanced ? "−" : "+"}
           </button>
-          {showCompare && (
+          {showAdvanced && (
             <div className="mt-5 pt-5 border-t border-hair">
+              <ul className="stack border-b border-hair pb-6 mb-6">
+                {ADVANCED_MODES.map((m) => (
+                  <li key={m.id}>
+                    <button
+                      onClick={() => selectMode(m.id)}
+                      className="w-full text-left flex items-start gap-5 active:opacity-60 transition"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <h2 className="font-serif text-lg text-ink mb-1.5">{m.title}</h2>
+                        <p className="text-[13px] text-soft leading-relaxed mb-2">{m.oneLiner}</p>
+                        <span className="eyebrow">{m.difficulty}</span>
+                      </div>
+                      <span className="text-soft pt-1 flex-shrink-0">→</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
               <table className="w-full text-[12px]">
                 <thead>
                   <tr className="text-soft">

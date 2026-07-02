@@ -115,9 +115,25 @@ export const BUDGET_TEMPLATE: BudgetGroup[] = [
 let n = 0;
 const id = () => `budget-${++n}-${Math.random().toString(36).slice(2, 6)}`;
 
-export function defaultBudget(): BudgetItem[] {
+/** 스코프 게이트 답 — 어떤 그룹까지 이 예산에 넣을지. 생략하면 전체 포함(기존 동작). */
+export type BudgetScope = {
+  includeHome?: boolean;   // 신혼집(가전·가구) 그룹 포함 여부
+  includeYedan?: boolean;  // 예단·함·이바지 그룹 포함 여부
+};
+
+/** 특정 템플릿 그룹의 참고 기준값 합계 — 스코프 게이트에서 "포함하면 얼마나 커지나"를 보여줄 때. */
+export function templateGroupTotalKRW(key: string): number {
+  const g = BUDGET_TEMPLATE.find((x) => x.key === key);
+  if (!g) return 0;
+  return g.items.reduce((s, it) => s + it.avgKRW, 0);
+}
+
+export function defaultBudget(scope?: BudgetScope): BudgetItem[] {
   const out: BudgetItem[] = [];
   for (const g of BUDGET_TEMPLATE) {
+    // 스코프 답에 따라 큰 그룹을 처음부터 제외 — "다 부어놓고 삭제하게" 하지 않는다.
+    if (scope && g.key === "newhome" && !scope.includeHome) continue;
+    if (scope && g.key === "tradition" && !scope.includeYedan) continue;
     for (const it of g.items) {
       out.push({
         id: id(),

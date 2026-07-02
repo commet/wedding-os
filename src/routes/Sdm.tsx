@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef } from "react";
+import { Link } from "react-router-dom";
 import type { ContractCheck, WeddingData, WeddingUpdate, SdmVendor, SdmCategory } from "../lib/schema";
 import {
   SDM_GUIDE,
@@ -10,13 +11,14 @@ import {
 import Modal from "../components/Modal";
 import VendorActions from "../components/VendorActions";
 import { koBreak } from "../lib/typography";
-import { formatKRW, upcomingBalances } from "../lib/derived";
+import { formatKRW, upcomingBalances, budgetSyncSuggestions, todayISO } from "../lib/derived";
+import { lossDeadlinesFor, lossDdayLabel } from "../lib/lossDeadlines";
 import ProcessAgentPanel, { type ProcessAgentAction } from "../components/ProcessAgentPanel";
 import SectionConsultationPanel from "../components/SectionConsultationPanel";
 import { SectionDecisionLoop } from "../components/DecisionLoopPanel";
 import FreshnessBadge from "../components/FreshnessBadge";
 import ResearchInputPanel, { type ResearchSection } from "../components/ResearchInputPanel";
-import { consultationProgress, nextConsultationQuestion } from "../lib/sectionConsultation";
+import { consultationProgress, nextConsultationQuestion, consultationFacts } from "../lib/sectionConsultation";
 import {
   emptySdmResearchDraft,
   parseSdmResearchText,
@@ -50,18 +52,11 @@ const CONTRACT_FIELDS: { key: keyof ContractCheck; label: string; placeholder: s
   { key: "evidence", label: "증빙 보관", placeholder: "예: 계약서 PDF는 드라이브 / 카톡 견적 캡처 저장" },
 ];
 
+// 상담 직후 머릿속 순서 — 가격·포함(방금 들은 것) → 계약 조건 → 출처·확인일(메타데이터)은 마지막.
 const SDM_RESEARCH_SECTIONS: ResearchSection<SdmResearchDraft>[] = [
   {
-    title: "근거",
-    helper: "업체 후기 원문은 보관하지 않고, 확인한 가격·조건·출처만 남겨요.",
-    fields: [
-      { key: "source", label: "출처·근거", placeholder: "공식 페이지, 인스타, 상담 링크, 전화 상담 등" },
-      { key: "lastVerified", label: "확인일", kind: "date", span: "half" },
-      { key: "contact", label: "담당자·연락처", span: "half", placeholder: "예: 김실장 010-0000-0000" },
-    ],
-  },
-  {
     title: "상담 요약",
+    helper: "방금 들은 가격·포함·별도 비용부터 적어두면 나중에 비교가 쉬워요.",
     fields: [
       { key: "priceRange", label: "가격·패키지", kind: "textarea", placeholder: "예: 토탈 250~320만원, 원본 포함, 헬퍼비 별도" },
       { key: "notes", label: "내 메모", kind: "textarea", placeholder: "컨셉, 응대, 촬영 톤처럼 직접 확인한 사실" },
@@ -76,6 +71,15 @@ const SDM_RESEARCH_SECTIONS: ResearchSection<SdmResearchDraft>[] = [
       { key: "included", label: "포함 항목", kind: "textarea", placeholder: "원본, 보정본, 앨범, 액자, 피팅 등" },
       { key: "extras", label: "별도 비용", kind: "textarea", placeholder: "헬퍼비, 출장비, 원본비, 추가 보정 등" },
       { key: "evidence", label: "증빙 보관", kind: "textarea", placeholder: "계약서, 견적서, 캡처 위치" },
+    ],
+  },
+  {
+    title: "근거",
+    helper: "업체 후기 원문은 보관하지 않고, 확인한 가격·조건·출처만 남겨요.",
+    fields: [
+      { key: "source", label: "출처·근거", placeholder: "공식 페이지, 인스타, 상담 링크, 전화 상담 등" },
+      { key: "lastVerified", label: "확인일", kind: "date", span: "half" },
+      { key: "contact", label: "담당자·연락처", span: "half", placeholder: "예: 김실장 010-0000-0000" },
     ],
   },
 ];
@@ -110,12 +114,31 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
 
   const inCat = data.sdm.filter((v) => v.category === cat);
   const sectionId = snapOnly ? "snap" : "sdm";
+  const routePath = snapOnly ? "/snap" : "/sdm";
 
   // 다음 납부 — 스드메/스냅 잔금만, 잔금일 순. (읽기 전용)
   const sdmBalances = useMemo(
     () => upcomingBalances(data).filter((b) => b.targetPath === "/sdm" || b.targetPath === "/snap"),
     [data],
   );
+
+  // 미루면 손해 — 무료취소 기한·잔금일을 한 스트립으로. (읽기 전용)
+  const lossSignals = useMemo(
+    () => lossDeadlinesFor(data, todayISO(), routePath),
+    [data, routePath],
+  );
+
+  // 정한 기준 — 기준 질문 답변을 후보 비교 화면의 판단 재료로 승격.
+  const decidedFacts = useMemo(() => consultationFacts(data, sectionId), [data, sectionId]);
+
+  // 계약금+잔금 → 예산 흐름 알림 (제안이 있을 때만)
+  // sdm 제안은 카테고리별(sdm-studio/dress/makeup)로 나뉘므로 가장 큰 것 하나를 대표로 보여준다.
+  const budgetSuggestion = useMemo(() => {
+    const all = budgetSyncSuggestions(data).filter((s) =>
+      snapOnly ? s.key === "snap-contract" : s.key.startsWith("sdm-"),
+    );
+    return all.sort((a, b) => b.suggestedKRW - a.suggestedKRW)[0];
+  }, [data, snapOnly]);
 
   const filteredCatalog = useMemo(() => {
     const regionMatch = REGION_GROUPS.find((g) => g.key === region)?.match ?? (() => true);
@@ -297,26 +320,27 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
         </div>
       )}
 
-      {/* 다음 납부 — 스드메/스냅 잔금 임박 (읽기 전용) */}
-      {sdmBalances.length > 0 && (
+      {/* 미루면 손해 — 무료취소 기한·잔금일 임박 순 (읽기 전용) */}
+      {lossSignals.length > 0 && (
         <div className="border-y border-hair py-4">
-          <div className="eyebrow mb-3">다음 납부</div>
-          <ul className="space-y-2">
-            {sdmBalances.slice(0, 3).map((b) => (
-              <li
-                key={`${b.targetPath}-${b.name}-${b.dueAt}`}
-                className="flex items-baseline justify-between gap-3 text-[13px]"
-              >
-                <span className="text-ink break-keep min-w-0 truncate">
-                  {b.name} 잔금 <span className="tabular-nums">{formatKRW(b.amount)}</span>
-                </span>
-                <span
-                  className={`tabular-nums whitespace-nowrap flex-shrink-0 ${
-                    b.daysLeft <= 14 ? "text-gold" : "text-soft"
-                  }`}
-                >
-                  {dDayLabel(b.daysLeft)}
-                </span>
+          <div className="eyebrow mb-3">미루면 손해</div>
+          <ul className="space-y-2.5">
+            {lossSignals.slice(0, 4).map((d) => (
+              <li key={d.id} className="text-[13px]">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-ink break-keep min-w-0 truncate">
+                    {d.name} {d.label}
+                    {d.amountKRW ? <span className="tabular-nums"> · {formatKRW(d.amountKRW)}</span> : null}
+                  </span>
+                  <span
+                    className={`tabular-nums whitespace-nowrap flex-shrink-0 ${
+                      d.severity === "high" ? "text-gold" : d.severity === "medium" ? "text-gold/80" : "text-soft"
+                    }`}
+                  >
+                    {lossDdayLabel(d.daysLeft)}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-[11.5px] text-soft break-keep">{d.lossHint}</p>
               </li>
             ))}
           </ul>
@@ -330,6 +354,12 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
             <h2 className="section-title">{koBreak("내 후보 · ")}<span className="tabular-nums">{inCat.length}</span></h2>
             <button onClick={() => setShowAdd(true)} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">+ 직접 추가</button>
           </div>
+          {/* 정한 기준 — 기준 질문의 답이 실제 비교 화면에 보이게 */}
+          {decidedFacts.length > 0 && (
+            <p className="mb-3 text-[12px] text-soft break-keep leading-relaxed">
+              <span className="text-ink">정한 기준</span> · {decidedFacts.join(" · ")}
+            </p>
+          )}
           <div className="group-card px-4">
             {inCat.map((v) => (
               <MyVendorCard
@@ -341,6 +371,14 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
               />
             ))}
           </div>
+          {/* 계약 합계 → 예산 흐름 — 같은 숫자를 두 번 치지 않게 */}
+          {budgetSuggestion && (
+            <p className="mt-3 text-[12px] text-soft break-keep leading-relaxed">
+              계약 합계 <span className="text-ink tabular-nums">{formatKRW(budgetSuggestion.suggestedKRW)}</span>
+              {"이 예산표로 이어질 준비가 됐어요. "}
+              <Link to="/budget" className="underline underline-offset-4 text-ink hover:text-gold">예산에서 반영 →</Link>
+            </p>
+          )}
         </section>
       )}
 
@@ -622,10 +660,6 @@ function MyVendorCard({
 
       {open && (
         <div className="space-y-4 border-t border-hair pt-4">
-          <VendorActions name={v.name} region={v.region} officialUrl={v.link} sourceUrl={v.source} />
-
-          <SdmResearchInput vendor={v} onUpdate={onUpdate} />
-
           <div className="flex items-baseline gap-5">
             <span className="eyebrow">상태</span>
             {STATUS_OPTIONS.map((s) => (
@@ -638,43 +672,22 @@ function MyVendorCard({
               </button>
             ))}
           </div>
-          <textarea
-            className="input-boxed text-[13px] min-h-[50px]"
-            placeholder="메모 (가격·실장 이름·인상 등)"
-            value={v.notes ?? ""}
-            onChange={(e) => onUpdate({ notes: e.target.value })}
-          />
-          <div className="grid grid-cols-2 gap-x-4">
-            <input
-              className="input text-[13px]"
-              placeholder="가격 메모"
-              value={v.priceRange ?? ""}
-              onChange={(e) => onUpdate({ priceRange: e.target.value })}
-            />
-            <input
-              className="input text-[13px]"
-              placeholder="링크 (인스타·홈피)"
-              value={v.link ?? ""}
-              onChange={(e) => onUpdate({ link: e.target.value })}
-            />
-          </div>
 
-          {/* 계약 관리 — 상담·계약 단계에서만 노출 */}
+          {/* 1. 가격·견적 — 상담 직후 머릿속 1순위 */}
+          <input
+            className="input text-[13px]"
+            placeholder="가격 메모 (예: 토탈 280만원, 원본 포함)"
+            value={v.priceRange ?? ""}
+            onChange={(e) => onUpdate({ priceRange: e.target.value })}
+          />
           {v.status !== "관심" && (
-            <div className="pt-3 mt-1 border-t border-hair space-y-3">
-              <div className="eyebrow">계약 관리</div>
+            <div className="space-y-3">
               {/* 읽기 전용 원장 한 줄 — 선금·잔금·잔금일이 모두 채워졌을 때만 */}
               {(v.depositKRW ?? 0) > 0 && (v.balanceKRW ?? 0) > 0 && v.balanceDueAt && (
                 <div className="text-[12px] text-soft tabular-nums break-keep">
                   선금 {formatKRW(v.depositKRW!)} · 잔금 {formatKRW(v.balanceKRW!)} · 잔금일 {v.balanceDueAt.slice(0, 10)}
                 </div>
               )}
-              <input
-                className="input text-[13px]"
-                placeholder="담당자·업체 연락처"
-                value={v.contact ?? ""}
-                onChange={(e) => onUpdate({ contact: e.target.value })}
-              />
               <div className="grid grid-cols-2 gap-x-4">
                 <div>
                   <label className="label">계약금 (원)</label>
@@ -704,18 +717,64 @@ function MyVendorCard({
                   합계 {formatKRW((v.depositKRW ?? 0) + (v.balanceKRW ?? 0))}
                 </div>
               ) : null}
-              <div>
-                <label className="label">잔금 납부일</label>
-                <input
-                  type="date"
-                  className="input text-[13px] tabular-nums"
-                  value={v.balanceDueAt ?? ""}
-                  onChange={(e) => onUpdate({ balanceDueAt: e.target.value || undefined })}
-                />
+              <div className="grid grid-cols-2 gap-x-4">
+                <div>
+                  <label className="label">잔금 납부일</label>
+                  <input
+                    type="date"
+                    className="input text-[13px] tabular-nums"
+                    value={v.balanceDueAt ?? ""}
+                    onChange={(e) => onUpdate({ balanceDueAt: e.target.value || undefined })}
+                  />
+                </div>
+                <div>
+                  <label className={v.status === "계약" && !v.freeCancelUntil ? "label text-gold" : "label"}>
+                    무료취소 기한
+                  </label>
+                  <input
+                    type="date"
+                    className="input text-[13px] tabular-nums"
+                    value={v.freeCancelUntil ?? ""}
+                    onChange={(e) => onUpdate({ freeCancelUntil: e.target.value || undefined })}
+                  />
+                </div>
               </div>
-              <ContractFields contract={v.contract} onUpdate={updateContract} />
+              {v.status === "계약" && !v.freeCancelUntil && (
+                <p className="text-[11.5px] text-soft leading-relaxed break-keep">
+                  무료취소 기한을 넣어두면 위약금이 생기기 전에 D-day로 챙겨드려요.
+                </p>
+              )}
             </div>
           )}
+
+          {/* 2. 상담 요약 · 계약 조건 */}
+          <SdmResearchInput vendor={v} onUpdate={onUpdate} />
+          <textarea
+            className="input-boxed text-[13px] min-h-[50px]"
+            placeholder="메모 (실장 이름·인상·촬영 톤 등)"
+            value={v.notes ?? ""}
+            onChange={(e) => onUpdate({ notes: e.target.value })}
+          />
+          {v.status !== "관심" && (
+            <div className="space-y-3">
+              <input
+                className="input text-[13px]"
+                placeholder="담당자·업체 연락처"
+                value={v.contact ?? ""}
+                onChange={(e) => onUpdate({ contact: e.target.value })}
+              />
+              <ContractFields contract={v.contract} freeCancelUntil={v.freeCancelUntil} onUpdate={updateContract} />
+            </div>
+          )}
+
+          {/* 3. 출처 — 마지막 */}
+          <input
+            className="input text-[13px]"
+            placeholder="링크 (인스타·홈피)"
+            value={v.link ?? ""}
+            onChange={(e) => onUpdate({ link: e.target.value })}
+          />
+          <VendorActions name={v.name} region={v.region} officialUrl={v.link} sourceUrl={v.source} />
         </div>
       )}
     </div>
@@ -724,9 +783,11 @@ function MyVendorCard({
 
 function ContractFields({
   contract,
+  freeCancelUntil,
   onUpdate,
 }: {
   contract?: ContractCheck;
+  freeCancelUntil?: string;
   onUpdate: (patch: Partial<ContractCheck>) => void;
 }) {
   return (
@@ -751,6 +812,13 @@ function ContractFields({
               onChange={(e) => onUpdate({ [field.key]: e.target.value } as Partial<ContractCheck>)}
               placeholder={field.placeholder}
             />
+            {field.key === "cancellation" && (
+              <p className="mt-1 text-[11px] text-soft leading-relaxed break-keep">
+                {freeCancelUntil
+                  ? `무료취소 기한 ${freeCancelUntil.slice(0, 10)} 기준으로 D-day를 챙겨드려요.`
+                  : "무료취소 기한은 위의 날짜 칸에도 기록해두면 D-day로 챙겨드려요."}
+              </p>
+            )}
           </div>
         ))}
       </div>

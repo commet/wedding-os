@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { WeddingData } from "../lib/schema";
 import { koBreak } from "../lib/typography";
 import {
@@ -44,6 +44,26 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
     storage: "local",
   });
   const [otherOpen, setOtherOpen] = useState(Boolean(savedRegion) && !REGIONS.includes(savedRegion));
+  // 마지막 화면 payoff — 답변으로 만들어질 준비판에서 "지금 같이 볼 첫 결정"을 미리 계산.
+  const [firstDecision, setFirstDecision] = useState("");
+
+  useEffect(() => {
+    if (step !== FINAL_STEP) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [{ buildAgentDraft }, { decisionMap }] = await Promise.all([
+          import("../lib/agentDraft"),
+          import("../lib/derived"),
+        ]);
+        const preview = decisionMap(buildAgentDraft(data, answers));
+        if (!cancelled) setFirstDecision(preview.primary?.title ?? "");
+      } catch {
+        if (!cancelled) setFirstDecision("");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [step, data, answers]);
 
   const progress = step === 0 ? 0 : step >= FINAL_STEP ? 100 : Math.round((step / QUESTION_STEPS) * 100);
   const showQuestionProgress = step > 0 && step < FINAL_STEP;
@@ -55,9 +75,10 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
   const selectedPriority = AGENT_PRIORITIES[answers.priority];
   const coupleLabel = [answers.groomName.trim(), answers.brideName.trim()].filter(Boolean).join(" · ") || "두 분";
   const summary = useMemo(() => [
+    { label: "예식 날짜", value: answers.date || "아직 미정" },
+    { label: "함께 보기", value: answers.storage === "hosted" ? "둘이 같이 (링크)" : "혼자 먼저 (이 기기)" },
     { label: "신랑", value: answers.groomName.trim() || "나중에 입력" },
     { label: "신부", value: answers.brideName.trim() || "나중에 입력" },
-    { label: "예식 날짜", value: answers.date || "아직 미정" },
     { label: "희망 지역", value: answers.region.trim() || "지역을 열어두고 찾기" },
   ], [answers]);
   const generatedPreview = useMemo(() => {
@@ -127,13 +148,46 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
             <AgentPrimary onClick={next}>질문 5개 시작하기</AgentPrimary>
             <div className="mt-5 flex justify-center gap-6">
               <button onClick={onDemo} className="min-h-11 text-[13px] text-soft underline underline-offset-2">완성 예시 보기</button>
-              <button onClick={onAdvanced} className="min-h-11 text-[13px] text-soft underline underline-offset-2">고급 저장 설정</button>
+              <button onClick={onAdvanced} className="min-h-11 text-[13px] text-soft underline underline-offset-2">직접 운영하기 (개발자)</button>
             </div>
           </AgentStep>
         )}
 
         {step === 1 && (
-          <AgentStep eyebrow="01 · 두 사람" title={koBreak("두 분의 성함을 알려주세요.")} message="신랑·신부를 구분해 청첩장 기본 정보에도 같이 써요.">
+          <AgentStep eyebrow="01 · 예식일" title={koBreak("예식 날짜가 정해졌나요?")} message="날짜를 알면 취소 기한·잔금처럼 늦어지면 손해인 일부터 먼저 챙겨드릴 수 있어요.">
+            <div className="mt-9 border-y border-hair px-1 py-4">
+              <label className="label">예식 날짜</label>
+              <input type="date" className="input" value={answers.date} onChange={(event) => set("date", event.target.value)} />
+            </div>
+            <AgentPrimary onClick={next}>{answers.date ? "이 날짜 기준으로 볼게요" : "아직 미정이에요"}</AgentPrimary>
+          </AgentStep>
+        )}
+
+        {step === 2 && (
+          <AgentStep eyebrow="02 · 함께" title={koBreak("혼자 정리할까요, 둘이 같이 볼까요?")} message="둘이 같이 보면 링크 하나로 같은 준비판을 함께 편집해요. 혼자 시작해도 나중에 언제든 바꿀 수 있어요.">
+            <div className="mt-9 border-y border-hair divide-y divide-hair">
+              <StorageChoice
+                active={answers.storage === "hosted"}
+                onClick={() => { set("storage", hostedReady ? "hosted" : "local"); next(); }}
+                title="둘이 같이 볼게요"
+                desc={hostedReady
+                  ? "질문이 끝나면 배우자에게 보낼 링크를 만들어요. 내용은 안전하게 보호돼요."
+                  : "지금은 이 기기에서 시작하고, 함께 보기가 열리면 기록을 그대로 옮겨드려요."}
+                badge="링크 공유"
+              />
+              <StorageChoice
+                active={answers.storage === "local"}
+                onClick={() => { set("storage", "local"); next(); }}
+                title="혼자 먼저 정리할게요"
+                desc="가입 없이 이 기기에서 바로 시작해요. 나중에 둘이 같이 보기로 바꿀 수 있어요."
+                badge="바로 시작"
+              />
+            </div>
+          </AgentStep>
+        )}
+
+        {step === 3 && (
+          <AgentStep eyebrow="03 · 두 사람" title={koBreak("두 분의 성함을 알려주세요.")} message="신랑·신부를 구분해 청첩장 기본 정보에도 같이 써요.">
             <div className="mt-9 space-y-5">
               <AgentInput label="신랑 성함" value={answers.groomName} onChange={(value) => set("groomName", value)} placeholder="예: 김민준" autoComplete="name" />
               <AgentInput label="신부 성함" value={answers.brideName} onChange={(value) => set("brideName", value)} placeholder="예: 이서연" autoComplete="name" />
@@ -142,18 +196,8 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
           </AgentStep>
         )}
 
-        {step === 2 && (
-          <AgentStep eyebrow="02 · 일정" title={koBreak("예식 날짜가 정해졌나요?")} message="날짜를 알면 체크리스트 마감일을 자동으로 맞춰드려요.">
-            <div className="mt-9 border-y border-hair px-1 py-4">
-              <label className="label">예식 날짜</label>
-              <input type="date" className="input" value={answers.date} onChange={(event) => set("date", event.target.value)} />
-            </div>
-            <AgentPrimary onClick={next}>{answers.date ? "이 날짜로 일정 만들기" : "아직 미정이에요"}</AgentPrimary>
-          </AgentStep>
-        )}
-
-        {step === 3 && (
-          <AgentStep eyebrow="03 · 지역" title={koBreak("어느 지역을 생각하고 계세요?")} message="정확한 예식장이 아니라, 대략의 지역만 알려주세요. 후보를 좁힐 기준으로 쓸게요.">
+        {step === 4 && (
+          <AgentStep eyebrow="04 · 지역" title={koBreak("어느 지역을 생각하고 계세요?")} message="정확한 예식장이 아니라, 대략의 지역만 알려주세요. 후보를 좁힐 기준으로 쓸게요.">
             <div className="mt-9 flex flex-wrap gap-2">
               {REGIONS.map((region) => {
                 const isOther = region.startsWith("기타");
@@ -183,8 +227,8 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
           </AgentStep>
         )}
 
-        {step === 4 && (
-          <AgentStep eyebrow="04 · 우선순위" title={koBreak("가장 먼저 함께 풀고 싶은 일은요?")} message="한 가지만 골라주세요. 그 일부터 시작하기 좋게 순서를 잡아드릴게요.">
+        {step === 5 && (
+          <AgentStep eyebrow="05 · 우선순위" title={koBreak("가장 먼저 함께 풀고 싶은 일은요?")} message="한 가지만 골라주세요. 그 일부터 시작하기 좋게 순서를 잡아드릴게요.">
             <div className="mt-9">
               {(Object.entries(AGENT_PRIORITIES) as Array<[AgentPriority, typeof selectedPriority]>).map(([id, item], index) => (
                 <button key={id} onClick={() => { set("priority", id); next(); }} className="flex min-h-[68px] w-full items-start justify-between gap-4 border-b border-hair py-4 text-left transition last:border-b-0 hover:border-gold">
@@ -199,16 +243,6 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
                 </button>
               ))}
             </div>
-          </AgentStep>
-        )}
-
-        {step === 5 && (
-          <AgentStep eyebrow="05 · 보관" title={koBreak("준비 내용을 어디에 보관할까요?")} message="지금 바로 시작할 수도, 로그인해 두 사람이 함께 쓸 수도 있어요.">
-            <div className="mt-9 border-y border-hair divide-y divide-hair">
-              <StorageChoice active={answers.storage === "local"} onClick={() => { set("storage", "local"); next(); }} title="우선 이 기기에서 시작" desc="가입 없이 바로 열고, 나중에 둘이 쓰기로 바꿀 수 있어요." badge="가장 빠름" />
-              <StorageChoice active={answers.storage === "hosted"} onClick={() => { if (hostedReady) { set("storage", "hosted"); next(); } }} title="처음부터 둘이 같이" desc={hostedReady ? "로그인 후 둘이 같은 준비판을 함께 편집해요. 내용은 안전하게 보호돼요." : "현재 배포에서 로그인 연결이 필요해요."} badge="추천" disabled={!hostedReady} />
-            </div>
-            <button onClick={onAdvanced} className="mt-5 min-h-11 text-[13px] text-soft underline underline-offset-2">내 저장소로 직접 운영</button>
           </AgentStep>
         )}
 
@@ -245,8 +279,16 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
                 ))}
               </div>
             </div>
+            {(firstDecision || !answers.date) && (
+              <div className="mt-7 border-y border-hair py-4">
+                <div className="eyebrow-gold mb-1.5">지금 같이 볼 첫 결정</div>
+                <p className="font-serif text-[16px] leading-[1.5] text-ink break-keep">
+                  {firstDecision || "예식 날짜부터 같이 정해요"}
+                </p>
+              </div>
+            )}
             <AgentPrimary onClick={() => onComplete(answers)}>
-              {answers.storage === "hosted" ? "준비 화면 열고 함께 쓰기" : "준비 화면 열기"}
+              {answers.storage === "hosted" ? "링크 만들고 둘이 같이 보기" : "이 결정부터 열기"}
             </AgentPrimary>
             <button onClick={back} className="block mx-auto mt-4 min-h-11 text-[13px] text-soft underline underline-offset-2">답변 다시 보기</button>
           </AgentStep>

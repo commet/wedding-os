@@ -26,9 +26,8 @@ import {
   fmtDuration,
   type VideoTemplate,
 } from "../data/videoTemplates";
-import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import SectionConsultationPanel from "../components/SectionConsultationPanel";
-import { SectionDecisionLoop } from "../components/DecisionLoopPanel";
+import { consultationChoice } from "../lib/sectionConsultation";
 
 type Props = { data: WeddingData; update: (patch: WeddingUpdate) => void; };
 
@@ -67,6 +66,23 @@ const TRANSITIONS: { value: VideoTransition; label: string }[] = [
   { value: "slide", label: "슬라이드" },
   { value: "none", label: "없음" },
 ];
+
+// 상담 "톤" 답변 → 어울리는 템플릿 (videoTemplates 8종 범위 내)
+const TONE_TEMPLATE_IDS: Record<string, string[]> = {
+  warm: ["family-album", "classic", "vintage"],
+  bright: ["proposal", "short-reel", "simple-flow"],
+  cinematic: ["cinematic", "netflix"],
+  minimal: ["simple-flow", "short-reel"],
+};
+const TONE_LABELS: Record<string, string> = {
+  warm: "따뜻하고 감성적으로",
+  bright: "밝고 경쾌하게",
+  cinematic: "영화처럼",
+  minimal: "짧고 깔끔하게",
+};
+// 상담 "길이" 답변 → 목표 총 길이(초)와 라벨
+const LENGTH_TARGET_SEC: Record<string, number> = { short: 90, medium: 160, long: 270 };
+const LENGTH_LABELS: Record<string, string> = { short: "1분 안팎", medium: "2~3분", long: "4분 이상" };
 
 export default function Video({ data, update }: Props) {
   const config = useMemo(() => normalizeVideo(data.video), [data.video]);
@@ -391,55 +407,53 @@ export default function Video({ data, update }: Props) {
     (g) => g.chapter === null && g.photos.length > 0
   );
 
-  const targetCount = currentTemplate?.photoCountTotal.ideal ?? 0;
+  // ── 상담 답변을 제작 목표로 승격 ──
+  const toneChoice = consultationChoice(data, "video", "video-tone")[0];
+  const lengthChoice = consultationChoice(data, "video", "video-length")[0];
+  const lengthTargetSec = lengthChoice ? LENGTH_TARGET_SEC[lengthChoice] : undefined;
+  const lengthLabel = lengthChoice ? LENGTH_LABELS[lengthChoice] : undefined;
+  const photoDurDefault = currentTemplate?.defaults.photoDurationSec ?? 4;
+  // 목표 길이에서 타이틀·엔딩 카드(~12초)를 빼고 장당 기본 길이로 나눔
+  const lengthPhotoTarget = lengthTargetSec
+    ? Math.max(8, Math.round((lengthTargetSec - 12) / photoDurDefault))
+    : undefined;
+  const targetCount = lengthPhotoTarget ?? currentTemplate?.photoCountTotal.ideal ?? 0;
   const photoProgress = targetCount
     ? Math.min(100, Math.round((config.photos.length / targetCount) * 100))
     : 0;
-  const minPhotoCount = currentTemplate?.photoCountTotal.min ?? 12;
+  const overLength =
+    !!lengthTargetSec && config.photos.length > 0 && durationSec > lengthTargetSec + 45;
+  const recommendedTemplateIds = toneChoice ? TONE_TEMPLATE_IDS[toneChoice] ?? [] : [];
+  const sortedTemplates =
+    recommendedTemplateIds.length === 0
+      ? VIDEO_TEMPLATES
+      : [
+          ...recommendedTemplateIds
+            .map((id) => VIDEO_TEMPLATES.find((t) => t.id === id))
+            .filter((t): t is VideoTemplate => !!t),
+          ...VIDEO_TEMPLATES.filter((t) => !recommendedTemplateIds.includes(t.id)),
+        ];
   const endingReady = !!config.ending?.message?.trim() && !!config.ending?.date && !!config.ending?.venue;
-  const videoAgentSummary = !currentTemplate
-    ? "식전영상은 빈 캔버스에서 시작하면 막막해요. 먼저 템플릿을 고르면 챕터·길이·효과가 한 번에 잡힙니다."
-    : config.photos.length < minPhotoCount
-      ? `${currentTemplate.name} 템플릿 기준으로 최소 ${minPhotoCount}장 정도가 필요해요. 지금은 사진을 채우는 단계입니다.`
-      : hasUnassigned
-        ? "사진은 충분히 들어왔고, 아직 챕터에 배정되지 않은 사진이 있어요. 자동 분배 후 흐름을 보면 됩니다."
-        : endingReady
-          ? "템플릿, 사진, 엔딩 정보가 준비됐어요. 이제 재생 확인과 파일 내보내기만 남았습니다."
-          : "영상 본문은 잡혔고 엔딩 카드의 날짜·장소를 청첩장에서 가져오면 마무리가 쉬워집니다.";
+  const weddingDate = parseISODateLocal(data.invitation.date);
+  const daysToWedding = (() => {
+    if (!weddingDate) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return Math.round((weddingDate.getTime() - today.getTime()) / 86400000);
+  })();
 
   return (
     <div className="page pt-6 pb-10 space-y-6">
       <div>
         <div className="eyebrow-gold mb-2">영상 만들기</div>
         <h1 className="font-serif text-[2rem] leading-none">식전영상</h1>
+        {daysToWedding !== null && daysToWedding >= 0 && (
+          <p className="mt-3 text-[12px] text-soft leading-relaxed">
+            결혼식까지 {daysToWedding === 0 ? "오늘" : `D-${daysToWedding}`} · 식장 영상 파일 제출은
+            보통 1~2주 전 마감이에요. 완성 목표를 그보다 앞에 두세요.
+          </p>
+        )}
       </div>
-
-      <SectionDecisionLoop data={data} sectionId="video" />
-
-      <ProcessAgentPanel
-        title={!currentTemplate ? "영상 구조를 먼저 고르는 중" : config.photos.length < minPhotoCount ? "사진 수를 채우는 중" : hasUnassigned ? "챕터 배정을 정리하는 중" : "상영 전 검수 단계"}
-        summary={videoAgentSummary}
-        mood={currentTemplate && config.photos.length >= minPhotoCount && !hasUnassigned && endingReady ? "ready" : "thinking"}
-        metrics={[
-          { label: "템플릿", value: currentTemplate ? "선택" : "없음", tone: currentTemplate ? "normal" : "warn" },
-          { label: "사진", value: `${config.photos.length}/${targetCount || minPhotoCount}`, tone: config.photos.length < minPhotoCount ? "warn" : "normal" },
-          { label: "엔딩", value: endingReady ? "완료" : "미정", tone: endingReady ? "normal" : "muted" },
-        ]}
-        steps={[
-          { label: "템플릿으로 챕터 잡기", detail: "챕터와 사진 권장 수가 먼저 정해져야 편집 판단이 쉬워집니다.", done: !!currentTemplate },
-          { label: "최소 사진 수 채우기", detail: currentTemplate ? `${currentTemplate.name} 최소 ${minPhotoCount}장.` : "템플릿 선택 후 권장 수가 보입니다.", done: config.photos.length >= minPhotoCount },
-          { label: "미배정 사진을 챕터에 넣기", detail: "렌더링은 챕터 순서대로 묶여 보입니다.", done: !hasUnassigned },
-          { label: "엔딩 카드 정보 채우기", detail: "청첩장 날짜·시간·장소를 그대로 가져올 수 있어요.", done: endingReady },
-        ]}
-        actions={[
-          ...(!currentTemplate ? [{ label: "클래식 템플릿으로 시작", onClick: () => applyTemplate(VIDEO_TEMPLATES[0]), tone: "primary" as const }] : []),
-          ...(currentTemplate && config.photos.length < minPhotoCount ? [{ label: "사진 추가하기", onClick: () => openPhotoPicker(), tone: "primary" as const }] : []),
-          ...(hasUnassigned ? [{ label: "사진 자동 배정", onClick: autoAssignPhotosToChapters, tone: "primary" as const }] : []),
-          ...(!endingReady ? [{ label: "엔딩을 청첩장에서 채우기", onClick: pullEndingFromInvitation }] : []),
-        ]}
-      />
-
-      <SectionConsultationPanel sectionId="video" data={data} update={update} />
 
       {/* 인트로 */}
       <div className="py-4 border-y border-hair">
@@ -507,9 +521,19 @@ export default function Video({ data, update }: Props) {
             빈 캔버스에서 시작하면 막막해요. 분위기 하나 고르면
             챕터 · 사진 길이 · 효과 · 전환 까지 한 번에 세팅됩니다.
           </p>
+          {toneChoice && recommendedTemplateIds.length > 0 && (
+            <p className="text-[12px] text-ink">
+              "{TONE_LABELS[toneChoice] ?? toneChoice}" 답을 기준으로 어울리는 템플릿을 먼저 보여드려요.
+            </p>
+          )}
           <div className="group-card px-4">
-            {VIDEO_TEMPLATES.map((t) => (
-              <TemplateCard key={t.id} template={t} onPick={() => applyTemplate(t)} />
+            {sortedTemplates.map((t) => (
+              <TemplateCard
+                key={t.id}
+                template={t}
+                onPick={() => applyTemplate(t)}
+                recommended={recommendedTemplateIds.includes(t.id)}
+              />
             ))}
           </div>
           <div className="text-center pt-1">
@@ -541,12 +565,12 @@ export default function Video({ data, update }: Props) {
               변경 →
             </button>
           </div>
-          {currentTemplate.photoCountTotal.ideal > 0 && (
+          {targetCount > 0 && (
             <div className="mt-4 pt-4 border-t border-hair">
               <div className="flex items-baseline justify-between mb-2">
                 <span className="eyebrow">사진 진척도</span>
                 <span className="text-[11.5px] text-soft tabular-nums">
-                  {config.photos.length} / {currentTemplate.photoCountTotal.ideal}장
+                  {config.photos.length} / {targetCount}장
                 </span>
               </div>
               <div className="w-full h-px bg-line relative">
@@ -558,6 +582,25 @@ export default function Video({ data, update }: Props) {
                   }}
                 />
               </div>
+              {lengthLabel && lengthPhotoTarget && (
+                <p className="mt-2 text-[11px] text-soft leading-relaxed">
+                  "{lengthLabel}" 답 기준으로 약 {targetCount}장이면 충분해요.
+                </p>
+              )}
+              {overLength && lengthLabel && (
+                <p className="mt-2 text-[11px] text-gold leading-relaxed">
+                  지금 구성은 약 {fmtDuration(durationSec)} — 골라둔 길이({lengthLabel})보다 길어요.
+                  하객 체감상 긴 편이라 사진 수나 장당 길이를 줄이면 좋아요.
+                </p>
+              )}
+              {config.photos.length < targetCount && (
+                <button
+                  onClick={() => openPhotoPicker()}
+                  className="btn-primary w-full mt-4 text-[13px]"
+                >
+                  + 사진 추가
+                </button>
+              )}
             </div>
           )}
         </section>
@@ -672,6 +715,22 @@ export default function Video({ data, update }: Props) {
         )}
       </section>
 
+      {/* 취향 질문 — 접이식 (답하면 템플릿 추천·필요 사진 수에 반영) */}
+      <details className="py-4 border-y border-hair">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-4">
+          <span>
+            <span className="eyebrow-gold block mb-1">취향 질문</span>
+            <span className="text-[12px] text-soft">
+              톤·길이를 답하면 템플릿 추천과 필요 사진 수가 바로 잡혀요
+            </span>
+          </span>
+          <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
+        </summary>
+        <div className="mt-4">
+          <SectionConsultationPanel sectionId="video" data={data} update={update} />
+        </div>
+      </details>
+
       {/* BGM + 엔딩 */}
       <section className="space-y-4 py-8 border-y border-hair">
         <div className="flex items-baseline justify-between">
@@ -713,6 +772,23 @@ export default function Video({ data, update }: Props) {
         </div>
         <div className="pt-4 border-t border-hair space-y-3">
           <p className="label">엔딩 카드 (마지막 화면)</p>
+          {!endingReady && (data.invitation.date || data.invitation.venue) && (
+            <button
+              onClick={pullEndingFromInvitation}
+              className="w-full text-left text-[12px] leading-relaxed text-ink border border-hair px-3 py-2.5 hover:border-gold"
+            >
+              청첩장 정보로 채우기 →{" "}
+              <span className="text-soft">
+                {[
+                  formatWeddingDate(data.invitation.date),
+                  data.invitation.time,
+                  [data.invitation.venue, data.invitation.venueHall].filter(Boolean).join(" · "),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
+            </button>
+          )}
           <div className="grid grid-cols-2 gap-x-6 gap-y-3">
             <div>
               <label className="label">날짜</label>
@@ -1019,9 +1095,11 @@ export default function Video({ data, update }: Props) {
 function TemplateCard({
   template,
   onPick,
+  recommended,
 }: {
   template: VideoTemplate;
   onPick: () => void;
+  recommended?: boolean;
 }) {
   return (
     <button
@@ -1039,6 +1117,11 @@ function TemplateCard({
           <div className="flex items-baseline gap-3 flex-wrap">
             <span className="font-serif text-[15px] text-ink leading-tight">{template.name}</span>
             <span className="eyebrow-gold">{template.mood}</span>
+            {recommended && (
+              <span className="text-[11px] tracking-wider text-gold border border-gold/40 px-1.5 py-0.5 rounded">
+                톤과 어울림
+              </span>
+            )}
             {template.chapters.length === 0 && (
               <span className="text-[11px] tracking-wider uppercase text-sage border border-sage/40 px-1.5 py-0.5 rounded">
                 막 없이

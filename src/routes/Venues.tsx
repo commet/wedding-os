@@ -28,8 +28,11 @@ import {
   venueCapacityFit,
   expectedHeadcount,
   formatKRW,
+  todayISO,
   type BalanceDue,
 } from "../lib/derived";
+import { lossDeadlinesFor, lossDdayLabel } from "../lib/lossDeadlines";
+import { answerConsultation, consultationChoice, consultationFacts } from "../lib/sectionConsultation";
 
 type Props = { data: WeddingData; update: (patch: WeddingUpdate) => void };
 type Tab = "mine" | "catalog";
@@ -54,6 +57,17 @@ const CONTRACT_FIELDS: { key: keyof ContractCheck; label: string; placeholder: s
   { key: "included", label: "포함 항목", placeholder: "예: 생화 장식, 혼구용품, 음주류, 폐백실, 빔 사용" },
   { key: "extras", label: "별도 비용", placeholder: "예: 부가세, 봉사료, 주차권, 셔틀, 원판 추가" },
   { key: "evidence", label: "증빙 보관", placeholder: "예: 계약서 PDF는 드라이브 / 견적 캡처는 카톡방 고정" },
+];
+
+// 미루면 손해가 생기는 날짜 — 취소·변경 산문 메모에 묻히지 않게 구조화 date 필드로 받는다.
+const LOSS_DATE_FIELDS: {
+  key: "freeCancelUntil" | "holdExpiresAt" | "guaranteeDueAt";
+  label: string;
+  hint: string;
+}[] = [
+  { key: "freeCancelUntil", label: "무료취소 기한", hint: "지나면 취소 위약금이 생겨요" },
+  { key: "holdExpiresAt", label: "가계약 만료일", hint: "지나면 잡아둔 날짜·홀이 풀려요" },
+  { key: "guaranteeDueAt", label: "보증인원 확정 마감", hint: "지나면 미달 인원분도 식대를 내요" },
 ];
 
 const VENUE_RESEARCH_SECTIONS: ResearchSection<VenueResearchDraft>[] = [
@@ -149,6 +163,14 @@ export default function Venues({ data, update }: Props) {
     () => upcomingBalances(data).filter((b) => b.targetPath === "/venues"),
     [data]
   );
+  // 미루면 손해 — 무료취소 기한·가계약 만료·보증인원 확정·잔금을 한 스트립으로.
+  const venueLossDeadlines = useMemo(
+    () => lossDeadlinesFor(data, todayISO(), "/venues"),
+    [data]
+  );
+  // 상담 답변을 "정한 기준" 판단 재료 문장으로 — 후보 비교 위에 노출.
+  const venueFacts = useMemo(() => consultationFacts(data, "venues", 4), [data]);
+  const timingFact = venueTimingLabel(data);
   const hasOnlyStarterVenues = useMemo(
     () => myVenues.length > 0 && myVenues.every((venue) => isReplaceableAgentStarterVenue(venue, data.preferences.isDemo === true)),
     [data.preferences.isDemo, myVenues],
@@ -253,7 +275,7 @@ export default function Venues({ data, update }: Props) {
     setShowAdd(false);
   };
 
-  const applyVenueStarter = (picks: WeddingVenue[]) => {
+  const applyVenueStarter = (picks: WeddingVenue[], answers: VenueAgentAnswers) => {
     update((prev: WeddingData) => {
       const baseVenues = (prev.venues ?? []).filter((venue) =>
         !isReplaceableAgentStarterVenue(venue, prev.preferences.isDemo === true)
@@ -271,9 +293,10 @@ export default function Venues({ data, update }: Props) {
             "상담 때 보증인원, 식대, 부가세·봉사료, 외부업체 반입료, 동시 예식 수를 확인하고 계약서에 남기세요.",
           ].filter(Boolean).join("\n"),
         }));
-      return { ...prev, venues: [...baseVenues, ...additions] };
+      // 스타터 답변을 버리지 않고 상담 답변으로 영속화 — "정한 기준"과 결정 카드에서 재사용된다.
+      return persistVenueStarterAnswers({ ...prev, venues: [...baseVenues, ...additions] }, answers);
     });
-    setVenueNotice(`후보 ${picks.length}곳을 내 목록에 남겼어요. 예시 후보는 정리했어요.`);
+    setVenueNotice(`후보 ${picks.length}곳을 내 목록에 남겼어요. 답한 기준은 '정한 기준'으로 남아 있어요.`);
     setTab("mine");
     setShowStarter(false);
   };
@@ -286,6 +309,36 @@ export default function Venues({ data, update }: Props) {
       </div>
 
       <SectionDecisionLoop data={data} sectionId="venues" />
+
+      {/* 미루면 손해 — 돈이 걸린 날짜를 화면 최상단에서 먼저 보여준다 */}
+      {venueLossDeadlines.length > 0 && (
+        <div className="border-y border-hair py-4">
+          <div className="eyebrow-gold mb-3">놓치면 손해</div>
+          <ul className="space-y-2.5">
+            {venueLossDeadlines.slice(0, 4).map((d) => (
+              <li key={d.id} className="flex items-baseline justify-between gap-4 text-[13px]">
+                <span className="min-w-0 break-keep">
+                  <span className="text-ink">{d.name}</span>{" "}
+                  <span className="text-soft">{d.label}</span>
+                  {d.amountKRW ? (
+                    <span className="text-soft tabular-nums"> · {formatKRW(d.amountKRW)}</span>
+                  ) : null}
+                  <span className="block text-[11.5px] text-soft leading-relaxed">{d.lossHint}</span>
+                </span>
+                <span
+                  className={`tabular-nums whitespace-nowrap flex-shrink-0 ${
+                    d.daysLeft <= 14 ? "text-gold" : "text-soft"
+                  }`}
+                >
+                  {lossDdayLabel(d.daysLeft)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <VenueTimingBar data={data} update={update} />
 
       {!showStarter && (
         <ProcessAgentPanel
@@ -362,29 +415,11 @@ export default function Venues({ data, update }: Props) {
                 <span className="ml-auto"><span className="tabular-nums text-gold">{haveStatusCount["계약"]}</span> <span className="text-soft">계약</span></span>
               </div>
 
-              {venueBalances.length > 0 && (
-                <div className="border-y border-hair py-4">
-                  <div className="eyebrow mb-3">다음 납부</div>
-                  <ul className="space-y-2">
-                    {venueBalances.slice(0, 3).map((b) => (
-                      <li
-                        key={b.name}
-                        className="flex items-baseline justify-between gap-4 text-[13px]"
-                      >
-                        <span className="text-ink break-keep">
-                          {b.name} <span className="text-soft">잔금</span>{" "}
-                          <span className="tabular-nums">{formatKRW(b.amount)}</span>
-                        </span>
-                        <span
-                          className={`tabular-nums whitespace-nowrap flex-shrink-0 ${
-                            b.daysLeft <= 14 ? "text-gold" : "text-soft"
-                          }`}
-                        >
-                          {dDayLabel(b.daysLeft)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+              {/* 정한 기준 — 상담 답변·희망 시기를 후보 비교 위에서 다시 보여준다 */}
+              {(timingFact || venueFacts.length > 0) && (
+                <div className="border-b border-hair pb-3 text-[12.5px] leading-relaxed text-soft break-keep">
+                  <span className="eyebrow mr-2">정한 기준</span>
+                  {[timingFact, ...venueFacts].filter(Boolean).join(" · ")}
                 </div>
               )}
 
@@ -665,7 +700,7 @@ function VenueStarter({
   onApply,
   onClose,
 }: {
-  onApply: (picks: WeddingVenue[]) => void;
+  onApply: (picks: WeddingVenue[], answers: VenueAgentAnswers) => void;
   onClose: () => void;
 }) {
   const [answers, setAnswers] = useState<VenueAgentAnswers>({});
@@ -870,7 +905,7 @@ function VenueStarter({
       <div className="border-y border-hair py-4">
         {complete ? (
           <button
-            onClick={() => onApply(result.picks)}
+            onClick={() => onApply(result.picks, answers)}
             disabled={result.picks.length === 0}
             className="btn-primary min-h-12 w-full text-[13px] disabled:opacity-40"
           >
@@ -1610,6 +1645,29 @@ function MyVenueRow({
                 onChange={(e) => onUpdate({ balanceDueAt: e.target.value || undefined })}
               />
             </div>
+
+            {/* 손해 날짜 — 상담 때 들은 취소·확정 기한을 날짜로 남기면 상단 '놓치면 손해'로 올라온다 */}
+            <div className="pt-3 border-t border-hair space-y-3">
+              <div>
+                <span className="eyebrow-gold block">놓치면 손해 보는 날짜</span>
+                <p className="mt-1 text-[11.5px] text-soft leading-relaxed break-keep">
+                  상담에서 들은 기한을 날짜로 남기면 지나기 전에 위에서 먼저 알려드려요.
+                </p>
+              </div>
+              {LOSS_DATE_FIELDS.map((field) => (
+                <div key={field.key}>
+                  <label className="label">
+                    {field.label} <span className="normal-case text-soft">— {field.hint}</span>
+                  </label>
+                  <input
+                    type="date"
+                    className="input text-[13px]"
+                    value={v[field.key] ?? ""}
+                    onChange={(e) => onUpdate({ [field.key]: e.target.value || undefined })}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
 
           <ContractFields contract={v.contract} onUpdate={updateContract} />
@@ -1866,6 +1924,177 @@ function venueSourceLabel(v: WeddingVenue): string {
     : v.mealPriceSource === "estimate" || v.mealPriceMin || v.mealPriceMax ? "식대 추정"
     : "식대 직접 확인";
   return `${capacity} · ${meal}`;
+}
+
+// ── 스타터 답변 영속화 — VenueStarter의 답을 venues 상담 답변으로 저장해 재사용 ──
+// 스타터 area/scale/mood/priority 는 sectionConsultation 의
+// venues-region/venues-scale/venues-hall/venues-priority 와 같은 축이라 그 id 를 재사용한다.
+function persistVenueStarterAnswers(data: WeddingData, answers: VenueAgentAnswers): WeddingData {
+  let next = data;
+  // answerConsultation 은 multiple 질문에서 토글 — 이미 저장된 값은 건드리지 않고 없는 값만 추가한다.
+  const addMissing = (questionId: string, values: string[]) => {
+    const current = new Set(consultationChoice(next, "venues", questionId));
+    for (const value of values) {
+      if (!current.has(value)) next = answerConsultation(next, "venues", questionId, value);
+    }
+  };
+  if (answers.area?.length) {
+    // 스타터의 "서울 전체"는 상담 질문의 강남·중구·한남 권역 합으로 매핑.
+    const mapped = [...new Set(
+      answers.area.flatMap((area) => (area === "seoul" ? ["gangnam", "central", "han"] : [area]))
+    )];
+    addMissing("venues-region", mapped);
+  }
+  if (answers.scale && consultationChoice(next, "venues", "venues-scale")[0] !== answers.scale) {
+    next = answerConsultation(next, "venues", "venues-scale", answers.scale);
+  }
+  if (answers.mood?.length) {
+    // "상담 가능성 우선(flexible)"은 분위기를 안 좁힌다는 뜻이라 저장할 축이 없다.
+    addMissing("venues-hall", answers.mood.filter((mood) => mood !== "flexible"));
+  }
+  if (answers.priority?.length) {
+    addMissing("venues-priority", answers.priority);
+  }
+  return next;
+}
+
+// ── 희망 시기 — 한국 예식장의 첫 제약(계절·요일·시간대)을 후보 좁히기 전에 잡는다 ──
+const VENUE_TIMING_ID = "venues-timing";
+type VenueTimingKey = "season" | "day" | "slot";
+const TIMING_GROUPS: { key: VenueTimingKey; label: string; options: string[] }[] = [
+  { key: "season", label: "계절", options: ["봄", "여름", "가을", "겨울"] },
+  { key: "day", label: "요일", options: ["토요일", "일요일", "평일"] },
+  { key: "slot", label: "시간대", options: ["낮", "저녁"] },
+];
+type VenueTimingParts = Partial<Record<VenueTimingKey, string>>;
+
+function venueTimingParts(data: WeddingData): VenueTimingParts {
+  const entry = (data.ai?.dialogue ?? []).find((item) => item.id === VENUE_TIMING_ID);
+  if (!entry) return {};
+  const tokens = entry.answer.split("·").map((token) => token.trim());
+  const parts: VenueTimingParts = {};
+  for (const group of TIMING_GROUPS) {
+    const hit = tokens.find((token) => group.options.includes(token));
+    if (hit) parts[group.key] = hit;
+  }
+  return parts;
+}
+
+function timingPartsLabel(parts: VenueTimingParts): string {
+  return TIMING_GROUPS.map((group) => parts[group.key]).filter(Boolean).join(" · ");
+}
+
+const WEEKDAY_KO = ["일", "월", "화", "수", "목", "금", "토"];
+
+// 청첩장에 예식일이 있으면 그 날짜가 곧 시기 — 별도 답 없이 그대로 판단 재료로 쓴다.
+function venueTimingLabel(data: WeddingData): string {
+  const dateISO = (data.invitation.date ?? "").slice(0, 10);
+  if (dateISO) {
+    const parsed = new Date(`${dateISO}T00:00:00`);
+    if (!Number.isNaN(parsed.getTime())) {
+      return `예식일 ${dateISO} (${WEEKDAY_KO[parsed.getDay()]})`;
+    }
+  }
+  const label = timingPartsLabel(venueTimingParts(data));
+  return label ? `희망 시기 ${label}` : "";
+}
+
+function VenueTimingBar({ data, update }: Props) {
+  const dateISO = (data.invitation.date ?? "").slice(0, 10);
+  const parts = venueTimingParts(data);
+  const hasAny = Boolean(parts.season || parts.day || parts.slot);
+  const [open, setOpen] = useState(false);
+
+  // 예식일이 이미 정해졌으면 묻지 않고 그 날짜 기준으로 보여준다.
+  if (dateISO) {
+    const label = venueTimingLabel(data);
+    if (!label) return null;
+    return (
+      <section className="border-y border-hair py-3">
+        <span className="eyebrow-gold block mb-1">예식일 기준</span>
+        <p className="text-[13px] text-ink break-keep">
+          {label}로 후보를 비교해요.
+          <span className="mt-1 block text-[11.5px] leading-relaxed text-soft">
+            상담 때 이 날짜의 홀 가용 여부와 시즌 식대를 먼저 확인하세요.
+          </span>
+        </p>
+      </section>
+    );
+  }
+
+  const setPart = (key: VenueTimingKey, value: string) => {
+    update((prev: WeddingData) => {
+      const current = venueTimingParts(prev);
+      const nextParts: VenueTimingParts = { ...current, [key]: current[key] === value ? undefined : value };
+      const answer = timingPartsLabel(nextParts);
+      const answeredAt = new Date().toISOString();
+      const dialogue = (prev.ai?.dialogue ?? []).filter((item) => item.id !== VENUE_TIMING_ID);
+      return {
+        ...prev,
+        ai: {
+          ...(prev.ai ?? {}),
+          dialogue: answer
+            ? [...dialogue, { id: VENUE_TIMING_ID, question: "희망 시기(계절·요일·시간대)", answer, answeredAt }].slice(-80)
+            : dialogue,
+          updatedAt: answeredAt,
+        },
+      };
+    });
+  };
+
+  return (
+    <section className="border-y border-hair py-3">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-baseline justify-between gap-3 text-left"
+      >
+        <span className="min-w-0">
+          <span className="eyebrow-gold block mb-1">희망 시기</span>
+          <span className="block text-[13px] text-ink leading-relaxed break-keep">
+            {hasAny
+              ? timingPartsLabel(parts)
+              : "계절·요일·시간대를 먼저 잡아야 후보와 식대가 진짜로 좁혀져요"}
+          </span>
+        </span>
+        <span className="flex-shrink-0 text-[12px] text-soft underline underline-offset-4 whitespace-nowrap">
+          {open ? "접기" : hasAny ? "수정" : "고르기"}
+        </span>
+      </button>
+      {open && (
+        <div className="mt-3 space-y-2.5">
+          {TIMING_GROUPS.map((group) => (
+            <div key={group.key} className="flex items-baseline gap-3">
+              <span className="eyebrow w-[48px] flex-shrink-0">{group.label}</span>
+              <div className="flex flex-wrap gap-1.5">
+                {group.options.map((option) => {
+                  const selected = parts[group.key] === option;
+                  return (
+                    <button
+                      key={option}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => setPart(group.key, option)}
+                      className={`min-h-9 border px-3 py-1 text-[12px] transition ${
+                        selected
+                          ? "border-gold bg-gold/5 text-ink"
+                          : "border-hair text-soft hover:border-gold hover:text-ink"
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          <p className="text-[11.5px] leading-relaxed text-soft break-keep">
+            봄·가을 토요일 낮은 6개월 이상 먼저 마감되는 곳이 많아요. 시기를 정해두면 상담에서 가용일부터 확인할 수 있어요.
+          </p>
+        </div>
+      )}
+    </section>
+  );
 }
 
 // 금액 입력 파싱 (원 단위) — 빈 칸은 undefined, "0"은 0 유지, 음수·비정상값은 거부.

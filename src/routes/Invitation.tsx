@@ -1,5 +1,5 @@
 import { cloneElement, isValidElement, useId, useState, useRef, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import type { WeddingData, WeddingUpdate, InvitationContent, Mode } from "../lib/schema";
 import Modal from "../components/Modal";
 import ChatbotBridgeModal from "../components/ChatbotBridgeModal";
@@ -16,7 +16,8 @@ import { daysUntilISODate, parseISODateLocal } from "../lib/date";
 import { publishInvitation, unpublishInvitation, fetchHostedRsvps, type HostedRsvp } from "../lib/inviteHosting";
 import { type BridgePrompt, invitationGreetingPrompt } from "../lib/chatbotBridge";
 import { koBreak } from "../lib/typography";
-import { invitationReadiness, contractedVenue } from "../lib/derived";
+import { invitationReadiness, contractedVenue, mealTicketCount } from "../lib/derived";
+import { consultationFacts, consultationChoice } from "../lib/sectionConsultation";
 import MapEmbed from "../components/MapEmbed";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import SectionConsultationPanel from "../components/SectionConsultationPanel";
@@ -55,6 +56,22 @@ const FONT: Record<FontStyle, { class: string; label: string; sample: string }> 
   sans:        { class: "font-sans",  label: "모던 (산세리프)", sample: "도현 · 지윤" },
   handwriting: { class: "font-hand",  label: "손글씨", sample: "도현 · 지윤" },
 };
+
+// 발행 전 빠진 항목 → 해당 입력 섹션 id 매핑 (invitationReadiness의 missing 라벨 기준).
+// 라벨이 derived.ts 에서 바뀌면 여기도 맞춰야 하지만, 매핑이 없으면 조용히 무시되므로 깨지진 않음.
+const MISSING_FIELD_TARGET: Record<string, string> = {
+  "신랑 이름": "inv-names",
+  "신부 이름": "inv-names",
+  "예식 날짜": "inv-schedule",
+  "예식 장소": "inv-schedule",
+  "인사말": "inv-greeting",
+};
+
+function scrollToMissingField(label: string) {
+  const id = MISSING_FIELD_TARGET[label];
+  if (!id) return;
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
 export default function Invitation({ data, update }: Props) {
   const location = useLocation();
@@ -1265,6 +1282,31 @@ function PublishSection({ data, update }: { data: WeddingData; update: (patch: W
         onToggle={setPreviewImageEnabled}
       />
 
+      {(() => {
+        const readiness = invitationReadiness(data);
+        if (readiness.missing.length === 0) return null;
+        return (
+          <div className="border border-hair bg-cream/40 px-4 py-3 space-y-2">
+            <p className="text-[11.5px] text-soft leading-relaxed break-keep">
+              {published ? "재발행 전에" : "발행 전에"} {readiness.missing.length}가지가 비어 있어요.
+              누르면 해당 입력으로 이동합니다.
+            </p>
+            <div className="flex flex-wrap gap-x-4 gap-y-2">
+              {readiness.missing.map((label) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => scrollToMissingField(label)}
+                  className="seg break-keep"
+                >
+                  {label} 채우기 →
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {published ? (
         <div className="space-y-3">
           <div className="border-y border-hair py-3">
@@ -1333,6 +1375,29 @@ function PublishSection({ data, update }: { data: WeddingData; update: (patch: W
                 ))}
               </ul>
             )}
+            {rsvps && rsvps.length > 0 && (() => {
+              const attending = rsvps.filter((r) => r.attending);
+              const headcount = attending.reduce((s, r) => s + (r.guests ?? 1), 0);
+              const mealNotes = attending.filter((r) => !!r.meal?.trim()).length;
+              const listedMeals = mealTicketCount(data);
+              return (
+                <div className="border-t border-hair pt-2.5 space-y-1.5">
+                  <p className="text-[12px] text-ink">
+                    참석 {headcount}명{mealNotes > 0 ? ` · 식사 메모 ${mealNotes}건` : ""} (응답 {rsvps.length}건)
+                  </p>
+                  <p className="text-[11.5px] text-soft leading-relaxed break-keep">
+                    이 숫자는 하객 명단·식수와 이어져요. 지금 명단 기준 식수는 {listedMeals}명이라,
+                    응답을 명단에 옮겨 두면 보증인원 확정이 쉬워집니다.
+                  </p>
+                  <Link
+                    to="/guests"
+                    className="inline-block text-[12px] underline underline-offset-4 text-ink hover:text-gold"
+                  >
+                    하객 명단·식수에서 이어보기 →
+                  </Link>
+                </div>
+              );
+            })()}
           </div>
         </div>
       ) : (
@@ -1590,6 +1655,9 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
     if (!inv.venueAddress && contracted.region) set("venueAddress", contracted.region);
   };
   const scrollToPublish = () => document.getElementById("publish-invitation")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  // 상담에서 정한 기준(문안 톤·사진·공개 범위)을 편집 화면 상단에 판단 재료로 되비춘다.
+  const decidedFacts = consultationFacts(data, "invitation");
+  const privacyLimited = consultationChoice(data, "invitation", "invitation-privacy").includes("limited");
 
   return (
     <div className={`page ${showQuickStart ? "pt-14" : "pt-2"} pb-6`}>
@@ -1602,6 +1670,14 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
       {showQuickStart && <QuickStart inv={inv} set={set} onPreview={onPreview} contractedVenueName={contractedVenue(data)?.name} />}
 
       {!showQuickStart && <>
+      {decidedFacts.length > 0 && (
+        <div className="mt-3 mb-4 border-l-2 border-gold pl-3 py-1.5">
+          <div className="eyebrow-gold mb-1">정한 기준</div>
+          <p className="text-[12px] text-soft leading-relaxed break-keep">
+            {koBreak(decidedFacts.join(" · "))}
+          </p>
+        </div>
+      )}
       <SectionDecisionLoop data={data} sectionId="invitation" />
 
       <ProcessAgentPanel
@@ -1691,14 +1767,14 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
         </div>
       </Section>
 
-      {!showQuickStart && <Section title="신랑 · 신부" defaultOpen>
+      {!showQuickStart && <div id="inv-names" className="scroll-mt-36"><Section title="신랑 · 신부" defaultOpen>
         <div className="grid grid-cols-2 gap-2">
           <Field label="신랑 이름"><input className="input" value={inv.groomName} onChange={(e) => set("groomName", e.target.value)} placeholder="도현" /></Field>
           <Field label="신부 이름"><input className="input" value={inv.brideName} onChange={(e) => set("brideName", e.target.value)} placeholder="지윤" /></Field>
         </div>
-      </Section>}
+      </Section></div>}
 
-      {!showQuickStart && <Section title="예식 일정" defaultOpen>
+      {!showQuickStart && <div id="inv-schedule" className="scroll-mt-36"><Section title="예식 일정" defaultOpen>
         <Field label="날짜"><input type="date" className={`input ${inv.date ? "text-ink" : "text-soft"}`} value={inv.date} onChange={(e) => set("date", e.target.value)} /></Field>
         <Field label="시간"><input className="input" value={inv.time ?? ""} onChange={(e) => set("time", e.target.value)} placeholder="오후 3시" /></Field>
         <Field label="예식장"><input className="input" value={inv.venue} onChange={(e) => set("venue", e.target.value)} placeholder="서울대학교 교수회관" /></Field>
@@ -1707,8 +1783,9 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
         <p className="text-[11px] text-soft leading-relaxed">
           주차, 셔틀, 지하철 출구, 약도 이미지는 식장 안내를 받은 뒤 모시는 글이나 갤러리에 짧게 더하면 됩니다.
         </p>
-      </Section>}
+      </Section></div>}
 
+      <div id="inv-greeting" className="scroll-mt-36">
       <Section title="모시는 글" defaultOpen>
         <textarea aria-label="모시는 글" className="input min-h-[140px]" value={inv.greeting} onChange={(e) => set("greeting", e.target.value)} />
         <div className="grid grid-cols-3 gap-2">
@@ -1731,6 +1808,7 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
           이름·연락처·계좌는 보내지 않고, 현재 문안과 예식 정보 정도만 바탕으로 다듬습니다.
         </p>
       </Section>
+      </div>
 
       <Section title="혼주" defaultOpen={false}>
         <div className="text-xs text-soft">신랑 측</div>
@@ -1767,6 +1845,11 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
       </Section>
 
       <Section title="연락처 / 마음 전하실 곳" defaultOpen={false}>
+        {privacyLimited && (
+          <p className="text-[11.5px] text-soft leading-relaxed break-keep border-l-2 border-gold pl-3 py-1">
+            {koBreak("공개 범위에서 ‘최소한만’을 골랐어요. 연락처·계좌는 비워 두거나 꼭 필요한 것만 넣어도 됩니다.")}
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-2">
           <Field label="신랑 연락처"><input className="input" value={inv.groomPhone ?? ""} onChange={(e) => set("groomPhone", e.target.value)} placeholder="010-..." /></Field>
           <Field label="신부 연락처"><input className="input" value={inv.bridePhone ?? ""} onChange={(e) => set("bridePhone", e.target.value)} placeholder="010-..." /></Field>
