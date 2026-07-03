@@ -12,6 +12,7 @@ import { SectionDecisionLoop } from "../components/DecisionLoopPanel";
 import DearieConfirmModal from "../components/DearieConfirmModal";
 
 const KO_WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
+const CEREMONY_STEP_OFFSETS_MIN = [0, 3, 6, 9, 12, 15, 18, 22, 25, 29, 32, 35, 39];
 
 // "2026.11.07 토" — 요일은 로컬 타임존 기준 getDay() 로 계산
 function formatCeremonyDate(iso?: string): string {
@@ -59,7 +60,57 @@ function buildDefaultSteps(data: WeddingData): CeremonyStep[] {
   let rows = defaultCeremony();
   if (drop.size > 0) rows = rows.filter((r) => !drop.has(r.title));
   if (hostLabel) rows = rows.map((r) => (r.role === "사회자" ? { ...r, role: hostLabel } : r));
-  return rows;
+  return applyCeremonyTimes(rows, data.invitation.time, { overwrite: false });
+}
+
+function applyCeremonyTimes(
+  steps: CeremonyStep[],
+  startTime?: string,
+  options: { overwrite: boolean } = { overwrite: false },
+): CeremonyStep[] {
+  const start = parseCeremonyStartMinutes(startTime);
+  if (start === null) return steps;
+  return steps.map((step, index) => {
+    if (!options.overwrite && step.time?.trim()) return step;
+    const offset = CEREMONY_STEP_OFFSETS_MIN[Math.min(index, CEREMONY_STEP_OFFSETS_MIN.length - 1)] ?? index * 3;
+    return { ...step, time: formatClock(start + offset) };
+  });
+}
+
+function parseCeremonyStartMinutes(value?: string): number | null {
+  const text = value?.trim();
+  if (!text) return null;
+
+  const clock = text.match(/^(\d{1,2}):(\d{2})/);
+  if (clock) return normalizeMinutes(Number(clock[1]), Number(clock[2]));
+
+  const korean = text.match(/(오전|오후)\s*(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분?)?/);
+  if (korean) {
+    let hour = Number(korean[2]);
+    const minute = korean[3] ? Number(korean[3]) : 0;
+    if (korean[1] === "오후" && hour < 12) hour += 12;
+    if (korean[1] === "오전" && hour === 12) hour = 0;
+    return normalizeMinutes(hour, minute);
+  }
+
+  const plain = text.match(/^(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분?)?/);
+  if (plain) return normalizeMinutes(Number(plain[1]), plain[2] ? Number(plain[2]) : 0);
+
+  return null;
+}
+
+function normalizeMinutes(hour: number, minute: number): number | null {
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) return null;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+  return hour * 60 + minute;
+}
+
+function formatClock(totalMinutes: number): string {
+  const dayMinutes = 24 * 60;
+  const normalized = ((totalMinutes % dayMinutes) + dayMinutes) % dayMinutes;
+  const hour = Math.floor(normalized / 60);
+  const minute = normalized % 60;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
 export default function Ceremony({ data, update }: Props) {
@@ -84,6 +135,21 @@ export default function Ceremony({ data, update }: Props) {
 
   const loadDefault = () => {
     update((prev: WeddingData) => ({ ...prev, ceremony: buildDefaultSteps(prev) }));
+  };
+
+  const fillTimesFromInvitation = () => {
+    const start = parseCeremonyStartMinutes(data.invitation.time);
+    if (start === null) {
+      setToast("예식 시간을 먼저 적어주세요");
+      window.setTimeout(() => setToast(null), 2600);
+      return;
+    }
+    update((prev: WeddingData) => ({
+      ...prev,
+      ceremony: applyCeremonyTimes(prev.ceremony ?? [], prev.invitation.time, { overwrite: false }),
+    }));
+    setToast("빈 시간칸을 예식 시작 시간 기준으로 채웠어요");
+    window.setTimeout(() => setToast(null), 2600);
   };
 
   // "담당 없음 N개" 지표를 누르면 첫 빈 단계를 펼치고 그 자리로 스크롤
@@ -286,6 +352,17 @@ export default function Ceremony({ data, update }: Props) {
         >
           사회자에게 보내기 · 저장 →
         </button>
+        {parseCeremonyStartMinutes(inv?.time) !== null && (
+          <>
+            <span className="mx-2 text-soft">·</span>
+            <button
+              onClick={fillTimesFromInvitation}
+              className="text-[12px] underline underline-offset-4 text-ink hover:text-gold"
+            >
+              시간 자동 채우기
+            </button>
+          </>
+        )}
       </div>
 
       <ol className="mt-8">

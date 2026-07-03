@@ -175,6 +175,60 @@ test.describe("critical product flows", () => {
     );
   });
 
+  test("compares saved SDM candidates side by side", async ({ page }) => {
+    const seeded = seededWeddingData();
+    seeded.sdm = [
+      {
+        id: "studio-1",
+        category: "studio",
+        name: "라뮤즈",
+        region: "청담",
+        status: "상담",
+        priceRange: "토탈 280만원",
+        depositKRW: 300_000,
+        balanceKRW: 2_500_000,
+        balanceDueAt: "2026-10-01",
+        contract: { included: "원본 포함", extras: "헬퍼비 별도" },
+      },
+      {
+        id: "studio-2",
+        category: "studio",
+        name: "어반시크",
+        region: "강남",
+        status: "관심",
+        priceRange: "패키지 320만원",
+        source: "공식 페이지",
+        lastVerified: "2026-07-03",
+      },
+    ];
+    await seedBrowserStorage(page, seeded);
+
+    await page.goto("/sdm");
+    await page.getByRole("button", { name: "나란히 비교" }).click();
+    await expect(page.getByRole("columnheader", { name: "라뮤즈" })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "어반시크" })).toBeVisible();
+    await expect(page.getByText("토탈 280만원")).toBeVisible();
+    await expect(page.getByText("헬퍼비 별도")).toBeVisible();
+    await expect(page.getByText("공식 페이지")).toBeVisible();
+  });
+
+  test("fills ceremony run sheet times from the wedding start time", async ({ page }) => {
+    const seeded = seededWeddingData();
+    seeded.invitation.time = "오후 1시";
+    seeded.ceremony = [
+      { id: "ceremony-1", title: "개식 선언", role: "사회자" },
+      { id: "ceremony-2", title: "신랑 입장", role: "신랑" },
+      { id: "ceremony-3", title: "신부 입장", role: "신부" },
+    ];
+    await seedBrowserStorage(page, seeded);
+
+    await page.goto("/ceremony");
+    await page.getByRole("button", { name: "시간 자동 채우기" }).click();
+    await expect(page.getByText("13:00")).toBeVisible();
+    await expect(page.getByText("13:03")).toBeVisible();
+    await expect(page.getByText("13:06")).toBeVisible();
+  });
+
   test("keeps Dearie consultation answers across direct route reloads", async ({ page }) => {
     const seeded = defaultData();
     seeded.preferences.mode = "local";

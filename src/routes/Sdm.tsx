@@ -109,6 +109,7 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
   const [showAdd, setShowAdd] = useState(false);
   const [showChannels, setShowChannels] = useState(false);
   const [notice, setNotice] = useState("");
+  const [mineView, setMineView] = useState<"list" | "compare">("list");
   const criteriaRef = useRef<HTMLDivElement>(null);
   const catalogRef = useRef<HTMLElement>(null);
 
@@ -271,7 +272,7 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
           {categories.map((c) => (
             <button
               key={c}
-              onClick={() => { setCat(c); setCatalogOpen(false); setCriteriaOpen(false); }}
+              onClick={() => { setCat(c); setCatalogOpen(false); setCriteriaOpen(false); setMineView("list"); }}
               className={`tracking-wide whitespace-nowrap ${cat === c ? "seg-active" : "seg"}`}
             >
               {CAT_LABEL[c]}
@@ -350,27 +351,47 @@ export default function Sdm({ data, update, initialCategory = "studio" }: Props)
       {/* 내 후보 */}
       {inCat.length > 0 && (
         <section>
-          <div className="flex items-baseline justify-between mb-4">
+          <div className="flex items-baseline justify-between gap-4 mb-4">
             <h2 className="section-title">{koBreak("내 후보 · ")}<span className="tabular-nums">{inCat.length}</span></h2>
             <button onClick={() => setShowAdd(true)} className="text-[12px] underline underline-offset-4 text-ink hover:text-gold">+ 직접 추가</button>
           </div>
+          {inCat.length >= 2 && (
+            <div className="mb-4 flex items-center gap-5 border-b border-hair pb-3 overflow-x-auto">
+              <button
+                onClick={() => setMineView("list")}
+                className={`tracking-wide whitespace-nowrap ${mineView === "list" ? "seg-active" : "seg"}`}
+              >
+                목록
+              </button>
+              <button
+                onClick={() => setMineView("compare")}
+                className={`tracking-wide whitespace-nowrap ${mineView === "compare" ? "seg-active" : "seg"}`}
+              >
+                나란히 비교
+              </button>
+            </div>
+          )}
           {/* 정한 기준 — 기준 질문의 답이 실제 비교 화면에 보이게 */}
           {decidedFacts.length > 0 && (
             <p className="mb-3 text-[12px] text-soft break-keep leading-relaxed">
               <span className="text-ink">정한 기준</span> · {decidedFacts.join(" · ")}
             </p>
           )}
-          <div className="group-card px-4">
-            {inCat.map((v) => (
-              <MyVendorCard
-                key={v.id}
-                v={v}
-                dueDaysLeft={sdmBalances.find((b) => b.name === v.name)?.daysLeft}
-                onUpdate={(patch) => updateVendor(v.id, patch)}
-                onRemove={() => remove(v.id)}
-              />
-            ))}
-          </div>
+          {mineView === "compare" && inCat.length >= 2 ? (
+            <SdmCompare vendors={inCat} balances={sdmBalances} />
+          ) : (
+            <div className="group-card px-4">
+              {inCat.map((v) => (
+                <MyVendorCard
+                  key={v.id}
+                  v={v}
+                  dueDaysLeft={sdmBalances.find((b) => b.name === v.name)?.daysLeft}
+                  onUpdate={(patch) => updateVendor(v.id, patch)}
+                  onRemove={() => remove(v.id)}
+                />
+              ))}
+            </div>
+          )}
           {/* 계약 합계 → 예산 흐름 — 같은 숫자를 두 번 치지 않게 */}
           {budgetSuggestion && (
             <p className="mt-3 text-[12px] text-soft break-keep leading-relaxed">
@@ -586,6 +607,79 @@ function SdmResearchInput({
       applyLabel={applyLabel}
       defaultOpen={defaultOpen}
     />
+  );
+}
+
+// 담아둔 스드메/스냅 후보를 한눈에 — 가격·계약 조건·마감일을 나란히 놓고 비교한다.
+// 모바일 폭에서는 후보 수가 늘면 가로 스크롤하고, 항목 라벨 열은 고정한다.
+function SdmCompare({
+  vendors,
+  balances,
+}: {
+  vendors: SdmVendor[];
+  balances: Array<{ name: string; daysLeft: number }>;
+}) {
+  const rows: { label: string; get: (v: SdmVendor) => string; warn?: (v: SdmVendor) => boolean }[] = [
+    { label: "지역", get: (v) => v.region || "—" },
+    { label: "상태", get: (v) => v.status || "관심", warn: (v) => v.status === "계약" && contractFieldCount(v.contract) < 3 },
+    { label: "가격 메모", get: (v) => v.priceRange || "—" },
+    { label: "계약금", get: (v) => moneyOrDash(v.depositKRW) },
+    { label: "잔금", get: (v) => moneyOrDash(v.balanceKRW) },
+    { label: "총액", get: (v) => moneyOrDash(totalContractKRW(v)) },
+    {
+      label: "잔금일",
+      get: (v) => {
+        const due = balances.find((item) => item.name === v.name);
+        if (!v.balanceDueAt) return "—";
+        return due ? `${v.balanceDueAt.slice(0, 10)} · ${dDayLabel(due.daysLeft)}` : v.balanceDueAt.slice(0, 10);
+      },
+      warn: (v) => {
+        const due = balances.find((item) => item.name === v.name);
+        return (due?.daysLeft ?? 999) <= 14;
+      },
+    },
+    { label: "무료취소", get: (v) => v.freeCancelUntil?.slice(0, 10) || "—", warn: (v) => v.status === "계약" && !v.freeCancelUntil },
+    { label: "계약 체크", get: (v) => `${contractFieldCount(v.contract)}/${CONTRACT_FIELDS.length}`, warn: (v) => v.status === "계약" && contractFieldCount(v.contract) < 3 },
+    { label: "포함 항목", get: (v) => compactCell(v.contract?.included) },
+    { label: "별도 비용", get: (v) => compactCell(v.contract?.extras), warn: (v) => v.status !== "관심" && !v.contract?.extras?.trim() },
+    { label: "출처", get: (v) => v.source || v.link || "—" },
+    { label: "확인일", get: (v) => v.lastVerified || "—" },
+  ];
+
+  return (
+    <div className="overflow-x-auto -mx-6 px-6 scrollbar-hide">
+      <table className="border-collapse">
+        <thead>
+          <tr>
+            <th className="sticky left-0 bg-paper z-10 w-[72px]" />
+            {vendors.map((vendor) => (
+              <th key={vendor.id} className="min-w-[136px] px-3 pb-3 text-left align-bottom">
+                <span className="font-serif text-[14px] leading-tight text-ink break-keep">{vendor.name}</span>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-hair border-t border-hair">
+          {rows.map((row) => (
+            <tr key={row.label}>
+              <td className="sticky left-0 z-10 bg-paper py-3 pr-3 align-top eyebrow whitespace-nowrap">
+                {row.label}
+              </td>
+              {vendors.map((vendor) => (
+                <td
+                  key={vendor.id}
+                  className={`max-w-[180px] px-3 py-3 align-top text-[12.5px] leading-relaxed ${
+                    row.warn?.(vendor) ? "text-gold" : "text-ink/90"
+                  }`}
+                >
+                  <span className="line-clamp-3 break-keep">{row.get(vendor)}</span>
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -842,6 +936,21 @@ function cleanContract(contract: ContractCheck): ContractCheck | undefined {
       .filter(([, value]) => Boolean(value))
   ) as ContractCheck;
   return Object.keys(next).length > 0 ? next : undefined;
+}
+
+function totalContractKRW(vendor: SdmVendor): number | undefined {
+  const total = (vendor.depositKRW ?? 0) + (vendor.balanceKRW ?? 0);
+  return total > 0 ? total : undefined;
+}
+
+function moneyOrDash(value?: number): string {
+  return value && value > 0 ? formatKRW(value) : "—";
+}
+
+function compactCell(value?: string): string {
+  const trimmed = value?.trim();
+  if (!trimmed) return "—";
+  return trimmed;
 }
 
 // 금액 입력 파싱 — Budget.tsx 와 동일 규칙(원 단위 그대로 저장). 빈 칸 undefined, 음수 거부.
