@@ -101,7 +101,8 @@ export default function AppShell({ data, update, children }: Props) {
 
   const goBack = () => {
     // 히스토리 stack 이 있으면 뒤로, 없으면 (새 탭 직접 진입 등) /dashboard.
-    if (window.history.length > 1) navigate(-1);
+    const historyIndex = typeof window.history.state?.idx === "number" ? window.history.state.idx : 0;
+    if (historyIndex > 0) navigate(-1);
     else navigate("/dashboard");
   };
 

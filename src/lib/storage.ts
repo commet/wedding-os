@@ -1097,22 +1097,22 @@ function assertImportFieldTypes(value: unknown): void {
     }
   });
   records("sdm").forEach((item) => {
-    scalar(item, ["id", "category", "name", "priceRange", "region", "notes", "link", "status", "contact", "balanceDueAt", "lastVerified", "source"], ["depositKRW", "balanceKRW"]);
+    scalar(item, ["id", "category", "name", "priceRange", "region", "notes", "link", "status", "contact", "balanceDueAt", "freeCancelUntil", "lastVerified", "source"], ["depositKRW", "balanceKRW"]);
     const contract = optionalRecord(item, "contract");
     if (contract) scalar(contract, contractFields);
   });
   records("hotels").forEach((item) => {
-    scalar(item, ["id", "name", "location", "notes", "lastVerified", "source"]);
+    scalar(item, ["id", "name", "location", "notes", "freeCancelUntil", "lastVerified", "source"]);
     nestedRecords(item, "rooms").forEach((room) => scalar(room, ["type"], ["pricePerNight"], ["breakfast"]));
     nestedRecords(item, "otaPrices").forEach((price) => scalar(price, ["ota", "url"], ["price"]));
   });
   records("flights").forEach((item) => scalar(item, ["id", "airline", "flightNumber", "from", "to", "departAt", "arriveAt", "notes", "link", "lastVerified", "source"], ["priceKRW"]));
   records("venues").forEach((item) => {
-    scalar(item, ["id", "name", "region", "hallType", "foodType", "capacitySource", "mealPriceSource", "link", "notes", "status", "visitedAt", "lastVerified", "source", "contact", "balanceDueAt"], ["capacityMin", "capacityMax", "mealPriceMin", "mealPriceMax", "depositKRW", "balanceKRW"]);
+    scalar(item, ["id", "name", "region", "hallType", "foodType", "capacitySource", "mealPriceSource", "link", "notes", "status", "visitedAt", "lastVerified", "source", "contact", "balanceDueAt", "freeCancelUntil", "holdExpiresAt", "guaranteeDueAt"], ["capacityMin", "capacityMax", "mealPriceMin", "mealPriceMax", "depositKRW", "balanceKRW"]);
     const contract = optionalRecord(item, "contract");
     if (contract) scalar(contract, contractFields);
   });
-  records("budget").forEach((item) => scalar(item, ["id", "category", "notes"], ["planned", "actual", "avgKRW"], ["paid"]));
+  records("budget").forEach((item) => scalar(item, ["id", "category", "notes", "dueDate"], ["planned", "actual", "avgKRW"], ["paid"]));
   records("guests").forEach((item) => scalar(item, ["id", "name", "relation", "group", "side", "category", "phone", "email", "status", "notes", "invitedAt"], ["partyCount", "giftKRW"], ["meal"]));
 
   records("checklist").forEach((section) => {
@@ -1126,6 +1126,11 @@ function assertImportFieldTypes(value: unknown): void {
     scalar(value.honeymoon, ["startDate", "endDate", "notes"]);
     nestedRecords(value.honeymoon, "regions").forEach((region) =>
       scalar(region, ["id", "name", "schedule", "notes"], ["durationDays", "budgetKRW"]));
+  }
+
+  if (value.budgetMeta !== undefined) {
+    if (!isPlainObject(value.budgetMeta)) throw new Error("Invalid budgetMeta in backup.");
+    scalar(value.budgetMeta, ["decidedAt"], ["capKRW"], ["includeHome", "includeYedan"]);
   }
 
   if (value.video !== undefined) {

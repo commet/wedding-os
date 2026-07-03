@@ -17,6 +17,7 @@ type Props = {
 
 const QUESTION_STEPS = 5;
 const FINAL_STEP = 6;
+const ONBOARDING_DRAFT_KEY = "wedding-os/agent-onboarding-draft/v1";
 
 const REGIONS = [
   "서울",
@@ -31,19 +32,23 @@ const REGIONS = [
 ];
 
 export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvanced, onDemo }: Props) {
-  const [step, setStep] = useState(0);
   const existingInvitation = data.preferences.isDemo ? undefined : data.invitation;
   const savedPriority = data.preferences.isDemo ? undefined : data.ai?.profile?.priority;
   const savedRegion = data.preferences.isDemo ? "" : data.ai?.profile?.region ?? "";
-  const [answers, setAnswers] = useState<AgentAnswers>({
+  const baseAnswers: AgentAnswers = {
     groomName: existingInvitation?.groomName ?? "",
     brideName: existingInvitation?.brideName ?? "",
     date: existingInvitation?.date ?? "",
     region: savedRegion,
     priority: savedPriority ?? "venue",
     storage: "local",
-  });
-  const [otherOpen, setOtherOpen] = useState(Boolean(savedRegion) && !REGIONS.includes(savedRegion));
+  };
+  const [draft] = useState(() => data.preferences.mode ? null : loadAgentOnboardingDraft());
+  const [step, setStep] = useState(() => draft?.step ?? 0);
+  const [answers, setAnswers] = useState<AgentAnswers>(() => draft?.answers ?? baseAnswers);
+  const [otherOpen, setOtherOpen] = useState(() =>
+    draft?.otherOpen ?? (Boolean(savedRegion) && !REGIONS.includes(savedRegion))
+  );
   // 마지막 화면 payoff — 답변으로 만들어질 준비판에서 "지금 같이 볼 첫 결정"을 미리 계산.
   const [firstDecision, setFirstDecision] = useState("");
 
@@ -104,6 +109,21 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
   const set = <K extends keyof AgentAnswers>(key: K, value: AgentAnswers[K]) => {
     setAnswers((current) => ({ ...current, [key]: value }));
   };
+  const resetDraft = () => {
+    clearAgentOnboardingDraft();
+    setAnswers(baseAnswers);
+    setOtherOpen(Boolean(savedRegion) && !REGIONS.includes(savedRegion));
+    setStep(0);
+  };
+
+  useEffect(() => {
+    if (data.preferences.mode) return;
+    if (step <= 0) {
+      clearAgentOnboardingDraft();
+      return;
+    }
+    saveAgentOnboardingDraft({ step, answers, otherOpen });
+  }, [answers, data.preferences.mode, otherOpen, step]);
 
   return (
     <div className="agent-canvas min-h-screen max-w-app mx-auto overflow-hidden">
@@ -113,7 +133,10 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
           <div className="mt-1 text-[11px] font-medium text-soft">질문 5개로 시작</div>
         </div>
         {showQuestionProgress && (
-          <button onClick={back} className="min-h-11 px-2 text-[13px] text-soft underline underline-offset-2">이전</button>
+          <div className="flex items-center gap-4">
+            <button onClick={resetDraft} className="min-h-11 px-1 text-[12px] text-soft underline underline-offset-2">처음부터</button>
+            <button onClick={back} className="min-h-11 px-1 text-[13px] text-soft underline underline-offset-2">이전</button>
+          </div>
         )}
       </div>
 
@@ -145,9 +168,9 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
               <span className="px-2">나중에 수정</span>
               <span className="px-2">자동 저장</span>
             </div>
-            <AgentPrimary onClick={next}>질문 5개 시작하기</AgentPrimary>
+            <AgentPrimary onClick={next}>{draft ? "이어서 시작하기" : "질문 5개 시작하기"}</AgentPrimary>
             <div className="mt-5 flex justify-center gap-6">
-              <button onClick={onDemo} className="min-h-11 text-[13px] text-soft underline underline-offset-2">완성 예시 보기</button>
+              <button onClick={() => { clearAgentOnboardingDraft(); onDemo(); }} className="min-h-11 text-[13px] text-soft underline underline-offset-2">완성 예시 보기</button>
               <button onClick={onAdvanced} className="min-h-11 text-[13px] text-soft underline underline-offset-2">직접 운영하기 (개발자)</button>
             </div>
           </AgentStep>
@@ -287,7 +310,7 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
                 </p>
               </div>
             )}
-            <AgentPrimary onClick={() => onComplete(answers)}>
+            <AgentPrimary onClick={() => { clearAgentOnboardingDraft(); onComplete(answers); }}>
               {answers.storage === "hosted" ? "링크 만들고 둘이 같이 보기" : "이 결정부터 열기"}
             </AgentPrimary>
             <button onClick={back} className="block mx-auto mt-4 min-h-11 text-[13px] text-soft underline underline-offset-2">답변 다시 보기</button>
@@ -296,6 +319,62 @@ export default function AgentOnboarding({ data, hostedReady, onComplete, onAdvan
       </main>
     </div>
   );
+}
+
+type AgentOnboardingDraft = {
+  step: number;
+  answers: AgentAnswers;
+  otherOpen: boolean;
+};
+
+export function clearAgentOnboardingDraft(): void {
+  try { localStorage.removeItem(ONBOARDING_DRAFT_KEY); } catch { /* noop */ }
+}
+
+function loadAgentOnboardingDraft(): AgentOnboardingDraft | null {
+  try {
+    const raw = localStorage.getItem(ONBOARDING_DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<AgentOnboardingDraft>;
+    const answers = sanitizeDraftAnswers(parsed.answers);
+    if (!answers) return null;
+    return {
+      step: clampStep(parsed.step),
+      answers,
+      otherOpen: parsed.otherOpen === true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveAgentOnboardingDraft(draft: AgentOnboardingDraft): void {
+  try {
+    localStorage.setItem(ONBOARDING_DRAFT_KEY, JSON.stringify({
+      step: clampStep(draft.step),
+      answers: draft.answers,
+      otherOpen: draft.otherOpen,
+    }));
+  } catch { /* storage may be unavailable; onboarding can continue */ }
+}
+
+function clampStep(value: unknown): number {
+  return Math.max(0, Math.min(FINAL_STEP, typeof value === "number" ? Math.round(value) : 0));
+}
+
+function sanitizeDraftAnswers(value: unknown): AgentAnswers | null {
+  if (!value || typeof value !== "object") return null;
+  const raw = value as Partial<AgentAnswers>;
+  const priority = raw.priority && raw.priority in AGENT_PRIORITIES ? raw.priority : "venue";
+  const storage = raw.storage === "hosted" ? "hosted" : "local";
+  return {
+    groomName: typeof raw.groomName === "string" ? raw.groomName.slice(0, 80) : "",
+    brideName: typeof raw.brideName === "string" ? raw.brideName.slice(0, 80) : "",
+    date: typeof raw.date === "string" ? raw.date.slice(0, 20) : "",
+    region: typeof raw.region === "string" ? raw.region.slice(0, 80) : "",
+    priority,
+    storage,
+  };
 }
 
 function AgentStep({ eyebrow, title, message, children }: { eyebrow: string; title: React.ReactNode; message?: React.ReactNode; children: React.ReactNode }) {

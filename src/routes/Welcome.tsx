@@ -7,7 +7,7 @@ import { defaultChecklist } from "../data/checklistTemplate";
 import { demoData } from "../data/demoData";
 import { authAvailable } from "../lib/auth";
 import { downloadCorruptLocalBackup, hasCorruptLocalBackup } from "../lib/storage";
-import AgentOnboarding from "../components/AgentOnboarding";
+import AgentOnboarding, { clearAgentOnboardingDraft } from "../components/AgentOnboarding";
 import type { AgentAnswers } from "../lib/agentProfile";
 import { koBreak } from "../lib/typography";
 
@@ -67,6 +67,7 @@ export default function Welcome({ data, update }: Props) {
   }, [location.state, location.pathname]);
 
   const browseDemo = () => {
+    clearAgentOnboardingDraft();
     // 모드 미선택 + 데모 아님 + 데이터 거의 없음 = 진짜 빈 상태
     // → App.tsx 가드(!mode && !isDemo)가 /dashboard 를 / 로 튕기므로 데모 데이터를 복원해야 진입 가능.
     // 사용자 데이터가 있으면 손대지 않는다(Settings.switchMode 직후 등 — 데이터 보호 우선).
@@ -93,6 +94,7 @@ export default function Welcome({ data, update }: Props) {
   };
 
   const selectMode = (id: ModeId) => {
+    clearAgentOnboardingDraft();
     if (id === "devOnly") {
       window.open("https://github.com/commet/wedding-os", "_blank", "noopener,noreferrer");
       return;

@@ -11,6 +11,7 @@ import publishApi from "../api/invite-publish";
 
 const DATA_KEY = "wedding-os/v1";
 const DRAFT_KEY = "wedding-os/setup-draft/v1";
+const ONBOARDING_DRAFT_KEY = "wedding-os/agent-onboarding-draft/v1";
 const OWNER_KEY = "wedding-os/owner/v1";
 
 test.describe("critical product flows", () => {
@@ -20,16 +21,16 @@ test.describe("critical product flows", () => {
     await page.reload();
 
     await page.getByRole("button", { name: "질문 5개 시작하기 →" }).click();
+    await page.getByRole("button", { name: "아직 미정이에요 →" }).click();
+    await page.getByRole("button", { name: "혼자 먼저 정리할게요" }).click();
     await page.getByPlaceholder("예: 김민준").fill("김민준");
     await page.getByPlaceholder("예: 이서연").fill("이서연");
     await page.getByRole("button", { name: "계속 →" }).click();
-    await page.getByRole("button", { name: "아직 미정이에요 →" }).click();
     await page.getByRole("button", { name: "기타 (직접 입력)" }).click();
     await page.getByPlaceholder("예: 서울 강남구").fill("서울 강남구");
     await page.getByRole("button", { name: "이 지역으로 보기 →" }).click();
     await page.getByRole("button", { name: "예식장을 찾고 싶어요" }).click();
-    await page.getByRole("button", { name: "우선 이 기기에서 시작" }).click();
-    await page.getByRole("button", { name: "준비 화면 열기 →" }).click();
+    await page.getByRole("button", { name: "이 결정부터 열기 →" }).click();
 
     await expect(page).toHaveURL(/\/dashboard$/);
     await expect(page.locator("#today-focus").getByText("오늘 먼저")).toBeVisible();
@@ -61,6 +62,31 @@ test.describe("critical product flows", () => {
     expect((await readStoredData(page)).ai?.profile?.priority).toBe("venue");
   });
 
+  test("keeps Dearie onboarding answers after refresh", async ({ page }) => {
+    await page.goto("/");
+    await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
+    await page.reload();
+
+    await page.getByRole("button", { name: "질문 5개 시작하기 →" }).click();
+    await page.getByRole("button", { name: "아직 미정이에요 →" }).click();
+    await page.getByRole("button", { name: "혼자 먼저 정리할게요" }).click();
+    await page.getByPlaceholder("예: 김민준").fill("김민준");
+    await page.getByPlaceholder("예: 이서연").fill("이서연");
+
+    await expect.poll(() => page.evaluate((key) => {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw).answers?.groomName : "";
+    }, ONBOARDING_DRAFT_KEY)).toBe("김민준");
+
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "두 분의 성함을 알려주세요." })).toBeVisible();
+    await expect(page.getByPlaceholder("예: 김민준")).toHaveValue("김민준");
+    await expect(page.getByPlaceholder("예: 이서연")).toHaveValue("이서연");
+    await page.getByRole("button", { name: "처음부터" }).click();
+    await expect(page.getByRole("heading", { name: "질문 5개로 오늘 할 일부터 정할게요." })).toBeVisible();
+    expect(await page.evaluate((key) => localStorage.getItem(key), ONBOARDING_DRAFT_KEY)).toBeNull();
+  });
+
   test("keeps existing local data when moving from local mode into setup", async ({ page }) => {
     const seeded = seededWeddingData();
     await seedBrowserStorage(page, seeded);
@@ -69,7 +95,8 @@ test.describe("critical product flows", () => {
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "저장 방식 다시 선택 →" }).click();
 
-    await page.getByRole("button", { name: "고급 저장 설정" }).click();
+    await page.getByRole("button", { name: "직접 운영하기 (개발자)" }).click();
+    await page.getByRole("button", { name: /직접 운영할래요/ }).click();
     await page.getByText("내 저장소로 직접 운영").click();
 
     await expect(page).toHaveURL(/\/setup$/);
@@ -170,12 +197,12 @@ test.describe("critical product flows", () => {
 
     await page.goto("/rings?starter=1");
     await expect(page.getByRole("heading", { name: "반지 기준 잡기" })).toBeVisible();
-    await page.getByRole("button", { name: /매일 편하게/ }).click();
-    await expect(page.getByRole("heading", { name: "두 분 한 쌍 예산 상한은 어디에 가까워요?" })).toBeVisible();
+    await page.getByRole("button", { name: /100~200만/ }).click();
+    await expect(page.getByRole("heading", { name: "반지는 얼마나 자주 낄 예정인가요?" })).toBeVisible();
 
     const stored = await readStoredData(page);
     expect(stored.ai?.dialogue?.some((item) => item.id === "snap-style" && item.answer === "자연스러운 기록")).toBe(true);
-    expect(stored.ai?.dialogue?.some((item) => item.id === "rings-wear" && item.answer === "매일 편하게")).toBe(true);
+    expect(stored.ai?.dialogue?.some((item) => item.id === "rings-budget" && item.answer === "100~200만")).toBe(true);
 
     await page.goto("/dashboard");
     await expect(page.getByRole("heading", { name: "필요한 화면으로 바로 가기" })).toBeVisible();
@@ -211,8 +238,9 @@ test.describe("critical product flows", () => {
 
     await page.goto("/rings?starter=1");
     await expect(page.getByRole("heading", { name: "반지 기준 잡기" })).toBeVisible();
-    await page.getByRole("button", { name: /매일 편하게/ }).click();
     await page.getByRole("button", { name: /100~200만/ }).click();
+    await page.getByRole("button", { name: /매일 편하게/ }).click();
+    await page.getByRole("button", { name: /같은 라인/ }).click();
     await expect(page.getByRole("heading", { name: "손에 올렸을 때 편한 금속 색은요?" })).toBeVisible();
     await page.getByRole("button", { name: /플래티넘/ }).click();
     await page.getByRole("button", { name: /화이트골드/ }).click();
@@ -286,7 +314,6 @@ test.describe("critical product flows", () => {
     });
 
     await expect(page.getByText("시작점을 만들었어요. 아래에서 바로 이어갈 수 있습니다.")).toBeVisible();
-    await expect(page.getByText("반지 예산 상한 정하기")).toBeVisible();
   });
 
   test("lets the invitation editor apply an AI-refined greeting", async ({ page }) => {
