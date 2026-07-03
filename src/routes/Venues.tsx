@@ -44,6 +44,7 @@ type ConfirmState = {
 };
 
 const STATUS_OPTIONS: WeddingVenue["status"][] = ["관심", "투어", "계약"];
+const VENUE_FLOW_STEPS = ["기준", "후보", "질문", "상담", "비교", "계약"] as const;
 const AGENT_STARTER_NOTE_MARKERS = [
   "기준으로 먼저 비교할 후보입니다.",
   "처음 비교해볼 후보입니다.",
@@ -635,6 +636,7 @@ function VenueFocusPanel({
   onPromote?: () => void;
   onApplyContracted?: () => void;
 }) {
+  const venueFlow = venueFlowState({ myVenues, tourCount, contracted, contractChecked });
   const nextTitle = contracted
     ? contractChecked >= 3
       ? "청첩장에 넣을 식장 정보를 확정하세요"
@@ -653,14 +655,14 @@ function VenueFocusPanel({
   const primaryLabel = contracted
     ? onApplyContracted ? "청첩장에 식장 넣기" : "계약 조건 확인하기"
     : needsFirstTour
-      ? "첫 후보를 투어로"
+      ? "전화할 후보 정하기"
     : myVenues.length > 0
       ? "나란히 비교하기"
       : "Dearie와 후보 좁히기";
   const primaryAction = contracted
     ? onApplyContracted ?? (() => document.getElementById("venue-mine-section")?.scrollIntoView({ behavior: "smooth", block: "start" }))
     : needsFirstTour
-      ? onPromote!
+      ? onCompare
     : myVenues.length > 0
       ? onCompare
       : onStart;
@@ -673,6 +675,13 @@ function VenueFocusPanel({
         <div className="min-w-0">
           <div className="home-kicker mb-2">지금 볼 것</div>
           <h2 className="venue-focus-title">{koBreak(nextTitle)}</h2>
+          <div className="mt-4">
+            <div className="mb-2 flex items-baseline justify-between gap-3">
+              <span className="text-[12px] font-semibold text-ink">{venueFlow.label}</span>
+              <span className="text-[11px] text-soft">기준에서 계약까지</span>
+            </div>
+            <VenueFlowTrack stepIndex={venueFlow.stepIndex} tone={venueFlow.tone} />
+          </div>
           <p className="mt-3 max-w-[42rem] text-[14px] leading-[1.75] text-soft break-keep">
             {nextBody}
           </p>
@@ -692,9 +701,9 @@ function VenueFocusPanel({
           </span>
           <span aria-hidden="true" className="text-gold">→</span>
         </button>
-        {onPromote && !needsFirstTour && (
+        {onPromote && (
           <button type="button" onClick={onPromote} className="focus-secondary-action sm:w-auto sm:min-w-[11rem]">
-            <span>첫 후보를 투어로</span>
+            <span>첫 후보 상담으로 표시</span>
             <span aria-hidden="true" className="text-gold">→</span>
           </button>
         )}
@@ -714,6 +723,65 @@ function VenueMetric({ label, value, detail, warn = false }: { label: string; va
       <div className={`mt-0.5 font-serif text-[20px] leading-none tabular-nums ${warn ? "text-gold" : "text-ink"}`}>{value}</div>
       <div className="mt-1 truncate text-[11px] text-soft">{detail}</div>
     </div>
+  );
+}
+
+function venueFlowState({
+  myVenues,
+  tourCount,
+  contracted,
+  contractChecked,
+}: {
+  myVenues: WeddingVenue[];
+  tourCount: number;
+  contracted?: WeddingVenue;
+  contractChecked: number;
+}): { label: string; stepIndex: number; tone: "waiting" | "active" | "attention" | "done" } {
+  if (contracted) {
+    return contractChecked >= 3
+      ? { label: "계약됨 · 청첩장/잔금 확인", stepIndex: 5, tone: "done" }
+      : { label: "계약됨 · 빠진 조건 확인", stepIndex: 5, tone: "attention" };
+  }
+  if (tourCount > 0 && myVenues.length >= 2) {
+    return { label: "상담함 · 비교 중", stepIndex: 4, tone: "active" };
+  }
+  if (tourCount > 0) {
+    return { label: "상담 내용 정리 중", stepIndex: 3, tone: "active" };
+  }
+  if (myVenues.length > 0) {
+    return { label: "후보 있음 · 물어볼 것 남음", stepIndex: 2, tone: "attention" };
+  }
+  return { label: "기준부터 잡는 중", stepIndex: 0, tone: "active" };
+}
+
+function VenueFlowTrack({
+  stepIndex,
+  tone,
+}: {
+  stepIndex: number;
+  tone: "waiting" | "active" | "attention" | "done";
+}) {
+  return (
+    <ol className="thinking-track venue-thinking-track" aria-label="예식장 결정 단계">
+      {VENUE_FLOW_STEPS.map((step, index) => {
+        const filled = stepIndex >= index;
+        const current = stepIndex === index;
+        return (
+          <li
+            key={step}
+            className={[
+              "thinking-cell",
+              filled ? "thinking-cell-filled" : "thinking-cell-empty",
+              current ? "thinking-cell-current" : "",
+              filled ? `thinking-cell-${tone}` : "",
+            ].filter(Boolean).join(" ")}
+            aria-current={current ? "step" : undefined}
+          >
+            <span>{step}</span>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -1629,6 +1697,9 @@ function MyVenueRow({
   const fit = venueCapacityFit(v, headcount);
   const showDDay =
     v.status === "계약" && (v.balanceKRW ?? 0) > 0 && !!v.balanceDueAt && !!balance;
+  const strengths = venueStrengths(v, headcount).slice(0, 3);
+  const questions = venueOpenQuestions(v).slice(0, 3);
+  const judgement = venueJudgement(v);
   return (
     <li className="py-5">
       <div className="flex items-baseline justify-between gap-3">
@@ -1653,6 +1724,15 @@ function MyVenueRow({
           </div>
         </button>
         <button onClick={onRemove} aria-label={`${v.name} 삭제`} className="flex min-h-11 min-w-11 flex-shrink-0 items-center justify-center text-soft hover:text-ink text-sm">×</button>
+      </div>
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_9rem]">
+        <VenueDecisionLine label="맞는 점" values={strengths} />
+        <VenueDecisionLine label="물어볼 점" values={questions} accent />
+        <div className="min-w-0 border border-line bg-vellum/60 px-3 py-2.5">
+          <div className="text-[11px] font-semibold text-soft">판단</div>
+          <p className="mt-1 text-[12px] font-semibold leading-relaxed text-ink break-keep">{judgement}</p>
+        </div>
       </div>
 
       {open && (
@@ -1791,6 +1871,55 @@ function MyVenueRow({
       )}
     </li>
   );
+}
+
+function VenueDecisionLine({ label, values, accent = false }: { label: string; values: string[]; accent?: boolean }) {
+  return (
+    <div className="min-w-0 border border-line bg-vellum/60 px-3 py-2.5">
+      <div className={`text-[11px] font-semibold ${accent ? "text-gold" : "text-soft"}`}>{label}</div>
+      <p className="mt-1 text-[12px] leading-relaxed text-ink/85 break-keep">
+        {values.length > 0 ? values.join(" · ") : "아직 정리된 정보 없음"}
+      </p>
+    </div>
+  );
+}
+
+function venueStrengths(v: WeddingVenue, headcount: number): string[] {
+  const items: string[] = [];
+  const fit = venueCapacityFit(v, headcount);
+  if (fit === "ok") items.push(`${headcount}명 기준 인원 맞음`);
+  if (fit === "tight") items.push(`${headcount}명 기준 거의 맞음`);
+  if (v.mealPriceMin || v.mealPriceMax) items.push(`식대 ${formatMealPrice(v)}`);
+  if (v.region) items.push(`${v.region} 권역`);
+  if (v.hallType) items.push(HALL_TYPE_LABEL[v.hallType]);
+  if (v.lastVerified || v.source || v.link) items.push("출처 확인 가능");
+  if (v.status === "투어") items.push("상담/투어 단계");
+  if (v.status === "계약") items.push("계약 후보");
+  return items.length > 0 ? items : ["기본 정보부터 정리 필요"];
+}
+
+function venueOpenQuestions(v: WeddingVenue): string[] {
+  const items: string[] = [];
+  if (!v.capacityMin && !v.capacityMax) items.push("보증·최대 인원");
+  if (!v.mealPriceMin && !v.mealPriceMax) items.push("식대와 포함 범위");
+  if (!v.foodType) items.push("음식 형식");
+  if (!v.contact) items.push("상담 연락처");
+  if (!v.lastVerified) items.push("최신 확인일");
+  if (v.status === "투어" || v.status === "계약") {
+    if (!v.freeCancelUntil) items.push("무료취소 날짜");
+    if (!v.guaranteeDueAt) items.push("보증인원 확정일");
+    if (!v.contract?.included) items.push("포함 항목");
+    if (!v.contract?.extras) items.push("추가 비용");
+  }
+  return items.length > 0 ? items : ["계약서에 남길 조건 확인"];
+}
+
+function venueJudgement(v: WeddingVenue): string {
+  if (v.status === "계약") return "계약 조건을 잠글 후보";
+  if (v.status === "투어") return "상담 내용을 비교할 후보";
+  const hasCore = Boolean((v.capacityMin || v.capacityMax) && (v.mealPriceMin || v.mealPriceMax));
+  if (hasCore) return "전화해서 확인할 후보";
+  return "기본 조건부터 채울 후보";
 }
 
 function ContractFields({

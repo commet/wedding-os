@@ -293,6 +293,86 @@
     border-radius: 8px;
   }
 
+  .home-os-map {
+    @apply mb-4 border-y border-line py-3;
+  }
+
+  .home-map-lane {
+    @apply block min-w-0 border border-line bg-vellum/70 px-3 py-2.5 transition-[border-color,background] duration-150;
+    border-radius: 8px;
+  }
+
+  .home-map-lane:hover {
+    border-color: color-mix(in srgb, theme('colors.gold') 46%, theme('colors.line'));
+    background: theme('colors.vellum');
+  }
+
+  .thinking-track {
+    @apply mt-3 grid gap-1;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .thinking-track-compact {
+    @apply mt-2 gap-0.5;
+  }
+
+  .thinking-cell {
+    @apply flex h-7 min-w-0 items-center justify-center border text-[10.5px] font-semibold leading-none text-soft;
+    border-color: theme('colors.line');
+    background: rgba(255, 253, 247, 0.58);
+  }
+
+  .thinking-cell:first-child {
+    border-radius: 7px 0 0 7px;
+  }
+
+  .thinking-cell:last-child {
+    border-radius: 0 7px 7px 0;
+  }
+
+  .thinking-track-compact .thinking-cell {
+    @apply h-6 text-[10px];
+  }
+
+  .home-map-lane .thinking-track-compact {
+    @apply mt-1.5 gap-0.5;
+  }
+
+  .home-map-lane .thinking-track-compact .thinking-cell {
+    height: 6px;
+    font-size: 0;
+  }
+
+  .home-map-lane .thinking-track-compact .thinking-cell span {
+    display: none;
+  }
+
+  .thinking-cell-filled {
+    color: theme('colors.ink');
+    background: color-mix(in srgb, theme('colors.gold') 13%, theme('colors.vellum'));
+    border-color: color-mix(in srgb, theme('colors.gold') 42%, theme('colors.line'));
+  }
+
+  .thinking-cell-current {
+    border-color: theme('colors.gold');
+    box-shadow: inset 0 -2px 0 theme('colors.gold');
+  }
+
+  .thinking-cell-attention {
+    background: color-mix(in srgb, theme('colors.gold') 20%, theme('colors.vellum'));
+    color: theme('colors.ink');
+  }
+
+  .thinking-cell-done {
+    background: color-mix(in srgb, theme('colors.sage') 18%, theme('colors.vellum'));
+    border-color: color-mix(in srgb, theme('colors.sage') 48%, theme('colors.line'));
+  }
+
+  .thinking-cell-waiting {
+    background: rgba(255, 253, 247, 0.44);
+    color: theme('colors.soft');
+  }
+
   .quiet-disclosure {
     @apply flex min-h-11 cursor-pointer list-none items-center justify-between gap-4 border-y border-line py-3;
   }

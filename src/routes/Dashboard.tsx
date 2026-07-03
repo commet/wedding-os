@@ -61,6 +61,27 @@ type DashboardGroup = {
   apps: DashboardApp[];
 };
 
+const THINKING_FLOW_STEPS = ["기준", "후보", "질문", "비교", "결정", "확정"] as const;
+
+type ThoughtState = {
+  label: string;
+  stepIndex: number;
+  tone: "waiting" | "active" | "attention" | "done";
+};
+
+type PreparationMapGroup = {
+  key: "booking" | "money" | "invite" | "day";
+  title: string;
+  keys: string[];
+};
+
+const PREPARATION_MAP_GROUPS: PreparationMapGroup[] = [
+  { key: "booking", title: "큰 예약", keys: ["venues", "sdm", "snap", "rings", "trip"] },
+  { key: "money", title: "돈", keys: ["budget"] },
+  { key: "invite", title: "초대", keys: ["guests", "invitation", "share"] },
+  { key: "day", title: "본식", keys: ["checklist", "ceremony", "video"] },
+];
+
 export default function Dashboard({ data, update }: Props) {
   const [aiPrompt, setAiPrompt] = useState<BridgePrompt | null>(null);
   const [aiMessage, setAiMessage] = useState("");
@@ -334,6 +355,7 @@ export default function Dashboard({ data, update }: Props) {
       ) : (
         <>
           <section id="today-focus" className="page pt-5 pb-4 scroll-mt-20">
+            <PreparationOverview sections={readiness} />
             <MasterPlannerPanel
               coupleDisplay={coupleDisplay}
               dday={dday}
@@ -409,6 +431,110 @@ export default function Dashboard({ data, update }: Props) {
         onApply={applyAiStarter}
       />
     </div>
+  );
+}
+
+function PreparationOverview({ sections }: { sections: PlanningSectionStatus[] }) {
+  const byKey = new Map(sections.map((section) => [section.key, section]));
+  const groups = PREPARATION_MAP_GROUPS.map((group) => {
+    const groupSections = group.keys
+      .map((key) => byKey.get(key))
+      .filter((section): section is PlanningSectionStatus => !!section);
+    const focus = pickGroupFocus(groupSections);
+    return { ...group, sections: groupSections, focus };
+  }).filter((group) => group.sections.length > 0 && group.focus);
+
+  return (
+    <section className="home-os-map" aria-label="전체 준비 흐름">
+      <div className="mb-3 flex items-baseline justify-between gap-4">
+        <div>
+          <div className="home-kicker">전체 흐름</div>
+          <h2 className="section-title mt-1">준비가 어디까지 왔는지</h2>
+        </div>
+        <span className="hidden text-[11.5px] text-soft sm:inline">칸이 오른쪽으로 찰수록 결정에 가까워요</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+        {groups.map((group) => {
+          const focus = group.focus!;
+          const thought = thoughtStateForSection(focus);
+          return (
+            <Link key={group.key} to={focus.to} className="home-map-lane row-tap">
+              <span className="flex items-start justify-between gap-3">
+                <span className="min-w-0">
+                  <span className="block text-[12.5px] font-semibold text-ink">{group.title}</span>
+                  <span className="mt-1 block truncate text-[11px] text-soft">{focus.label} · {thought.label}</span>
+                </span>
+                <span aria-hidden="true" className="text-gold">→</span>
+              </span>
+              <ThinkingFlowTrack stepIndex={thought.stepIndex} tone={thought.tone} compact />
+            </Link>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function pickGroupFocus(sections: PlanningSectionStatus[]): PlanningSectionStatus | undefined {
+  const rank: Record<PlanningStatusState, number> = { attention: 0, active: 1, empty: 2, done: 3 };
+  return [...sections].sort((a, b) => rank[a.state] - rank[b.state] || b.weight - a.weight)[0];
+}
+
+function thoughtStateForSection(section: PlanningSectionStatus): ThoughtState {
+  const text = `${section.label} ${section.detail} ${section.nextAction}`;
+  if (section.state === "done" || section.percent >= 95 || /계약|발행 완료|완료|확정/.test(text)) {
+    return { label: "확정됨", stepIndex: 5, tone: "done" };
+  }
+  if (section.state === "empty" && section.percent === 0) {
+    return { label: "순서 기다림", stepIndex: -1, tone: "waiting" };
+  }
+  if (/결정|계약|발행|등록|확인$|식장 정보/.test(section.nextAction)) {
+    return { label: "결정할 차례", stepIndex: 4, tone: section.state === "attention" ? "attention" : "active" };
+  }
+  if (/비교|고르기|답사|상담 중|후보 고르기|나란히/.test(text)) {
+    return { label: "비교 중", stepIndex: 3, tone: section.state === "attention" ? "attention" : "active" };
+  }
+  if (/답하기|질문|확인|기준 \d+\/|물어/.test(text)) {
+    return { label: "물어볼 것 남음", stepIndex: 2, tone: section.state === "attention" ? "attention" : "active" };
+  }
+  if (/후보|담기|채우기|명단|사진|항목/.test(text)) {
+    return { label: "후보 모으는 중", stepIndex: 1, tone: section.state === "attention" ? "attention" : "active" };
+  }
+  return { label: "기준 잡는 중", stepIndex: 0, tone: section.state === "attention" ? "attention" : "active" };
+}
+
+function ThinkingFlowTrack({
+  stepIndex,
+  tone,
+  compact = false,
+  steps = THINKING_FLOW_STEPS,
+}: {
+  stepIndex: number;
+  tone: ThoughtState["tone"];
+  compact?: boolean;
+  steps?: readonly string[];
+}) {
+  return (
+    <ol className={`thinking-track ${compact ? "thinking-track-compact" : ""}`} aria-label="준비 단계">
+      {steps.map((step, index) => {
+        const filled = stepIndex >= index;
+        const current = stepIndex === index;
+        return (
+          <li
+            key={step}
+            className={[
+              "thinking-cell",
+              filled ? "thinking-cell-filled" : "thinking-cell-empty",
+              current ? "thinking-cell-current" : "",
+              filled ? `thinking-cell-${tone}` : "",
+            ].filter(Boolean).join(" ")}
+            aria-current={current ? "step" : undefined}
+          >
+            <span>{step}</span>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -938,35 +1064,30 @@ function StatusBoard({
 }
 
 function StatusRow({ section, compact = false }: { section: PlanningSectionStatus; compact?: boolean }) {
+  const thought = thoughtStateForSection(section);
   return (
     <Link
       to={section.to}
-      className={`row-tap grid items-center gap-4 py-3 ${compact ? "grid-cols-[minmax(0,1fr)_3rem]" : "min-h-[72px] grid-cols-[minmax(0,1fr)_3.3rem]"}`}
+      className={`row-tap block py-3 ${compact ? "" : "min-h-[72px]"}`}
     >
       <span className="min-w-0">
         <span className="mb-1.5 flex items-center justify-between gap-3">
           <span className="eyebrow-gold">{section.label}</span>
-          <StatePill state={section.state} />
+          <StatePill state={section.state} label={thought.label} />
         </span>
         <span className={`mb-2 block leading-snug text-ink break-keep ${compact ? "text-[14px] font-semibold" : "font-serif text-[16px]"}`}>
           {section.nextAction}
         </span>
-        <ProgressLine value={section.percent} subtle />
+        <ThinkingFlowTrack stepIndex={thought.stepIndex} tone={thought.tone} compact />
         <span className="mt-1.5 block truncate text-[13px] text-soft">
           {section.detail}
         </span>
-      </span>
-      <span className="text-right">
-        <span className={`block font-serif leading-none tabular-nums ${compact ? "text-[17px]" : "text-[20px]"} ${section.state === "attention" ? "text-gold" : "text-ink"}`}>
-          {section.percent}
-        </span>
-        <span className="mt-0.5 block text-[11px] text-soft">%</span>
       </span>
     </Link>
   );
 }
 
-function StatePill({ state }: { state: PlanningStatusState }) {
+function StatePill({ state, label }: { state: PlanningStatusState; label?: string }) {
   const tone =
     state === "attention"
       ? "text-gold before:bg-gold"
@@ -977,17 +1098,8 @@ function StatePill({ state }: { state: PlanningStatusState }) {
           : "text-ink before:bg-ink";
   return (
     <span className={`inline-flex flex-shrink-0 items-center gap-1.5 text-[11px] font-semibold tracking-eyebrow uppercase ${tone} before:block before:h-1.5 before:w-1.5 before:rotate-45`}>
-      {PLANNING_STATE_LABEL[state]}
+      {label ?? PLANNING_STATE_LABEL[state]}
     </span>
-  );
-}
-
-function ProgressLine({ value, subtle = false }: { value: number; subtle?: boolean }) {
-  const width = `${Math.max(0, Math.min(100, value))}%`;
-  return (
-    <div className={`h-2 overflow-hidden ${subtle ? "bg-line" : "bg-hair"}`}>
-      <div className={`h-full transition-all duration-500 ${subtle ? "bg-gold" : "bg-ink"}`} style={{ width }} />
-    </div>
   );
 }
 
