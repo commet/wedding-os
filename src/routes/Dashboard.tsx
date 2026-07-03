@@ -356,22 +356,26 @@ export default function Dashboard({ data, update }: Props) {
           {lossDeadlines.length > 0 && <LossDeadlineStrip items={lossDeadlines} />}
 
           <section className="page py-3">
-            <div className="mb-3 flex items-end justify-between gap-4">
-              <div>
-                <div className="home-kicker">준비 도구</div>
-                <h2 className="section-title">{koBreak("필요한 화면으로 바로 가기")}</h2>
-              </div>
-              <span className="text-right text-[11.5px] leading-relaxed text-soft">
-                진행 {statusReport.counts.active + statusReport.counts.attention} · 완료 {statusReport.counts.done}
-              </span>
-            </div>
-            <AppLauncher groups={dashboardGroups} />
             {(agentQuestion || secondaryFocusItems.length > 0) && (
-              <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
-                {agentQuestion && <MasterQuestionCard question={agentQuestion} onAnswer={answerAgentQuestion} />}
+              <div className="grid gap-3 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
                 {secondaryFocusItems.length > 0 && <FocusQueue items={secondaryFocusItems} />}
+                {agentQuestion && <MasterQuestionCard question={agentQuestion} onAnswer={answerAgentQuestion} />}
               </div>
             )}
+            <details className="mt-4">
+              <summary className="quiet-disclosure">
+                <span>
+                  <h2 className="section-title">{koBreak("필요한 화면으로 바로 가기")}</h2>
+                  <span className="mt-1 block text-[12.5px] text-soft">
+                    진행 {statusReport.counts.active + statusReport.counts.attention} · 완료 {statusReport.counts.done}
+                  </span>
+                </span>
+                <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
+              </summary>
+              <div className="pt-4">
+                <AppLauncher groups={dashboardGroups} />
+              </div>
+            </details>
           </section>
 
           <section className="page py-4">

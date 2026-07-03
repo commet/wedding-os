@@ -58,6 +58,7 @@ test.describe("critical product flows", () => {
     expect(await page.evaluate((key) => localStorage.getItem(key), OWNER_KEY)).toBe("1");
     await page.reload();
     await expect(page.getByRole("heading", { name: "예식 날짜 기준 정하기" })).toBeVisible();
+    await page.getByRole("heading", { name: "필요한 화면으로 바로 가기" }).click();
     await expect(page.getByText("예식장 기준 답하기").first()).toBeVisible();
     expect((await readStoredData(page)).ai?.profile?.priority).toBe("venue");
   });
@@ -159,7 +160,7 @@ test.describe("critical product flows", () => {
     );
 
     await page.goto("/venues?starter=1");
-    await expect(page.getByText("후보 좁히기")).toBeVisible();
+    await expect(page.getByTestId("venue-agent-starter").getByText("후보 좁히기")).toBeVisible();
     await expect(page.getByRole("heading", { name: "가장 먼저 볼 지역은 어디에 가까울까요?" })).toBeVisible();
     await page.getByRole("button", { name: /강남·청담권/ }).click();
     await page.getByRole("button", { name: "선택한 조건으로 다음 질문 →" }).click();
@@ -260,6 +261,7 @@ test.describe("critical product flows", () => {
 
     await page.goto("/dashboard");
     await expect(page.getByRole("heading", { name: "필요한 화면으로 바로 가기" })).toBeVisible();
+    await page.getByRole("heading", { name: "필요한 화면으로 바로 가기" }).click();
     await expect(page.getByText("스냅 기준 답하기").first()).toBeVisible();
     await expect(page.getByText("반지 취향 이어 고르기").first()).toBeVisible();
   });

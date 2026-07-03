@@ -164,6 +164,8 @@ test.describe("dashboard visual smoke", () => {
     await page.goto("/dashboard");
 
     await expect(page.getByRole("heading", { name: "필요한 화면으로 바로 가기" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "기준 잡기" })).toHaveCount(0);
+    await page.getByRole("heading", { name: "필요한 화면으로 바로 가기" }).click();
     await expect(page.getByRole("heading", { name: "기준 잡기" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "후보 비교" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "초대와 공유" })).toBeVisible();

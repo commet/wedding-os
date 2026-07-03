@@ -13,10 +13,10 @@ import MapEmbed from "../components/MapEmbed";
 import Modal from "../components/Modal";
 import DearieConfirmModal from "../components/DearieConfirmModal";
 import FreshnessBadge from "../components/FreshnessBadge";
-import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import { SectionDecisionLoop } from "../components/DecisionLoopPanel";
 import ResearchInputPanel, { type ResearchSection } from "../components/ResearchInputPanel";
 import { safeHref } from "../lib/security";
+import { koBreak } from "../lib/typography";
 import {
   emptyVenueResearchDraft,
   parseVenueResearchText,
@@ -308,7 +308,19 @@ export default function Venues({ data, update }: Props) {
         <h1 className="h-page">예식장</h1>
       </div>
 
-      <SectionDecisionLoop data={data} sectionId="venues" />
+      <VenueFocusPanel
+        myVenues={myVenues}
+        tourCount={tourCount}
+        contracted={contracted}
+        contractChecked={contractChecked}
+        headcount={headcount}
+        summary={venueAgentSummary}
+        onStart={openVenueStarter}
+        onAdd={() => setShowAdd(true)}
+        onCompare={() => { setTab("mine"); setMineView("compare"); window.setTimeout(() => document.getElementById("venue-mine-section")?.scrollIntoView({ behavior: "smooth", block: "start" }), 0); }}
+        onPromote={myVenues.length > 0 && tourCount === 0 ? promoteFirstVenueToTour : undefined}
+        onApplyContracted={contracted && !data.invitation.venue ? () => applyToInvitation(contracted) : undefined}
+      />
 
       {/* 미루면 손해 — 돈이 걸린 날짜를 화면 최상단에서 먼저 보여준다 */}
       {venueLossDeadlines.length > 0 && (
@@ -338,32 +350,19 @@ export default function Venues({ data, update }: Props) {
         </div>
       )}
 
-      <VenueTimingBar data={data} update={update} />
-
-      {!showStarter && (
-        <ProcessAgentPanel
-          title={myVenues.length === 0 ? "예식장 조건을 먼저 물어볼게요" : contracted ? "계약 이후 빠질 조건을 확인 중" : "상담 순서를 잡는 중"}
-          summary={venueAgentSummary}
-          mood={contracted && contractChecked >= 3 ? "ready" : "thinking"}
-          metrics={[
-            { label: "후보", value: `${myVenues.length}곳`, hint: myVenues.length >= 3 ? "비교 가능" : "3곳 권장" },
-            { label: "투어", value: `${tourCount}곳`, tone: tourCount === 0 && myVenues.length > 0 ? "warn" : "normal" },
-            { label: "계약 체크", value: contracted ? `${contractChecked}/6` : "대기", tone: contracted && contractChecked < 3 ? "warn" : contracted ? "normal" : "muted" },
-          ]}
-          steps={[
-            { label: "비교할 후보 3곳 담기", detail: "지역·식대·보증인원이 다른 후보를 섞으면 상담 기준이 또렷해져요.", done: myVenues.length >= 3 },
-            { label: "첫 답사/상담 후보 정하기", detail: "상태를 ‘투어’로 바꾸면 다음 납부와 상담 메모가 따라옵니다.", done: tourCount > 0 },
-            { label: "계약 전 핵심 조건 남기기", detail: "견적 기준, 결제 일정, 취소·변경, 별도 비용을 텍스트로 남겨요.", done: !!contracted && contractChecked >= 3 },
-          ]}
-          actions={[
-            { label: "Dearie와 후보 좁히기", onClick: openVenueStarter, tone: "primary" },
-            { label: "새 후보 직접 추가", onClick: () => setShowAdd(true), tone: "quiet" },
-            ...(myVenues.length > 0 && tourCount === 0 ? [{ label: "첫 후보를 투어로 표시", onClick: promoteFirstVenueToTour }] : []),
-            ...(contracted && !data.invitation.venue ? [{ label: "계약 식장을 청첩장에 넣기", onClick: () => applyToInvitation(contracted), tone: "primary" as const }] : []),
-            { label: "카탈로그 열기", onClick: () => setTab("catalog") },
-          ]}
-        />
-      )}
+      <details>
+        <summary className="quiet-disclosure">
+          <span>
+            <span className="section-title block">기준과 마감 확인</span>
+            <span className="mt-1 block text-[12.5px] text-soft">예식일, 상담 기준, 결정 이유는 필요할 때 펼쳐봅니다.</span>
+          </span>
+          <span className="text-[12px] text-soft underline underline-offset-4">열기</span>
+        </summary>
+        <div className="pt-4 space-y-4">
+          <VenueTimingBar data={data} update={update} />
+          <SectionDecisionLoop data={data} sectionId="venues" />
+        </div>
+      </details>
 
       {venueNotice && (
         <div className="anim-fade border-y border-hair py-3">
@@ -406,7 +405,7 @@ export default function Venues({ data, update }: Props) {
           </div>
 
           {tab === "mine" && (
-            <>
+            <section id="venue-mine-section" className="space-y-5 scroll-mt-20">
               {/* 진척도 */}
               <div className="flex items-baseline gap-6 text-[12px] border-b border-hair pb-3">
                 <span className="eyebrow">진척도</span>
@@ -476,7 +475,7 @@ export default function Venues({ data, update }: Props) {
                   )}
                 </>
               )}
-            </>
+            </section>
           )}
 
           {tab === "catalog" && (
@@ -607,6 +606,113 @@ export default function Venues({ data, update }: Props) {
         onClose={() => setConfirmDialog(null)}
         onConfirm={async () => { await confirmDialog?.onConfirm(); }}
       />
+    </div>
+  );
+}
+
+function VenueFocusPanel({
+  myVenues,
+  tourCount,
+  contracted,
+  contractChecked,
+  headcount,
+  summary,
+  onStart,
+  onAdd,
+  onCompare,
+  onPromote,
+  onApplyContracted,
+}: {
+  myVenues: WeddingVenue[];
+  tourCount: number;
+  contracted?: WeddingVenue;
+  contractChecked: number;
+  headcount: number;
+  summary: string;
+  onStart: () => void;
+  onAdd: () => void;
+  onCompare: () => void;
+  onPromote?: () => void;
+  onApplyContracted?: () => void;
+}) {
+  const nextTitle = contracted
+    ? contractChecked >= 3
+      ? "청첩장에 넣을 식장 정보를 확정하세요"
+      : "계약서에서 빠지면 곤란한 조건을 잠그세요"
+    : tourCount > 0
+      ? "투어한 후보를 같은 기준으로 비교하세요"
+      : myVenues.length > 0
+        ? "첫 상담 후보 하나만 정하세요"
+        : "조건 4개로 후보를 3곳만 남기세요";
+  const needsFirstTour = !contracted && myVenues.length > 0 && tourCount === 0 && !!onPromote;
+  const nextBody = contracted
+    ? contracted.name
+      ? `${contracted.name} 기준으로 결제, 취소, 포함 항목을 확인하면 다음 화면들이 안정됩니다.`
+      : summary
+    : summary;
+  const primaryLabel = contracted
+    ? onApplyContracted ? "청첩장에 식장 넣기" : "계약 조건 확인하기"
+    : needsFirstTour
+      ? "첫 후보를 투어로"
+    : myVenues.length > 0
+      ? "나란히 비교하기"
+      : "Dearie와 후보 좁히기";
+  const primaryAction = contracted
+    ? onApplyContracted ?? (() => document.getElementById("venue-mine-section")?.scrollIntoView({ behavior: "smooth", block: "start" }))
+    : needsFirstTour
+      ? onPromote!
+    : myVenues.length > 0
+      ? onCompare
+      : onStart;
+  const fit = contracted ? venueCapacityFit(contracted, headcount) : "unknown";
+  const fitLabel = fit === "unknown" ? "인원 미정" : CAPACITY_FIT_LABEL[fit];
+
+  return (
+    <section className="venue-focus">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_17rem] lg:items-start">
+        <div className="min-w-0">
+          <div className="home-kicker mb-2">지금 볼 것</div>
+          <h2 className="venue-focus-title">{koBreak(nextTitle)}</h2>
+          <p className="mt-3 max-w-[42rem] text-[14px] leading-[1.75] text-soft break-keep">
+            {nextBody}
+          </p>
+        </div>
+        <div className="grid grid-cols-3 gap-2 lg:grid-cols-1">
+          <VenueMetric label="후보" value={`${myVenues.length}곳`} detail={myVenues.length >= 3 ? "비교 가능" : "3곳 권장"} />
+          <VenueMetric label="투어" value={`${tourCount}곳`} detail={tourCount > 0 ? "상담 중" : "미정"} warn={myVenues.length > 0 && tourCount === 0} />
+          <VenueMetric label={contracted ? "계약" : "인원"} value={contracted ? `${contractChecked}/6` : headcount ? `${headcount}명` : "미정"} detail={contracted ? fitLabel : "예상 하객"} warn={contracted ? contractChecked < 3 || fit === "over" || fit === "under" : false} />
+        </div>
+      </div>
+
+      <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center">
+        <button type="button" onClick={primaryAction} className="focus-primary-action w-full text-left sm:w-auto sm:min-w-[14rem]">
+          <span>
+            <span className="block text-[11.5px] font-semibold text-ink/55">다음 행동</span>
+            <span className="mt-0.5 block text-[14px] font-semibold leading-snug">{primaryLabel}</span>
+          </span>
+          <span aria-hidden="true" className="text-gold">→</span>
+        </button>
+        {onPromote && !needsFirstTour && (
+          <button type="button" onClick={onPromote} className="focus-secondary-action sm:w-auto sm:min-w-[11rem]">
+            <span>첫 후보를 투어로</span>
+            <span aria-hidden="true" className="text-gold">→</span>
+          </button>
+        )}
+        <button type="button" onClick={onAdd} className="focus-secondary-action sm:w-auto sm:min-w-[9rem]">
+          <span>직접 추가</span>
+          <span aria-hidden="true" className="text-gold">+</span>
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function VenueMetric({ label, value, detail, warn = false }: { label: string; value: string; detail: string; warn?: boolean }) {
+  return (
+    <div className="min-w-0 border border-line bg-vellum/70 px-3 py-2.5">
+      <div className="text-[11px] font-semibold text-soft">{label}</div>
+      <div className={`mt-0.5 font-serif text-[20px] leading-none tabular-nums ${warn ? "text-gold" : "text-ink"}`}>{value}</div>
+      <div className="mt-1 truncate text-[11px] text-soft">{detail}</div>
     </div>
   );
 }
