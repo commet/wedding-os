@@ -27,6 +27,8 @@ import {
   type VideoTemplate,
 } from "../data/videoTemplates";
 import SectionConsultationPanel from "../components/SectionConsultationPanel";
+import { SectionDecisionLoop } from "../components/DecisionLoopPanel";
+import DecisionNudge from "../components/DecisionNudge";
 import { consultationChoice } from "../lib/sectionConsultation";
 
 type Props = { data: WeddingData; update: (patch: WeddingUpdate) => void; };
@@ -66,6 +68,22 @@ const TRANSITIONS: { value: VideoTransition; label: string }[] = [
   { value: "slide", label: "슬라이드" },
   { value: "none", label: "없음" },
 ];
+
+function photoDecision(photo: VideoPhoto, chapters: VideoAct[]) {
+  if (chapters.length > 0 && !photo.actId) {
+    return { judgement: "챕터 미배정", action: "어느 장면 흐름에 들어갈지 정하기", tone: "warn" as const };
+  }
+  if (!photo.caption?.trim()) {
+    return { judgement: "자막 없음", action: "의미 있는 사진이면 짧은 문장 추가", tone: "normal" as const };
+  }
+  if (photo.durationSec > 7) {
+    return { judgement: "길게 노출", action: "핵심 컷이면 유지, 아니면 4~5초로 줄이기", tone: "warn" as const };
+  }
+  if (photo.transition === "none") {
+    return { judgement: "전환 없음", action: "분위기 컷이면 페이드가 더 자연스러운지 확인", tone: "normal" as const };
+  }
+  return { judgement: "편집 준비", action: "앞뒤 사진과 톤이 이어지는지 미리보기", tone: "normal" as const };
+}
 
 // 상담 "톤" 답변 → 어울리는 템플릿 (videoTemplates 8종 범위 내)
 const TONE_TEMPLATE_IDS: Record<string, string[]> = {
@@ -456,6 +474,8 @@ export default function Video({ data, update }: Props) {
       </div>
 
       {/* 인트로 */}
+      <SectionDecisionLoop data={data} sectionId="video" />
+
       <div className="py-4 border-y border-hair">
         <p className="text-[13px] leading-relaxed text-ink mb-3">사진과 음악을 더해 결혼식 입장 전에 트는 영상을 만들어요.</p>
         <ul className="text-[11.5px] text-soft space-y-1 leading-relaxed">
@@ -1162,6 +1182,7 @@ function PhotoRow({
   chapters: VideoAct[];
 }) {
   const thumb = safeMediaSrc(photo.url);
+  const decision = photoDecision(photo, chapters);
   return (
     <div className="py-4">
       <div className="flex items-center gap-3">
@@ -1175,6 +1196,13 @@ function PhotoRow({
           <div className="eyebrow mt-1.5">
             {EFFECTS.find((e) => e.value === photo.effect)?.label} · {photo.durationSec}초
           </div>
+          <DecisionNudge
+            className="mt-2"
+            judgement={decision.judgement}
+            question={decision.action}
+            questionLabel="다음 편집"
+            tone={decision.tone}
+          />
         </div>
         <button onClick={onToggleExpand} className="text-[11.5px] text-ink underline underline-offset-4 hover:text-gold">
           {isExpanded ? "접기" : "편집"}

@@ -13,6 +13,7 @@ import { consultationFacts } from "../lib/sectionConsultation";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import SectionConsultationPanel from "../components/SectionConsultationPanel";
 import { SectionDecisionLoop } from "../components/DecisionLoopPanel";
+import DecisionNudge from "../components/DecisionNudge";
 import DearieConfirmModal from "../components/DearieConfirmModal";
 
 type Props = { data: WeddingData; update: (patch: WeddingUpdate) => void };
@@ -457,7 +458,7 @@ export default function Guests({ data, update }: Props) {
             )}
             <p className="px-1 text-[11.5px] text-soft leading-relaxed break-keep">
               {deadline
-                ? `${deadline.lossHint} — 마감 전에 보증 인원을 둘이 같이 정해두는 게 안전해요.`
+                ? `${deadline.lossHint} — 마감 전에 보증 인원을 미리 정해두는 게 안전해요.`
                 : "확정 마감일은 예식장 화면에서 입력하면 여기서 D-day로 같이 보여요."}
             </p>
           </div>
@@ -935,6 +936,22 @@ function Stat({ label, value, accent, muted, unit, hint }: { label: string; valu
 
 function GuestRow({ g, onChange, onRemove }: { g: Guest; onChange: (p: Partial<Guest>) => void; onRemove: () => void }) {
   const [open, setOpen] = useState(false);
+  const party = g.status === "참석" ? Math.max(1, g.partyCount ?? 1) : 0;
+  const judgement =
+    g.status === "참석"
+      ? `식수 ${party}명 반영`
+      : g.status === "불참"
+        ? "식수 제외"
+        : "회신 대기";
+  const question = !g.category
+    ? "분류"
+    : g.status === "초대 예정"
+      ? "참석 여부"
+      : g.status === "참석" && !g.group
+        ? "테이블 묶음"
+        : g.giftKRW == null
+          ? "축의금 기록"
+          : "정리됨";
   return (
     <li className="py-3.5">
       <button onClick={() => setOpen((o) => !o)} className="row-tap w-full text-left flex items-baseline justify-between gap-3 -mx-4 px-4 py-1">
@@ -955,6 +972,13 @@ function GuestRow({ g, onChange, onRemove }: { g: Guest; onChange: (p: Partial<G
         </div>
         <div className="text-soft text-[11px] flex-shrink-0">{open ? "−" : "+"}</div>
       </button>
+
+      <DecisionNudge
+        className="mt-2"
+        judgement={judgement}
+        question={question}
+        tone={g.status === "초대 예정" ? "warn" : "normal"}
+      />
 
       {open && (
         <div className="mt-4 pt-4 border-t border-hair space-y-4">

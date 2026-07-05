@@ -14,6 +14,7 @@ import { ringPriceCheckPrompt, BridgePrompt } from "../lib/chatbotBridge";
 import { koBreak } from "../lib/typography";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import { SectionDecisionLoop } from "../components/DecisionLoopPanel";
+import DecisionNudge from "../components/DecisionNudge";
 import {
   RING_CONSULTATION_QUESTIONS,
   answerRingConsultation,
@@ -592,7 +593,7 @@ function RingResearchHub() {
           카탈로그에 없는 웨딩밴드는 여기서 직접 확인하세요. 제휴·광고 링크가 아닙니다.
         </p>
       </div>
-      <div className="flex gap-5 overflow-x-auto pb-1 -mx-6 px-6 scrollbar-hide">
+      <div className="flex max-w-full gap-5 overflow-x-auto pb-1 scrollbar-hide">
         {RESEARCH_LINKS.map((link) => (
           <a
             key={`${link.group}-${link.label}`}
@@ -657,6 +658,24 @@ function RingCard({
   const otherLabel = other === "bride" ? "신부" : "신랑";
   const starredByOther = (ring.starredBy ?? []).includes(other);
   const likedByOther = (ring.likedBy ?? []).includes(other);
+  const mutual = (starredByMe || likedByMe) && (starredByOther || likedByOther);
+  const overBudget = budgetCapKRW != null && (ring.priceKRW ?? 0) > budgetCapKRW;
+  const judgement = mutual
+    ? "둘 다 후보"
+    : starredByMe || likedByMe || starredByOther || likedByOther
+      ? "한쪽 후보"
+      : ring.priceKRW
+        ? "가격 확인 후보"
+        : "취향 확인 전";
+  const question = overBudget
+    ? "할인·세트 구성"
+    : !ring.priceKRW
+      ? "최신 가격"
+      : !ring.lastVerified
+        ? "확인일"
+        : ring.hasDiamond
+          ? "착용감과 관리"
+          : "착용감과 수령일";
 
   return (
     <div className="py-6 border-b border-hair">
@@ -679,6 +698,8 @@ function RingCard({
           <div className="mt-2">
             <FreshnessBadge lastVerified={ring.lastVerified} onClickCheck={onCheck} />
           </div>
+
+          <DecisionNudge className="mt-3" judgement={judgement} question={question} tone={overBudget ? "warn" : "normal"} />
         </div>
       </div>
 

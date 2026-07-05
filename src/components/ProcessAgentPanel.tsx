@@ -57,7 +57,7 @@ export default function ProcessAgentPanel({
     <section className="agent-panel process-panel md:px-5 md:py-4">
       <div className="min-w-0">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-          <span className="home-kicker">이 화면에서</span>
+          <span className="home-kicker">다음 행동</span>
           <span className="text-[11.5px] font-medium text-soft">{stageLabel}</span>
         </div>
         <h2 className="text-[17px] font-semibold leading-snug text-ink break-keep md:text-[18px]">{title}</h2>
@@ -88,7 +88,7 @@ export default function ProcessAgentPanel({
         <div className="mt-4 border-t border-line pt-3">
           <div className="mb-2 flex items-baseline justify-between gap-3">
             <div className="text-[12px] font-semibold text-ink">먼저 할 일</div>
-            {nextAction && <span className="text-[11.5px] text-soft">필요하면 아래에서 바꿀 수 있어요</span>}
+            {nextAction && <span className="text-[11.5px] text-soft">보조 작업은 접어둡니다</span>}
           </div>
           {nextAction && (
             <button

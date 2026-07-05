@@ -12,6 +12,7 @@ import { buildChecklistSheet, shareOrDownloadText } from "../lib/textExport";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import SectionConsultationPanel from "../components/SectionConsultationPanel";
 import { SectionDecisionLoop } from "../components/DecisionLoopPanel";
+import DecisionNudge from "../components/DecisionNudge";
 
 type Props = { data: WeddingData; update: (patch: WeddingUpdate) => void; };
 type View = "category" | "timeline" | "week";
@@ -47,10 +48,13 @@ export default function Checklist({ data, update }: Props) {
       s.items.some((i) => i.ddayOffset !== undefined && !i.dueDate)
     );
     if (needsRecalc) {
-      update((prev: WeddingData) => ({
-        ...prev,
-        checklist: recalcDueDates(prev.checklist, prev.invitation.date),
-      }));
+      const timer = window.setTimeout(() => {
+        update((prev: WeddingData) => ({
+          ...prev,
+          checklist: recalcDueDates(prev.checklist, prev.invitation.date),
+        }));
+      }, 0);
+      return () => window.clearTimeout(timer);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weddingDate, sections.length]);
@@ -167,6 +171,9 @@ export default function Checklist({ data, update }: Props) {
             먼저 <Link to="/invitation" className="underline underline-offset-2">청첩장</Link>에서 결혼식 날짜를 입력하면 더 정확해요.
           </p>
         )}
+        <div className="text-left">
+          <SectionDecisionLoop data={data} sectionId="checklist" />
+        </div>
         <ProcessAgentPanel
           title="날짜가 생기면 준비 순서를 바로 짭니다"
           summary="체크리스트는 할 일을 많이 보여주는 화면이 아니라, 지금 시점에 늦은 것과 이번 주 할 일을 먼저 꺼내는 운영판입니다."
@@ -473,6 +480,51 @@ function bucketOf(item: FlatItem): "overdue" | "week" | "month" | "later" | "nod
   return "later";
 }
 
+function checklistDecision(item: Pick<CheckItem, "done" | "dueDate" | "priority" | "source">, options: { overdue?: boolean; loss?: LossDeadline } = {}) {
+  if (item.done) return null;
+  if (options.loss) {
+    return {
+      judgement: "손해 마감",
+      action: "연결된 계약·결제 화면에서 조건을 확인",
+      tone: "warn" as const,
+      show: true,
+    };
+  }
+  if (options.overdue) {
+    return {
+      judgement: "마감 지남",
+      action: "끝냈으면 체크, 아니면 날짜를 다시 잡기",
+      tone: "warn" as const,
+      show: true,
+    };
+  }
+  if (!item.dueDate) {
+    return {
+      judgement: "날짜 없음",
+      action: "실제로 처리할 날짜를 먼저 넣기",
+      tone: "warn" as const,
+      show: true,
+    };
+  }
+  if (item.priority === "red") {
+    return {
+      judgement: "우선 처리",
+      action: "이번 주 안에 처리하거나 담당자를 정하기",
+      tone: "warn" as const,
+      show: true,
+    };
+  }
+  if (item.source === "ai") {
+    return {
+      judgement: "추가 제안",
+      action: "필요 없으면 지우고, 필요하면 날짜 넣기",
+      tone: "normal" as const,
+      show: false,
+    };
+  }
+  return null;
+}
+
 const BUCKET_META: Record<string, { label: string; color: string }> = {
   overdue: { label: "마감 지남", color: "text-gold" },
   week: { label: "이번 주", color: "text-ink" },
@@ -654,6 +706,7 @@ function TimelineRow({
   const d = item.dueDate ? daysSince(item.dueDate) : null;
   const ddayLabel =
     d === null ? null : d > 0 ? `${d}일 지남` : d === 0 ? "오늘" : `${-d}일 남음`;
+  const decision = checklistDecision(item, { overdue, loss });
 
   return (
     <div className="flex items-start gap-3 py-4">
@@ -713,6 +766,15 @@ function TimelineRow({
               끝냄 처리
             </button>
           </div>
+        )}
+        {decision?.show && (
+          <DecisionNudge
+            className="mt-2"
+            judgement={decision.judgement}
+            question={decision.action}
+            questionLabel="다음 행동"
+            tone={decision.tone}
+          />
         )}
       </div>
       <button onClick={() => onDelete(sid, item.id)} aria-label={`${item.text} 삭제`} className="text-soft hover:text-ink text-base min-w-11 min-h-11">×</button>
@@ -834,6 +896,7 @@ function CategoryRow({
   const [editDate, setEditDate] = useState(false);
   const d = item.dueDate ? daysSince(item.dueDate) : null;
   const overdue = !item.done && d !== null && d > 0;
+  const decision = checklistDecision(item, { overdue });
 
   return (
     <li className="flex items-start gap-3 py-3.5 text-[14px]">
@@ -869,6 +932,15 @@ function CategoryRow({
             </button>
           )}
         </div>
+        {decision?.show && (
+          <DecisionNudge
+            className="mt-2"
+            judgement={decision.judgement}
+            question={decision.action}
+            questionLabel="다음 행동"
+            tone={decision.tone}
+          />
+        )}
       </div>
       <button onClick={() => onDelete(sid, item.id)} aria-label={`${item.text} 삭제`} className="text-soft hover:text-ink text-base min-w-11 min-h-11">×</button>
     </li>

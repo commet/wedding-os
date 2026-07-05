@@ -27,6 +27,7 @@ import { koBreak } from "../lib/typography";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import SectionConsultationPanel from "../components/SectionConsultationPanel";
 import { SectionDecisionLoop } from "../components/DecisionLoopPanel";
+import DecisionNudge from "../components/DecisionNudge";
 import { safeHref } from "../lib/security";
 import {
   emptyFlightResearchDraft,
@@ -612,6 +613,16 @@ function RegionCard({
   onUpdate: (patch: Partial<HoneymoonRegion>) => void;
 }) {
   const cleanName = region.name.replace(/\s*\(.+\)/, "");
+  const judgement = region.budgetKRW
+    ? "총액 비교 가능"
+    : region.durationDays
+      ? "항공·숙소 확인"
+      : "기간부터 필요";
+  const question = !region.durationDays
+    ? "며칠 갈지"
+    : !region.budgetKRW
+      ? "둘이 쓸 총예산"
+      : "항공권과 숙소 총액";
   return (
     <div className="py-4">
       <div className="flex items-center gap-3">
@@ -634,6 +645,8 @@ function RegionCard({
           ×
         </button>
       </div>
+
+      <DecisionNudge className="mt-3" judgement={judgement} question={question} />
 
       {open && (
         <div className="mt-4 pt-4 border-t border-hair space-y-4">
@@ -778,6 +791,12 @@ function Flights({ data, update }: Props) {
                   <span className="font-serif text-lg text-ink tabular-nums">{f.priceKRW ? `${f.priceKRW.toLocaleString()}원` : <span className="text-soft text-sm">가격 미정</span>}</span>
                   <FreshnessBadge lastVerified={f.lastVerified} />
                 </div>
+                <DecisionNudge
+                  className="mt-3"
+                  judgement={f.priceKRW ? "총액 계산 가능" : "가격 확인 필요"}
+                  question={f.departAt ? "수하물·환승·환불 조건" : "출발 시간과 도착 시간"}
+                  tone={f.priceKRW ? "normal" : "warn"}
+                />
                 <div className="mt-1">
                   <SourceLink source={f.source} />
                 </div>
@@ -990,6 +1009,12 @@ function Stays({ data, update }: Props) {
                 <div className="mt-2">
                   <FreshnessBadge lastVerified={hotel.lastVerified} onClickCheck={() => openPriceBridge(hotel)} />
                 </div>
+                <DecisionNudge
+                  className="mt-3"
+                  judgement={(hotel.otaPrices ?? []).length > 0 ? "가격 비교 가능" : "가격 확인 필요"}
+                  question={hotel.freeCancelUntil ? "취소 기한과 조식 포함" : "무료취소 기한"}
+                  tone={(hotel.otaPrices ?? []).length > 0 ? "normal" : "warn"}
+                />
                 <div className="mt-1">
                   <SourceLink source={hotel.source} />
                 </div>

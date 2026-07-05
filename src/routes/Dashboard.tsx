@@ -18,6 +18,7 @@ import {
 import { collectLossDeadlines, lossDdayLabel, type LossDeadline } from "../lib/lossDeadlines";
 import { buildDecisionPacket } from "../lib/decisionPackets";
 import { DecisionLoopActions } from "../components/DecisionLoopPanel";
+import TodayDecisionMode from "../components/TodayDecisionMode";
 import { koBreak } from "../lib/typography";
 
 type Props = { data: WeddingData; update: (patch: WeddingUpdate) => void; };
@@ -355,6 +356,7 @@ export default function Dashboard({ data, update }: Props) {
       ) : (
         <>
           <section id="today-focus" className="page pt-5 pb-4 scroll-mt-20">
+            <TodayDecisionMode data={data} />
             <PreparationOverview sections={readiness} />
             <MasterPlannerPanel
               coupleDisplay={coupleDisplay}

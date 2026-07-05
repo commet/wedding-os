@@ -663,11 +663,13 @@ function VenueFocusPanel({
     ? onApplyContracted ?? (() => document.getElementById("venue-mine-section")?.scrollIntoView({ behavior: "smooth", block: "start" }))
     : needsFirstTour
       ? onCompare
-    : myVenues.length > 0
-      ? onCompare
-      : onStart;
+      : myVenues.length > 0
+        ? onCompare
+        : onStart;
   const fit = contracted ? venueCapacityFit(contracted, headcount) : "unknown";
   const fitLabel = fit === "unknown" ? "인원 미정" : CAPACITY_FIT_LABEL[fit];
+  const consultationMetricLabel = contracted ? "상담/계약" : "투어";
+  const consultationMetricDetail = contracted ? "진행 이력" : tourCount > 0 ? "상담 중" : "미정";
 
   return (
     <section className="venue-focus">
@@ -688,7 +690,7 @@ function VenueFocusPanel({
         </div>
         <div className="grid grid-cols-3 gap-2 lg:grid-cols-1">
           <VenueMetric label="후보" value={`${myVenues.length}곳`} detail={myVenues.length >= 3 ? "비교 가능" : "3곳 권장"} />
-          <VenueMetric label="투어" value={`${tourCount}곳`} detail={tourCount > 0 ? "상담 중" : "미정"} warn={myVenues.length > 0 && tourCount === 0} />
+          <VenueMetric label={consultationMetricLabel} value={`${tourCount}곳`} detail={consultationMetricDetail} warn={!contracted && myVenues.length > 0 && tourCount === 0} />
           <VenueMetric label={contracted ? "계약" : "인원"} value={contracted ? `${contractChecked}/6` : headcount ? `${headcount}명` : "미정"} detail={contracted ? fitLabel : "예상 하객"} warn={contracted ? contractChecked < 3 || fit === "over" || fit === "under" : false} />
         </div>
       </div>
@@ -1726,13 +1728,14 @@ function MyVenueRow({
         <button onClick={onRemove} aria-label={`${v.name} 삭제`} className="flex min-h-11 min-w-11 flex-shrink-0 items-center justify-center text-soft hover:text-ink text-sm">×</button>
       </div>
 
-      <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_9rem]">
+      <div className="mt-3 inline-flex max-w-full items-center gap-2 border border-line bg-vellum/55 px-2.5 py-1.5">
+        <span className="text-[10.5px] font-semibold text-soft">판단</span>
+        <span className="min-w-0 truncate text-[12px] font-semibold text-ink">{judgement}</span>
+      </div>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <VenueDecisionLine label="맞는 점" values={strengths} />
         <VenueDecisionLine label="물어볼 점" values={questions} accent />
-        <div className="min-w-0 border border-line bg-vellum/60 px-3 py-2.5">
-          <div className="text-[11px] font-semibold text-soft">판단</div>
-          <p className="mt-1 text-[12px] font-semibold leading-relaxed text-ink break-keep">{judgement}</p>
-        </div>
       </div>
 
       {open && (
@@ -1875,7 +1878,7 @@ function MyVenueRow({
 
 function VenueDecisionLine({ label, values, accent = false }: { label: string; values: string[]; accent?: boolean }) {
   return (
-    <div className="min-w-0 border border-line bg-vellum/60 px-3 py-2.5">
+    <div className={`min-w-0 border-l px-3 py-1.5 ${accent ? "border-gold bg-gold/5" : "border-line bg-transparent"}`}>
       <div className={`text-[11px] font-semibold ${accent ? "text-gold" : "text-soft"}`}>{label}</div>
       <p className="mt-1 text-[12px] leading-relaxed text-ink/85 break-keep">
         {values.length > 0 ? values.join(" · ") : "아직 정리된 정보 없음"}

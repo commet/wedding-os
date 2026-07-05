@@ -22,6 +22,7 @@ import MapEmbed from "../components/MapEmbed";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import SectionConsultationPanel from "../components/SectionConsultationPanel";
 import { SectionDecisionLoop } from "../components/DecisionLoopPanel";
+import DecisionNudge from "../components/DecisionNudge";
 import DearieConfirmModal from "../components/DearieConfirmModal";
 
 type Props = { data: WeddingData; update: (patch: WeddingUpdate) => void; };
@@ -64,6 +65,8 @@ const MISSING_FIELD_TARGET: Record<string, string> = {
   "신부 이름": "inv-names",
   "예식 날짜": "inv-schedule",
   "예식 장소": "inv-schedule",
+  "결혼식 날짜": "inv-schedule",
+  "식장": "inv-schedule",
   "인사말": "inv-greeting",
 };
 
@@ -71,6 +74,41 @@ function scrollToMissingField(label: string) {
   const id = MISSING_FIELD_TARGET[label];
   if (!id) return;
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function InvitationReadinessPanel({ data, published = false }: { data: WeddingData; published?: boolean }) {
+  const readiness = invitationReadiness(data);
+  if (readiness.missing.length === 0) {
+    return (
+      <DecisionNudge
+        judgement={published ? "재발행 가능" : "발행 가능"}
+        question="미리보기에서 이름·날짜·장소가 자연스럽게 보이는지 확인"
+        questionLabel="다음 확인"
+      />
+    );
+  }
+  return (
+    <div className="border border-hair bg-cream/40 px-4 py-3 space-y-3">
+      <DecisionNudge
+        judgement={`${readiness.missing.length}가지 비어 있음`}
+        question={`${published ? "재발행 전에" : "발행 전에"} ${readiness.missing.join(", ")}을 먼저 채우기`}
+        questionLabel="다음 행동"
+        tone="warn"
+      />
+      <div className="flex flex-wrap gap-x-4 gap-y-2">
+        {readiness.missing.map((label) => (
+          <button
+            key={label}
+            type="button"
+            onClick={() => scrollToMissingField(label)}
+            className="seg break-keep"
+          >
+            {label} 채우기 →
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export default function Invitation({ data, update }: Props) {
@@ -259,6 +297,12 @@ export default function Invitation({ data, update }: Props) {
               );
             })()}
           </div>
+        </div>
+      )}
+
+      {!isGuestRoute && !guest && (
+        <div className="page pt-4">
+          <SectionDecisionLoop data={data} sectionId="invitation" />
         </div>
       )}
 
@@ -1282,30 +1326,7 @@ function PublishSection({ data, update }: { data: WeddingData; update: (patch: W
         onToggle={setPreviewImageEnabled}
       />
 
-      {(() => {
-        const readiness = invitationReadiness(data);
-        if (readiness.missing.length === 0) return null;
-        return (
-          <div className="border border-hair bg-cream/40 px-4 py-3 space-y-2">
-            <p className="text-[11.5px] text-soft leading-relaxed break-keep">
-              {published ? "재발행 전에" : "발행 전에"} {readiness.missing.length}가지가 비어 있어요.
-              누르면 해당 입력으로 이동합니다.
-            </p>
-            <div className="flex flex-wrap gap-x-4 gap-y-2">
-              {readiness.missing.map((label) => (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => scrollToMissingField(label)}
-                  className="seg break-keep"
-                >
-                  {label} 채우기 →
-                </button>
-              ))}
-            </div>
-          </div>
-        );
-      })()}
+      <InvitationReadinessPanel data={data} published={!!published} />
 
       {published ? (
         <div className="space-y-3">
@@ -1678,8 +1699,9 @@ function EditForm({ inv, set, mode, data, update, onPreview }: {
           </p>
         </div>
       )}
-      <SectionDecisionLoop data={data} sectionId="invitation" />
-
+      <div className="mb-4">
+        <InvitationReadinessPanel data={data} published={!!data.publish} />
+      </div>
       <ProcessAgentPanel
         title={publishReady ? "공유 전 마지막 점검 중" : "청첩장 빈칸을 채우는 중"}
         summary={

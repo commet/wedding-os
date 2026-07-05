@@ -16,6 +16,7 @@ import { lossDeadlinesFor, lossDdayLabel } from "../lib/lossDeadlines";
 import ProcessAgentPanel, { type ProcessAgentAction } from "../components/ProcessAgentPanel";
 import SectionConsultationPanel from "../components/SectionConsultationPanel";
 import { SectionDecisionLoop } from "../components/DecisionLoopPanel";
+import DecisionNudge from "../components/DecisionNudge";
 import FreshnessBadge from "../components/FreshnessBadge";
 import ResearchInputPanel, { type ResearchSection } from "../components/ResearchInputPanel";
 import { consultationProgress, nextConsultationQuestion, consultationFacts } from "../lib/sectionConsultation";
@@ -712,6 +713,20 @@ function MyVendorCard({
     v.balanceDueAt,
     contractCount > 0 ? String(contractCount) : undefined,
   ].filter(Boolean).length;
+  const judgement = v.status === "계약"
+    ? contractCount >= 3 ? "계약 조건 확인 중" : "계약 체크 부족"
+    : v.status === "상담"
+      ? "상담 내용 비교"
+      : v.priceRange
+        ? "전화 확인 후보"
+        : "기본 조건 필요";
+  const question = v.status === "계약"
+    ? contractCount >= 3 ? "잔금일·취소 조건" : "포함 항목·추가금"
+    : v.status === "상담"
+      ? "원본·수정본·추가금"
+      : v.priceRange
+        ? "가능 일정과 견적 기준"
+        : "가격과 촬영 가능일";
   return (
     <div className="py-4 space-y-3">
       <div className="flex items-start justify-between">
@@ -731,6 +746,12 @@ function MyVendorCard({
         </div>
         <button onClick={onRemove} aria-label={`${v.name} 삭제`} className="flex min-h-11 min-w-11 items-center justify-center text-soft hover:text-ink text-sm">×</button>
       </div>
+
+      <DecisionNudge
+        judgement={judgement}
+        question={question}
+        tone={v.status === "계약" && contractCount < 3 ? "warn" : "normal"}
+      />
 
       <div className="space-y-2 text-[12px] text-soft leading-relaxed">
         {v.notes && <p className="text-ink/85 break-keep line-clamp-2">{v.notes}</p>}

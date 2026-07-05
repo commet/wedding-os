@@ -13,6 +13,7 @@ import { koBreak } from "../lib/typography";
 import ProcessAgentPanel from "../components/ProcessAgentPanel";
 import SectionConsultationPanel from "../components/SectionConsultationPanel";
 import { SectionDecisionLoop } from "../components/DecisionLoopPanel";
+import DecisionNudge from "../components/DecisionNudge";
 import DearieConfirmModal from "../components/DearieConfirmModal";
 
 type Props = { data: WeddingData; update: (patch: WeddingUpdate) => void };
@@ -203,14 +204,14 @@ export default function Budget({ data, update }: Props) {
           <div className="eyebrow-gold mb-4">비용 관리</div>
           <h1 className="display-sm mb-4">{koBreak("무엇에 얼마가 드는지")}<br /><span className="italic font-light text-gold">{koBreak("같이 정리해볼까요?")}</span></h1>
           <p className="text-[13px] text-soft leading-relaxed">
-            기본 항목을 불러온 뒤 필요한 것만 남기고<br />두 분의 금액을 채워보세요.
+            기본 항목을 불러온 뒤 필요한 것만 남기고<br />실제 금액을 채워보세요.
           </p>
         </div>
         <div className="text-left">
           <SectionDecisionLoop data={data} sectionId="budget" />
         </div>
         <p className="border-y border-hair py-3 text-[12.5px] leading-relaxed text-soft md:hidden">
-          실제 견적을 받으면 참고값을 두 분 금액으로 바꾸면 됩니다.
+          실제 견적을 받으면 참고값을 실제 금액으로 바꾸면 됩니다.
         </p>
         <p className="hidden text-[12.5px] text-soft leading-relaxed border-y border-hair py-4 md:block">
           {BUDGET_TOTAL_NOTE}
@@ -221,7 +222,7 @@ export default function Budget({ data, update }: Props) {
           <div>
             <div className="eyebrow-gold mb-1.5">시작 전에 세 가지만</div>
             <p className="text-[12.5px] text-soft leading-relaxed break-keep">
-              어디까지 이 예산으로 볼지 먼저 정하면, 합계가 처음부터 두 분 기준으로 잡혀요.
+              어디까지 이 예산으로 볼지 먼저 정하면, 합계가 처음부터 현실 기준으로 잡혀요.
             </p>
           </div>
           <div>
@@ -809,6 +810,26 @@ function BudgetRow({ b, onChange, onRemove }: { b: BudgetItem; onChange: (p: Par
     ? Math.round((Date.parse(b.dueDate.slice(0, 10)) - Date.parse(todayISO())) / 86_400_000)
     : null;
   const showDue = !b.paid && dueDays !== null && Number.isFinite(dueDays);
+  const judgement = b.paid
+    ? "결제 완료"
+    : showDue && dueDays! <= 14
+      ? "마감 임박"
+      : overBudget
+        ? "초과 확인"
+        : actual > 0
+          ? "지출 확인"
+          : planned > 0
+            ? "결제 전"
+            : "금액 필요";
+  const question = b.paid
+    ? "영수증·계약서 보관"
+    : showDue
+      ? "결제일과 잔금 조건"
+      : overBudget
+        ? "초과분을 어디서 줄일지"
+        : actual === 0
+          ? "실제 견적"
+          : "결제 완료 여부";
 
   return (
     <li className="row-tap px-4 py-3.5">
@@ -831,6 +852,13 @@ function BudgetRow({ b, onChange, onRemove }: { b: BudgetItem; onChange: (p: Par
           )}
         </div>
       </button>
+
+      <DecisionNudge
+        className="mt-3"
+        judgement={judgement}
+        question={question}
+        tone={overBudget || (showDue && dueDays! <= 14) ? "warn" : "normal"}
+      />
 
       {open && (
         <div className="mt-3 pt-3 border-t border-hair space-y-3">

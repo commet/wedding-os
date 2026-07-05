@@ -9,6 +9,7 @@ import { attendingCount, mealTicketCount } from "../lib/derived";
 import { consultationChoice } from "../lib/sectionConsultation";
 import SectionConsultationPanel from "../components/SectionConsultationPanel";
 import { SectionDecisionLoop } from "../components/DecisionLoopPanel";
+import DecisionNudge from "../components/DecisionNudge";
 import DearieConfirmModal from "../components/DearieConfirmModal";
 
 const KO_WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -111,6 +112,23 @@ function formatClock(totalMinutes: number): string {
   const hour = Math.floor(normalized / 60);
   const minute = normalized % 60;
   return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function ceremonyStepDecision(step: CeremonyStep) {
+  if (step.done) return null;
+  if (!step.title.trim()) {
+    return { judgement: "제목 필요", action: "이 단계가 무엇인지 먼저 적기", tone: "warn" as const };
+  }
+  if (!step.time?.trim()) {
+    return { judgement: "시간 필요", action: "예식 시작 시간 기준으로 분 단위 맞추기", tone: "warn" as const };
+  }
+  if (!step.role?.trim()) {
+    return { judgement: "담당 필요", action: "사회자·가족·스태프 중 누가 움직이는지 지정", tone: "warn" as const };
+  }
+  if (!step.music?.trim()) {
+    return { judgement: "음악 필요", action: "입장·축가·행진 음악 또는 무음 여부 정하기", tone: "warn" as const };
+  }
+  return { judgement: "리허설 후보", action: "사회자에게 공유하고 당일 큐 확인", tone: "normal" as const };
 }
 
 export default function Ceremony({ data, update }: Props) {
@@ -245,6 +263,10 @@ export default function Ceremony({ data, update }: Props) {
           <p className="text-[15px] text-soft leading-[1.85]">
             입장부터 행진까지 순서를 적어두면, 당일 사회자와 두 분이 그대로 따라갈 큐시트가 됩니다.
           </p>
+        </div>
+
+        <div className="w-full text-left">
+          <SectionDecisionLoop data={data} sectionId="ceremony" />
         </div>
 
         <div className="text-left border border-hair px-5 py-5 space-y-4">
@@ -495,6 +517,7 @@ function CeremonyRow({
     step.role ? `담당 ${step.role}` : "",
     step.music ? `음악 ${step.music}` : "",
   ].filter(Boolean);
+  const decision = ceremonyStepDecision(step);
 
   return (
     <li id={`ceremony-step-${step.id}`} className="relative pl-9">
@@ -546,6 +569,17 @@ function CeremonyRow({
           </span>
         )}
       </button>
+
+      {decision && (
+        <div className="border-b border-hair pb-3">
+          <DecisionNudge
+            judgement={decision.judgement}
+            question={decision.action}
+            questionLabel="다음 행동"
+            tone={decision.tone}
+          />
+        </div>
+      )}
 
       {open && (
         <div className="py-4 border-b border-hair space-y-3">
